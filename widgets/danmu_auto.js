@@ -15,7 +15,7 @@
 WidgetMetadata = {
   id: "forward.auto.danmu",
   title: "自动链接弹幕",
-  version: "1.0.21",
+  version: "1.0.22",
   requiredVersion: "0.0.2",
   description: "自动获取播放链接并从服务器获取弹幕【五折码：CHEAP.5;七折码：CHEAP】",
   author: "huangxd",
@@ -2579,11 +2579,17 @@ async function getDanmuFromRenRen(title, tmdbInfo, type, season, episode, episod
     console.log("人人视频分集：", eps);
     // postDebugInfo({"eps": eps});
 
-    if (eps.length === 0 || eps.length < episode) {
+    if (eps.length === 0) {
       return null;
     }
 
-    const danmus = await getRenRenComments(eps[episode-1].episodeId);
+    if (type === "tv" && eps.length < episode) {
+      return null;
+    }
+
+    let episodeNum = type === "tv" ? episode-1 : 0;
+
+    const danmus = await getRenRenComments(eps[episodeNum].episodeId);
     console.log("弹幕前10：", danmus.slice(0,10));
 
     return danmus;
