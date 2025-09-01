@@ -15,7 +15,7 @@
 WidgetMetadata = {
   id: "forward.auto.danmu",
   title: "自动链接弹幕",
-  version: "1.0.20",
+  version: "1.0.21",
   requiredVersion: "0.0.2",
   description: "自动获取播放链接并从服务器获取弹幕【五折码：CHEAP.5;七折码：CHEAP】",
   author: "huangxd",
@@ -1381,18 +1381,6 @@ async function fetchYouku(inputUrl) {
 // =====================
 // 人人视频 配置 & 工具
 // =====================
-const AES_KEY = Buffer.from("3b744389882a4067", "utf8");
-const SIGN_SECRET = "ES513W0B1CsdUrR13Qk5EgDAKPeeKZY";
-const BASE_API = "https://api.rrmj.plus";
-
-const ClientProfile = {
-  client_type: "web_pc",
-  client_version: "1.0.0",
-  user_agent: "Mozilla/5.0",
-  origin: "https://rrsp.com.cn",
-  referer: "https://rrsp.com.cn/",
-};
-
 // ---------------------
 // 通用工具
 // ---------------------
@@ -1495,9 +1483,17 @@ function generateSignature(method, aliId, ct, cv, timestamp, path, sortedQuery, 
 }
 
 function buildSignedHeaders({ method, url, params = {}, deviceId, token }) {
+  const ClientProfile = {
+    client_type: "web_pc",
+    client_version: "1.0.0",
+    user_agent: "Mozilla/5.0",
+    origin: "https://rrsp.com.cn",
+    referer: "https://rrsp.com.cn/",
+  };
   const pathname = getPathname(url);
   const qs = sortedQueryString(params);
   const nowMs = Date.now();
+  const SIGN_SECRET = "ES513W0B1CsdUrR13Qk5EgDAKPeeKZY";
   const xCaSign = generateSignature(
     method, deviceId, ClientProfile.client_type, ClientProfile.client_version,
     nowMs, pathname, qs, SIGN_SECRET
@@ -1663,19 +1659,113 @@ function pkcs7Unpad(data){
 }
 
 // ====================== Base64 解码 ======================
-function base64ToBytes(b64){
-  return Uint8Array.from(atob(b64), c=>c.charCodeAt(0));
+function base64ToBytes(b64) {
+  // 先把 Base64 字符串转换成普通字符
+  const binaryString = (typeof atob === 'function')
+    ? atob(b64) // 浏览器环境
+    : BufferBase64Decode(b64); // Node / React Native 自定义
+
+  const len = binaryString.length;
+  const bytes = new Uint8Array(len);
+  for (let i = 0; i < len; i++) {
+    bytes[i] = binaryString.charCodeAt(i);
+  }
+  return bytes;
+}
+
+// 自定义 Base64 解码函数
+function BufferBase64Decode(b64) {
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=';
+  let str = '';
+  let buffer = 0, bits = 0;
+  for (let i = 0; i < b64.length; i++) {
+    const c = b64.charAt(i);
+    if (c === '=') break;
+    const val = chars.indexOf(c);
+    buffer = (buffer << 6) | val;
+    bits += 6;
+    if (bits >= 8) {
+      bits -= 8;
+      str += String.fromCharCode((buffer >> bits) & 0xFF);
+    }
+  }
+  return str;
 }
 
 // ====================== 主函数 ======================
-function aesDecryptBase64(cipherB64,keyStr){
-  try{
+// Uint8Array UTF-8 解码成字符串，替代 TextDecoder
+function utf8BytesToString(bytes) {
+  let str = "";
+  let i = 0;
+  while (i < bytes.length) {
+    const b1 = bytes[i++];
+    if (b1 < 0x80) {
+      str += String.fromCharCode(b1);
+    } else if (b1 >= 0xc0 && b1 < 0xe0) {
+      const b2 = bytes[i++];
+      str += String.fromCharCode(((b1 & 0x1f) << 6) | (b2 & 0x3f));
+    } else if (b1 >= 0xe0 && b1 < 0xf0) {
+      const b2 = bytes[i++];
+      const b3 = bytes[i++];
+      str += String.fromCharCode(((b1 & 0x0f) << 12) | ((b2 & 0x3f) << 6) | (b3 & 0x3f));
+    } else if (b1 >= 0xf0) {
+      // surrogate pair
+      const b2 = bytes[i++];
+      const b3 = bytes[i++];
+      const b4 = bytes[i++];
+      const codepoint = ((b1 & 0x07) << 18) |
+                        ((b2 & 0x3f) << 12) |
+                        ((b3 & 0x3f) << 6) |
+                        (b4 & 0x3f);
+      const cp = codepoint - 0x10000;
+      str += String.fromCharCode(0xD800 + (cp >> 10), 0xDC00 + (cp & 0x3FF));
+    }
+  }
+  return str;
+}
+
+// 同时替换 TextEncoder
+function stringToUtf8Bytes(str) {
+  const bytes = [];
+  for (let i = 0; i < str.length; i++) {
+    let code = str.charCodeAt(i);
+    if (code < 0x80) {
+      bytes.push(code);
+    } else if (code < 0x800) {
+      bytes.push(0xc0 | (code >> 6));
+      bytes.push(0x80 | (code & 0x3f));
+    } else if (code < 0xd800 || code >= 0xe000) {
+      bytes.push(0xe0 | (code >> 12));
+      bytes.push(0x80 | ((code >> 6) & 0x3f));
+      bytes.push(0x80 | (code & 0x3f));
+    } else {
+      // surrogate pair
+      i++;
+      const code2 = str.charCodeAt(i);
+      const codePoint = 0x10000 + (((code & 0x3ff) << 10) | (code2 & 0x3ff));
+      bytes.push(0xf0 | (codePoint >> 18));
+      bytes.push(0x80 | ((codePoint >> 12) & 0x3f));
+      bytes.push(0x80 | ((codePoint >> 6) & 0x3f));
+      bytes.push(0x80 | (codePoint & 0x3f));
+    }
+  }
+  return new Uint8Array(bytes);
+}
+
+// 修改后的 aesDecryptBase64
+function aesDecryptBase64(cipherB64, keyStr) {
+  try {
     const cipherBytes = base64ToBytes(cipherB64);
-    const keyBytes = new TextEncoder().encode(keyStr);
-    const decryptedBytes = aesDecryptECB(cipherBytes,keyBytes);
+    const keyBytes = stringToUtf8Bytes(keyStr);
+    const decryptedBytes = aesDecryptECB(cipherBytes, keyBytes);
     const unpadded = pkcs7Unpad(decryptedBytes);
-    return new TextDecoder().decode(unpadded);
-  }catch(e){
+    return utf8BytesToString(unpadded);
+  } catch (e) {
+    // postDebugInfo({
+    //     "错误类型": "自动解码失败",
+    //     "错误信息": e.message,
+    //     "错误详情": e.stack || e.toString()
+    // });
     console.error(e);
     return null;
   }
@@ -1683,10 +1773,18 @@ function aesDecryptBase64(cipherB64,keyStr){
 
 function autoDecode(anything) {
   const text = typeof anything === "string" ? anything.trim() : JSON.stringify(anything ?? "");
-  try { return JSON.parse(text); } catch {}
-  const dec = aesDecryptBase64(text, AES_KEY);
+  try {
+    return JSON.parse(text);
+  } catch {}
+
+  const AES_KEY = "3b744389882a4067"; // 直接传字符串
+  const dec = aesDecryptBase64(text, AES_KEY); // aesDecryptBase64 内会 TextEncoder.encode
   if (dec != null) {
-    try { return JSON.parse(dec); } catch { return dec; }
+    try {
+      return JSON.parse(dec);
+    } catch {
+      return dec;
+    }
   }
   return text;
 }
@@ -1835,216 +1933,233 @@ async function httpGet(url, { params = {}, headers = {} } = {}) {
 // =====================
 // RenrenScraper 类
 // =====================
-class RenrenScraper {
-  constructor() {
-    this.providerName = "renren";
-    this.referer = "https://rrsp.com.cn/";
-    this._lastRequestTime = 0;
-    this._minInterval = 400; // ms
-    this._apiLock = false; // 简单锁
+// ---------------------
+// 工具方法
+// ---------------------
+function generateDeviceId() {
+  return (Math.random().toString(36).slice(2)).toUpperCase();
+}
+
+async function renrenRequest(method, url, params = {}) {
+  const deviceId = generateDeviceId();
+  const headers = buildSignedHeaders({ method, url, params, deviceId });
+  const resp = await Widget.http.get(url + "?" + sortedQueryString(params), {
+      headers: headers,
+  });
+  return resp;
+}
+
+// ---------------------
+// 搜索
+// ---------------------
+async function search(keyword, episodeInfo = null) {
+  const parsedKeyword = { title: keyword, season: null }; // 简化 parse_search_keyword
+  const searchTitle = parsedKeyword.title;
+  const searchSeason = parsedKeyword.season;
+
+  const lock = { value: false };
+  const lastRequestTime = { value: 0 };
+  let allResults = await performNetworkSearch(searchTitle, episodeInfo, { lockRef: lock, lastRequestTimeRef: lastRequestTime, minInterval: 400 });
+
+  if (searchSeason == null) return allResults;
+
+  // 按 season 过滤
+  return allResults.filter(r => r.season === searchSeason);
+}
+
+async function performNetworkSearch(
+  keyword,
+  episodeInfo = null,
+  {
+    lockRef = null,
+    lastRequestTimeRef = { value: 0 },  // 调用方传引用
+    minInterval = 500                   // 默认节流间隔（毫秒）
+  } = {}
+) {
+  const url = `https://api.rrmj.plus/m-station/search/drama`;
+  const params = { keywords: keyword, size: 20, order: "match", search_after: "", isExecuteVipActivity: true };
+
+  // 🔒 锁逻辑（可选）
+  if (lockRef) {
+    while (lockRef.value) await new Promise(r => setTimeout(r, 50));
+    lockRef.value = true;
   }
 
-  _generateDeviceId() {
-    return (Math.random().toString(36).slice(2)).toUpperCase();
+  // ⏱️ 节流逻辑（依赖 lastRequestTimeRef）
+  const now = Date.now();
+  const dt = now - lastRequestTimeRef.value;
+  if (dt < minInterval) await new Promise(r => setTimeout(r, minInterval - dt));
+
+  const resp = await renrenRequest("GET", url, params);
+  lastRequestTimeRef.value = Date.now(); // 更新引用
+
+  if (lockRef) lockRef.value = false;
+
+  if (!resp.data) return [];
+
+  const decoded = autoDecode(resp.data);
+  const list = decoded?.data?.searchDramaList || [];
+  return list.map((item, idx) => ({
+    provider: "renren",
+    mediaId: String(item.id),
+    title: String(item.title || "").replace(/<[^>]+>/g, "").replace(/:/g, "："),
+    type: "tv_series",
+    season: null,
+    year: item.year,
+    imageUrl: item.cover,
+    episodeCount: item.episodeTotal,
+    currentEpisodeIndex: episodeInfo?.episode ?? null,
+  }));
+}
+
+// ---------------------
+// URL信息提取
+// ---------------------
+async function getInfoFromUrl(url) {
+  const m = String(url).match(/\/v\/(\d+)/);
+  if (!m) return null;
+  const dramaId = m[1];
+  const detail = await fetchDramaDetail(dramaId);
+  if (!detail) return null;
+  const titleClean = String(detail.dramaInfo.title).replace(/<[^>]+>/g,"").replace(/:/g,"：");
+  const searchResults = await search(titleClean);
+  const bestMatch = searchResults.find(r=>r.mediaId===dramaId);
+  if (bestMatch && !bestMatch.episodeCount) bestMatch.episodeCount = (detail.episodeList?.length || 0);
+  if (bestMatch) return bestMatch;
+  return {
+    provider: "renren",
+    mediaId: dramaId,
+    title: titleClean,
+    type: "tv_series",
+    season: null,
+    episodeCount: (detail.episodeList?.length || null)
+  };
+}
+
+function getIdFromUrl(url) {
+  const m = String(url).match(/\/v\/\d+\/(\d+)/);
+  return m ? m[1] : null;
+}
+
+function formatEpisodeIdForComments(providerEpisodeId) {
+  return String(providerEpisodeId);
+}
+
+async function fetchDramaDetail(dramaId) {
+  const url = `https://api.rrmj.plus/m-station/drama/page`;
+  const params = { hsdrOpen:0,isAgeLimit:0,dramaId:String(dramaId),hevcOpen:1 };
+  const resp = await renrenRequest("GET", url, params);
+  if (!resp.data) return null;
+  const decoded = autoDecode(resp.data);
+  return decoded?.data || null;
+}
+
+async function _episodeCountFromSid(dramaId) {
+  const detail = await fetchDramaDetail(dramaId);
+  if (!detail || !detail.episodeList) return null;
+  return detail.episodeList.filter(ep => String(ep.sid).trim()).length;
+}
+
+async function getEpisodes(mediaId, targetEpisodeIndex=null, dbMediaType=null) {
+  const detail = await fetchDramaDetail(mediaId);
+  if (!detail || !detail.episodeList) return [];
+
+  let episodes = [];
+  detail.episodeList.forEach((ep, idx)=>{
+    const sid = String(ep.sid || "").trim();
+    if(!sid) return;
+    const title = String(ep.title || `第${idx+1}`.padStart(2,"0")+"集");
+    episodes.push({ sid, order: idx+1, title });
+  });
+
+  if(targetEpisodeIndex) episodes = episodes.filter(e=>e.order===targetEpisodeIndex);
+
+  return episodes.map(e=>({
+    provider: "renren",
+    episodeId: e.sid,
+    title: e.title,
+    episodeIndex: e.order,
+    url: null
+  }));
+}
+
+// ---------------------
+// 弹幕
+// ---------------------
+async function fetchEpisodeDanmu(sid) {
+  const ClientProfile = {
+    user_agent: "Mozilla/5.0",
+    origin: "https://rrsp.com.cn",
+    referer: "https://rrsp.com.cn/",
+  };
+  const url = `https://static-dm.rrmj.plus/v1/produce/danmu/EPISODE/${sid}`;
+  const headers = {
+    "Accept": "application/json",
+    "User-Agent": ClientProfile.user_agent,
+    "Origin": ClientProfile.origin,
+    "Referer": ClientProfile.referer,
+  };
+  const resp = await httpGet(url, { headers });
+  if (!resp.data) return null;
+  const data = autoDecode(resp.data);
+  if (Array.isArray(data)) return data;
+  if (data?.data && Array.isArray(data.data)) return data.data;
+  return null;
+}
+
+function parseRRSPPFields(pField) {
+  const parts = String(pField).split(",");
+  const num = (i, cast, dft) => { try { return cast(parts[i]); } catch { return dft; } };
+  const timestamp = num(0, parseFloat, 0);
+  const mode = num(1, x=>parseInt(x,10),1);
+  const size = num(2, x=>parseInt(x,10),25);
+  const color = num(3, x=>parseInt(x,10),16777215);
+  const userId = parts[6] || "";
+  const contentId = parts[7] || `${timestamp}:${userId}`;
+  return { timestamp, mode, size, color, userId, contentId };
+}
+
+function formatComments(items) {
+  const unique = {};
+  for(const it of items){
+    const text = String(it.d||"");
+    const meta = parseRRSPPFields(it.p);
+    if(!unique[meta.contentId]) unique[meta.contentId] = { content: text, ...meta };
   }
 
-  async _request(method, url, params = {}) {
-    const deviceId = this._generateDeviceId();
-    const headers = buildSignedHeaders({ method, url, params, deviceId });
-    const resp = await fetch(url + "?" + sortedQueryString(params), { method, headers });
-    const text = await resp.text();
-    return { status: resp.status, ok: resp.ok, text };
+  const grouped = {};
+  for(const c of Object.values(unique)){
+    if(!grouped[c.content]) grouped[c.content] = [];
+    grouped[c.content].push(c);
   }
 
-  // ---------------------
-  // 搜索
-  // ---------------------
-  async search(keyword, episodeInfo = null) {
-    const parsedKeyword = { title: keyword, season: null }; // 简化 parse_search_keyword
-    const searchTitle = parsedKeyword.title;
-    const searchSeason = parsedKeyword.season;
-
-    let allResults = await this._performNetworkSearch(searchTitle, episodeInfo);
-
-    if (searchSeason == null) return allResults;
-
-    // 按 season 过滤
-    return allResults.filter(r => r.season === searchSeason);
-  }
-
-  async _performNetworkSearch(keyword, episodeInfo = null) {
-    const url = `${BASE_API}/m-station/search/drama`;
-    const params = { keywords: keyword, size: 20, order: "match", search_after: "", isExecuteVipActivity: true };
-
-    // 简单锁实现
-    while (this._apiLock) await new Promise(r=>setTimeout(r,50));
-    this._apiLock = true;
-
-    const now = Date.now();
-    const dt = now - this._lastRequestTime;
-    if (dt < this._minInterval) await new Promise(r=>setTimeout(r, this._minInterval - dt));
-    const resp = await this._request("GET", url, params);
-    this._lastRequestTime = Date.now();
-    this._apiLock = false;
-
-    if (!resp.ok) return [];
-
-    const decoded = autoDecode(resp.text);
-    const list = decoded?.data?.searchDramaList || [];
-    return list.map((item, idx) => ({
-      provider: this.providerName,
-      mediaId: String(item.id),
-      title: String(item.title || "").replace(/<[^>]+>/g, "").replace(/:/g, "："),
-      type: "tv_series",
-      season: null,
-      year: item.year,
-      imageUrl: item.cover,
-      episodeCount: item.episodeTotal,
-      currentEpisodeIndex: episodeInfo?.episode ?? null,
-    }));
-  }
-
-  // ---------------------
-  // URL信息提取
-  // ---------------------
-  async getInfoFromUrl(url) {
-    const m = String(url).match(/\/v\/(\d+)/);
-    if (!m) return null;
-    const dramaId = m[1];
-    const detail = await this._fetchDramaDetail(dramaId);
-    if (!detail) return null;
-    const titleClean = String(detail.dramaInfo.title).replace(/<[^>]+>/g,"").replace(/:/g,"：");
-    const searchResults = await this.search(titleClean);
-    const bestMatch = searchResults.find(r=>r.mediaId===dramaId);
-    if (bestMatch && !bestMatch.episodeCount) bestMatch.episodeCount = (detail.episodeList?.length || 0);
-    if (bestMatch) return bestMatch;
-    return {
-      provider: this.providerName,
-      mediaId: dramaId,
-      title: titleClean,
-      type: "tv_series",
-      season: null,
-      episodeCount: (detail.episodeList?.length || null)
-    };
-  }
-
-  async getIdFromUrl(url) {
-    const m = String(url).match(/\/v\/\d+\/(\d+)/);
-    return m ? m[1] : null;
-  }
-
-  formatEpisodeIdForComments(providerEpisodeId) {
-    return String(providerEpisodeId);
-  }
-
-  async _fetchDramaDetail(dramaId) {
-    const url = `${BASE_API}/m-station/drama/page`;
-    const params = { hsdrOpen:0,isAgeLimit:0,dramaId:String(dramaId),hevcOpen:1 };
-    const resp = await this._request("GET", url, params);
-    if (!resp.ok) return null;
-    const decoded = autoDecode(resp.text);
-    return decoded?.data || null;
-  }
-
-  async _episodeCountFromSid(dramaId) {
-    const detail = await this._fetchDramaDetail(dramaId);
-    if (!detail || !detail.episodeList) return null;
-    return detail.episodeList.filter(ep => String(ep.sid).trim()).length;
-  }
-
-  async getEpisodes(mediaId, targetEpisodeIndex=null, dbMediaType=null) {
-    const detail = await this._fetchDramaDetail(mediaId);
-    if (!detail || !detail.episodeList) return [];
-
-    let episodes = [];
-    detail.episodeList.forEach((ep, idx)=>{
-      const sid = String(ep.sid || "").trim();
-      if(!sid) return;
-      const title = String(ep.title || `第${idx+1}`.padStart(2,"0")+"集");
-      episodes.push({ sid, order: idx+1, title });
-    });
-
-    if(targetEpisodeIndex) episodes = episodes.filter(e=>e.order===targetEpisodeIndex);
-
-    return episodes.map(e=>({
-      provider: this.providerName,
-      episodeId: e.sid,
-      title: e.title,
-      episodeIndex: e.order,
-      url: null
-    }));
-  }
-
-  async _fetchEpisodeDanmu(sid) {
-    const url = `https://static-dm.rrmj.plus/v1/produce/danmu/EPISODE/${sid}`;
-    const headers = {
-      "Accept": "application/json",
-      "User-Agent": ClientProfile.user_agent,
-      "Origin": ClientProfile.origin,
-      "Referer": ClientProfile.referer,
-    };
-    const resp = await httpGet(url, { headers });
-    if (!resp.data) return null;
-    const data = autoDecode(resp.data);
-    if (Array.isArray(data)) return data;
-    if (data?.data && Array.isArray(data.data)) return data.data;
-    return null;
-  }
-
-  _parseRRSPPFields(pField) {
-    const parts = String(pField).split(",");
-    const num = (i, cast, dft) => { try { return cast(parts[i]); } catch { return dft; } };
-    const timestamp = num(0, parseFloat, 0);
-    const mode = num(1, x=>parseInt(x,10),1);
-    const size = num(2, x=>parseInt(x,10),25);
-    const color = num(3, x=>parseInt(x,10),16777215);
-    const userId = parts[6] || "";
-    const contentId = parts[7] || `${timestamp}:${userId}`;
-    return { timestamp, mode, size, color, userId, contentId };
-  }
-
-  _formatComments(items) {
-    const unique = {};
-    for(const it of items){
-      const text = String(it.d||"");
-      const meta = this._parseRRSPPFields(it.p);
-      if(!unique[meta.contentId]) unique[meta.contentId] = { content: text, ...meta };
+  const processed = [];
+  for(const [content, group] of Object.entries(grouped)){
+    if(group.length===1) processed.push(group[0]);
+    else{
+      const first = group.reduce((a,b)=>a.timestamp<b.timestamp?a:b);
+      processed.push({...first, content:`${first.content} X${group.length}`});
     }
-
-    const grouped = {};
-    for(const c of Object.values(unique)){
-      if(!grouped[c.content]) grouped[c.content] = [];
-      grouped[c.content].push(c);
-    }
-
-    const processed = [];
-    for(const [content, group] of Object.entries(grouped)){
-      if(group.length===1) processed.push(group[0]);
-      else{
-        const first = group.reduce((a,b)=>a.timestamp<b.timestamp?a:b);
-        processed.push({...first, content:`${first.content} X${group.length}`});
-      }
-    }
-
-    return processed.map(c=>({
-      cid: c.contentId,
-      p: `${c.timestamp.toFixed(2)},${c.mode},${c.color},[${this.providerName}]`,
-      m: c.content,
-      t: c.timestamp
-    }));
   }
 
-  async getComments(episodeId, progressCallback=null){
-    if(progressCallback) await progressCallback(5,"开始获取弹幕人人弹幕");
-    console.log("开始获取弹幕人人弹幕");
-    const raw = await this._fetchEpisodeDanmu(episodeId);
-    if(progressCallback) await progressCallback(85,`原始弹幕 ${raw.length} 条，正在规范化`);
-    console.log(`原始弹幕 ${raw.length} 条，正在规范化`);
-    const formatted = this._formatComments(raw);
-    if(progressCallback) await progressCallback(100,`弹幕处理完成，共 ${formatted.length} 条`);
-    console.log(`弹幕处理完成，共 ${formatted.length} 条`);
-    return formatted;
-  }
+  return processed.map(c=>({
+    cid: c.contentId,
+    p: `${c.timestamp.toFixed(2)},${c.mode},${c.color},["renren"]`,
+    m: c.content,
+    t: c.timestamp
+  }));
+}
+
+async function getRenRenComments(episodeId, progressCallback=null){
+  if(progressCallback) await progressCallback(5,"开始获取弹幕人人弹幕");
+  console.log("开始获取弹幕人人弹幕");
+  const raw = await fetchEpisodeDanmu(episodeId);
+  if(progressCallback) await progressCallback(85,`原始弹幕 ${raw.length} 条，正在规范化`);
+  console.log(`原始弹幕 ${raw.length} 条，正在规范化`);
+  const formatted = formatComments(raw);
+  if(progressCallback) await progressCallback(100,`弹幕处理完成，共 ${formatted.length} 条`);
+  console.log(`弹幕处理完成，共 ${formatted.length} 条`);
+  return formatted;
 }
 
 async function fetchTmdbData(id, type) {
@@ -2421,15 +2536,23 @@ async function getDanmuFromUrl(danmu_server, playUrl, debug, danmu_server_pollin
     return generateDanmaku(`【自动链接弹幕】：弹幕服务器异常，轮询后还是未获得到有效弹幕`, count);
 }
 
-async function getDanmuFromRenRen(title, tmdbInfo, type, season, episode, episodeName) {
-  // 还有点问题，先跳过
-  return null;
+// 用于在手机上调试打印
+function postDebugInfo(content) {
+  Widget.http.post("http://192.168.123.31:8080", content, {
+    headers: {
+        "Content-Type": "application/json",
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/79.0.3945.88 Safari/537.36",
+    },
+  });
+}
 
-  const scraper = new RenrenScraper();
-  const results = await scraper.search(title);
+async function getDanmuFromRenRen(title, tmdbInfo, type, season, episode, episodeName) {
+  const results = await search(title);
   console.log("人人视频搜索结果：", results);
 
   let animes = results.filter(s => s.title.includes(title));
+
+  // postDebugInfo({"animes": animes});
 
   let tmdbYear;
   if (animes.length >= 1) {
@@ -2452,14 +2575,15 @@ async function getDanmuFromRenRen(title, tmdbInfo, type, season, episode, episod
   }
 
   if(animes.length > 0){
-    const eps = await scraper.getEpisodes(animes[0].mediaId);
+    const eps = await getEpisodes(animes[0].mediaId);
     console.log("人人视频分集：", eps);
+    // postDebugInfo({"eps": eps});
 
     if (eps.length === 0 || eps.length < episode) {
       return null;
     }
 
-    const danmus = await scraper.getComments(eps[episode-1].episodeId);
+    const danmus = await getRenRenComments(eps[episode-1].episodeId);
     console.log("弹幕前10：", danmus.slice(0,10));
 
     return danmus;
