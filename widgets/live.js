@@ -201,7 +201,7 @@ WidgetMetadata = {
             ],
         },
     ],
-    version: "1.0.9",
+    version: "1.0.10",
     requiredVersion: "0.0.1",
     description: "解析直播订阅链接【五折码：CHEAP.5;七折码：CHEAP】",
     author: "huangxd",
@@ -424,36 +424,36 @@ async function loadDetail(link) {
     let videoUrl = link;
     let childItems = []
 
-    const formats = ['m3u8', 'mp4', 'mp3', 'flv', 'avi', 'mov', 'wmv', 'webm', 'ogg', 'mkv', 'ts'];
-    if (!formats.some(format => link.includes(format))) {
-        // 获取重定向location
-        const url = `https://redirect-check.hxd.ip-ddns.com/redirect-check?url=${link}`;
-
-        const response = await Widget.http.get(url, {
-            headers: {
-                "User-Agent": "AptvPlayer/1.4.6",
-            },
-        });
-
-        console.log(response.data)
-
-        if (response.data && response.data.location && formats.some(format => response.data.location.includes(format))) {
-            videoUrl = response.data.location;
-        }
-
-        if (response.data && response.data.error && response.data.error.includes("超时")) {
-            const hint_item = {
-                id: videoUrl,
-                type: "url",
-                title: "超时/上面直播不可用",
-                posterPath: "https://i.miji.bid/2025/05/17/561121fb0ba6071d4070627d187b668b.png",
-                backdropPath: "https://i.miji.bid/2025/05/17/561121fb0ba6071d4070627d187b668b.png",
-                link: videoUrl,
-                playerType: "system",
-            };
-            childItems = [hint_item]
-        }
-    }
+    // const formats = ['m3u8', 'mp4', 'mp3', 'flv', 'avi', 'mov', 'wmv', 'webm', 'ogg', 'mkv', 'ts'];
+    // if (!formats.some(format => link.includes(format))) {
+    //     // 获取重定向location
+    //     const url = `https://redirect-check.hxd.ip-ddns.com/redirect-check?url=${link}`;
+    //
+    //     const response = await Widget.http.get(url, {
+    //         headers: {
+    //             "User-Agent": "AptvPlayer/1.4.6",
+    //         },
+    //     });
+    //
+    //     console.log(response.data)
+    //
+    //     if (response.data && response.data.location && formats.some(format => response.data.location.includes(format))) {
+    //         videoUrl = response.data.location;
+    //     }
+    //
+    //     if (response.data && response.data.error && response.data.error.includes("超时")) {
+    //         const hint_item = {
+    //             id: videoUrl,
+    //             type: "url",
+    //             title: "超时/上面直播不可用",
+    //             posterPath: "https://i.miji.bid/2025/05/17/561121fb0ba6071d4070627d187b668b.png",
+    //             backdropPath: "https://i.miji.bid/2025/05/17/561121fb0ba6071d4070627d187b668b.png",
+    //             link: videoUrl,
+    //             playerType: "system",
+    //         };
+    //         childItems = [hint_item]
+    //     }
+    // }
 
     const item = {
         id: link,
