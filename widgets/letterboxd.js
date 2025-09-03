@@ -215,7 +215,7 @@ WidgetMetadata = {
                         },
                         {
                             title: "他们在拍电影，不是吗？前1000名（21世纪）",
-                            value: "https://letterboxd.com/drew/list/they-shoot-pictures-dont-they-top-1000-21st-century/"
+                            value: "https://letterboxd.com/georgealexandru/list/greatest-films-the-2025-tspdt-edition-they-2/"
                         },
                         {
                             title: "美国编剧工会101部最伟大剧本（21世纪）",
