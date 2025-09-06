@@ -53,7 +53,7 @@
       "title": "Letterboxd电影爱好者平台",
       "description": "解析Letterboxd片单内的影片【30% off code：CHEAP】",
       "requiredVersion": "0.0.1",
-      "version": "1.0.1",
+      "version": "1.0.2",
       "author": "huangxd",
       "url": "https://raw.githubusercontent.com/huangxd-/ForwardWidgets/refs/heads/main/widgets/letterboxd.js"
     },

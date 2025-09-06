@@ -597,7 +597,7 @@ WidgetMetadata = {
             ],
         },
     ],
-    version: "1.0.1",
+    version: "1.0.2",
     requiredVersion: "0.0.1",
     description: "解析Letterboxd片单内的影片【五折码：CHEAP.5;七折码：CHEAP】",
     author: "huangxd",
@@ -639,9 +639,27 @@ function extractLetterboxdUrlsFromResponse(responseData, minNum, maxNum) {
     return letterboxdUrls.slice(start, end);
 }
 
+async function loadLetterboxdToImdbCache() {
+    try {
+        const response = await Widget.http.get('https://gist.githubusercontent.com/huangxd-/60712812d3d8b3c4422d46c6bc07046c/raw/letterboxd_url2imdb.json');
+        const letterboxdToImdbCache = response.data;
+        console.log('已加载 Letterboxd 到 IMDb ID 缓存');
+        return letterboxdToImdbCache;
+    } catch (error) {
+        console.error('加载 Letterboxd 到 IMDb ID 缓存失败:', error);
+    }
+}
+
 async function fetchImdbIdsFromLetterboxdUrls(letterboxdUrls) {
+    const letterboxdToImdbCache = await loadLetterboxdToImdbCache();
     let imdbIdPromises = letterboxdUrls.map(async (url) => {
         try {
+            // 如果缓存中已有该 URL 对应的 IMDb ID，直接返回
+            if (letterboxdToImdbCache[url]) {
+                console.log(`使用缓存获取 IMDb ID: ${letterboxdToImdbCache[url]} (来自 ${url})`);
+                return letterboxdToImdbCache[url];
+            }
+
             let detailResponse = await Widget.http.get(url, {
                 headers: {
                     "User-Agent":
