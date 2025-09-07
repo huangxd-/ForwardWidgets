@@ -604,7 +604,7 @@ WidgetMetadata = {
     site: "https://github.com/huangxd-/ForwardWidgets"
 };
 
-function extractLetterboxdUrlsFromResponse(responseData, minNum, maxNum) {
+async function extractLetterboxdUrlsFromResponse(responseData, minNum, maxNum) {
     // 创建Cheerio实例解析HTML
     let $ = Widget.html.load(responseData);
 
@@ -712,7 +712,7 @@ async function fetchLetterboxdData(url, headers = {}, minNum, maxNum) {
 
         console.log("请求结果:", response.data);
 
-        let letterboxdUrls = extractLetterboxdUrlsFromResponse(response.data, minNum, maxNum);
+        let letterboxdUrls = await extractLetterboxdUrlsFromResponse(response.data, minNum, maxNum);
 
         return await fetchImdbIdsFromLetterboxdUrls(letterboxdUrls);
     } catch (error) {
