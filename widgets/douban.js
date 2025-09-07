@@ -1180,7 +1180,7 @@ WidgetMetadata = {
       cacheDuration: 3600,
     },
   ],
-  version: "1.0.18",
+  version: "1.0.19",
   requiredVersion: "0.0.1",
   description: "解析豆瓣想看、在看、已看以及根据个人数据生成的个性化推荐【五折码：CHEAP.5;七折码：CHEAP】",
   author: "huangxd",
@@ -1293,7 +1293,7 @@ async function fetchTmdbData(key, mediaType) {
     const tmdbResults = await Widget.tmdb.get(`/search/${mediaType}`, {
         params: {
             query: key,
-            language: "zh_CN",
+            language: "zh",
         }
     });
     //打印结果
@@ -1349,6 +1349,34 @@ function cleanTitle(title) {
     }
 }
 
+async function handleOriginalTitle(doubanId, tmdbDatas) {
+  const response = await Widget.http.get(`https://m.douban.com/rexxar/api/v2/subject/${doubanId}`, {
+    headers: {
+      Referer: `https://movie.douban.com/explore`,
+      "User-Agent":
+          "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
+    },
+  });
+
+  if (!response || !response.data) {
+    throw new Error("获取影片数据失败");
+  }
+
+  let oriTitle = response.data.type === "tv" ? cleanTitle(response.data.original_title) : response.data.original_title;
+  console.log("oriTitle: ", oriTitle, " ; type: ", response.data.type);
+
+  if (tmdbDatas.length !== 0) {
+    // 遍历 tmdbDatas，寻找匹配的元素
+    for (let i = 0; i < tmdbDatas.length; i++) {
+      if ((oriTitle === tmdbDatas[i].title || oriTitle === tmdbDatas[i].name)) {
+        return tmdbDatas[i];
+      }
+    }
+  }
+
+  return null;
+}
+
 async function fetchImdbItems(scItems) {
   const promises = scItems.map(async (scItem) => {
     // 模拟API请求
@@ -1378,6 +1406,10 @@ async function fetchImdbItems(scItems) {
           matchedItem = tmdbDatas[i];
           break; // 找到第一个匹配项后立即跳出循环
         }
+      }
+
+      if (!matchedItem) {
+        matchedItem = await handleOriginalTitle(scItem.id, tmdbDatas);
       }
 
       // 如果找到匹配项，使用该项，否则返回第一个元素
