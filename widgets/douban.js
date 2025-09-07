@@ -1293,7 +1293,7 @@ async function fetchTmdbData(key, mediaType) {
     const tmdbResults = await Widget.tmdb.get(`/search/${mediaType}`, {
         params: {
             query: key,
-            language: "zh",
+            language: "zh_CN",
         }
     });
     //打印结果
