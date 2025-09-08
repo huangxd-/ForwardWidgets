@@ -390,6 +390,9 @@ https://dm.lxlad.com
 
 其中爱平台下载弹幕的时候需要zlib解压，fw的widget.http.get不支持返回arrayBuffer，没找到好的解决办法，所以当前先用cloudflare转了一下
 
+#### 弹幕分片请求开关
+弹幕服务器localhost增加分片请求
+
 #### 弹幕服务器轮询开关
 设置的弹幕服务器下载弹幕失败的情况下轮询其他弹幕服务器
 
