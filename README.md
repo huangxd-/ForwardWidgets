@@ -459,6 +459,11 @@ Letterboxd片单：24小时
 ### Forward图标库自助上传
 请跳转项目：[PicStoreJson](https://github.com/huangxd-/PicStoreJson)
 
+### 弹幕 API 服务器
+一个人人都能部署的基于 js 的弹幕 API 服务器，支持爱优腾芒哔人弹幕直接获取，兼容弹弹play的搜索、详情查询和弹幕获取接口，并提供日志记录，支持vercel/cloudflare/docker/claw等部署方式，不用提前下载弹幕，没有nas或小鸡也能一键部署。
+
+请跳转项目：[danmu_api](https://github.com/huangxd-/danmu_api)
+
 ### 📈项目 Star 数增长趋势
 #### Star History
 [![Star History Chart](https://api.star-history.com/svg?repos=huangxd-/ForwardWidgets&type=Date)](https://www.star-history.com/#huangxd-/ForwardWidgets&Date)
