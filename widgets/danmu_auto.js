@@ -15,7 +15,7 @@
 WidgetMetadata = {
   id: "forward.auto.danmu",
   title: "自动链接弹幕",
-  version: "1.0.23",
+  version: "1.0.24",
   requiredVersion: "0.0.2",
   description: "自动获取播放链接并从服务器获取弹幕【五折码：CHEAP.5;七折码：CHEAP】",
   author: "huangxd",
@@ -793,8 +793,18 @@ async function fetchTencentVideo(inputUrl, segmentTime, tmdbId, season, episode,
               content: "",
           };
           content.timepoint = item.time_offset / 1000;
-          if (item.content_style?.color) {
-            console.log("弹幕颜色:", JSON.stringify(item.content_style.color));
+          if (item.content_style && item.content_style !== "") {
+            try {
+              const content_style = JSON.parse(item.content_style);
+              // 优先使用渐变色的第一个颜色，否则使用基础色
+              if (content_style.gradient_colors && content_style.gradient_colors.length > 0) {
+                content.color = parseInt(content_style.gradient_colors[0].replace("#", ""), 16);
+              } else if (content_style.color && content_style.color !== "ffffff") {
+                content.color = parseInt(content_style.color.replace("#", ""), 16);
+              }
+            } catch (e) {
+              // JSON 解析失败，使用默认白色
+            }
           }
           content.content = item.content;
           contents.push(content);
@@ -833,8 +843,18 @@ async function fetchTencentVideoDanmaku(vid, segment) {
         uid: 0,   //发送人的 id
         content: item.content,
     };
-    if (item.content_style?.color) {
-      console.log("弹幕颜色:", JSON.stringify(item.content_style.color));
+    if (item.content_style && item.content_style !== "") {
+      try {
+        const content_style = JSON.parse(item.content_style);
+        // 优先使用渐变色的第一个颜色，否则使用基础色
+        if (content_style.gradient_colors && content_style.gradient_colors.length > 0) {
+          content.color = parseInt(content_style.gradient_colors[0].replace("#", ""), 16);
+        } else if (content_style.color && content_style.color !== "ffffff") {
+          content.color = parseInt(content_style.color.replace("#", ""), 16);
+        }
+      } catch (e) {
+        // JSON 解析失败，使用默认白色
+      }
     }
     contents.push(content);
   }
@@ -1026,7 +1046,7 @@ async function fetchIqiyi(inputUrl, segmentTime, tmdbId, season, episode, danmu_
           const danmaku = extract(xml, "content");
           const showTime = extract(xml, "showTime");
           const color = extract(xml, "color");
-          const step = Math.ceil(danmaku.length * datas.length / 10000);
+          const step = 1;
 
           for (let i = 0; i < danmaku.length; i += step) {
               const content = {
@@ -1085,7 +1105,7 @@ async function fetchIqiyiDanmaku(segment) {
     const danmaku = extract(xml, "content");
     const showTime = extract(xml, "showTime");
     const color = extract(xml, "color");
-    const step = Math.ceil(danmaku.length / 10000);
+    const step = 1;
 
     for (let i = 0; i < danmaku.length; i += step) {
         const content = {
