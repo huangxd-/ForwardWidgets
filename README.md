@@ -461,6 +461,7 @@ Letterboxd片单：24小时
 
 ### 弹幕 API 服务器
 一个人人都能部署的基于 js 的弹幕 API 服务器，支持爱优腾芒哔人弹幕直接获取，兼容弹弹play的搜索、详情查询和弹幕获取接口，并提供日志记录，支持vercel/cloudflare/docker/claw等部署方式，不用提前下载弹幕，没有nas或小鸡也能一键部署。
+> FW可以配合`damu_api`插件使用
 
 请跳转项目：[danmu_api](https://github.com/huangxd-/danmu_api)
 

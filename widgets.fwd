@@ -65,6 +65,15 @@
       "version": "1.0.26",
       "author": "huangxd",
       "url": "https://raw.githubusercontent.com/huangxd-/ForwardWidgets/refs/heads/main/widgets/danmu_auto.js"
+    },
+    {
+      "id": "forward.auto.danmu_api",
+      "title": "danmu_api弹幕",
+      "description": "从danmu_api获取弹幕【五折码：CHEAP.5;七折码：CHEAP】",
+      "requiredVersion": "0.0.2",
+      "version": "1.0.0",
+      "author": "huangxd",
+      "url": "https://raw.githubusercontent.com/huangxd-/ForwardWidgets/refs/heads/main/widgets/danmu_api.js"
     }
   ]
 }
