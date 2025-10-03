@@ -200,7 +200,7 @@ WidgetMetadata = {
             ],
         },
     ],
-    version: "1.0.13",
+    version: "1.0.14",
     requiredVersion: "0.0.1",
     description: "解析Trakt想看、在看、已看、片单、追剧日历以及根据个人数据生成的个性化推荐【30% off code：CHEAP】",
     author: "huangxd",
@@ -410,15 +410,13 @@ async function loadListItems(params = {}) {
         const listName = params.list_name || "";
         const sortBy = params.sort_by || "";
         const sortHow = params.sort_how || "";
-        const count = 20
-        const minNum = ((page - 1) % 6) * count + 1
-        const maxNum = ((page - 1) % 6) * count + 20
+        const count = 20;
 
         if (!userName || !listName) {
             throw new Error("必须提供 Trakt 用户名 和 片单列表名");
         }
 
-        let url = `https://hd.trakt.tv/users/${userName}/lists/${listName}/items/movie,show?page=${minNum}&limit=${maxNum}&sort_by=${sortBy}&sort_how=${sortHow}`;
+        let url = `https://hd.trakt.tv/users/${userName}/lists/${listName}/items/movie,show?page=${page}&limit=${count}&sort_by=${sortBy}&sort_how=${sortHow}`;
 
         const response = await Widget.http.get(url, {
             headers: {
