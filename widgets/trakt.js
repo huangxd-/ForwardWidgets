@@ -200,7 +200,7 @@ WidgetMetadata = {
             ],
         },
     ],
-    version: "1.0.12",
+    version: "1.0.13",
     requiredVersion: "0.0.1",
     description: "解析Trakt想看、在看、已看、片单、追剧日历以及根据个人数据生成的个性化推荐【30% off code：CHEAP】",
     author: "huangxd",
@@ -431,10 +431,12 @@ async function loadListItems(params = {}) {
         console.log("请求结果:", response.data);
 
         const data = typeof response.data === 'string' ? JSON.parse(response.data) : response.data;
-        const result = data.map(item => ({
-            id: item[item.type].ids.imdb,
-            type: "imdb"
-        }));
+        const result = data
+            .filter(item => item[item.type]?.ids?.imdb != null)
+            .map(item => ({
+                id: item[item.type].ids.imdb,
+                type: "imdb"
+            }));
 
         return result;
     } catch (error) {
