@@ -1180,7 +1180,7 @@ WidgetMetadata = {
       cacheDuration: 3600,
     },
   ],
-  version: "1.0.19",
+  version: "1.0.20",
   requiredVersion: "0.0.1",
   description: "解析豆瓣想看、在看、已看以及根据个人数据生成的个性化推荐【五折码：CHEAP.5;七折码：CHEAP】",
   author: "huangxd",
@@ -1293,7 +1293,7 @@ async function fetchTmdbData(key, mediaType) {
     const tmdbResults = await Widget.tmdb.get(`/search/${mediaType}`, {
         params: {
             query: key,
-            language: "zh_CN",
+            language: "zh",
         }
     });
     //打印结果
@@ -1484,7 +1484,7 @@ async function loadDefaultList(params = {}) {
   const count = 25
   const start = (page - 1) * count
   // 构建片单页面 URL
-  const pageUrl = `https://www.douban.com/doulist/${listId}/?start=${start}&sort=seq&playable=0&sub_type=`;
+  const pageUrl = `https://m.douban.com/rexxar/api/v2/doulist/${listId}/items?start=${start}&count=${count}&updated_at&items_only=1&type_tag&for_mobile=1`;
 
   console.log("请求片单页面:", pageUrl);
   // 发送请求获取片单页面
@@ -1500,38 +1500,25 @@ async function loadDefaultList(params = {}) {
     throw new Error("获取片单数据失败");
   }
 
-  console.log("片单页面数据长度:", response.data.length);
-  console.log("开始解析");
+  console.log("请求结果:", response.data);
 
-  // 解析 HTML 得到文档 ID
-  const docId = Widget.dom.parse(response.data);
-  if (docId < 0) {
-    throw new Error("解析 HTML 失败");
+  if (response.data && response.data.items) {
+    const scItems = response.data.items.map(item => ({
+      title: item.title,
+      type: item.type,
+      id: item.target_id,
+      year: new Date(item.create_time).getFullYear()
+    }));
+
+    console.log("scItems:", scItems);
+
+    const items = await fetchImdbItems(scItems);
+
+    console.log(items)
+
+    return items;
   }
-  console.log("解析成功:", docId);
-
-  // 获取所有视频项，得到元素ID数组
-  const videoElementIds = Widget.dom.select(docId, ".doulist-item .title a");
-
-  console.log("items:", videoElementIds);
-
-  let doubanIds = [];
-  for (const itemId of videoElementIds) {
-    const link = await Widget.dom.attr(itemId, "href");
-    // 获取元素文本内容并分割
-    const text = await Widget.dom.text(itemId);
-    // 按空格分割文本并取第一部分
-    const chineseTitle = text.trim().split(' ')[0];
-    if (chineseTitle) {
-      doubanIds.push({ title: chineseTitle, type: "multi" });
-    }
-  }
-
-  const items = await fetchImdbItems(doubanIds);
-
-  console.log(items)
-
-  return items;
+  return [];
 }
 
 async function loadItemsFromApi(params = {}) {

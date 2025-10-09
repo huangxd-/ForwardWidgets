@@ -8,7 +8,7 @@
       "title": "豆瓣我看&豆瓣个性化推荐",
       "description": "解析豆瓣想看、在看、已看以及根据个人数据生成的个性化推荐【30% off code：CHEAP】",
       "requiredVersion": "0.0.1",
-      "version": "1.0.19",
+      "version": "1.0.20",
       "author": "huangxd",
       "url": "https://raw.githubusercontent.com/huangxd-/ForwardWidgets/refs/heads/main/widgets/douban.js"
     },
