@@ -59,10 +59,10 @@
     },
     {
       "id": "forward.auto.danmu",
-      "title": "自动链接弹幕",
+      "title": "自动链接弹幕v2",
       "description": "自动获取播放链接并从服务器获取弹幕【30% off code：CHEAP】",
       "requiredVersion": "0.0.2",
-      "version": "1.0.26",
+      "version": "2.0.0",
       "author": "huangxd",
       "url": "https://raw.githubusercontent.com/huangxd-/ForwardWidgets/refs/heads/main/widgets/danmu_auto.js"
     },
@@ -71,7 +71,7 @@
       "title": "danmu_api弹幕",
       "description": "从danmu_api获取弹幕【五折码：CHEAP.5;七折码：CHEAP】",
       "requiredVersion": "0.0.2",
-      "version": "1.0.0",
+      "version": "1.0.1",
       "author": "huangxd",
       "url": "https://raw.githubusercontent.com/huangxd-/ForwardWidgets/refs/heads/main/widgets/danmu_api.js"
     }
