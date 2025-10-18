@@ -15,7 +15,7 @@
 WidgetMetadata = {
   id: "forward.auto.danmu_api",
   title: "danmu_api弹幕",
-  version: "1.0.0",
+  version: "1.0.1",
   requiredVersion: "0.0.2",
   description: "从danmu_api获取弹幕【五折码：CHEAP.5;七折码：CHEAP】",
   author: "huangxd",
@@ -95,39 +95,65 @@ async function searchDanmu(params) {
   if (data.animes && data.animes.length > 0) {
     animes = data.animes;
     if (season) {
-      // filter season
-      const matchedAnimes = animes.filter((anime) => {
-        const title = anime.animeTitle.split("(")[0].trim();
-        console.log(title);
-        if (title.includes(queryTitle)) {
-          // use space to split animeTitle
-          let titleParts = title.split(" ");
-          if (titleParts.length > 1) {
-            let seasonPart = titleParts[1];
-            // match number from seasonPart
-            let seasonIndex = seasonPart.match(/\d+/);
-            if (seasonIndex && seasonIndex[0] === season) {
-              return true;
-            }
-            // match chinese number
-            let chineseNumber = seasonPart.match(/[一二三四五六七八九十壹贰叁肆伍陆柒捌玖拾]+/);
-            if (chineseNumber && convertChineseNumber(chineseNumber[0]) === season) {
-              return true;
-            }
-          }
-          return false;
+      // order by season
+      const matchedAnimes = [];
+      const nonMatchedAnimes = [];
+
+      animes.forEach((anime) => {
+        if (matchSeason(anime, queryTitle, season) && !(queryTitle.includes("电影") || queryTitle.includes("movie"))) {
+            matchedAnimes.push(anime);
         } else {
-          return false;
+            nonMatchedAnimes.push(anime);
         }
       });
-      if (matchedAnimes.length > 0) {
-        animes = matchedAnimes;
-      }
+
+      // Combine matched and non-matched animes, with matched ones at the front
+      animes = [...matchedAnimes, ...nonMatchedAnimes];
+    } else {
+      // order by type
+      const matchedAnimes = [];
+      const nonMatchedAnimes = [];
+
+      animes.forEach((anime) => {
+        if (queryTitle.includes("电影") || queryTitle.includes("movie")) {
+            matchedAnimes.push(anime);
+        } else {
+            nonMatchedAnimes.push(anime);
+        }
+      });
+
+      // Combine matched and non-matched animes, with matched ones at the front
+      animes = [...matchedAnimes, ...nonMatchedAnimes];
     }
   }
   return {
     animes: animes,
   };
+}
+
+function matchSeason(anime, queryTitle, season) {
+  if (anime.animeTitle.includes(queryTitle)) {
+    const title = anime.animeTitle.split("(")[0].trim();
+    if (title.startsWith(queryTitle)) {
+      const afterTitle = title.substring(queryTitle.length).trim();
+      if (afterTitle === '' && season === 1) {
+        return true;
+      }
+      // match number from afterTitle
+      const seasonIndex = afterTitle.match(/\d+/);
+      if (seasonIndex && seasonIndex[0] === season.toString()) {
+        return true;
+      }
+      // match chinese number
+      const chineseNumber = afterTitle.match(/[一二三四五六七八九十壹贰叁肆伍陆柒捌玖拾]+/);
+      if (chineseNumber && convertChineseNumber(chineseNumber[0]) === season) {
+        return true;
+      }
+    }
+    return false;
+  } else {
+    return false;
+  }
 }
 
 function convertChineseNumber(chineseNumber) {
