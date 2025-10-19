@@ -15,7 +15,7 @@
 WidgetMetadata = {
   id: "forward.auto.danmu2",
   title: "自动链接弹幕v2",
-  version: "2.0.2",
+  version: "2.0.3",
   requiredVersion: "0.0.2",
   description: "自动获取播放链接并从服务器获取弹幕【五折码：CHEAP.5;七折码：CHEAP】",
   author: "huangxd",
@@ -3915,6 +3915,13 @@ async function searchDanmu(params) {
         }
       });
 
+      // Sort matched animes by title length (before first parenthesis)
+      matchedAnimes.sort((a, b) => {
+        const aLength = a.animeTitle.split('(')[0].length;
+        const bLength = b.animeTitle.split('(')[0].length;
+        return aLength - bLength;
+      });
+
       // Combine matched and non-matched animes, with matched ones at the front
       animes = [...matchedAnimes, ...nonMatchedAnimes];
     } else {
@@ -3928,6 +3935,13 @@ async function searchDanmu(params) {
         } else {
             nonMatchedAnimes.push(anime);
         }
+      });
+
+      // Sort matched animes by title length (before first parenthesis)
+      matchedAnimes.sort((a, b) => {
+        const aLength = a.animeTitle.split('(')[0].length;
+        const bLength = b.animeTitle.split('(')[0].length;
+        return aLength - bLength;
       });
 
       // Combine matched and non-matched animes, with matched ones at the front
