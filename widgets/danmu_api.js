@@ -15,7 +15,7 @@
 WidgetMetadata = {
   id: "forward.auto.danmu_api",
   title: "danmu_api弹幕",
-  version: "1.0.1",
+  version: "1.0.2",
   requiredVersion: "0.0.2",
   description: "从danmu_api获取弹幕【五折码：CHEAP.5;七折码：CHEAP】",
   author: "huangxd",
@@ -132,28 +132,32 @@ async function searchDanmu(params) {
 }
 
 function matchSeason(anime, queryTitle, season) {
+  console.log("start matchSeason: ", anime.animeTitle, queryTitle, season);
+  let res = false;
   if (anime.animeTitle.includes(queryTitle)) {
     const title = anime.animeTitle.split("(")[0].trim();
     if (title.startsWith(queryTitle)) {
       const afterTitle = title.substring(queryTitle.length).trim();
-      if (afterTitle === '' && season === 1) {
-        return true;
+      console.log("start matchSeason afterTitle: ", afterTitle);
+      if (afterTitle === '' && season.toString() === "1") {
+        res = true;
       }
       // match number from afterTitle
       const seasonIndex = afterTitle.match(/\d+/);
-      if (seasonIndex && seasonIndex[0] === season.toString()) {
-        return true;
+      if (seasonIndex && seasonIndex[0].toString() === season.toString()) {
+        res = true;
       }
       // match chinese number
       const chineseNumber = afterTitle.match(/[一二三四五六七八九十壹贰叁肆伍陆柒捌玖拾]+/);
-      if (chineseNumber && convertChineseNumber(chineseNumber[0]) === season) {
-        return true;
+      console.log("start matchSeason chineseNumber: ", chineseNumber);
+      console.log("start matchSeason convertChineseNumber: ", convertChineseNumber(chineseNumber[0]));
+      if (chineseNumber && convertChineseNumber(chineseNumber[0]).toString() === season.toString()) {
+        res = true;
       }
     }
-    return false;
-  } else {
-    return false;
   }
+  console.log("start matchSeason res: ", res);
+  return res;
 }
 
 function convertChineseNumber(chineseNumber) {

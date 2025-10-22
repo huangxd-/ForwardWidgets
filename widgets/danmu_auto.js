@@ -15,7 +15,7 @@
 WidgetMetadata = {
   id: "forward.auto.danmu2",
   title: "自动链接弹幕v2",
-  version: "2.0.4",
+  version: "2.0.5",
   requiredVersion: "0.0.2",
   description: "自动获取播放链接并从服务器获取弹幕【五折码：CHEAP.5;七折码：CHEAP】",
   author: "huangxd",
@@ -3314,28 +3314,32 @@ function convertChineseNumber(chineseNumber) {
 }
 
 function matchSeason(anime, queryTitle, season) {
+  log("info", "start matchSeason: ", anime.animeTitle, queryTitle, season);
+  let res = false;
   if (anime.animeTitle.includes(queryTitle)) {
     const title = anime.animeTitle.split("(")[0].trim();
     if (title.startsWith(queryTitle)) {
       const afterTitle = title.substring(queryTitle.length).trim();
-      if (afterTitle === '' && season === 1) {
-        return true;
+      log("info", "start matchSeason afterTitle: ", afterTitle);
+      if (afterTitle === '' && season.toString() === "1") {
+        res = true;
       }
       // match number from afterTitle
       const seasonIndex = afterTitle.match(/\d+/);
-      if (seasonIndex && seasonIndex[0] === season.toString()) {
-        return true;
+      if (seasonIndex && seasonIndex[0].toString() === season.toString()) {
+        res = true;
       }
       // match chinese number
       const chineseNumber = afterTitle.match(/[一二三四五六七八九十壹贰叁肆伍陆柒捌玖拾]+/);
-      if (chineseNumber && convertChineseNumber(chineseNumber[0]) === season) {
-        return true;
+      log("info", "start matchSeason chineseNumber: ", chineseNumber);
+      log("info", "start matchSeason convertChineseNumber: ", convertChineseNumber(chineseNumber[0]));
+      if (chineseNumber && convertChineseNumber(chineseNumber[0]).toString() === season.toString()) {
+        res = true;
       }
     }
-    return false;
-  } else {
-    return false;
   }
+  log("info", "start matchSeason res: ", res);
+  return res;
 }
 
 // 提取年份的辅助函数
