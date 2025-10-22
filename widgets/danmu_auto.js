@@ -15,7 +15,7 @@
 WidgetMetadata = {
   id: "forward.auto.danmu2",
   title: "自动链接弹幕v2",
-  version: "2.0.5",
+  version: "2.0.6",
   requiredVersion: "0.0.2",
   description: "自动获取播放链接并从服务器获取弹幕【五折码：CHEAP.5;七折码：CHEAP】",
   author: "huangxd",
@@ -3331,8 +3331,6 @@ function matchSeason(anime, queryTitle, season) {
       }
       // match chinese number
       const chineseNumber = afterTitle.match(/[一二三四五六七八九十壹贰叁肆伍陆柒捌玖拾]+/);
-      log("info", "start matchSeason chineseNumber: ", chineseNumber);
-      log("info", "start matchSeason convertChineseNumber: ", convertChineseNumber(chineseNumber[0]));
       if (chineseNumber && convertChineseNumber(chineseNumber[0]).toString() === season.toString()) {
         res = true;
       }

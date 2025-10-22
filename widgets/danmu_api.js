@@ -15,7 +15,7 @@
 WidgetMetadata = {
   id: "forward.auto.danmu_api",
   title: "danmu_api弹幕",
-  version: "1.0.2",
+  version: "1.0.3",
   requiredVersion: "0.0.2",
   description: "从danmu_api获取弹幕【五折码：CHEAP.5;七折码：CHEAP】",
   author: "huangxd",
@@ -149,8 +149,6 @@ function matchSeason(anime, queryTitle, season) {
       }
       // match chinese number
       const chineseNumber = afterTitle.match(/[一二三四五六七八九十壹贰叁肆伍陆柒捌玖拾]+/);
-      console.log("start matchSeason chineseNumber: ", chineseNumber);
-      console.log("start matchSeason convertChineseNumber: ", convertChineseNumber(chineseNumber[0]));
       if (chineseNumber && convertChineseNumber(chineseNumber[0]).toString() === season.toString()) {
         res = true;
       }
