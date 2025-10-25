@@ -15,7 +15,7 @@
 WidgetMetadata = {
   id: "forward.auto.danmu2",
   title: "自动链接弹幕v2",
-  version: "2.0.6",
+  version: "2.0.7",
   requiredVersion: "0.0.2",
   description: "自动获取播放链接并从服务器获取弹幕【五折码：CHEAP.5;七折码：CHEAP】",
   author: "huangxd",
@@ -3992,7 +3992,9 @@ async function getCommentsById(params) {
 }
 
 async function getDanmuWithSegmentTime(params) {
-  const { segmentTime, tmdbId, season, episode} = params;
+  const { segmentTime, tmdbId, season, episode, other_server, vod_servers, bilibili_cookie, source_order, blocked_words, group_minute } = params;
+
+  await initEnv(other_server, vod_servers, bilibili_cookie, source_order, blocked_words, group_minute);
 
   const time = segmentTime * 1000;
   const storeKey = season && episode ? `${tmdbId}.${season}.${episode}` : `${tmdbId}`;
