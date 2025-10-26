@@ -15,7 +15,7 @@
 WidgetMetadata = {
   id: "forward.auto.danmu2",
   title: "自动链接弹幕v2",
-  version: "2.0.8",
+  version: "2.0.9",
   requiredVersion: "0.0.2",
   description: "自动获取播放链接并从服务器获取弹幕【五折码：CHEAP.5;七折码：CHEAP】",
   author: "huangxd",
@@ -59,19 +59,19 @@ WidgetMetadata = {
       placeholders: [
         {
           title: "配置1",
-          value: "vod@https://www.caiji.cyou,vod2@https://gctf.tfdh.top,vod3@https://zy.xmm.hk",
+          value: "vod@https://zy.jinchancaiji.com,vod2@https://www.caiji.cyou,vod3@https://gctf.tfdh.top",
         },
         {
           title: "配置2",
-          value: "vod@https://www.caiji.cyou",
+          value: "vod@https://zy.jinchancaiji.com",
         },
         {
           title: "配置3",
-          value: "vod@https://www.caiji.cyou,vod2@https://zy.xmm.hk",
+          value: "vod@https://zy.jinchancaiji.com,vod2@https://www.caiji.cyou",
         },
         {
           title: "配置4",
-          value: "vod@https://www.caiji.cyou,vod2@https://gctf.tfdh.top",
+          value: "vod@https://zy.jinchancaiji.com,vod2@https://gctf.tfdh.top",
         },
       ],
     },
@@ -1576,6 +1576,7 @@ async function fetchMangoTV(inputUrl, segmentTime, tmdbId, season, episode, othe
   // 弹幕和视频信息 API 基础地址
   const api_video_info = "https://pcweb.api.mgtv.com/video/info";
   const api_ctl_barrage = "https://galaxy.bz.mgtv.com/getctlbarrage";
+  const api_rd_barrage = "https://galaxy.bz.mgtv.com/rdbarrage";
 
   // 解析 URL 获取 cid 和 vid
   // 手动解析 URL（没有 URL 对象的情况下）
@@ -1617,7 +1618,9 @@ async function fetchMangoTV(inputUrl, segmentTime, tmdbId, season, episode, othe
 
   // 计算弹幕分段请求
   let segmentList = [];
+  let useNewApi = true;
 
+  // 尝试使用新API（支持彩色弹幕）
   try {
     const ctlBarrageUrl = `${api_ctl_barrage}?version=8.1.39&abroad=0&uuid=&os=10.15.7&platform=0&mac=&vid=${vid}&pid=&cid=${cid}&ticket=`;
     const res = await Widget.http.get(ctlBarrageUrl, {
@@ -1628,18 +1631,43 @@ async function fetchMangoTV(inputUrl, segmentTime, tmdbId, season, episode, othe
     });
     const ctlBarrage = typeof res.data === "string" ? JSON.parse(res.data) : res.data;
 
-    // 每1分钟一个分段
-    for (let i = 0; i < Math.ceil(time_to_second(time) / 60); i += 1) {
-      const danmakuUrl = `https://${ctlBarrage.data?.cdn_list.split(',')[0]}/${ctlBarrage.data?.cdn_version}/${i}.json`;
-      segmentList.push({
-        "segment_start": i * 60 * 1000,
-        "segment_end": (i + 1) * 60 * 1000,
-        "url": danmakuUrl
-      });
+    // 检查数据结构
+    if (!ctlBarrage.data || !ctlBarrage.data.cdn_list || !ctlBarrage.data.cdn_version) {
+      log("warn", `新API缺少必要字段，切换到旧API`);
+      useNewApi = false;
+    } else {
+      // 每1分钟一个分段
+      for (let i = 0; i < Math.ceil(time_to_second(time) / 60); i += 1) {
+        const danmakuUrl = `https://${ctlBarrage.data?.cdn_list.split(',')[0]}/${ctlBarrage.data?.cdn_version}/${i}.json`;
+        segmentList.push({
+          "segment_start": i * 60 * 1000,
+          "segment_end": (i + 1) * 60 * 1000,
+          "url": danmakuUrl
+        });
+      }
     }
   } catch (error) {
-    log("error", "请求弹幕分片失败:", error);
-    return [];
+    log("warn", "新API请求失败，切换到旧API:", error.message);
+    useNewApi = false;
+  }
+
+  // 如果新API失败，使用旧API作为兜底
+  if (!useNewApi) {
+    try {
+      const step = 60 * 1000; // 每60秒一个分段
+      const end_time = time_to_second(time) * 1000;
+      for (let i = 0; i < end_time; i += step) {
+        const danmakuUrl = `${api_rd_barrage}?vid=${vid}&cid=${cid}&time=${i}`;
+        segmentList.push({
+          "segment_start": i,
+          "segment_end": i + step,
+          "url": danmakuUrl
+        });
+      }
+    } catch (error) {
+      log("error", "旧API请求失败:", error);
+      return [];
+    }
   }
 
   const domain = ".mgtv.com";
@@ -3083,7 +3111,7 @@ async function fetchHanjutvEpisodeDanmu(sid) {
 function formatHanjutvComments(items) {
   return items.map(c => ({
     cid: Number(c.did),
-    p: `${(c.t / 1000).toFixed(2)},${c.tp},${Number(c.sc)},[hanjutv]`,
+    p: `${(c.t / 1000).toFixed(2)},${c.tp === 2 ? 5 : c.tp},${Number(c.sc)},[hanjutv]`,
     m: c.con,
     t: Math.round(c.t / 1000)
   }));
