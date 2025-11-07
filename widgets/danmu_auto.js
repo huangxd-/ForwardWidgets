@@ -15,7 +15,7 @@
 WidgetMetadata = {
   id: "forward.auto.danmu2",
   title: "自动链接弹幕v2",
-  version: "2.0.9",
+  version: "2.0.10",
   requiredVersion: "0.0.2",
   description: "自动获取播放链接并从服务器获取弹幕【五折码：CHEAP.5;七折码：CHEAP】",
   author: "huangxd",
@@ -3374,6 +3374,9 @@ function extractYear(animeTitle) {
   return match ? parseInt(match[1]) : null;
 }
 
+// 正则表达式：提取anime标题中的内容
+const extractAnimeTitle = (str) => str.split('(')[0].trim();
+
 // 按年份降序排序并添加到curAnimes
 function sortAndPushAnimesByYear(processedAnimes, curAnimes) {
   processedAnimes
@@ -3384,7 +3387,13 @@ function sortAndPushAnimesByYear(processedAnimes, curAnimes) {
 
       // 如果都有年份，按年份降序排列
       if (yearA !== null && yearA !== undefined && yearB !== null && yearB !== undefined) {
-        return yearB - yearA;
+        if (yearB !== yearA) {
+          return yearB - yearA;
+        }
+        // 年份相同时，按 title 字数升序排列（字数少的在前）
+        const titleA = extractAnimeTitle(a.animeTitle);
+        const titleB = extractAnimeTitle(b.animeTitle);
+        return titleA.length - titleB.length;
       }
       // 如果只有a有年份，a排在前面
       if ((yearA !== null && yearA !== undefined) && (yearB === null || yearB === undefined)) {
