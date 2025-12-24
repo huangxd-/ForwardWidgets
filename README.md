@@ -424,7 +424,9 @@ https://dm.lxlad.com
 
 ### 【v2版本】
 
-回合了danmu_api项目的特性，相对v1做了以下修改
+目前最新版本是从项目 https://github.com/huangxd-/danmu_api 一键导出的插件脚本，参数说明请直接看该项目README
+
+~~回合了danmu_api项目的特性，相对v1做了以下修改~~
 
 ```shell
 1. 增加弹幕选集
