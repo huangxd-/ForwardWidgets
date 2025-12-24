@@ -1,815 +1,2819 @@
-/**
- * 弹幕示例模块
- * 给 module 指定 type 为 danmu 后，默认会携带以下参数：
- * tmdbId: TMDB ID，Optional
- * type: 类型，tv | movie
- * title: 标题
- * season: 季，电影时为空
- * episode: 集，电影时为空
- * link: 链接，Optional
- * videoUrl: 视频链接，Optional
- * commentId: 弹幕ID，Optional。在搜索到弹幕列表后实际加载时会携带
- * animeId: 动漫ID，Optional。在搜索到动漫列表后实际加载时会携带
- *
- */
-WidgetMetadata = {
-  id: "forward.auto.danmu2",
-  title: "自动链接弹幕v2",
-  version: "2.0.10",
-  requiredVersion: "0.0.2",
-  description: "自动获取播放链接并从服务器获取弹幕【五折码：CHEAP.5;七折码：CHEAP】",
-  author: "huangxd",
-  site: "https://github.com/huangxd-/ForwardWidgets",
-  globalParams: [
-    {
-      name: "other_server",
-      title: "兜底第三方弹幕服务器，不填默认为https://api.danmu.icu",
-      type: "input",
-      placeholders: [
-        {
-          title: "icu",
-          value: "https://api.danmu.icu",
-        },
-        {
-          title: "lyz05",
-          value: "https://fc.lyz05.cn",
-        },
-        {
-          title: "hls",
-          value: "https://dmku.hls.one",
-        },
-        {
-          title: "678",
-          value: "https://se.678.ooo",
-        },
-        {
-          title: "56uxi",
-          value: "https://danmu.56uxi.com",
-        },
-        {
-          title: "lxlad",
-          value: "https://dm.lxlad.com",
-        },
-      ],
-    },
-    {
-      name: "vod_servers",
-      title: "VOD服务器列表，支持多个服务器并发查询，格式：名称@URL,名称@URL,...",
-      type: "input",
-      placeholders: [
-        {
-          title: "配置1",
-          value: "vod@https://zy.jinchancaiji.com,vod2@https://www.caiji.cyou,vod3@https://gctf.tfdh.top",
-        },
-        {
-          title: "配置2",
-          value: "vod@https://zy.jinchancaiji.com",
-        },
-        {
-          title: "配置3",
-          value: "vod@https://zy.jinchancaiji.com,vod2@https://www.caiji.cyou",
-        },
-        {
-          title: "配置4",
-          value: "vod@https://zy.jinchancaiji.com,vod2@https://gctf.tfdh.top",
-        },
-      ],
-    },
-    {
-      name: "bilibili_cookie",
-      title: "b站cookie（填入后能抓取b站完整弹幕）",
-      type: "input",
-      placeholders: [
-        {
-          title: "示例",
-          value: "SESSDATA=xxxx",
-        },
-      ],
-    },
-    {
-      name: "source_order",
-      title: "源排序，用于按源对返回资源的排序（注意：先后顺序会影响自动匹配最终的返回）",
-      type: "input",
-      placeholders: [
-        {
-          title: "配置1",
-          value: "360,vod,renren,hanjutv",
-        },
-        {
-          title: "配置2",
-          value: "360,vod,renren,hanjutv,bahamut",
-        },
-        {
-          title: "配置3",
-          value: "vod,360,renren,hanjutv",
-        },
-        {
-          title: "配置4",
-          value: "vod,360,renren,hanjutv,bahamut",
-        },
-      ],
-    },
-    {
-      name: "blocked_words",
-      title: "弹幕屏蔽词列表",
-      type: "input",
-      placeholders: [
-        {
-          title: "示例",
-          value: "/.{20,}/,/^\\d{2,4}[-/.]\\d{1,2}[-/.]\\d{1,2}([日号.]*)?$/,/^(?!哈+$)([a-zA-Z\u4e00-\u9fa5])\\1{2,}/,/[0-9]+\\.*[0-9]*\\s*(w|万)+\\s*(\\+|个|人|在看)+/,/^[a-z]{6,}$/,/^(?:qwertyuiop|asdfghjkl|zxcvbnm)$/,/^\\d{5,}$/,/^(\\d)\\1{2,}$/,/\\d{1,4}/,/(20[0-3][0-9])/,/(0?[1-9]|1[0-2])月/,/\\d{1,2}[.-]\\d{1,2}/,/[@#&$%^*+\\|/\\-_=<>°◆◇■□●○★☆▼▲♥♦♠♣①②③④⑤⑥⑦⑧⑨⑩]/,/[一二三四五六七八九十百\\d]+刷/,/第[一二三四五六七八九十百\\d]+/,/(全体成员|报到|报道|来啦|签到|刷|打卡|我在|来了|考古|爱了|挖坟|留念|你好|回来|哦哦|重温|复习|重刷|再看|在看|前排|沙发|有人看|板凳|末排|我老婆|我老公|撅了|后排|周目|重看|包养|DVD|同上|同样|我也是|俺也|算我|爱豆|我家爱豆|我家哥哥|加我|三连|币|新人|入坑|补剧|冲了|硬了|看完|舔屏|万人|牛逼|煞笔|傻逼|卧槽|tm|啊这|哇哦)/",
-        },
-      ],
-    },
-    {
-      name: "group_minute",
-      title: "合并去重分钟数，表示按n分钟分组后对弹幕合并去重",
-      type: "input",
-      placeholders: [
-        {
-          title: "1分钟",
-          value: "1",
-        },
-        {
-          title: "2分钟",
-          value: "2",
-        },
-        {
-          title: "5分钟",
-          value: "5",
-        },
-        {
-          title: "10分钟",
-          value: "10",
-        },
-        {
-          title: "20分钟",
-          value: "20",
-        },
-        {
-          title: "30分钟",
-          value: "30",
-        },
-      ],
-    },
-  ],
-  modules: [
-    {
-      //id需固定为searchDanmu
-      id: "searchDanmu",
-      title: "搜索弹幕",
-      functionName: "searchDanmu",
-      type: "danmu",
-      params: [],
-    },
-    {
-      //id需固定为getDetail
-      id: "getDetail",
-      title: "获取详情",
-      functionName: "getDetailById",
-      type: "danmu",
-      params: [],
-    },
-    {
-      //id需固定为getComments
-      id: "getComments",
-      title: "获取弹幕",
-      functionName: "getCommentsById",
-      type: "danmu",
-      params: [],
-    },
-    {
-      id: "getDanmuWithSegmentTime",
-      title: "获取指定时刻弹幕",
-      functionName: "getDanmuWithSegmentTime",
-      type: "danmu",
-      params: [],
-    }
-  ],
-};
+// 本插件从项目 https://github.com/huangxd-/danmu_api.git 一键导出，配置参数使用说明请参考该项目README
 
-let animes = [];
-let episodeIds = [];
-let episodeNum = 10001; // 全局变量，用于自增 ID
-
-// 日志存储，最多保存 500 行
-let logBuffer = [];
-const MAX_LOGS = 500;
-const MAX_ANIMES = 100;
-const MAX_LAST_SELECT_MAP = 100;
-const vodAllowedPlatforms = ["qiyi", "bilibili1", "imgo", "youku", "qq"];
-let envs = {};
-// 存储查询关键字上次选择的animeId，用于下次match自动匹配时优先选择该anime
-let lastSelectMap = new Map();
-
-// =====================
-// 环境变量处理
-// =====================
-
-const DEFAULT_OTHER_SERVER = "https://api.danmu.icu"; // 默认 第三方弹幕服务器
-let otherServer = DEFAULT_OTHER_SERVER;
-
-function resolveOtherServer(other_server) {
-  if (other_server) {
-    return other_server;
-  }
-  return DEFAULT_OTHER_SERVER;
-}
-
-const DEFAULT_VOD_SERVERS = "vod@https://www.caiji.cyou"; // 默认 vod站点配置，格式：名称@URL,名称@URL
-let vodServers = [];
-
-function resolveVodServers(vod_servers) {
-  // 获取配置字符串
-  let vodServersConfig = DEFAULT_VOD_SERVERS;
-
-  if (vod_servers) {
-    vodServersConfig = vod_servers;
-  }
-
-  // 解析配置：支持 "名称@URL,名称@URL" 格式
-  if (!vodServersConfig || vodServersConfig.trim() === "") {
-    return [];
-  }
-
-  const servers = vodServersConfig
-    .split(',')
-    .map(s => s.trim())
-    .filter(s => s.length > 0)
-    .map((item, index) => {
-      if (item.includes('@')) {
-        const [name, url] = item.split('@').map(s => s.trim());
-        return { name: name || `vod-${index + 1}`, url };
+class URL {
+  constructor(url, base) {
+    if (base) {
+      // 如果提供了基础URL，拼接相对路径
+      if (url.startsWith('/')) {
+        // 处理绝对路径形式
+        const baseWithoutPath = base.replace(/\/[^\/]*$/, '');
+        this._url = baseWithoutPath + url;
+      } else if (url.startsWith('./') || !url.startsWith('http')) {
+        // 处理相对路径
+        const baseWithoutPath = base.replace(/\/[^\/]*$/, '');
+        this._url = baseWithoutFile + '/' + url.replace('./', '');
       } else {
-        // 没有 @ 符号，自动生成名称
-        return { name: `vod-${index + 1}`, url: item };
+        this._url = url;
       }
-    })
-    .filter(server => server.url && server.url.length > 0);  // 过滤掉空 URL
-
-  return servers;
-}
-
-const DEFAULT_BILIBILI_COOKIE = ""; // 默认 bilibili cookie
-let bilibliCookie = DEFAULT_BILIBILI_COOKIE;
-
-// 这里既支持 Cloudflare env，也支持 Node process.env
-function resolveBilibiliCookie(bilibili_cookie) {
-  if (bilibili_cookie) {
-    return bilibili_cookie;
-  }
-  return DEFAULT_BILIBILI_COOKIE;
-}
-
-const DEFAULT_SOURCE_ORDER = "360,vod,renren,hanjutv"; // 默认 源排序
-let sourceOrderArr = [];
-
-function resolveSourceOrder(source_order) {
-  // 获取环境变量中的 SOURCE_ORDER 配置
-  let sourceOrder = DEFAULT_SOURCE_ORDER;
-
-  if (source_order) {
-    sourceOrder = source_order;
-  }
-
-  // 解析并校验 sourceOrder（移除 vod2，因为已合并到 vod）
-  const allowedSources = ['360', 'vod', 'renren', "hanjutv", "bahamut"];
-
-  // 转换为数组并去除空格，过滤无效项
-  const orderArr = sourceOrder
-    .split(',')
-    .map(s => s.trim())  // 去除空格
-    .filter(s => allowedSources.includes(s));  // 只保留有效来源
-
-  // 如果没有有效的来源，使用默认顺序
-  if (orderArr.length === 0) {
-    return DEFAULT_SOURCE_ORDER.split(',').map(s => s.trim());
-  }
-
-  return orderArr;
-}
-
-const DEFAULT_BLOCKED_WORDS = ""; // 默认 屏蔽词列表
-let blockedWords = DEFAULT_BLOCKED_WORDS;
-
-// 这里既支持 Cloudflare env，也支持 Node process.env
-function resolveBlockedWords(blocked_words) {
-  if (blocked_words) {
-    return blocked_words;
-  }
-  return DEFAULT_BLOCKED_WORDS;
-}
-
-// 分钟内合并去重（默认 1，最大值30，0表示不去重）
-const DEFAULT_GROUP_MINUTE = 1;
-let groupMinute = DEFAULT_GROUP_MINUTE;
-
-function resolveGroupMinute(group_minute) {
-  const n = parseInt(group_minute, 10);
-  if (!Number.isNaN(n) && n >= 0) {
-    return Math.min(n, 30);
-  }
-  return DEFAULT_GROUP_MINUTE;
-}
-
-// =====================
-// 数据结构处理函数
-// =====================
-
-// 添加元素到 episodeIds：检查 url 是否存在，若不存在则以自增 id 添加
-function addEpisode(url, title) {
-    // 检查是否已存在相同的 url 和 title
-    const existingEpisode = episodeIds.find(episode => episode.url === url && episode.title === title);
-    if (existingEpisode) {
-        // log("info", `Episode with URL ${url} and title ${title} already exists in episodeIds, returning existing episode.`);
-        return existingEpisode; // 返回已存在的 episode
-    }
-
-    // 自增 episodeNum 并使用作为 id
-    episodeNum++;
-    const newEpisode = { id: episodeNum, url: url, title: title };
-
-    // 添加新对象
-    episodeIds.push(newEpisode);
-    // log("info", `Added to episodeIds: ${JSON.stringify(newEpisode)}`);
-    return newEpisode; // 返回新添加的对象
-}
-
-// 删除指定 URL 的对象从 episodeIds
-function removeEpisodeByUrl(url) {
-    const initialLength = episodeIds.length;
-    episodeIds = episodeIds.filter(episode => episode.url !== url);
-    const removedCount = initialLength - episodeIds.length;
-    if (removedCount > 0) {
-        log("info", `Removed ${removedCount} episode(s) from episodeIds with URL: ${url}`);
-        return true;
-    }
-    log("error", `No episode found in episodeIds with URL: ${url}`);
-    return false;
-}
-
-// 根据 ID 查找 URL
-function findUrlById(id) {
-    const idInt = parseInt(id, 10);
-    const episode = episodeIds.find(episode => episode.id === idInt);
-    if (episode) {
-        log("info", `Found URL for ID ${id}: ${episode.url}`);
-        return episode.url;
-    }
-    log("error", `No URL found for ID: ${id}`);
-    return null;
-}
-
-// 根据 ID 查找 TITLE
-function findTitleById(id) {
-    const idInt = parseInt(id, 10);
-    const episode = episodeIds.find(episode => episode.id === idInt);
-    if (episode) {
-        log("info", `Found TITLE for ID ${id}: ${episode.title}`);
-        return episode.title;
-    }
-    log("error", `No TITLE found for ID: ${id}`);
-    return null;
-}
-
-// 添加 anime 对象到 animes，并将其 links 添加到 episodeIds
-function addAnime(anime) {
-    // 确保 anime 有 links 属性且是数组
-    if (!anime.links || !Array.isArray(anime.links)) {
-        log("error", `Invalid or missing links in anime: ${JSON.stringify(anime)}`);
-        return false;
-    }
-
-    // 遍历 links，调用 addEpisode，并收集返回的对象
-    const newLinks = [];
-    anime.links.forEach(link => {
-        if (link.url) {
-            const episode = addEpisode(link.url, link.title);
-            if (episode) {
-                newLinks.push(episode); // 仅添加成功添加的 episode
-            }
-        } else {
-            log("error", `Invalid link in anime, missing url: ${JSON.stringify(link)}`);
-        }
-    });
-
-    // 创建新的 anime 副本
-    const animeCopy = { ...anime, links: newLinks };
-
-    // 检查是否已存在相同 animeId 的 anime
-    const existingAnimeIndex = animes.findIndex(a => a.animeId === anime.animeId);
-
-    if (existingAnimeIndex !== -1) {
-        // 如果存在，先删除旧的
-        animes.splice(existingAnimeIndex, 1);
-        // log("info", `Removed old anime at index: ${existingAnimeIndex}`);
-    }
-
-    // 将新的添加到数组末尾（最新位置）
-    animes.push(animeCopy);
-    // log("info", `Added anime to latest position: ${anime.animeId}`);
-
-    // 检查是否超过 MAX_ANIMES，超过则删除最早的
-    if (animes.length > MAX_ANIMES) {
-        removeEarliestAnime();
-    }
-
-    return true;
-}
-
-// 删除最早添加的 anime，并从 episodeIds 删除其 links 中的 url
-function removeEarliestAnime() {
-    if (animes.length === 0) {
-        log("error", "No animes to remove.");
-        return false;
-    }
-
-    // 移除最早的 anime（第一个元素）
-    const removedAnime = animes.shift();
-    log("info", `Removed earliest anime: ${JSON.stringify(removedAnime)}`);
-
-    // 从 episodeIds 删除该 anime 的所有 links 中的 url
-    if (removedAnime.links && Array.isArray(removedAnime.links)) {
-        removedAnime.links.forEach(link => {
-            if (link.url) {
-                removeEpisodeByUrl(link.url);
-            }
-        });
-    }
-
-    return true;
-}
-
-// 将所有动漫的 animeId 存入 lastSelectMap 的 animeIds 数组中
-function storeAnimeIdsToMap(curAnimes, key) {
-    const uniqueAnimeIds = new Set();
-    for (const anime of curAnimes) {
-        uniqueAnimeIds.add(anime.animeId);
-    }
-
-    // 保存旧的prefer值
-    const oldPrefer = lastSelectMap[key]?.prefer;
-
-    // 如果key已存在，先删除它（为了更新顺序）
-    if (lastSelectMap[key]) {
-        delete lastSelectMap[key];
-    }
-
-    // 添加新记录，保留prefer字段
-    lastSelectMap[key] = {
-        animeIds: [...uniqueAnimeIds],
-        ...(oldPrefer !== undefined && { prefer: oldPrefer })
-    };
-
-    // 检查大小限制
-    const keys = Object.keys(lastSelectMap);
-    if (keys.length > MAX_LAST_SELECT_MAP) {
-        // 删除最早的记录（第一个key）
-        delete lastSelectMap[keys[0]];
-    }
-}
-
-// 根据给定的 commentId 查找对应的 animeId
-function findAnimeIdByCommentId(commentId) {
-  for (const anime of animes) {
-    for (const link of anime.links) {
-      if (link.id === commentId) {
-        return anime.animeId;
-      }
-    }
-  }
-  return null;
-}
-
-// 通过 animeId 查找 lastSelectMap 中 animeIds 包含该 animeId 的 key，并设置其 prefer 为 animeId
-function setPreferByAnimeId(animeId) {
-  for (const key in lastSelectMap) {
-    if (lastSelectMap[key].animeIds.includes(animeId)) {
-      lastSelectMap[key].prefer = animeId;
-      return key; // 返回被修改的 key
-    }
-  }
-  return null; // 如果没有找到匹配的 key，返回 null
-}
-
-// =====================
-// storage 读写请求
-// =====================
-
-// 获取变量数据
-async function getCaches() {
-    if (animes.length === 0) {
-        log("info", 'getCaches start.');
-        const [kv_animes, kv_episodeIds, kv_episodeNum, kv_logBuffer, kv_lastSelectMap] = await Promise.all([
-          Widget.storage.get('animes'),
-          Widget.storage.get('episodeIds'),
-          Widget.storage.get('episodeNum'),
-          Widget.storage.get('logBuffer'),
-          Widget.storage.get('lastSelectMap'),
-        ]);
-
-        animes = kv_animes ? (typeof kv_animes === 'string' ? JSON.parse(kv_animes) : kv_animes) : animes;
-        episodeIds = kv_episodeIds ? (typeof kv_episodeIds === 'string' ? JSON.parse(kv_episodeIds) : kv_episodeIds) : episodeIds;
-        episodeNum = kv_episodeNum ? (typeof kv_episodeNum === 'string' ? JSON.parse(kv_episodeNum) : kv_episodeNum) : episodeNum;
-        logBuffer = kv_logBuffer ? (typeof kv_logBuffer === 'string' ? JSON.parse(kv_logBuffer) : kv_logBuffer) : logBuffer;
-        lastSelectMap = kv_lastSelectMap ? (typeof kv_lastSelectMap === 'string' ? JSON.parse(kv_lastSelectMap) : kv_lastSelectMap) : lastSelectMap;
-    }
-}
-
-// 存储更新后的变量
-async function updateCaches() {
-    log("info", 'updateCaches start.');
-    await Promise.all([
-      Widget.storage.set('animes', animes),
-      Widget.storage.set('episodeIds', episodeIds),
-      Widget.storage.set('episodeNum', episodeNum),
-      Widget.storage.set('logBuffer', logBuffer),
-      Widget.storage.set('lastSelectMap', lastSelectMap)
-    ]);
-}
-
-// 删除存储的变量
-async function removeCaches() {
-    log("info", 'removeCaches start.');
-    await Promise.all([
-      Widget.storage.remove('animes'),
-      Widget.storage.remove('episodeIds'),
-      Widget.storage.remove('episodeNum'),
-      Widget.storage.remove('logBuffer'),
-      Widget.storage.remove('lastSelectMap')
-    ]);
-}
-
-// =====================
-// 中文繁简转化
-// =====================
-
-function charPYStr(){
-    return '锕皑蔼碍爱嗳嫒瑷暧霭谙铵鹌肮袄奥媪骜鳌坝罢钯摆败呗颁办绊钣帮绑镑谤剥饱宝报鲍鸨龅辈贝钡狈备惫鹎贲锛绷笔毕毙币闭荜哔滗铋筚跸边编贬变辩辫苄缏笾标骠飑飙镖镳鳔鳖别瘪濒滨宾摈傧缤槟殡膑镔髌鬓饼禀拨钵铂驳饽钹鹁补钸财参蚕残惭惨灿骖黪苍舱仓沧厕侧册测恻层诧锸侪钗搀掺蝉馋谗缠铲产阐颤冁谄谶蒇忏婵骣觇禅镡场尝长偿肠厂畅伥苌怅阊鲳钞车彻砗尘陈衬伧谌榇碜龀撑称惩诚骋枨柽铖铛痴迟驰耻齿炽饬鸱冲冲虫宠铳畴踌筹绸俦帱雠橱厨锄雏础储触处刍绌蹰传钏疮闯创怆锤缍纯鹑绰辍龊辞词赐鹚聪葱囱从丛苁骢枞凑辏蹿窜撺错锉鹾达哒鞑带贷骀绐担单郸掸胆惮诞弹殚赕瘅箪当挡党荡档谠砀裆捣岛祷导盗焘灯邓镫敌涤递缔籴诋谛绨觌镝颠点垫电巅钿癫钓调铫鲷谍叠鲽钉顶锭订铤丢铥东动栋冻岽鸫窦犊独读赌镀渎椟牍笃黩锻断缎簖兑队对怼镦吨顿钝炖趸夺堕铎鹅额讹恶饿谔垩阏轭锇锷鹗颚颛鳄诶儿尔饵贰迩铒鸸鲕发罚阀珐矾钒烦贩饭访纺钫鲂飞诽废费绯镄鲱纷坟奋愤粪偾丰枫锋风疯冯缝讽凤沣肤辐抚辅赋复负讣妇缚凫驸绂绋赙麸鲋鳆钆该钙盖赅杆赶秆赣尴擀绀冈刚钢纲岗戆镐睾诰缟锆搁鸽阁铬个纥镉颍给亘赓绠鲠龚宫巩贡钩沟苟构购够诟缑觏蛊顾诂毂钴锢鸪鹄鹘剐挂鸹掴关观馆惯贯诖掼鹳鳏广犷规归龟闺轨诡贵刽匦刿妫桧鲑鳜辊滚衮绲鲧锅国过埚呙帼椁蝈铪骇韩汉阚绗颉号灏颢阂鹤贺诃阖蛎横轰鸿红黉讧荭闳鲎壶护沪户浒鹕哗华画划话骅桦铧怀坏欢环还缓换唤痪焕涣奂缳锾鲩黄谎鳇挥辉毁贿秽会烩汇讳诲绘诙荟哕浍缋珲晖荤浑诨馄阍获货祸钬镬击机积饥迹讥鸡绩缉极辑级挤几蓟剂济计记际继纪讦诘荠叽哜骥玑觊齑矶羁虿跻霁鲚鲫夹荚颊贾钾价驾郏浃铗镓蛲歼监坚笺间艰缄茧检碱硷拣捡简俭减荐槛鉴践贱见键舰剑饯渐溅涧谏缣戋戬睑鹣笕鲣鞯将浆蒋桨奖讲酱绛缰胶浇骄娇搅铰矫侥脚饺缴绞轿较挢峤鹪鲛阶节洁结诫届疖颌鲒紧锦仅谨进晋烬尽劲荆茎卺荩馑缙赆觐鲸惊经颈静镜径痉竞净刭泾迳弪胫靓纠厩旧阄鸠鹫驹举据锯惧剧讵屦榉飓钜锔窭龃鹃绢锩镌隽觉决绝谲珏钧军骏皲开凯剀垲忾恺铠锴龛闶钪铐颗壳课骒缂轲钶锞颔垦恳龈铿抠库裤喾块侩郐哙脍宽狯髋矿旷况诓诳邝圹纩贶亏岿窥馈溃匮蒉愦聩篑阃锟鲲扩阔蛴蜡腊莱来赖崃徕涞濑赉睐铼癞籁蓝栏拦篮阑兰澜谰揽览懒缆烂滥岚榄斓镧褴琅阆锒捞劳涝唠崂铑铹痨乐鳓镭垒类泪诔缧篱狸离鲤礼丽厉励砾历沥隶俪郦坜苈莅蓠呖逦骊缡枥栎轹砺锂鹂疠粝跞雳鲡鳢俩联莲连镰怜涟帘敛脸链恋炼练蔹奁潋琏殓裢裣鲢粮凉两辆谅魉疗辽镣缭钌鹩猎临邻鳞凛赁蔺廪檩辚躏龄铃灵岭领绫棂蛏鲮馏刘浏骝绺镏鹨龙聋咙笼垄拢陇茏泷珑栊胧砻楼娄搂篓偻蒌喽嵝镂瘘耧蝼髅芦卢颅庐炉掳卤虏鲁赂禄录陆垆撸噜闾泸渌栌橹轳辂辘氇胪鸬鹭舻鲈峦挛孪滦乱脔娈栾鸾銮抡轮伦仑沦纶论囵萝罗逻锣箩骡骆络荦猡泺椤脶镙驴吕铝侣屡缕虑滤绿榈褛锊呒妈玛码蚂马骂吗唛嬷杩买麦卖迈脉劢瞒馒蛮满谩缦镘颡鳗猫锚铆贸麽没镁门闷们扪焖懑钔锰梦眯谜弥觅幂芈谧猕祢绵缅渑腼黾庙缈缪灭悯闽闵缗鸣铭谬谟蓦馍殁镆谋亩钼呐钠纳难挠脑恼闹铙讷馁内拟腻铌鲵撵辇鲶酿鸟茑袅聂啮镊镍陧蘖嗫颟蹑柠狞宁拧泞苎咛聍钮纽脓浓农侬哝驽钕诺傩疟欧鸥殴呕沤讴怄瓯盘蹒庞抛疱赔辔喷鹏纰罴铍骗谝骈飘缥频贫嫔苹凭评泼颇钋扑铺朴谱镤镨栖脐齐骑岂启气弃讫蕲骐绮桤碛颀颃鳍牵钎铅迁签谦钱钳潜浅谴堑佥荨悭骞缱椠钤枪呛墙蔷强抢嫱樯戗炝锖锵镪羟跄锹桥乔侨翘窍诮谯荞缲硗跷窃惬锲箧钦亲寝锓轻氢倾顷请庆揿鲭琼穷茕蛱巯赇虮鳅趋区躯驱龋诎岖阒觑鸲颧权劝诠绻辁铨却鹊确阕阙悫让饶扰绕荛娆桡热韧认纫饪轫荣绒嵘蝾缛铷颦软锐蚬闰润洒萨飒鳃赛伞毵糁丧骚扫缫涩啬铯穑杀刹纱铩鲨筛晒酾删闪陕赡缮讪姗骟钐鳝墒伤赏垧殇觞烧绍赊摄慑设厍滠畲绅审婶肾渗诜谂渖声绳胜师狮湿诗时蚀实识驶势适释饰视试谥埘莳弑轼贳铈鲥寿兽绶枢输书赎属术树竖数摅纾帅闩双谁税顺说硕烁铄丝饲厮驷缌锶鸶耸怂颂讼诵擞薮馊飕锼苏诉肃谡稣虽随绥岁谇孙损笋荪狲缩琐锁唢睃獭挞闼铊鳎台态钛鲐摊贪瘫滩坛谭谈叹昙钽锬顸汤烫傥饧铴镗涛绦讨韬铽腾誊锑题体屉缇鹈阗条粜龆鲦贴铁厅听烃铜统恸头钭秃图钍团抟颓蜕饨脱鸵驮驼椭箨鼍袜娲腽弯湾顽万纨绾网辋韦违围为潍维苇伟伪纬谓卫诿帏闱沩涠玮韪炜鲔温闻纹稳问阌瓮挝蜗涡窝卧莴龌呜钨乌诬无芜吴坞雾务误邬庑怃妩骛鹉鹜锡牺袭习铣戏细饩阋玺觋虾辖峡侠狭厦吓硖鲜纤贤衔闲显险现献县馅羡宪线苋莶藓岘猃娴鹇痫蚝籼跹厢镶乡详响项芗饷骧缃飨萧嚣销晓啸哓潇骁绡枭箫协挟携胁谐写泻谢亵撷绁缬锌衅兴陉荥凶汹锈绣馐鸺虚嘘须许叙绪续诩顼轩悬选癣绚谖铉镟学谑泶鳕勋询寻驯训讯逊埙浔鲟压鸦鸭哑亚讶垭娅桠氩阉烟盐严岩颜阎艳厌砚彦谚验厣赝俨兖谳恹闫酽魇餍鼹鸯杨扬疡阳痒养样炀瑶摇尧遥窑谣药轺鹞鳐爷页业叶靥谒邺晔烨医铱颐遗仪蚁艺亿忆义诣议谊译异绎诒呓峄饴怿驿缢轶贻钇镒镱瘗舣荫阴银饮隐铟瘾樱婴鹰应缨莹萤营荧蝇赢颖茔莺萦蓥撄嘤滢潆璎鹦瘿颏罂哟拥佣痈踊咏镛优忧邮铀犹诱莸铕鱿舆鱼渔娱与屿语狱誉预驭伛俣谀谕蓣嵛饫阈妪纡觎欤钰鹆鹬龉鸳渊辕园员圆缘远橼鸢鼋约跃钥粤悦阅钺郧匀陨运蕴酝晕韵郓芸恽愠纭韫殒氲杂灾载攒暂赞瓒趱錾赃脏驵凿枣责择则泽赜啧帻箦贼谮赠综缯轧铡闸栅诈斋债毡盏斩辗崭栈战绽谵张涨帐账胀赵诏钊蛰辙锗这谪辄鹧贞针侦诊镇阵浈缜桢轸赈祯鸩挣睁狰争帧症郑证诤峥钲铮筝织职执纸挚掷帜质滞骘栉栀轵轾贽鸷蛳絷踬踯觯钟终种肿众锺诌轴皱昼骤纣绉猪诸诛烛瞩嘱贮铸驻伫槠铢专砖转赚啭馔颞桩庄装妆壮状锥赘坠缀骓缒谆准着浊诼镯兹资渍谘缁辎赀眦锱龇鲻踪总纵偬邹诹驺鲰诅组镞钻缵躜鳟翱并卜沉丑淀迭斗范干皋硅柜后伙秸杰诀夸里凌么霉捻凄扦圣尸抬涂洼喂污锨咸蝎彝涌游吁御愿岳云灶扎札筑于志注凋讠谫郄勐凼坂垅垴埯埝苘荬荮莜莼菰藁揸吒吣咔咝咴噘噼嚯幞岙嵴彷徼犸狍馀馇馓馕愣憷懔丬溆滟溷漤潴澹甯纟绔绱珉枧桊桉槔橥轱轷赍肷胨飚煳煅熘愍淼砜磙眍钚钷铘铞锃锍锎锏锘锝锪锫锿镅镎镢镥镩镲稆鹋鹛鹱疬疴痖癯裥襁耢颥螨麴鲅鲆鲇鲞鲴鲺鲼鳊鳋鳘鳙鞒鞴齄';
-}
-function ftPYStr(){
-    return '錒皚藹礙愛噯嬡璦曖靄諳銨鵪骯襖奧媼驁鰲壩罷鈀擺敗唄頒辦絆鈑幫綁鎊謗剝飽寶報鮑鴇齙輩貝鋇狽備憊鵯賁錛繃筆畢斃幣閉蓽嗶潷鉍篳蹕邊編貶變辯辮芐緶籩標驃颮飆鏢鑣鰾鱉別癟瀕濱賓擯儐繽檳殯臏鑌髕鬢餅稟撥缽鉑駁餑鈸鵓補鈽財參蠶殘慚慘燦驂黲蒼艙倉滄廁側冊測惻層詫鍤儕釵攙摻蟬饞讒纏鏟產闡顫囅諂讖蕆懺嬋驏覘禪鐔場嘗長償腸廠暢倀萇悵閶鯧鈔車徹硨塵陳襯傖諶櫬磣齔撐稱懲誠騁棖檉鋮鐺癡遲馳恥齒熾飭鴟沖衝蟲寵銃疇躊籌綢儔幬讎櫥廚鋤雛礎儲觸處芻絀躕傳釧瘡闖創愴錘綞純鶉綽輟齪辭詞賜鶿聰蔥囪從叢蓯驄樅湊輳躥竄攛錯銼鹺達噠韃帶貸駘紿擔單鄲撣膽憚誕彈殫賧癉簞當擋黨蕩檔讜碭襠搗島禱導盜燾燈鄧鐙敵滌遞締糴詆諦綈覿鏑顛點墊電巔鈿癲釣調銚鯛諜疊鰈釘頂錠訂鋌丟銩東動棟凍崠鶇竇犢獨讀賭鍍瀆櫝牘篤黷鍛斷緞籪兌隊對懟鐓噸頓鈍燉躉奪墮鐸鵝額訛惡餓諤堊閼軛鋨鍔鶚顎顓鱷誒兒爾餌貳邇鉺鴯鮞發罰閥琺礬釩煩販飯訪紡鈁魴飛誹廢費緋鐨鯡紛墳奮憤糞僨豐楓鋒風瘋馮縫諷鳳灃膚輻撫輔賦復負訃婦縛鳧駙紱紼賻麩鮒鰒釓該鈣蓋賅桿趕稈贛尷搟紺岡剛鋼綱崗戇鎬睪誥縞鋯擱鴿閣鉻個紇鎘潁給亙賡綆鯁龔宮鞏貢鉤溝茍構購夠詬緱覯蠱顧詁轂鈷錮鴣鵠鶻剮掛鴰摑關觀館慣貫詿摜鸛鰥廣獷規歸龜閨軌詭貴劊匭劌媯檜鮭鱖輥滾袞緄鯀鍋國過堝咼幗槨蟈鉿駭韓漢闞絎頡號灝顥閡鶴賀訶闔蠣橫轟鴻紅黌訌葒閎鱟壺護滬戶滸鶘嘩華畫劃話驊樺鏵懷壞歡環還緩換喚瘓煥渙奐繯鍰鯇黃謊鰉揮輝毀賄穢會燴匯諱誨繪詼薈噦澮繢琿暉葷渾諢餛閽獲貨禍鈥鑊擊機積饑跡譏雞績緝極輯級擠幾薊劑濟計記際繼紀訐詰薺嘰嚌驥璣覬齏磯羈蠆躋霽鱭鯽夾莢頰賈鉀價駕郟浹鋏鎵蟯殲監堅箋間艱緘繭檢堿鹼揀撿簡儉減薦檻鑒踐賤見鍵艦劍餞漸濺澗諫縑戔戩瞼鶼筧鰹韉將漿蔣槳獎講醬絳韁膠澆驕嬌攪鉸矯僥腳餃繳絞轎較撟嶠鷦鮫階節潔結誡屆癤頜鮚緊錦僅謹進晉燼盡勁荊莖巹藎饉縉贐覲鯨驚經頸靜鏡徑痙競凈剄涇逕弳脛靚糾廄舊鬮鳩鷲駒舉據鋸懼劇詎屨櫸颶鉅鋦窶齟鵑絹錈鐫雋覺決絕譎玨鈞軍駿皸開凱剴塏愾愷鎧鍇龕閌鈧銬顆殼課騍緙軻鈳錁頷墾懇齦鏗摳庫褲嚳塊儈鄶噲膾寬獪髖礦曠況誆誑鄺壙纊貺虧巋窺饋潰匱蕢憒聵簣閫錕鯤擴闊蠐蠟臘萊來賴崍徠淶瀨賚睞錸癩籟藍欄攔籃闌蘭瀾讕攬覽懶纜爛濫嵐欖斕鑭襤瑯閬鋃撈勞澇嘮嶗銠鐒癆樂鰳鐳壘類淚誄縲籬貍離鯉禮麗厲勵礫歷瀝隸儷酈壢藶蒞蘺嚦邐驪縭櫪櫟轢礪鋰鸝癘糲躒靂鱺鱧倆聯蓮連鐮憐漣簾斂臉鏈戀煉練蘞奩瀲璉殮褳襝鰱糧涼兩輛諒魎療遼鐐繚釕鷯獵臨鄰鱗凜賃藺廩檁轔躪齡鈴靈嶺領綾欞蟶鯪餾劉瀏騮綹鎦鷚龍聾嚨籠壟攏隴蘢瀧瓏櫳朧礱樓婁摟簍僂蔞嘍嶁鏤瘺耬螻髏蘆盧顱廬爐擄鹵虜魯賂祿錄陸壚擼嚕閭瀘淥櫨櫓轤輅轆氌臚鸕鷺艫鱸巒攣孿灤亂臠孌欒鸞鑾掄輪倫侖淪綸論圇蘿羅邏鑼籮騾駱絡犖玀濼欏腡鏍驢呂鋁侶屢縷慮濾綠櫚褸鋝嘸媽瑪碼螞馬罵嗎嘜嬤榪買麥賣邁脈勱瞞饅蠻滿謾縵鏝顙鰻貓錨鉚貿麼沒鎂門悶們捫燜懣鍆錳夢瞇謎彌覓冪羋謐獼禰綿緬澠靦黽廟緲繆滅憫閩閔緡鳴銘謬謨驀饃歿鏌謀畝鉬吶鈉納難撓腦惱鬧鐃訥餒內擬膩鈮鯢攆輦鯰釀鳥蔦裊聶嚙鑷鎳隉蘗囁顢躡檸獰寧擰濘苧嚀聹鈕紐膿濃農儂噥駑釹諾儺瘧歐鷗毆嘔漚謳慪甌盤蹣龐拋皰賠轡噴鵬紕羆鈹騙諞駢飄縹頻貧嬪蘋憑評潑頗釙撲鋪樸譜鏷鐠棲臍齊騎豈啟氣棄訖蘄騏綺榿磧頎頏鰭牽釬鉛遷簽謙錢鉗潛淺譴塹僉蕁慳騫繾槧鈐槍嗆墻薔強搶嬙檣戧熗錆鏘鏹羥蹌鍬橋喬僑翹竅誚譙蕎繰磽蹺竊愜鍥篋欽親寢鋟輕氫傾頃請慶撳鯖瓊窮煢蛺巰賕蟣鰍趨區軀驅齲詘嶇闃覷鴝顴權勸詮綣輇銓卻鵲確闋闕愨讓饒擾繞蕘嬈橈熱韌認紉飪軔榮絨嶸蠑縟銣顰軟銳蜆閏潤灑薩颯鰓賽傘毿糝喪騷掃繅澀嗇銫穡殺剎紗鎩鯊篩曬釃刪閃陜贍繕訕姍騸釤鱔墑傷賞坰殤觴燒紹賒攝懾設厙灄畬紳審嬸腎滲詵諗瀋聲繩勝師獅濕詩時蝕實識駛勢適釋飾視試謚塒蒔弒軾貰鈰鰣壽獸綬樞輸書贖屬術樹豎數攄紓帥閂雙誰稅順說碩爍鑠絲飼廝駟緦鍶鷥聳慫頌訟誦擻藪餿颼鎪蘇訴肅謖穌雖隨綏歲誶孫損筍蓀猻縮瑣鎖嗩脧獺撻闥鉈鰨臺態鈦鮐攤貪癱灘壇譚談嘆曇鉭錟頇湯燙儻餳鐋鏜濤絳討韜鋱騰謄銻題體屜緹鵜闐條糶齠鰷貼鐵廳聽烴銅統慟頭鈄禿圖釷團摶頹蛻飩脫鴕馱駝橢籜鼉襪媧膃彎灣頑萬紈綰網輞韋違圍為濰維葦偉偽緯謂衛諉幃闈溈潿瑋韙煒鮪溫聞紋穩問閿甕撾蝸渦窩臥萵齷嗚鎢烏誣無蕪吳塢霧務誤鄔廡憮嫵騖鵡鶩錫犧襲習銑戲細餼鬩璽覡蝦轄峽俠狹廈嚇硤鮮纖賢銜閑顯險現獻縣餡羨憲線莧薟蘚峴獫嫻鷴癇蠔秈躚廂鑲鄉詳響項薌餉驤緗饗蕭囂銷曉嘯嘵瀟驍綃梟簫協挾攜脅諧寫瀉謝褻擷紲纈鋅釁興陘滎兇洶銹繡饈鵂虛噓須許敘緒續詡頊軒懸選癬絢諼鉉鏇學謔澩鱈勛詢尋馴訓訊遜塤潯鱘壓鴉鴨啞亞訝埡婭椏氬閹煙鹽嚴巖顏閻艷厭硯彥諺驗厴贗儼兗讞懨閆釅魘饜鼴鴦楊揚瘍陽癢養樣煬瑤搖堯遙窯謠藥軺鷂鰩爺頁業葉靨謁鄴曄燁醫銥頤遺儀蟻藝億憶義詣議誼譯異繹詒囈嶧飴懌驛縊軼貽釔鎰鐿瘞艤蔭陰銀飲隱銦癮櫻嬰鷹應纓瑩螢營熒蠅贏穎塋鶯縈鎣攖嚶瀅瀠瓔鸚癭頦罌喲擁傭癰踴詠鏞優憂郵鈾猶誘蕕銪魷輿魚漁娛與嶼語獄譽預馭傴俁諛諭蕷崳飫閾嫗紆覦歟鈺鵒鷸齬鴛淵轅園員圓緣遠櫞鳶黿約躍鑰粵悅閱鉞鄖勻隕運蘊醞暈韻鄆蕓惲慍紜韞殞氳雜災載攢暫贊瓚趲鏨贓臟駔鑿棗責擇則澤賾嘖幘簀賊譖贈綜繒軋鍘閘柵詐齋債氈盞斬輾嶄棧戰綻譫張漲帳賬脹趙詔釗蟄轍鍺這謫輒鷓貞針偵診鎮陣湞縝楨軫賑禎鴆掙睜猙爭幀癥鄭證諍崢鉦錚箏織職執紙摯擲幟質滯騭櫛梔軹輊贄鷙螄縶躓躑觶鐘終種腫眾鍾謅軸皺晝驟紂縐豬諸誅燭矚囑貯鑄駐佇櫧銖專磚轉賺囀饌顳樁莊裝妝壯狀錐贅墜綴騅縋諄準著濁諑鐲茲資漬諮緇輜貲眥錙齜鯔蹤總縱傯鄒諏騶鯫詛組鏃鉆纘躦鱒翺並蔔沈醜澱叠鬥範幹臯矽櫃後夥稭傑訣誇裏淩麽黴撚淒扡聖屍擡塗窪餵汙鍁鹹蠍彜湧遊籲禦願嶽雲竈紮劄築於誌註雕訁譾郤猛氹阪壟堖垵墊檾蕒葤蓧蒓菇槁摣咤唚哢噝噅撅劈謔襆嶴脊仿僥獁麅餘餷饊饢楞怵懍爿漵灩混濫瀦淡寧糸絝緔瑉梘棬案橰櫫軲軤賫膁腖飈糊煆溜湣渺碸滾瞘鈈鉕鋣銱鋥鋶鐦鐧鍩鍀鍃錇鎄鎇鎿鐝鑥鑹鑔穭鶓鶥鸌癧屙瘂臒襇繈耮顬蟎麯鮁鮃鮎鯗鯝鯴鱝鯿鰠鰵鱅鞽韝齇';
-}
-
-function traditionalized(cc){
-    var str='';
-    for(var i=0;i<cc.length;i++){
-        if(charPYStr().indexOf(cc.charAt(i))!=-1)
-            str+=ftPYStr().charAt(charPYStr().indexOf(cc.charAt(i)));
-        else
-            str+=cc.charAt(i);
-    }
-    return str;
-}
-
-function simplized(cc){
-    var str='';
-    for(var i=0;i<cc.length;i++){
-        if(ftPYStr().indexOf(cc.charAt(i))!=-1)
-            str+=charPYStr().charAt(ftPYStr().indexOf(cc.charAt(i)));
-        else
-            str+=cc.charAt(i);
-    }
-    return str;
-}
-
-// =====================
-// 获取播放链接
-// =====================
-
-// 查询360kan影片信息
-async function get360Animes(title) {
-  try {
-    const response = await Widget.http.get(
-      `https://api.so.360kan.com/index?force_v=1&kw=${encodeURIComponent(title)}&from=&pageno=1&v_ap=1&tab=all`,
-      {
-        headers: {
-          "Content-Type": "application/json",
-          "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
-        },
-      }
-    );
-
-    const data = response.data;
-    log("info", "360kan response:", data);
-
-    let animes = [];
-    if ('rows' in data.data.longData) {
-      animes = data.data.longData.rows;
-    }
-
-    log("info", `360kan animes.length: ${animes.length}`);
-
-    return animes;
-  } catch (error) {
-    log("error", "get360Animes error:", {
-      message: error.message,
-      name: error.name,
-      stack: error.stack,
-    });
-    return [];
-  }
-}
-
-// 查询360kan综艺详情
-async function get360Zongyi(title, entId, site, year) {
-  try {
-    let links = [];
-    for (let j = 0; j <= 10; j++) {
-      const response = await Widget.http.get(
-          `https://api.so.360kan.com/episodeszongyi?entid=${entId}&site=${site}&y=${year}&count=20&offset=${j * 20}`,
-          {
-            headers: {
-              "Content-Type": "application/json",
-              "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
-            },
-          }
-      );
-
-      const data = await response.data;
-      log("info", "360kan zongyi response:", data);
-
-      const episodeList = data.data.list;
-      if (!episodeList) {
-        break;
-      }
-      for (const episodeInfo of episodeList) {
-        // Extract episode number from episodeInfo.name (e.g., "第10期下：地球团熟人局大胆开麦，做晚宴超催泪" -> "10")
-        const epNumMatch = episodeInfo.name.match(/第(\d+)期([上中下])?/) || episodeInfo.period.match(/第(\d+)期([上中下])?/);
-        let epNum = epNumMatch ? epNumMatch[1] : null;
-        if (epNum && epNumMatch[2]) {
-          epNum = epNumMatch[2] === "上" ? `${epNum}.1` :
-                  epNumMatch[2] === "中" ? `${epNum}.2` : `${epNum}.3`;
-        }
-
-        links.push({
-            "name": episodeInfo.id,
-            "url": episodeInfo.url,
-            "title": `【${site}】 ${episodeInfo.name} ${episodeInfo.period}`,
-            "sort": epNum || episodeInfo.sort || null
-        });
-      }
-
-      log("info", `links.length: ${links.length}`);
-    }
-    // Sort links by pubdate numerically
-    links.sort((a, b) => {
-      if (!a.sort || !b.sort) return 0;
-      const aNum = parseFloat(a.sort);
-      const bNum = parseFloat(b.sort);
-      return aNum - bNum;
-    });
-
-    return links;
-  } catch (error) {
-    log("error", "get360Animes error:", {
-      message: error.message,
-      name: error.name,
-      stack: error.stack,
-    });
-    return [];
-  }
-}
-
-// 查询vod站点影片信息
-async function getVodAnimes(title, server, serverName) {
-  try {
-    const response = await Widget.http.get(
-      `${server}/api.php/provide/vod/?ac=detail&wd=${title}&pg=1`,
-      {
-        headers: {
-          "Content-Type": "application/json",
-          "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
-        },
-      }
-    );
-    // 检查 response.data.list 是否存在且长度大于 0
-    if (response && response.data && response.data.list && response.data.list.length > 0) {
-      log("info", `请求 ${serverName}(${server}) 成功`);
-      const data = response.data;
-      log("info", `${serverName} response: ↓↓↓`);
-      printFirst200Chars(data);
-      return { serverName, list: data.list };
     } else {
-      log("info", `请求 ${serverName}(${server}) 成功，但 response.data.list 为空`);
-      return { serverName, list: [] };
+      this._url = url;
     }
-  } catch (error) {
-    log("error", `请求 ${serverName}(${server}) 失败:`, {
-      message: error.message,
-      name: error.name,
-      stack: error.stack,
-    });
-    return { serverName, list: [] };
+
+    // 解析URL组件
+    this.parseURL(this._url);
+  }
+
+  parseURL(url) {
+    // 基础URL解析逻辑
+    const match = url.match(/^([^:]+):\/\/([^\/]+)(.*)$/);
+    if (match) {
+      this.protocol = match[1] + ':';
+      this.hostname = match[2];
+      const pathAndQuery = match[3] || '';
+      const queryIndex = pathAndQuery.indexOf('?');
+
+      if (queryIndex !== -1) {
+        this.pathname = pathAndQuery.substring(0, queryIndex);
+        this.search = pathAndQuery.substring(queryIndex);
+      } else {
+        this.pathname = pathAndQuery;
+        this.search = '';
+      }
+    } else {
+      this.protocol = '';
+      this.hostname = '';
+      this.pathname = url;
+      this.search = '';
+    }
+  }
+
+  toString() {
+    return this._url;
+  }
+
+  static createObjectURL(obj) {
+    // 简单的模拟实现
+    return 'blob:' + Date.now();
+  }
+
+  static revokeObjectURL(url) {
+    // 简单的模拟实现
+  }
+
+  get href() {
+    return this._url;
+  }
+
+  get origin() {
+    return this.protocol + '//' + this.hostname;
+  }
+
+  get host() {
+    return this.hostname;
+  }
+
+  get searchParams() {
+    // 创建一个简单的SearchParams实现
+    const paramsString = this.search.substring(1); // 移除开头的?
+    const params = new (function() {
+      const entries = {};
+      if (paramsString) {
+        paramsString.split('&').forEach(pair => {
+          const [key, value] = pair.split('=');
+          if (key) {
+            entries[decodeURIComponent(key)] = decodeURIComponent(value || '');
+          }
+        });
+      }
+
+      this.get = (name) => entries[name] || null;
+      this.set = (name, value) => { entries[name] = value.toString(); };
+      this.toString = () => Object.keys(entries).map(key =>
+        encodeURIComponent(key) + '=' + encodeURIComponent(entries[key])
+      ).join('&');
+    })();
+    return params;
   }
 }
 
-// 查询所有vod站点影片信息（返回第一个有数据的结果）
-async function getVodAnimesFromAllServers(title, servers) {
-  if (!servers || servers.length === 0) {
-    return [];
+class AbortController {
+  constructor() {
+    this.signal = new AbortSignal();
   }
 
-  return new Promise((resolve) => {
-    let completedCount = 0;
-    let resolved = false;
-    const results = [];
+  abort() {
+    this.signal.abort();
+  }
+}
 
-    // 为每个服务器创建请求
-    servers.forEach((server, index) => {
-      getVodAnimes(title, server.url, server.name)
-        .then(result => {
-          completedCount++;
-          results[index] = { status: 'fulfilled', value: result };
+class AbortSignal {
+  constructor() {
+    this.aborted = false;
+    this.onabort = null;
+    this.listeners = [];
+  }
 
-          // 如果找到了有数据的结果且还没有返回，立即返回
-          if (!resolved && result.list && result.list.length > 0) {
-            resolved = true;
-            resolve([result]);
-          }
-          // 如果所有请求都完成了但还没有返回结果
-          else if (completedCount === servers.length && !resolved) {
-            resolved = true;
-            // 返回所有结果（和原代码格式一致）
-            resolve(
-              results
-                .filter(r => r.status === 'fulfilled')
-                .map(r => r.value)
-            );
-          }
-        })
-        .catch(error => {
-          completedCount++;
-          results[index] = { status: 'rejected', reason: error };
+  abort() {
+    if (this.aborted) return;
 
-          // 如果所有请求都完成了但还没有返回结果
-          if (completedCount === servers.length && !resolved) {
-            resolved = true;
-            // 返回所有成功的结果（和原代码格式一致）
-            resolve(
-              results
-                .filter(r => r.status === 'fulfilled')
-                .map(r => r.value)
-            );
-          }
-        });
+    this.aborted = true;
+
+    // 触发所有监听器
+    this.listeners.forEach(listener => {
+      try {
+        if (typeof listener === 'function') {
+          listener({ type: 'abort' });
+        } else if (listener && typeof listener.handleEvent === 'function') {
+          listener.handleEvent({ type: 'abort' });
+        }
+      } catch (e) {
+        // 忽略监听器中的错误
+      }
     });
+
+    // 触发onabort回调
+    if (this.onabort) {
+      try {
+        this.onabort({ type: 'abort' });
+      } catch (e) {
+        // 忽略onabort回调中的错误
+      }
+    }
+  }
+
+  addEventListener(type, listener) {
+    if (type === 'abort') {
+      this.listeners.push(listener);
+      // 如果已经中止，立即触发监听器
+      if (this.aborted) {
+        try {
+          if (typeof listener === 'function') {
+            listener({ type: 'abort' });
+          } else if (listener && typeof listener.handleEvent === 'function') {
+            listener.handleEvent({ type: 'abort' });
+          }
+        } catch (e) {
+          // 忽略监听器中的错误
+        }
+      }
+    }
+  }
+
+  removeEventListener(type, listener) {
+    if (type === 'abort') {
+      const index = this.listeners.indexOf(listener);
+      if (index !== -1) {
+        this.listeners.splice(index, 1);
+      }
+    }
+  }
+
+  dispatchEvent(event) {
+    if (event.type === 'abort') {
+      this.abort();
+    }
+  }
+}
+
+const { setTimeout: customSetTimeout, clearTimeout: customClearTimeout } = (function() {
+  let timerId = 0;
+  const timers = new Map();
+
+  const setTimeoutFn = function(callback, delay = 0) {
+    const id = ++timerId;
+
+    if (typeof Promise !== 'undefined') {
+      Promise.resolve().then(() => {
+        if (timers.has(id)) {
+          try {
+            callback();
+          } catch (e) {
+            console.error('setTimeout error:', e);
+          } finally {
+            timers.delete(id);
+          }
+        }
+      });
+    } else {
+      // 同步执行
+      try {
+        callback();
+      } catch (e) {
+        console.error('setTimeout error:', e);
+      }
+    }
+
+    timers.set(id, { callback, delay, timestamp: Date.now() });
+    return id;
+  };
+
+  const clearTimeoutFn = function(id) {
+    return timers.delete(id);
+  };
+
+  return {
+    setTimeout: setTimeoutFn,
+    clearTimeout: clearTimeoutFn
+  };
+})();
+
+const setTimeout = customSetTimeout;
+const clearTimeout = customClearTimeout;
+
+class Headers {
+  constructor(init = {}) {
+    this._headers = {};
+    if (init instanceof Headers) {
+      // 从另一个Headers实例初始化
+      for (const [key, value] of init.entries()) {
+        this.set(key, value);
+      }
+    } else if (Array.isArray(init)) {
+      // 从键值对数组初始化
+      for (const [key, value] of init) {
+        this.set(key, value);
+      }
+    } else if (init && typeof init === 'object') {
+      // 从对象初始化
+      for (const [key, value] of Object.entries(init)) {
+        this.set(key, value);
+      }
+    }
+  }
+
+  append(name, value) {
+    name = name.toLowerCase();
+    if (this._headers[name]) {
+      this._headers[name] = this._headers[name] + ', ' + value;
+    } else {
+      this._headers[name] = value;
+    }
+  }
+
+  delete(name) {
+    delete this._headers[name.toLowerCase()];
+  }
+
+  get(name) {
+    return this._headers[name.toLowerCase()] || null;
+  }
+
+  has(name) {
+    return name.toLowerCase() in this._headers;
+  }
+
+  set(name, value) {
+    this._headers[name.toLowerCase()] = String(value);
+  }
+
+  forEach(callback, thisArg) {
+    for (const [name, value] of Object.entries(this._headers)) {
+      callback.call(thisArg, value, name, this);
+    }
+  }
+
+  *entries() {
+    for (const [name, value] of Object.entries(this._headers)) {
+      yield [name, value];
+    }
+  }
+
+  *keys() {
+    for (const name of Object.keys(this._headers)) {
+      yield name;
+    }
+  }
+
+  *values() {
+    for (const value of Object.values(this._headers)) {
+      yield value;
+    }
+  }
+
+  [Symbol.iterator]() {
+    return this.entries();
+  }
+
+  toJSON() {
+    return { ...this._headers };
+  }
+}
+
+class Response {
+  constructor(body, init = {}) {
+    this.status = init.status || 200;
+    this.statusText = init.statusText || 'OK';
+    this.headers = new Headers(init.headers || {});
+    this.type = 'default';
+    this.url = '';
+    this.redirected = false;
+
+    this._bodyUsed = false;
+    if (body !== undefined && body !== null) {
+      this._body = body;
+    } else {
+      this._body = '';
+    }
+  }
+
+  get ok() {
+    return this.status >= 200 && this.status < 300;
+  }
+
+  get bodyUsed() {
+    return this._bodyUsed;
+  }
+
+  _checkBodyUsed() {
+    if (this._bodyUsed) {
+      throw new TypeError('body stream already read');
+    }
+    this._bodyUsed = true;
+  }
+
+  async json() {
+    this._checkBodyUsed();
+    if (typeof this._body === 'string') {
+      return JSON.parse(this._body);
+    }
+    return this._body;
+  }
+
+  async text() {
+    this._checkBodyUsed();
+    if (typeof this._body === 'string') {
+      return this._body;
+    }
+    return String(this._body);
+  }
+
+  clone() {
+    if (this._bodyUsed) {
+      throw new TypeError('cannot clone a disturbed response');
+    }
+    const cloned = new Response(this._body, {
+      status: this.status,
+      statusText: this.statusText,
+      headers: this.headers
+    });
+    return cloned;
+  }
+}
+
+var __defProp = Object.defineProperty;
+var __defNormalProp = (obj, key, value) => key in obj ? __defProp(obj, key, { enumerable: true, configurable: true, writable: true, value }) : obj[key] = value;
+var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "symbol" ? key + "" : key, value);
+
+// danmu_api/configs/envs.js
+var Envs = class {
+  // 允许的源
+  /**
+   * 获取环境变量
+   * @param {string} key 环境变量的键
+   * @param {any} defaultValue 默认值
+   * @param {'string' | 'number' | 'boolean'} type 类型
+   * @returns {any} 转换后的值
+   */
+  static get(key, defaultValue, type = "string", encrypt = false) {
+    let value;
+    if (typeof this.env !== "undefined" && this.env[key]) {
+      value = this.env[key];
+      this.originalEnvVars.set(key, value);
+    } else if (typeof process !== "undefined" && process.env?.[key]) {
+      value = process.env[key];
+      this.originalEnvVars.set(key, value);
+    } else {
+      value = defaultValue;
+      this.originalEnvVars.set(key, "");
+    }
+    let parsedValue;
+    switch (type) {
+      case "number":
+        parsedValue = Number(value);
+        if (isNaN(parsedValue)) {
+          throw new Error(`Environment variable ${key} must be a valid number`);
+        }
+        break;
+      case "boolean":
+        parsedValue = value === true || value === "true" || value === 1 || value === "1";
+        break;
+      case "string":
+      default:
+        parsedValue = String(value);
+        break;
+    }
+    const finalValue = encrypt ? this.encryptStr(parsedValue) : parsedValue;
+    this.accessedEnvVars.set(key, finalValue);
+    return parsedValue;
+  }
+  /**
+   * 设置环境变量
+   * @param {string} key 环境变量的键
+   * @param {any} value 值
+   */
+  static set(key, value) {
+    if (typeof process !== "undefined") {
+      process.env[key] = String(value);
+    }
+    this.accessedEnvVars.set(key, value);
+  }
+  /**
+   * 基础加密函数 - 将字符串转换为星号
+   * @param {string} str 输入字符串
+   * @returns {string} 星号字符串
+   */
+  static encryptStr(str) {
+    return "*".repeat(str.length);
+  }
+  /**
+   * 解析 VOD 服务器配置
+   * @returns {Array} 服务器列表
+   */
+  static resolveVodServers() {
+    const defaultVodServers = "\u91D1\u8749@https://zy.jinchancaiji.com,789@https://www.caiji.cyou,\u542C\u98CE@https://gctf.tfdh.top";
+    let vodServersConfig = this.get("VOD_SERVERS", defaultVodServers, "string");
+    if (!vodServersConfig || vodServersConfig.trim() === "") {
+      return [];
+    }
+    return vodServersConfig.split(",").map((s) => s.trim()).filter((s) => s.length > 0).map((item, index) => {
+      if (item.includes("@")) {
+        const [name, url] = item.split("@").map((s) => s.trim());
+        return { name: name || `vod-${index + 1}`, url };
+      }
+      return { name: `vod-${index + 1}`, url: item };
+    }).filter((server) => server.url && server.url.length > 0);
+  }
+  /**
+   * 解析源排序
+   * @returns {Array} 源排序数组
+   */
+  static resolveSourceOrder() {
+    let sourceOrder = this.get("SOURCE_ORDER", "360,vod,renren,hanjutv", "string");
+    const orderArr = sourceOrder.split(",").map((s) => s.trim()).filter((s) => this.ALLOWED_SOURCES.includes(s));
+    this.accessedEnvVars.set("SOURCE_ORDER", orderArr);
+    return orderArr.length > 0 ? orderArr : ["360", "vod", "renren", "hanjutv"];
+  }
+  /**
+   * 解析平台排序
+   * @returns {Array} 平台排序数组
+   */
+  static resolvePlatformOrder() {
+    const orderArr = this.get("PLATFORM_ORDER", "", "string").split(",").map((s) => s.trim()).filter((s) => this.ALLOWED_PLATFORMS.includes(s));
+    this.accessedEnvVars.set("PLATFORM_ORDER", orderArr);
+    return orderArr.length > 0 ? [...orderArr, null] : [null];
+  }
+  /**
+   * 解析剧集标题过滤正则
+   * @returns {RegExp} 过滤正则表达式
+   */
+  static resolveEpisodeTitleFilter() {
+    const defaultFilter = "(\u7279\u522B|\u60CA\u559C|\u7EB3\u51C9)?\u4F01\u5212|\u5408\u4F19\u4EBA\u624B\u8BB0|\u8D85\u524D(\u8425\u4E1A|vlog)?|\u901F\u89C8|vlog|reaction|\u7EAF\u4EAB|\u52A0\u66F4(\u7248|\u7BC7)?|\u62A2\u5148(\u770B|\u7248|\u96C6|\u7BC7)?|\u62A2\u9C9C|\u9884\u544A|\u82B1\u7D6E(\u72EC\u5BB6)?|\u7279\u8F91|\u5F69\u86CB|\u4E13\u8BBF|\u5E55\u540E(\u6545\u4E8B|\u82B1\u7D6E|\u72EC\u5BB6)?|\u76F4\u64AD(\u966A\u770B|\u56DE\u987E)?|\u672A\u64AD(\u7247\u6BB5)?|\u884D\u751F|\u756A\u5916|\u4F1A\u5458(\u4E13\u4EAB|\u52A0\u957F|\u5C0A\u4EAB|\u4E13\u5C5E|\u7248)?|\u7247\u82B1|\u7CBE\u534E|\u770B\u70B9|\u901F\u770B|\u89E3\u8BFB|\u5F71\u8BC4|\u89E3\u8BF4|\u5410\u69FD|\u76D8\u70B9|\u62CD\u6444\u82B1\u7D6E|\u5236\u4F5C\u82B1\u7D6E|\u5E55\u540E\u82B1\u7D6E|\u672A\u64AD\u82B1\u7D6E|\u72EC\u5BB6\u82B1\u7D6E|\u82B1\u7D6E\u7279\u8F91|\u5148\u5BFC\u9884\u544A|\u7EC8\u6781\u9884\u544A|\u6B63\u5F0F\u9884\u544A|\u5B98\u65B9\u9884\u544A|\u5F69\u86CB\u7247\u6BB5|\u5220\u51CF\u7247\u6BB5|\u672A\u64AD\u7247\u6BB5|\u756A\u5916\u5F69\u86CB|\u7CBE\u5F69\u7247\u6BB5|\u7CBE\u5F69\u770B\u70B9|\u7CBE\u5F69\u56DE\u987E|\u7CBE\u5F69\u96C6\u9526|\u770B\u70B9\u89E3\u6790|\u770B\u70B9\u9884\u544A|NG\u955C\u5934|NG\u82B1\u7D6E|\u756A\u5916\u7BC7|\u756A\u5916\u7279\u8F91|\u5236\u4F5C\u7279\u8F91|\u62CD\u6444\u7279\u8F91|\u5E55\u540E\u7279\u8F91|\u5BFC\u6F14\u7279\u8F91|\u6F14\u5458\u7279\u8F91|\u7247\u5C3E\u66F2|\u63D2\u66F2|\u9AD8\u5149\u56DE\u987E|\u80CC\u666F\u97F3\u4E50|OST|\u97F3\u4E50MV|\u6B4C\u66F2MV|\u524D\u5B63\u56DE\u987E|\u5267\u60C5\u56DE\u987E|\u5F80\u671F\u56DE\u987E|\u5185\u5BB9\u603B\u7ED3|\u5267\u60C5\u76D8\u70B9|\u7CBE\u9009\u5408\u96C6|\u526A\u8F91\u5408\u96C6|\u6DF7\u526A\u89C6\u9891|\u72EC\u5BB6\u4E13\u8BBF|\u6F14\u5458\u8BBF\u8C08|\u5BFC\u6F14\u8BBF\u8C08|\u4E3B\u521B\u8BBF\u8C08|\u5A92\u4F53\u91C7\u8BBF|\u53D1\u5E03\u4F1A\u91C7\u8BBF|\u91C7\u8BBF|\u966A\u770B(\u8BB0)?|\u8BD5\u770B\u7248|\u77ED\u5267|\u7CBE\u7F16|Plus|\u72EC\u5BB6\u7248|\u7279\u522B\u7248|\u77ED\u7247|\u53D1\u5E03\u4F1A|\u89E3\u5FE7\u5C40|\u8D70\u5FC3\u5C40|\u706B\u9505\u5C40|\u5DC5\u5CF0\u65F6\u523B|\u575E\u91CC\u90FD\u77E5\u9053|\u798F\u6301\u76EE\u6807\u575E\u6C11|\u89C2\u5BDF\u5BA4|\u4E0A\u73ED\u90A3\u70B9\u4E8B\u513F|\u5468top|\u8D5B\u6BB5|\u76F4\u62CD|REACTION|VLOG|\u5168\u7EAA\u5F55|\u5F00\u64AD|\u5148\u5BFC|\u603B\u5BA3|\u5C55\u6F14|\u96C6\u9526|\u65C5\u884C\u65E5\u8BB0|\u7CBE\u5F69\u5206\u4EAB|\u5267\u60C5\u63ED\u79D8";
+    const customFilter = this.get("EPISODE_TITLE_FILTER", "", "string", false).trim();
+    let keywords = customFilter || defaultFilter;
+    this.accessedEnvVars.set("EPISODE_TITLE_FILTER", keywords);
+    try {
+      return new RegExp(`^(.*?)(?:${keywords})(.*?)$`);
+    } catch (error) {
+      console.warn(`Invalid EPISODE_TITLE_FILTER format, using default.`);
+      return new RegExp(`^(.*?)(?:${defaultFilter})(.*?)$`);
+    }
+  }
+  /**
+   * 获取记录的原始环境变量 JSON
+   * @returns {Map<any, any>} JSON 字符串
+   */
+  static getOriginalEnvVars() {
+    return this.originalEnvVars;
+  }
+  /** 解析弹幕转换颜色
+   * @returns {string} 弹幕转换颜色
+   */
+  static resolveConvertColor() {
+    let convertColorToWhite = this.get("CONVERT_COLOR_TO_WHITE", false, "boolean");
+    return this.get("CONVERT_COLOR", convertColorToWhite ? "white" : "default", "string");
+  }
+  /**
+   * 获取记录的环境变量 JSON
+   * @returns {Map<any, any>} JSON 字符串
+   */
+  static getAccessedEnvVars() {
+    return this.accessedEnvVars;
+  }
+  /**
+   * 初始化环境变量
+   * @param {Object} env 环境对象
+   * @param {string} deployPlatform 部署平台
+   * @returns {Object} 配置对象
+   */
+  static load(env = {}) {
+    this.env = env;
+    const envVarConfig = {
+      // API配置
+      "TOKEN": { category: "api", type: "text", description: "API\u8BBF\u95EE\u4EE4\u724C" },
+      "ADMIN_TOKEN": { category: "api", type: "text", description: "\u7CFB\u7EDF\u7BA1\u7406\u8BBF\u95EE\u4EE4\u724C" },
+      "RATE_LIMIT_MAX_REQUESTS": { category: "api", type: "number", description: "\u9650\u6D41\u914D\u7F6E\uFF1A1\u5206\u949F\u5185\u6700\u5927\u8BF7\u6C42\u6B21\u6570\uFF0C0\u8868\u793A\u4E0D\u9650\u6D41\uFF0C\u9ED8\u8BA43", min: 0, max: 50 },
+      // 源配置
+      "SOURCE_ORDER": { category: "source", type: "multi-select", options: this.ALLOWED_SOURCES, description: "\u6E90\u6392\u5E8F\u914D\u7F6E\uFF0C\u9ED8\u8BA4360,vod,renren,hanjutv" },
+      "OTHER_SERVER": { category: "source", type: "text", description: "\u7B2C\u4E09\u65B9\u5F39\u5E55\u670D\u52A1\u5668\uFF0C\u9ED8\u8BA4https://api.danmu.icu" },
+      "VOD_SERVERS": { category: "source", type: "text", description: "VOD\u7AD9\u70B9\u914D\u7F6E\uFF0C\u683C\u5F0F\uFF1A\u540D\u79F0@URL,\u540D\u79F0@URL\uFF0C\u9ED8\u8BA4\u91D1\u8749@https://zy.jinchancaiji.com,789@https://www.caiji.cyou,\u542C\u98CE@https://gctf.tfdh.top" },
+      "VOD_RETURN_MODE": { category: "source", type: "select", options: ["all", "fastest"], description: "VOD\u8FD4\u56DE\u6A21\u5F0F\uFF1Aall\uFF08\u6240\u6709\u7AD9\u70B9\uFF09\u6216 fastest\uFF08\u6700\u5FEB\u7684\u7AD9\u70B9\uFF09\uFF0C\u9ED8\u8BA4fastest" },
+      "VOD_REQUEST_TIMEOUT": { category: "source", type: "number", description: "VOD\u8BF7\u6C42\u8D85\u65F6\u65F6\u95F4\uFF0C\u9ED8\u8BA410000", min: 5e3, max: 3e4 },
+      "BILIBILI_COOKIE": { category: "source", type: "text", description: "B\u7AD9Cookie" },
+      "YOUKU_CONCURRENCY": { category: "source", type: "number", description: "\u4F18\u9177\u5E76\u53D1\u914D\u7F6E\uFF0C\u9ED8\u8BA48", min: 1, max: 16 },
+      // 匹配配置
+      "PLATFORM_ORDER": { category: "match", type: "multi-select", options: this.ALLOWED_PLATFORMS, description: "\u5E73\u53F0\u6392\u5E8F\u914D\u7F6E" },
+      "EPISODE_TITLE_FILTER": { category: "match", type: "text", description: "\u5267\u96C6\u6807\u9898\u8FC7\u6EE4\u89C4\u5219" },
+      "ENABLE_EPISODE_FILTER": { category: "match", type: "boolean", description: "\u96C6\u6807\u9898\u8FC7\u6EE4\u5F00\u5173" },
+      "STRICT_TITLE_MATCH": { category: "match", type: "boolean", description: "\u4E25\u683C\u6807\u9898\u5339\u914D\u6A21\u5F0F" },
+      "TITLE_TO_CHINESE": { category: "match", type: "boolean", description: "\u5916\u8BED\u6807\u9898\u8F6C\u6362\u4E2D\u6587\u5F00\u5173" },
+      // 弹幕配置
+      "BLOCKED_WORDS": { category: "danmu", type: "text", description: "\u5C4F\u853D\u8BCD\u5217\u8868" },
+      "GROUP_MINUTE": { category: "danmu", type: "number", description: "\u5206\u949F\u5185\u5408\u5E76\u53BB\u91CD\uFF080\u8868\u793A\u4E0D\u53BB\u91CD\uFF09\uFF0C\u9ED8\u8BA41", min: 0, max: 30 },
+      "DANMU_LIMIT": { category: "danmu", type: "number", description: "\u5F39\u5E55\u6570\u91CF\u9650\u5236\uFF0C\u5355\u4F4D\u4E3Ak\uFF0C\u5373\u5343\uFF1A\u9ED8\u8BA4 0\uFF0C\u8868\u793A\u4E0D\u9650\u5236\u5F39\u5E55\u6570", min: 0, max: 100 },
+      "DANMU_SIMPLIFIED": { category: "danmu", type: "boolean", description: "\u5F39\u5E55\u7E41\u4F53\u8F6C\u7B80\u4F53\u5F00\u5173" },
+      "CONVERT_TOP_BOTTOM_TO_SCROLL": { category: "danmu", type: "boolean", description: "\u9876\u90E8/\u5E95\u90E8\u5F39\u5E55\u8F6C\u6362\u4E3A\u6D6E\u52A8\u5F39\u5E55" },
+      "CONVERT_COLOR": { category: "danmu", type: "select", options: ["default", "white", "color"], description: "\u5F39\u5E55\u8F6C\u6362\u989C\u8272\u914D\u7F6E" },
+      "DANMU_OUTPUT_FORMAT": { category: "danmu", type: "select", options: ["json", "xml"], description: "\u5F39\u5E55\u8F93\u51FA\u683C\u5F0F\uFF0C\u9ED8\u8BA4json" },
+      "DANMU_PUSH_URL": { category: "danmu", type: "text", description: "\u5F39\u5E55\u63A8\u9001\u5730\u5740\uFF0C\u793A\u4F8B http://127.0.0.1:9978/action?do=refresh&type=danmaku&path= " },
+      // 缓存配置
+      "SEARCH_CACHE_MINUTES": { category: "cache", type: "number", description: "\u641C\u7D22\u7ED3\u679C\u7F13\u5B58\u65F6\u95F4(\u5206\u949F)\uFF0C\u9ED8\u8BA41", min: 1, max: 120 },
+      "COMMENT_CACHE_MINUTES": { category: "cache", type: "number", description: "\u5F39\u5E55\u7F13\u5B58\u65F6\u95F4(\u5206\u949F)\uFF0C\u9ED8\u8BA41", min: 1, max: 120 },
+      "REMEMBER_LAST_SELECT": { category: "cache", type: "boolean", description: "\u8BB0\u4F4F\u624B\u52A8\u9009\u62E9\u7ED3\u679C" },
+      "MAX_LAST_SELECT_MAP": { category: "cache", type: "number", description: "\u8BB0\u4F4F\u4E0A\u6B21\u9009\u62E9\u6620\u5C04\u7F13\u5B58\u5927\u5C0F\u9650\u5236", min: 10, max: 1e3 },
+      "UPSTASH_REDIS_REST_URL": { category: "cache", type: "text", description: "Upstash Redis\u8BF7\u6C42\u94FE\u63A5" },
+      "UPSTASH_REDIS_REST_TOKEN": { category: "cache", type: "text", description: "Upstash Redis\u8BBF\u95EE\u4EE4\u724C" },
+      // 系统配置
+      "PROXY_URL": { category: "system", type: "text", description: "\u4EE3\u7406/\u53CD\u4EE3\u5730\u5740" },
+      "TMDB_API_KEY": { category: "system", type: "text", description: "TMDB API\u5BC6\u94A5" },
+      "LOG_LEVEL": { category: "system", type: "select", options: ["debug", "info", "warn", "error"], description: "\u65E5\u5FD7\u7EA7\u522B\u914D\u7F6E" },
+      "DEPLOY_PLATFROM_ACCOUNT": { category: "system", type: "text", description: "\u90E8\u7F72\u5E73\u53F0\u8D26\u53F7ID" },
+      "DEPLOY_PLATFROM_PROJECT": { category: "system", type: "text", description: "\u90E8\u7F72\u5E73\u53F0\u9879\u76EE\u540D\u79F0" },
+      "DEPLOY_PLATFROM_TOKEN": { category: "system", type: "text", description: "\u90E8\u7F72\u5E73\u53F0\u8BBF\u95EE\u4EE4\u724C" },
+      "NODE_TLS_REJECT_UNAUTHORIZED": { category: "system", type: "number", description: "\u5728\u5EFA\u7ACB HTTPS \u8FDE\u63A5\u65F6\u662F\u5426\u9A8C\u8BC1\u670D\u52A1\u5668\u7684 SSL/TLS \u8BC1\u4E66\uFF0C0\u8868\u793A\u5FFD\u7565\uFF0C\u9ED8\u8BA4\u4E3A1", min: 0, max: 1 }
+    };
+    return {
+      vodAllowedPlatforms: this.VOD_ALLOWED_PLATFORMS,
+      allowedPlatforms: this.ALLOWED_PLATFORMS,
+      token: this.get("TOKEN", "87654321", "string", true),
+      // token，默认为87654321
+      adminToken: this.get("ADMIN_TOKEN", "", "string", true),
+      // admin token，用于系统管理访问控制
+      sourceOrderArr: this.resolveSourceOrder(),
+      // 源排序
+      otherServer: this.get("OTHER_SERVER", "https://api.danmu.icu", "string"),
+      // 第三方弹幕服务器
+      vodServers: this.resolveVodServers(),
+      // vod站点配置，格式：名称@URL,名称@URL
+      vodReturnMode: this.get("VOD_RETURN_MODE", "fastest", "string").toLowerCase(),
+      // vod返回模式：all（所有站点）或 fastest（最快的站点）
+      vodRequestTimeout: this.get("VOD_REQUEST_TIMEOUT", "10000", "string"),
+      // vod超时时间（默认10秒）
+      bilibliCookie: this.get("BILIBILI_COOKIE", "", "string", true),
+      // b站cookie
+      youkuConcurrency: Math.min(this.get("YOUKU_CONCURRENCY", 8, "number"), 16),
+      // 优酷并发配置
+      platformOrderArr: this.resolvePlatformOrder(),
+      // 自动匹配优选平台
+      episodeTitleFilter: this.resolveEpisodeTitleFilter(),
+      // 剧集标题正则过滤
+      blockedWords: this.get("BLOCKED_WORDS", "", "string"),
+      // 屏蔽词列表
+      groupMinute: Math.min(this.get("GROUP_MINUTE", 1, "number"), 30),
+      // 分钟内合并去重（默认 1，最大值30，0表示不去重）
+      danmuLimit: this.get("DANMU_LIMIT", 0, "number"),
+      // 等间隔采样限制弹幕总数，单位为k，即千：默认 0，表示不限制弹幕数，若改为5，弹幕总数在超过5000的情况下会将弹幕数控制在5000
+      proxyUrl: this.get("PROXY_URL", "", "string", true),
+      // 代理/反代地址
+      danmuSimplified: this.get("DANMU_SIMPLIFIED", true, "boolean"),
+      // 弹幕繁体转简体开关
+      danmuPushUrl: this.get("DANMU_PUSH_URL", "", "string"),
+      // 代理/反代地址
+      tmdbApiKey: this.get("TMDB_API_KEY", "", "string", true),
+      // TMDB API KEY
+      redisUrl: this.get("UPSTASH_REDIS_REST_URL", "", "string", true),
+      // upstash redis url
+      redisToken: this.get("UPSTASH_REDIS_REST_TOKEN", "", "string", true),
+      // upstash redis url
+      rateLimitMaxRequests: this.get("RATE_LIMIT_MAX_REQUESTS", 3, "number"),
+      // 限流配置：时间窗口内最大请求次数（默认 3，0表示不限流）
+      enableEpisodeFilter: this.get("ENABLE_EPISODE_FILTER", false, "boolean"),
+      // 集标题过滤开关配置（默认 false，禁用过滤）
+      logLevel: this.get("LOG_LEVEL", "info", "string"),
+      // 日志级别配置（默认 info，可选值：error, warn, info）
+      searchCacheMinutes: this.get("SEARCH_CACHE_MINUTES", 1, "number"),
+      // 搜索结果缓存时间配置（分钟，默认 1）
+      commentCacheMinutes: this.get("COMMENT_CACHE_MINUTES", 1, "number"),
+      // 弹幕缓存时间配置（分钟，默认 1）
+      convertTopBottomToScroll: this.get("CONVERT_TOP_BOTTOM_TO_SCROLL", false, "boolean"),
+      // 顶部/底部弹幕转换为浮动弹幕配置（默认 false，禁用转换）
+      convertColor: this.resolveConvertColor(),
+      // 弹幕转换颜色配置，支持 default、white、color（默认 default，禁用转换）
+      danmuOutputFormat: this.get("DANMU_OUTPUT_FORMAT", "json", "string"),
+      // 弹幕输出格式配置（默认 json，可选值：json, xml）
+      strictTitleMatch: this.get("STRICT_TITLE_MATCH", false, "boolean"),
+      // 严格标题匹配模式配置（默认 false，宽松模糊匹配）
+      titleToChinese: this.get("TITLE_TO_CHINESE", false, "boolean"),
+      // 外语标题转换中文开关
+      rememberLastSelect: this.get("REMEMBER_LAST_SELECT", true, "boolean"),
+      // 是否记住手动选择结果，用于match自动匹配时优选上次的选择（默认 true，记住）
+      MAX_LAST_SELECT_MAP: this.get("MAX_LAST_SELECT_MAP", 100, "number"),
+      // 记住上次选择映射缓存大小限制（默认 100）
+      deployPlatformAccount: this.get("DEPLOY_PLATFROM_ACCOUNT", "", "string", true),
+      // 部署平台账号ID配置（默认空）
+      deployPlatformProject: this.get("DEPLOY_PLATFROM_PROJECT", "", "string", true),
+      // 部署平台项目名称配置（默认空）
+      deployPlatformToken: this.get("DEPLOY_PLATFROM_TOKEN", "", "string", true),
+      // 部署平台项目名称配置（默认空）
+      NODE_TLS_REJECT_UNAUTHORIZED: this.get("NODE_TLS_REJECT_UNAUTHORIZED", 1, "number"),
+      // 在建立 HTTPS 连接时是否验证服务器的 SSL/TLS 证书，0表示忽略，默认为1
+      envVarConfig
+      // 环境变量分类和描述映射
+    };
+  }
+};
+__publicField(Envs, "env");
+// 记录获取过的环境变量
+__publicField(Envs, "originalEnvVars", /* @__PURE__ */ new Map());
+__publicField(Envs, "accessedEnvVars", /* @__PURE__ */ new Map());
+__publicField(Envs, "VOD_ALLOWED_PLATFORMS", ["qiyi", "bilibili1", "imgo", "youku", "qq"]);
+// vod允许的播放平台
+__publicField(Envs, "ALLOWED_PLATFORMS", ["qiyi", "bilibili1", "imgo", "youku", "qq", "renren", "hanjutv", "bahamut", "dandan"]);
+// 全部源允许的播放平台
+__publicField(Envs, "ALLOWED_SOURCES", ["360", "vod", "tmdb", "douban", "tencent", "youku", "iqiyi", "imgo", "bilibili", "renren", "hanjutv", "bahamut", "dandan"]);
+
+// danmu_api/configs/globals.js
+var Globals = {
+  // 缓存环境变量
+  env: {},
+  envs: {},
+  originalEnvVars: {},
+  accessedEnvVars: {},
+  // 静态常量
+  VERSION: "1.10.0",
+  MAX_LOGS: 500,
+  // 日志存储，最多保存 500 行
+  MAX_ANIMES: 100,
+  // 运行时状态
+  animes: [],
+  episodeIds: [],
+  episodeNum: 10001,
+  // 全局变量，用于自增 ID
+  logBuffer: [],
+  requestHistory: /* @__PURE__ */ new Map(),
+  // 记录每个 IP 地址的请求历史
+  localCacheValid: false,
+  // 本地缓存是否生效
+  localCacheInitialized: false,
+  // 本地缓存是否已初始化
+  redisValid: false,
+  // redis是否生效
+  redisCacheInitialized: false,
+  // redis 缓存是否已初始化
+  lastSelectMap: /* @__PURE__ */ new Map(),
+  // 存储查询关键字上次选择的animeId，用于下次match自动匹配时优先选择该anime
+  lastHashes: {
+    // 存储上一次各变量哈希值
+    animes: null,
+    episodeIds: null,
+    episodeNum: null,
+    lastSelectMap: null
+  },
+  searchCache: /* @__PURE__ */ new Map(),
+  // 搜索结果缓存，存储格式：{ keyword: { results, timestamp } }
+  commentCache: /* @__PURE__ */ new Map(),
+  // 弹幕缓存，存储格式：{ videoUrl: { comments, timestamp } }
+  deployPlatform: "",
+  // 部署平台配置
+  currentToken: "",
+  // 标识当前可用token
+  /**
+   * 初始化全局变量，加载环境变量依赖
+   * @param {Object} env 环境对象
+   * @returns {Object} 全局配置对象
+   */
+  init(env = {}) {
+    this.env = env;
+    this.envs = Envs.load(this.env);
+    this.originalEnvVars = Object.fromEntries(Envs.getOriginalEnvVars());
+    this.accessedEnvVars = Object.fromEntries(Envs.getAccessedEnvVars());
+    return this.getConfig();
+  },
+  /**
+   * 重新初始化全局变量，加载环境变量依赖
+   * @returns {Object} 全局配置对象
+   */
+  reInit() {
+    this.envs = Envs.load(this.env);
+    this.originalEnvVars = Object.fromEntries(Envs.getOriginalEnvVars());
+    this.accessedEnvVars = Object.fromEntries(Envs.getAccessedEnvVars());
+    return this.getConfig();
+  },
+  /**
+   * 获取全局配置快照
+   * @returns {Object} 当前全局配置
+   */
+  /**
+   * 获取全局配置对象（单例，可修改）
+   * @returns {Object} 全局配置对象本身
+   */
+  getConfig() {
+    const self = this;
+    return new Proxy({}, {
+      get(target, prop) {
+        if (prop in self.envs) {
+          return self.envs[prop];
+        }
+        if (prop === "version") return self.VERSION;
+        if (prop === "maxLogs") return self.MAX_LOGS;
+        if (prop === "maxAnimes") return self.MAX_ANIMES;
+        if (prop === "maxLastSelectMap") return self.MAX_LAST_SELECT_MAP;
+        return self[prop];
+      },
+      set(target, prop, value) {
+        if (prop in self.envs) {
+          self.envs[prop] = value;
+        } else {
+          self[prop] = value;
+        }
+        return true;
+      }
+    });
+  }
+};
+var globals = new Proxy({}, {
+  get(target, prop) {
+    return Globals.getConfig()[prop];
+  },
+  set(target, prop, value) {
+    Globals.getConfig()[prop] = value;
+    return true;
+  },
+  has(target, prop) {
+    return prop in Globals.getConfig();
+  },
+  ownKeys(target) {
+    return Reflect.ownKeys(Globals.getConfig());
+  },
+  getOwnPropertyDescriptor(target, prop) {
+    return Object.getOwnPropertyDescriptor(Globals.getConfig(), prop);
+  }
+});
+
+// danmu_api/utils/log-util.js
+function log(level, ...args) {
+  const levels = { error: 0, warn: 1, info: 2 };
+  const currentLevelValue = levels[globals.logLevel] !== void 0 ? levels[globals.logLevel] : 1;
+  if ((levels[level] || 0) > currentLevelValue) {
+    return;
+  }
+  const processedArgs = args.map((arg) => {
+    if (typeof arg === "object") {
+      const jsonString = JSON.stringify(arg);
+      return hideSensitiveInfo(jsonString);
+    } else {
+      return typeof arg === "string" ? hideSensitiveInfo(arg) : arg;
+    }
+  });
+  const message = processedArgs.map((arg) => typeof arg === "object" ? JSON.stringify(arg) : arg).join(" ");
+  const now = /* @__PURE__ */ new Date();
+  const shanghaiTime = new Date(now.getTime() + 8 * 60 * 60 * 1e3);
+  const timestamp = shanghaiTime.toISOString().replace("Z", "+08:00");
+  globals.logBuffer.push({ timestamp, level, message });
+  if (globals.logBuffer.length > globals.MAX_LOGS) globals.logBuffer.shift();
+  console[level](...processedArgs);
+}
+function hideSensitiveInfo(message) {
+  let processedMessage = message;
+  if (globals.originalEnvVars && globals.accessedEnvVars) {
+    for (const [envVar, originalValue] of Object.entries(globals.originalEnvVars)) {
+      const accessedValue = globals.accessedEnvVars[envVar];
+      if (originalValue && typeof originalValue === "string" && originalValue.length > 0 && accessedValue && typeof accessedValue === "string" && accessedValue.match(/^\*+$/) && accessedValue.length === originalValue.length) {
+        const mask = "*".repeat(originalValue.length);
+        const regex = new RegExp(originalValue.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "g");
+        processedMessage = processedMessage.replace(regex, mask);
+      }
+    }
+  }
+  return processedMessage;
+}
+
+// danmu_api/utils/http-util.js
+async function httpGet(url, options = {}) {
+  const maxRetries = parseInt(options.retries || "0", 10) || 0;
+  let lastError;
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    if (attempt > 0) {
+      log("info", `[\u8BF7\u6C42\u6A21\u62DF] \u7B2C ${attempt} \u6B21\u91CD\u8BD5: ${url}`);
+      await new Promise((resolve) => setTimeout(resolve, Math.min(1e3 * Math.pow(2, attempt - 1), 5e3)));
+    } else {
+      log("info", `[\u8BF7\u6C42\u6A21\u62DF] HTTP GET: ${url}`);
+    }
+    const timeout = parseInt(globals.vodRequestTimeout || "5000", 10) || 5e3;
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), timeout);
+    try {
+      const response = await fetch(url, {
+        method: "GET",
+        headers: {
+          ...options.headers
+        },
+        signal: controller.signal
+      });
+      clearTimeout(timeoutId);
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      let data;
+      if (options.base64Data) {
+        log("info", "base64\u6A21\u5F0F");
+        const arrayBuffer = await response.arrayBuffer();
+        const uint8Array = new Uint8Array(arrayBuffer);
+        let binary = "";
+        const chunkSize = 32768;
+        for (let i = 0; i < uint8Array.length; i += chunkSize) {
+          let chunk = uint8Array.subarray(i, i + chunkSize);
+          binary += String.fromCharCode.apply(null, chunk);
+        }
+        data = btoa(binary);
+      } else if (options.zlibMode) {
+        log("info", "zlib\u6A21\u5F0F");
+        const arrayBuffer = await response.arrayBuffer();
+        const decompressionStream = new DecompressionStream("deflate");
+        const decompressedStream = new Response(
+          new Blob([arrayBuffer]).stream().pipeThrough(decompressionStream)
+        );
+        let decodedData;
+        try {
+          decodedData = await decompressedStream.text();
+        } catch (e) {
+          log("error", "[\u8BF7\u6C42\u6A21\u62DF] \u89E3\u538B\u7F29\u5931\u8D25", e);
+          throw e;
+        }
+        data = decodedData;
+      } else {
+        data = await response.text();
+      }
+      let parsedData;
+      try {
+        parsedData = JSON.parse(data);
+      } catch (e) {
+        parsedData = data;
+      }
+      const headers = {};
+      let setCookieValues = [];
+      for (const [key, value] of response.headers.entries()) {
+        if (key.toLowerCase() === "set-cookie") {
+          setCookieValues.push(value);
+        } else {
+          headers[key] = value;
+        }
+      }
+      if (setCookieValues.length > 0) {
+        headers["set-cookie"] = setCookieValues.join(";");
+      }
+      if (attempt > 0) {
+        log("info", `[\u8BF7\u6C42\u6A21\u62DF] \u91CD\u8BD5\u6210\u529F`);
+      }
+      return {
+        data: parsedData,
+        status: response.status,
+        headers
+      };
+    } catch (error) {
+      clearTimeout(timeoutId);
+      lastError = error;
+      if (error.name === "AbortError") {
+        log("error", `[\u8BF7\u6C42\u6A21\u62DF] \u8BF7\u6C42\u8D85\u65F6:`, error.message);
+        log("error", "\u8BE6\u7EC6\u8BCA\u65AD:");
+        log("error", "- URL:", url);
+        log("error", "- \u8D85\u65F6\u65F6\u95F4:", `${timeout}ms`);
+        log("error", `- \u5F53\u524D\u5C1D\u8BD5: ${attempt + 1}/${maxRetries + 1}`);
+      } else {
+        log("error", `[\u8BF7\u6C42\u6A21\u62DF] \u8BF7\u6C42\u5931\u8D25:`, error.message);
+        log("error", "\u8BE6\u7EC6\u8BCA\u65AD:");
+        log("error", "- URL:", url);
+        log("error", "- \u9519\u8BEF\u7C7B\u578B:", error.name);
+        log("error", "- \u6D88\u606F:", error.message);
+        log("error", `- \u5F53\u524D\u5C1D\u8BD5: ${attempt + 1}/${maxRetries + 1}`);
+        if (error.cause) {
+          log("error", "- \u7801:", error.cause.code);
+          log("error", "- \u539F\u56E0:", error.cause.message);
+        }
+      }
+      if (attempt < maxRetries) {
+        log("info", `[\u8BF7\u6C42\u6A21\u62DF] \u51C6\u5907\u91CD\u8BD5...`);
+        continue;
+      }
+    }
+  }
+  log("error", `[\u8BF7\u6C42\u6A21\u62DF] \u6240\u6709\u91CD\u8BD5\u5747\u5931\u8D25 (${maxRetries + 1} \u6B21\u5C1D\u8BD5)`);
+  throw lastError;
+}
+async function httpPost(url, body, options = {}) {
+  const maxRetries = parseInt(options.retries || "0", 10) || 0;
+  let lastError;
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    if (attempt > 0) {
+      log("info", `[\u8BF7\u6C42\u6A21\u62DF] \u7B2C ${attempt} \u6B21\u91CD\u8BD5: ${url}`);
+      await new Promise((resolve) => setTimeout(resolve, Math.min(1e3 * Math.pow(2, attempt - 1), 5e3)));
+    } else {
+      log("info", `[\u8BF7\u6C42\u6A21\u62DF] HTTP POST: ${url}`);
+    }
+    const timeout = parseInt(globals.vodRequestTimeout || "5000", 10) || 5e3;
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), timeout);
+    const { headers = {}, params, allow_redirects = true } = options;
+    const fetchOptions = {
+      method: "POST",
+      headers: {
+        ...headers
+      },
+      body,
+      signal: controller.signal
+    };
+    if (!allow_redirects) {
+      fetchOptions.redirect = "manual";
+    }
+    try {
+      const response = await fetch(url, fetchOptions);
+      clearTimeout(timeoutId);
+      const data = await response.text();
+      if (!response.ok) {
+        log("error", `[\u8BF7\u6C42\u6A21\u62DF] response data: `, data);
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      let parsedData;
+      try {
+        parsedData = JSON.parse(data);
+      } catch (e) {
+        parsedData = data;
+      }
+      if (attempt > 0) {
+        log("info", `[\u8BF7\u6C42\u6A21\u62DF] \u91CD\u8BD5\u6210\u529F`);
+      }
+      return {
+        data: parsedData,
+        status: response.status,
+        headers: Object.fromEntries(response.headers.entries())
+      };
+    } catch (error) {
+      clearTimeout(timeoutId);
+      lastError = error;
+      if (error.name === "AbortError") {
+        log("error", `[\u8BF7\u6C42\u6A21\u62DF] \u8BF7\u6C42\u8D85\u65F6:`, error.message);
+        log("error", "\u8BE6\u7EC6\u8BCA\u65AD:");
+        log("error", "- URL:", url);
+        log("error", "- \u8D85\u65F6\u65F6\u95F4:", `${timeout}ms`);
+        log("error", `- \u5F53\u524D\u5C1D\u8BD5: ${attempt + 1}/${maxRetries + 1}`);
+      } else {
+        log("error", `[\u8BF7\u6C42\u6A21\u62DF] \u8BF7\u6C42\u5931\u8D25:`, error.message);
+        log("error", "\u8BE6\u7EC6\u8BCA\u65AD:");
+        log("error", "- URL:", url);
+        log("error", "- \u9519\u8BEF\u7C7B\u578B:", error.name);
+        log("error", "- \u6D88\u606F:", error.message);
+        log("error", `- \u5F53\u524D\u5C1D\u8BD5: ${attempt + 1}/${maxRetries + 1}`);
+        if (error.cause) {
+          log("error", "- \u7801:", error.cause.code);
+          log("error", "- \u539F\u56E0:", error.cause.message);
+        }
+      }
+      if (attempt < maxRetries) {
+        log("info", `[\u8BF7\u6C42\u6A21\u62DF] \u51C6\u5907\u91CD\u8BD5...`);
+        continue;
+      }
+    }
+  }
+  log("error", `[\u8BF7\u6C42\u6A21\u62DF] \u6240\u6709\u91CD\u8BD5\u5747\u5931\u8D25 (${maxRetries + 1} \u6B21\u5C1D\u8BD5)`);
+  throw lastError;
+}
+async function getPageTitle(url) {
+  try {
+    const response = await Widget.http.get(url, {
+      headers: {
+        "User-Agent": "Mozilla/5.0 (iPhone; CPU iPhone OS 16_0 like Mac OS X) AppleWebKit/605.1.15"
+      }
+    });
+    const html = response.data;
+    const titleMatch = html.match(/<title[^>]*>(.*?)<\/title>/i);
+    if (titleMatch && titleMatch[1]) {
+      const title = titleMatch[1].replace(/&nbsp;/g, " ").replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, '"').replace(/&#39;/g, "'").trim();
+      return title;
+    }
+    return url;
+  } catch (error) {
+    log("error", `\u83B7\u53D6\u6807\u9898\u5931\u8D25: ${error.message}`);
+    return url;
+  }
+}
+function jsonResponse(data, status = 200) {
+  return new Response(JSON.stringify(data), {
+    status,
+    headers: {
+      "Content-Type": "application/json",
+      "Access-Control-Allow-Origin": "*"
+    }
   });
 }
+function xmlResponse(data, status = 200) {
+  if (typeof data !== "string" || !data.trim().startsWith("<?xml")) {
+    throw new Error("Expected data to be an XML string starting with <?xml");
+  }
+  return new Response(data, {
+    status,
+    headers: {
+      "Content-Type": "application/xml",
+      "Access-Control-Allow-Origin": "*"
+    }
+  });
+}
+function buildQueryString(params) {
+  let queryString = "";
+  for (let key in params) {
+    if (params.hasOwnProperty(key)) {
+      if (queryString.length > 0) {
+        queryString += "&";
+      }
+      queryString += encodeURIComponent(key) + "=" + encodeURIComponent(params[key]);
+    }
+  }
+  return queryString;
+}
+function sortedQueryString(params = {}) {
+  const normalized = {};
+  for (const [k, v] of Object.entries(params)) {
+    if (typeof v === "boolean") normalized[k] = v ? "true" : "false";
+    else if (v == null) normalized[k] = "";
+    else normalized[k] = String(v);
+  }
+  const keys = [];
+  for (const key in normalized) {
+    if (Object.prototype.hasOwnProperty.call(normalized, key)) {
+      keys.push(key);
+    }
+  }
+  keys.sort();
+  const pairs = [];
+  for (const key of keys) {
+    const encodedKey = encodeURIComponent(key);
+    const encodedValue = encodeURIComponent(normalized[key]);
+    pairs.push(`${encodedKey}=${encodedValue}`);
+  }
+  return pairs.join("&");
+}
+function updateQueryString(url, params) {
+  let baseUrl = url;
+  let queryString = "";
+  const hashIndex = url.indexOf("#");
+  let hash = "";
+  if (hashIndex !== -1) {
+    baseUrl = url.substring(0, hashIndex);
+    hash = url.substring(hashIndex);
+  }
+  const queryIndex = baseUrl.indexOf("?");
+  if (queryIndex !== -1) {
+    queryString = baseUrl.substring(queryIndex + 1);
+    baseUrl = baseUrl.substring(0, queryIndex);
+  }
+  const queryParams = {};
+  if (queryString) {
+    const pairs = queryString.split("&");
+    for (const pair of pairs) {
+      if (pair) {
+        const [key, value = ""] = pair.split("=").map(decodeURIComponent);
+        queryParams[key] = value;
+      }
+    }
+  }
+  for (const key in params) {
+    if (Object.prototype.hasOwnProperty.call(params, key)) {
+      queryParams[key] = params[key];
+    }
+  }
+  const newQuery = [];
+  for (const key in queryParams) {
+    if (Object.prototype.hasOwnProperty.call(queryParams, key)) {
+      newQuery.push(
+        `${encodeURIComponent(key)}=${encodeURIComponent(queryParams[key])}`
+      );
+    }
+  }
+  return baseUrl + (newQuery.length ? "?" + newQuery.join("&") : "") + hash;
+}
+function getPathname(url) {
+  let pathnameStart = url.indexOf("//") + 2;
+  if (pathnameStart === 1) pathnameStart = 0;
+  const pathStart = url.indexOf("/", pathnameStart);
+  if (pathStart === -1) return "/";
+  const queryStart = url.indexOf("?", pathStart);
+  const hashStart = url.indexOf("#", pathStart);
+  let pathEnd = queryStart !== -1 ? queryStart : hashStart !== -1 ? hashStart : url.length;
+  const pathname = url.substring(pathStart, pathEnd);
+  return pathname || "/";
+}
 
-// =====================
-// 工具方法
-// =====================
+// danmu_api/utils/codec-util.js
+function simpleHash(str) {
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    const char = str.charCodeAt(i);
+    hash = (hash << 5) - hash + char;
+    hash = hash >>> 0;
+  }
+  return hash.toString(16);
+}
+function serializeValue(key, value) {
+  if (key === "lastSelectMap" && value instanceof Map) {
+    return JSON.stringify(Object.fromEntries(value));
+  }
+  return JSON.stringify(value);
+}
+function md5(message) {
+  function toUtf8(str) {
+    let utf8 = "";
+    for (let i = 0; i < str.length; i++) {
+      const charCode = str.charCodeAt(i);
+      if (charCode < 128) {
+        utf8 += String.fromCharCode(charCode);
+      } else if (charCode < 2048) {
+        utf8 += String.fromCharCode(192 | charCode >> 6);
+        utf8 += String.fromCharCode(128 | charCode & 63);
+      } else {
+        utf8 += String.fromCharCode(224 | charCode >> 12);
+        utf8 += String.fromCharCode(128 | charCode >> 6 & 63);
+        utf8 += String.fromCharCode(128 | charCode & 63);
+      }
+    }
+    return utf8;
+  }
+  message = toUtf8(message);
+  function rotateLeft(lValue, iShiftBits) {
+    return lValue << iShiftBits | lValue >>> 32 - iShiftBits;
+  }
+  function addUnsigned(lX, lY) {
+    const lX4 = lX & 1073741824;
+    const lY4 = lY & 1073741824;
+    const lX8 = lX & 2147483648;
+    const lY8 = lY & 2147483648;
+    const lResult = (lX & 1073741823) + (lY & 1073741823);
+    if (lX4 & lY4) return lResult ^ 2147483648 ^ lX8 ^ lY8;
+    if (lX4 | lY4) {
+      if (lResult & 1073741824) return lResult ^ 3221225472 ^ lX8 ^ lY8;
+      else return lResult ^ 1073741824 ^ lX8 ^ lY8;
+    } else return lResult ^ lX8 ^ lY8;
+  }
+  function F(x2, y, z) {
+    return x2 & y | ~x2 & z;
+  }
+  function G(x2, y, z) {
+    return x2 & z | y & ~z;
+  }
+  function H(x2, y, z) {
+    return x2 ^ y ^ z;
+  }
+  function I(x2, y, z) {
+    return y ^ (x2 | ~z);
+  }
+  function FF(a2, b2, c2, d2, x2, s, ac) {
+    a2 = addUnsigned(a2, addUnsigned(addUnsigned(F(b2, c2, d2), x2), ac));
+    return addUnsigned(rotateLeft(a2, s), b2);
+  }
+  function GG(a2, b2, c2, d2, x2, s, ac) {
+    a2 = addUnsigned(a2, addUnsigned(addUnsigned(G(b2, c2, d2), x2), ac));
+    return addUnsigned(rotateLeft(a2, s), b2);
+  }
+  function HH(a2, b2, c2, d2, x2, s, ac) {
+    a2 = addUnsigned(a2, addUnsigned(addUnsigned(H(b2, c2, d2), x2), ac));
+    return addUnsigned(rotateLeft(a2, s), b2);
+  }
+  function II(a2, b2, c2, d2, x2, s, ac) {
+    a2 = addUnsigned(a2, addUnsigned(addUnsigned(I(b2, c2, d2), x2), ac));
+    return addUnsigned(rotateLeft(a2, s), b2);
+  }
+  function convertToWordArray(str) {
+    const lMessageLength = str.length;
+    const lNumberOfWords = ((lMessageLength + 8 >>> 6) + 1) * 16;
+    const lWordArray = new Array(lNumberOfWords).fill(0);
+    for (let i = 0; i < lMessageLength; i++) {
+      lWordArray[i >> 2] |= str.charCodeAt(i) << i % 4 * 8;
+    }
+    lWordArray[lMessageLength >> 2] |= 128 << lMessageLength % 4 * 8;
+    lWordArray[lNumberOfWords - 2] = lMessageLength * 8;
+    return lWordArray;
+  }
+  function wordToHex(lValue) {
+    let wordToHexValue = "";
+    for (let lCount = 0; lCount <= 3; lCount++) {
+      const lByte = lValue >>> lCount * 8 & 255;
+      let wordToHexValueTemp = "0" + lByte.toString(16);
+      wordToHexValue += wordToHexValueTemp.substr(wordToHexValueTemp.length - 2, 2);
+    }
+    return wordToHexValue;
+  }
+  let x = convertToWordArray(message);
+  let a = 1732584193;
+  let b = 4023233417;
+  let c = 2562383102;
+  let d = 271733878;
+  for (let k = 0; k < x.length; k += 16) {
+    let AA = a, BB = b, CC = c, DD = d;
+    a = FF(a, b, c, d, x[k + 0], 7, 3614090360);
+    d = FF(d, a, b, c, x[k + 1], 12, 3905402710);
+    c = FF(c, d, a, b, x[k + 2], 17, 606105819);
+    b = FF(b, c, d, a, x[k + 3], 22, 3250441966);
+    a = FF(a, b, c, d, x[k + 4], 7, 4118548399);
+    d = FF(d, a, b, c, x[k + 5], 12, 1200080426);
+    c = FF(c, d, a, b, x[k + 6], 17, 2821735955);
+    b = FF(b, c, d, a, x[k + 7], 22, 4249261313);
+    a = FF(a, b, c, d, x[k + 8], 7, 1770035416);
+    d = FF(d, a, b, c, x[k + 9], 12, 2336552879);
+    c = FF(c, d, a, b, x[k + 10], 17, 4294925233);
+    b = FF(b, c, d, a, x[k + 11], 22, 2304563134);
+    a = FF(a, b, c, d, x[k + 12], 7, 1804603682);
+    d = FF(d, a, b, c, x[k + 13], 12, 4254626195);
+    c = FF(c, d, a, b, x[k + 14], 17, 2792965006);
+    b = FF(b, c, d, a, x[k + 15], 22, 1236535329);
+    a = GG(a, b, c, d, x[k + 1], 5, 4129170786);
+    d = GG(d, a, b, c, x[k + 6], 9, 3225465664);
+    c = GG(c, d, a, b, x[k + 11], 14, 643717713);
+    b = GG(b, c, d, a, x[k + 0], 20, 3921069994);
+    a = GG(a, b, c, d, x[k + 5], 5, 3593408605);
+    d = GG(d, a, b, c, x[k + 10], 9, 38016083);
+    c = GG(c, d, a, b, x[k + 15], 14, 3634488961);
+    b = GG(b, c, d, a, x[k + 4], 20, 3889429448);
+    a = GG(a, b, c, d, x[k + 9], 5, 568446438);
+    d = GG(d, a, b, c, x[k + 14], 9, 3275163606);
+    c = GG(c, d, a, b, x[k + 3], 14, 4107603335);
+    b = GG(b, c, d, a, x[k + 8], 20, 1163531501);
+    a = GG(a, b, c, d, x[k + 13], 5, 2850285829);
+    d = GG(d, a, b, c, x[k + 2], 9, 4243563512);
+    c = GG(c, d, a, b, x[k + 7], 14, 1735328473);
+    b = GG(b, c, d, a, x[k + 12], 20, 2368359562);
+    a = HH(a, b, c, d, x[k + 5], 4, 4294588738);
+    d = HH(d, a, b, c, x[k + 8], 11, 2272392833);
+    c = HH(c, d, a, b, x[k + 11], 16, 1839030562);
+    b = HH(b, c, d, a, x[k + 14], 23, 4259657740);
+    a = HH(a, b, c, d, x[k + 1], 4, 2763975236);
+    d = HH(d, a, b, c, x[k + 4], 11, 1272893353);
+    c = HH(c, d, a, b, x[k + 7], 16, 4139469664);
+    b = HH(b, c, d, a, x[k + 10], 23, 3200236656);
+    a = HH(a, b, c, d, x[k + 13], 4, 681279174);
+    d = HH(d, a, b, c, x[k + 0], 11, 3936430074);
+    c = HH(c, d, a, b, x[k + 3], 16, 3572445317);
+    b = HH(b, c, d, a, x[k + 6], 23, 76029189);
+    a = HH(a, b, c, d, x[k + 9], 4, 3654602809);
+    d = HH(d, a, b, c, x[k + 12], 11, 3873151461);
+    c = HH(c, d, a, b, x[k + 15], 16, 530742520);
+    b = HH(b, c, d, a, x[k + 2], 23, 3299628645);
+    a = II(a, b, c, d, x[k + 0], 6, 4096336452);
+    d = II(d, a, b, c, x[k + 7], 10, 1126891415);
+    c = II(c, d, a, b, x[k + 14], 15, 2878612391);
+    b = II(b, c, d, a, x[k + 5], 21, 4237533241);
+    a = II(a, b, c, d, x[k + 12], 6, 1700485571);
+    d = II(d, a, b, c, x[k + 3], 10, 2399980690);
+    c = II(c, d, a, b, x[k + 10], 15, 4293915773);
+    b = II(b, c, d, a, x[k + 1], 21, 2240044497);
+    a = II(a, b, c, d, x[k + 8], 6, 1873313359);
+    d = II(d, a, b, c, x[k + 15], 10, 4264355552);
+    c = II(c, d, a, b, x[k + 6], 15, 2734768916);
+    b = II(b, c, d, a, x[k + 13], 21, 1309151649);
+    a = II(a, b, c, d, x[k + 4], 6, 4149444226);
+    d = II(d, a, b, c, x[k + 11], 10, 3174756917);
+    c = II(c, d, a, b, x[k + 2], 15, 718787259);
+    b = II(b, c, d, a, x[k + 9], 21, 3951481745);
+    a = addUnsigned(a, AA);
+    b = addUnsigned(b, BB);
+    c = addUnsigned(c, CC);
+    d = addUnsigned(d, DD);
+  }
+  return (wordToHex(a) + wordToHex(b) + wordToHex(c) + wordToHex(d)).toLowerCase();
+}
+function parseDanmakuBase64(base64) {
+  const bytes = base64ToBytes(base64);
+  const elems = [];
+  let offset = 0;
+  while (offset < bytes.length) {
+    const key = bytes[offset++];
+    if (key !== 10) break;
+    const [msgBytes, nextOffset] = readLengthDelimited(bytes, offset);
+    offset = nextOffset;
+    let innerOffset = 0;
+    const elem = {};
+    while (innerOffset < msgBytes.length) {
+      const tag = msgBytes[innerOffset++];
+      const fieldNumber = tag >> 3;
+      const wireType = tag & 7;
+      if (wireType === 0) {
+        const [val, innerNext] = readVarint(msgBytes, innerOffset);
+        innerOffset = innerNext;
+        switch (fieldNumber) {
+          case 1:
+            elem.id = val;
+            break;
+          case 2:
+            elem.progress = val;
+            break;
+          case 3:
+            elem.mode = val;
+            break;
+          case 4:
+            elem.fontsize = val;
+            break;
+          case 5:
+            elem.color = val;
+            break;
+          case 8:
+            elem.ctime = val;
+            break;
+          case 9:
+            elem.weight = val;
+            break;
+          case 11:
+            elem.pool = val;
+            break;
+          case 13:
+            elem.attr = val;
+            break;
+          case 15:
+            elem.like_num = val;
+            break;
+          case 17:
+            elem.dm_type_v2 = val;
+            break;
+        }
+      } else if (wireType === 2) {
+        const [valBytes, innerNext] = readLengthDelimited(msgBytes, innerOffset);
+        innerOffset = innerNext;
+        switch (fieldNumber) {
+          case 6:
+            elem.midHash = utf8BytesToString(valBytes);
+            break;
+          case 7:
+            elem.content = utf8BytesToString(valBytes);
+            break;
+          case 10:
+            elem.action = utf8BytesToString(valBytes);
+            break;
+          case 12:
+            elem.idStr = utf8BytesToString(valBytes);
+            break;
+          case 14:
+            elem.animation = utf8BytesToString(valBytes);
+            break;
+          case 16:
+            elem.color_v2 = utf8BytesToString(valBytes);
+            break;
+        }
+      } else {
+        const [_, innerNext] = readVarint(msgBytes, innerOffset);
+        innerOffset = innerNext;
+      }
+    }
+    elems.push(elem);
+  }
+  return elems;
+}
+function readVarint(bytes, offset) {
+  let result = 0n;
+  let shift = 0n;
+  let pos = offset;
+  while (true) {
+    const b = bytes[pos++];
+    result |= BigInt(b & 127) << shift;
+    if ((b & 128) === 0) break;
+    shift += 7n;
+  }
+  return [Number(result), pos];
+}
+function readLengthDelimited(bytes, offset) {
+  const [length, newOffset] = readVarint(bytes, offset);
+  const start = newOffset;
+  const end = start + length;
+  const slice = bytes.slice(start, end);
+  return [slice, end];
+}
+function convertToAsciiSum(sid) {
+  let hash = 5381;
+  for (let i = 0; i < sid.length; i++) {
+    hash = hash * 33 ^ sid.charCodeAt(i);
+  }
+  hash = (hash >>> 0) % 9999999;
+  return hash < 1e4 ? hash + 1e4 : hash;
+}
+var SBOX = [
+  99,
+  124,
+  119,
+  123,
+  242,
+  107,
+  111,
+  197,
+  48,
+  1,
+  103,
+  43,
+  254,
+  215,
+  171,
+  118,
+  202,
+  130,
+  201,
+  125,
+  250,
+  89,
+  71,
+  240,
+  173,
+  212,
+  162,
+  175,
+  156,
+  164,
+  114,
+  192,
+  183,
+  253,
+  147,
+  38,
+  54,
+  63,
+  247,
+  204,
+  52,
+  165,
+  229,
+  241,
+  113,
+  216,
+  49,
+  21,
+  4,
+  199,
+  35,
+  195,
+  24,
+  150,
+  5,
+  154,
+  7,
+  18,
+  128,
+  226,
+  235,
+  39,
+  178,
+  117,
+  9,
+  131,
+  44,
+  26,
+  27,
+  110,
+  90,
+  160,
+  82,
+  59,
+  214,
+  179,
+  41,
+  227,
+  47,
+  132,
+  83,
+  209,
+  0,
+  237,
+  32,
+  252,
+  177,
+  91,
+  106,
+  203,
+  190,
+  57,
+  74,
+  76,
+  88,
+  207,
+  208,
+  239,
+  170,
+  251,
+  67,
+  77,
+  51,
+  133,
+  69,
+  249,
+  2,
+  127,
+  80,
+  60,
+  159,
+  168,
+  81,
+  163,
+  64,
+  143,
+  146,
+  157,
+  56,
+  245,
+  188,
+  182,
+  218,
+  33,
+  16,
+  255,
+  243,
+  210,
+  205,
+  12,
+  19,
+  236,
+  95,
+  151,
+  68,
+  23,
+  196,
+  167,
+  126,
+  61,
+  100,
+  93,
+  25,
+  115,
+  96,
+  129,
+  79,
+  220,
+  34,
+  42,
+  144,
+  136,
+  70,
+  238,
+  184,
+  20,
+  222,
+  94,
+  11,
+  219,
+  224,
+  50,
+  58,
+  10,
+  73,
+  6,
+  36,
+  92,
+  194,
+  211,
+  172,
+  98,
+  145,
+  149,
+  228,
+  121,
+  231,
+  200,
+  55,
+  109,
+  141,
+  213,
+  78,
+  169,
+  108,
+  86,
+  244,
+  234,
+  101,
+  122,
+  174,
+  8,
+  186,
+  120,
+  37,
+  46,
+  28,
+  166,
+  180,
+  198,
+  232,
+  221,
+  116,
+  31,
+  75,
+  189,
+  139,
+  138,
+  112,
+  62,
+  181,
+  102,
+  72,
+  3,
+  246,
+  14,
+  97,
+  53,
+  87,
+  185,
+  134,
+  193,
+  29,
+  158,
+  225,
+  248,
+  152,
+  17,
+  105,
+  217,
+  142,
+  148,
+  155,
+  30,
+  135,
+  233,
+  206,
+  85,
+  40,
+  223,
+  140,
+  161,
+  137,
+  13,
+  191,
+  230,
+  66,
+  104,
+  65,
+  153,
+  45,
+  15,
+  176,
+  84,
+  187,
+  22
+];
+var RCON = [
+  0,
+  1,
+  2,
+  4,
+  8,
+  16,
+  32,
+  64,
+  128,
+  27,
+  54
+];
+function xor(a, b) {
+  const out = new Uint8Array(a.length);
+  for (let i = 0; i < a.length; i++) out[i] = a[i] ^ b[i];
+  return out;
+}
+function rotWord(word) {
+  return Uint8Array.from([word[1], word[2], word[3], word[0]]);
+}
+function subWord(word) {
+  return Uint8Array.from(word.map((b) => SBOX[b]));
+}
+function keyExpansion(key) {
+  const Nk = 4, Nb = 4, Nr = 10;
+  const w = new Array(Nb * (Nr + 1));
+  for (let i = 0; i < Nk; i++) {
+    w[i] = key.slice(4 * i, 4 * i + 4);
+  }
+  for (let i = Nk; i < Nb * (Nr + 1); i++) {
+    let temp = w[i - 1];
+    if (i % Nk === 0) temp = xor(subWord(rotWord(temp)), Uint8Array.from([RCON[i / Nk], 0, 0, 0]));
+    w[i] = xor(w[i - Nk], temp);
+  }
+  return w;
+}
+function aesDecryptBlock(input, w) {
+  const Nb = 4, Nr = 10;
+  let state = new Uint8Array(input);
+  state = addRoundKey(state, w.slice(Nr * Nb, (Nr + 1) * Nb));
+  for (let round = Nr - 1; round >= 1; round--) {
+    state = invShiftRows(state);
+    state = invSubBytes(state);
+    state = addRoundKey(state, w.slice(round * Nb, (round + 1) * Nb));
+    state = invMixColumns(state);
+  }
+  state = invShiftRows(state);
+  state = invSubBytes(state);
+  state = addRoundKey(state, w.slice(0, Nb));
+  return state;
+}
+function addRoundKey(state, w) {
+  const out = new Uint8Array(16);
+  for (let c = 0; c < 4; c++)
+    for (let r = 0; r < 4; r++)
+      out[r + 4 * c] = state[r + 4 * c] ^ w[c][r];
+  return out;
+}
+function invSubBytes(state) {
+  const INV_SBOX = new Array(256);
+  for (let i = 0; i < 256; i++) INV_SBOX[SBOX[i]] = i;
+  return Uint8Array.from(state.map((b) => INV_SBOX[b]));
+}
+function invShiftRows(state) {
+  const out = new Uint8Array(16);
+  for (let r = 0; r < 4; r++)
+    for (let c = 0; c < 4; c++)
+      out[r + 4 * c] = state[r + 4 * ((c - r + 4) % 4)];
+  return out;
+}
+function invMixColumns(state) {
+  function mul(a, b) {
+    let p = 0;
+    for (let i = 0; i < 8; i++) {
+      if (b & 1) p ^= a;
+      let hi = a & 128;
+      a = a << 1 & 255;
+      if (hi) a ^= 27;
+      b >>= 1;
+    }
+    return p;
+  }
+  const out = new Uint8Array(16);
+  for (let c = 0; c < 4; c++) {
+    const col = state.slice(4 * c, 4 * c + 4);
+    out[4 * c + 0] = mul(col[0], 14) ^ mul(col[1], 11) ^ mul(col[2], 13) ^ mul(col[3], 9);
+    out[4 * c + 1] = mul(col[0], 9) ^ mul(col[1], 14) ^ mul(col[2], 11) ^ mul(col[3], 13);
+    out[4 * c + 2] = mul(col[0], 13) ^ mul(col[1], 9) ^ mul(col[2], 14) ^ mul(col[3], 11);
+    out[4 * c + 3] = mul(col[0], 11) ^ mul(col[1], 13) ^ mul(col[2], 9) ^ mul(col[3], 14);
+  }
+  return out;
+}
+function aesDecryptECB(cipherBytes, keyBytes) {
+  const w = keyExpansion(keyBytes);
+  const blockSize = 16;
+  const result = new Uint8Array(cipherBytes.length);
+  for (let i = 0; i < cipherBytes.length; i += blockSize) {
+    const block = cipherBytes.slice(i, i + blockSize);
+    const decrypted = aesDecryptBlock(block, w);
+    result.set(decrypted, i);
+  }
+  return result;
+}
+function pkcs7Unpad(data) {
+  const pad = data[data.length - 1];
+  return data.slice(0, data.length - pad);
+}
+function base64ToBytes(b64) {
+  const binaryString = typeof atob === "function" ? atob(b64) : BufferBase64Decode(b64);
+  const len = binaryString.length;
+  const bytes = new Uint8Array(len);
+  for (let i = 0; i < len; i++) {
+    bytes[i] = binaryString.charCodeAt(i);
+  }
+  return bytes;
+}
+function BufferBase64Decode(b64) {
+  const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=";
+  let str = "";
+  let buffer = 0, bits = 0;
+  for (let i = 0; i < b64.length; i++) {
+    const c = b64.charAt(i);
+    if (c === "=") break;
+    const val = chars.indexOf(c);
+    buffer = buffer << 6 | val;
+    bits += 6;
+    if (bits >= 8) {
+      bits -= 8;
+      str += String.fromCharCode(buffer >> bits & 255);
+    }
+  }
+  return str;
+}
+function utf8BytesToString(bytes) {
+  let str = "";
+  let i = 0;
+  while (i < bytes.length) {
+    const b1 = bytes[i++];
+    if (b1 < 128) {
+      str += String.fromCharCode(b1);
+    } else if (b1 >= 192 && b1 < 224) {
+      const b2 = bytes[i++];
+      str += String.fromCharCode((b1 & 31) << 6 | b2 & 63);
+    } else if (b1 >= 224 && b1 < 240) {
+      const b2 = bytes[i++];
+      const b3 = bytes[i++];
+      str += String.fromCharCode((b1 & 15) << 12 | (b2 & 63) << 6 | b3 & 63);
+    } else if (b1 >= 240) {
+      const b2 = bytes[i++];
+      const b3 = bytes[i++];
+      const b4 = bytes[i++];
+      const codepoint = (b1 & 7) << 18 | (b2 & 63) << 12 | (b3 & 63) << 6 | b4 & 63;
+      const cp = codepoint - 65536;
+      str += String.fromCharCode(55296 + (cp >> 10), 56320 + (cp & 1023));
+    }
+  }
+  return str;
+}
+function stringToUtf8Bytes(str) {
+  const bytes = [];
+  for (let i = 0; i < str.length; i++) {
+    let code = str.charCodeAt(i);
+    if (code < 128) {
+      bytes.push(code);
+    } else if (code < 2048) {
+      bytes.push(192 | code >> 6);
+      bytes.push(128 | code & 63);
+    } else if (code < 55296 || code >= 57344) {
+      bytes.push(224 | code >> 12);
+      bytes.push(128 | code >> 6 & 63);
+      bytes.push(128 | code & 63);
+    } else {
+      i++;
+      const code2 = str.charCodeAt(i);
+      const codePoint = 65536 + ((code & 1023) << 10 | code2 & 1023);
+      bytes.push(240 | codePoint >> 18);
+      bytes.push(128 | codePoint >> 12 & 63);
+      bytes.push(128 | codePoint >> 6 & 63);
+      bytes.push(128 | codePoint & 63);
+    }
+  }
+  return new Uint8Array(bytes);
+}
+function aesDecryptBase64(cipherB64, keyStr) {
+  try {
+    const cipherBytes = base64ToBytes(cipherB64);
+    const keyBytes = stringToUtf8Bytes(keyStr);
+    const decryptedBytes = aesDecryptECB(cipherBytes, keyBytes);
+    const unpadded = pkcs7Unpad(decryptedBytes);
+    return utf8BytesToString(unpadded);
+  } catch (e) {
+    log("error", e);
+    return null;
+  }
+}
+function autoDecode(anything) {
+  const text = typeof anything === "string" ? anything.trim() : JSON.stringify(anything ?? "");
+  try {
+    return JSON.parse(text);
+  } catch {
+  }
+  const AES_KEY = "3b744389882a4067";
+  const dec = aesDecryptBase64(text, AES_KEY);
+  if (dec != null) {
+    try {
+      return JSON.parse(dec);
+    } catch {
+      return dec;
+    }
+  }
+  return text;
+}
+function str2bytes(str) {
+  const bytes = [];
+  for (let i = 0; i < str.length; i++) {
+    let code = str.charCodeAt(i);
+    if (code < 128) {
+      bytes.push(code);
+    } else if (code < 2048) {
+      bytes.push(192 | code >> 6);
+      bytes.push(128 | code & 63);
+    } else if (code < 65536) {
+      bytes.push(224 | code >> 12);
+      bytes.push(128 | code >> 6 & 63);
+      bytes.push(128 | code & 63);
+    }
+  }
+  return bytes;
+}
+function bytesToBase64(bytes) {
+  const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+  let result = "";
+  let i;
+  for (i = 0; i + 2 < bytes.length; i += 3) {
+    result += chars[bytes[i] >> 2];
+    result += chars[(bytes[i] & 3) << 4 | bytes[i + 1] >> 4];
+    result += chars[(bytes[i + 1] & 15) << 2 | bytes[i + 2] >> 6];
+    result += chars[bytes[i + 2] & 63];
+  }
+  if (i < bytes.length) {
+    result += chars[bytes[i] >> 2];
+    if (i + 1 < bytes.length) {
+      result += chars[(bytes[i] & 3) << 4 | bytes[i + 1] >> 4];
+      result += chars[(bytes[i + 1] & 15) << 2];
+      result += "=";
+    } else {
+      result += chars[(bytes[i] & 3) << 4];
+      result += "==";
+    }
+  }
+  return result;
+}
+function sha256(ascii) {
+  function rightRotate(n, x) {
+    return x >>> n | x << 32 - n;
+  }
+  let maxWord = Math.pow(2, 32);
+  let words = [], asciiBitLength = ascii.length * 8;
+  for (let i = 0; i < ascii.length; i++) {
+    words[i >> 2] |= ascii.charCodeAt(i) << (3 - i) % 4 * 8;
+  }
+  words[ascii.length >> 2] |= 128 << (3 - ascii.length % 4) * 8;
+  words[(ascii.length + 8 >> 6) * 16 + 15] = asciiBitLength;
+  let w = new Array(64), hash = [
+    1779033703,
+    3144134277,
+    1013904242,
+    2773480762,
+    1359893119,
+    2600822924,
+    528734635,
+    1541459225
+  ];
+  const k = [
+    1116352408,
+    1899447441,
+    3049323471,
+    3921009573,
+    961987163,
+    1508970993,
+    2453635748,
+    2870763221,
+    3624381080,
+    310598401,
+    607225278,
+    1426881987,
+    1925078388,
+    2162078206,
+    2614888103,
+    3248222580,
+    3835390401,
+    4022224774,
+    264347078,
+    604807628,
+    770255983,
+    1249150122,
+    1555081692,
+    1996064986,
+    2554220882,
+    2821834349,
+    2952996808,
+    3210313671,
+    3336571891,
+    3584528711,
+    113926993,
+    338241895,
+    666307205,
+    773529912,
+    1294757372,
+    1396182291,
+    1695183700,
+    1986661051,
+    2177026350,
+    2456956037,
+    2730485921,
+    2820302411,
+    3259730800,
+    3345764771,
+    3516065817,
+    3600352804,
+    4094571909,
+    275423344,
+    430227734,
+    506948616,
+    659060556,
+    883997877,
+    958139571,
+    1322822218,
+    1537002063,
+    1747873779,
+    1955562222,
+    2024104815,
+    2227730452,
+    2361852424,
+    2428436474,
+    2756734187,
+    3204031479,
+    3329325298
+  ];
+  for (let j = 0; j < words.length; j += 16) {
+    let a = hash[0], b = hash[1], c = hash[2], d = hash[3], e = hash[4], f = hash[5], g = hash[6], h = hash[7];
+    for (let i = 0; i < 64; i++) {
+      if (i < 16) w[i] = words[j + i] | 0;
+      else {
+        const s0 = rightRotate(7, w[i - 15]) ^ rightRotate(18, w[i - 15]) ^ w[i - 15] >>> 3;
+        const s1 = rightRotate(17, w[i - 2]) ^ rightRotate(19, w[i - 2]) ^ w[i - 2] >>> 10;
+        w[i] = w[i - 16] + s0 + w[i - 7] + s1 | 0;
+      }
+      const S1 = rightRotate(6, e) ^ rightRotate(11, e) ^ rightRotate(25, e);
+      const ch = e & f ^ ~e & g;
+      const temp1 = h + S1 + ch + k[i] + w[i] | 0;
+      const S0 = rightRotate(2, a) ^ rightRotate(13, a) ^ rightRotate(22, a);
+      const maj = a & b ^ a & c ^ b & c;
+      const temp2 = S0 + maj | 0;
+      h = g;
+      g = f;
+      f = e;
+      e = d + temp1 | 0;
+      d = c;
+      c = b;
+      b = a;
+      a = temp1 + temp2 | 0;
+    }
+    hash[0] = hash[0] + a | 0;
+    hash[1] = hash[1] + b | 0;
+    hash[2] = hash[2] + c | 0;
+    hash[3] = hash[3] + d | 0;
+    hash[4] = hash[4] + e | 0;
+    hash[5] = hash[5] + f | 0;
+    hash[6] = hash[6] + g | 0;
+    hash[7] = hash[7] + h | 0;
+  }
+  const bytes = [];
+  for (let h of hash) {
+    bytes.push(h >> 24 & 255);
+    bytes.push(h >> 16 & 255);
+    bytes.push(h >> 8 & 255);
+    bytes.push(h & 255);
+  }
+  return bytes;
+}
+function createHmacSha256(key, message) {
+  const blockSize = 64;
+  let keyBytes = str2bytes(key);
+  if (keyBytes.length > blockSize) keyBytes = sha256(key);
+  if (keyBytes.length < blockSize) keyBytes = keyBytes.concat(Array(blockSize - keyBytes.length).fill(0));
+  const oKeyPad = keyBytes.map((b) => b ^ 92);
+  const iKeyPad = keyBytes.map((b) => b ^ 54);
+  const innerHash = sha256(String.fromCharCode(...iKeyPad) + message);
+  const hmacBytes = sha256(String.fromCharCode(...oKeyPad) + String.fromCharCode(...innerHash));
+  return bytesToBase64(hmacBytes);
+}
+function generateRandomSid() {
+  const chars = "abcdefghijklmnopqrstuvwxyz0123456789";
+  return Array.from({ length: 12 }, () => chars[Math.floor(Math.random() * chars.length)]).join("");
+}
+function generateSign(path2, timestamp, params, secretKey) {
+  let signStr = path2 + "t" + timestamp;
+  if (params) {
+    const sortedKeys = Object.keys(params).sort();
+    sortedKeys.forEach((key) => {
+      signStr += key + params[key];
+    });
+  }
+  signStr += secretKey;
+  return md5(signStr);
+}
+function generateXCaSign(path2, timestamp, queryString, secretKey) {
+  let signStr = `GET
+*/*
+gzip
 
+x-ca-method:1
+${path2}`;
+  if (queryString) signStr += `?${queryString}`;
+  return createHmacSha256(secretKey, signStr);
+}
+
+// danmu_api/utils/redis-util.js
+async function setRedisKey(key, value) {
+  const serializedValue = serializeValue(key, value);
+  const currentHash = simpleHash(serializedValue);
+  if (globals.lastHashes[key] === currentHash) {
+    log("info", `[redis] \u952E ${key} \u65E0\u53D8\u5316\uFF0C\u8DF3\u8FC7 SET \u8BF7\u6C42`);
+    return { result: "OK" };
+  }
+  const url = `${globals.redisUrl}/set/${key}`;
+  log("info", `[redis] \u5F00\u59CB\u53D1\u9001 SET \u8BF7\u6C42:`, url);
+  try {
+    const response = await fetch(url, {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${globals.redisToken}`,
+        "Content-Type": "application/json"
+      },
+      body: serializedValue
+    });
+    const result = await response.json();
+    globals.lastHashes[key] = currentHash;
+    log("info", `[redis] \u952E ${key} \u66F4\u65B0\u6210\u529F`);
+    return result;
+  } catch (error) {
+    log("error", `[redis] SET \u8BF7\u6C42\u5931\u8D25:`, error.message);
+    log("error", "- \u9519\u8BEF\u7C7B\u578B:", error.name);
+    if (error.cause) {
+      log("error", "- \u7801:", error.cause.code);
+      log("error", "- \u539F\u56E0:", error.cause.message);
+    }
+  }
+}
+async function runPipeline(commands) {
+  const url = `${globals.redisUrl}/pipeline`;
+  log("info", `[redis] \u5F00\u59CB\u53D1\u9001 PIPELINE \u8BF7\u6C42:`, url);
+  try {
+    const response = await fetch(url, {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${globals.redisToken}`,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify(commands)
+      // commands 是一个数组，包含多个 Redis 命令
+    });
+    const result = await response.json();
+    return result;
+  } catch (error) {
+    log("error", `[redis] Pipeline \u8BF7\u6C42\u5931\u8D25:`, error.message);
+    log("error", "- \u9519\u8BEF\u7C7B\u578B:", error.name);
+    if (error.cause) {
+      log("error", "- \u7801:", error.cause.code);
+      log("error", "- \u539F\u56E0:", error.cause.message);
+    }
+  }
+}
+async function updateRedisCaches() {
+  try {
+    log("info", "updateCaches start.");
+    const commands = [];
+    const updates = [];
+    const variables = [
+      { key: "animes", value: globals.animes },
+      { key: "episodeIds", value: globals.episodeIds },
+      { key: "episodeNum", value: globals.episodeNum },
+      { key: "lastSelectMap", value: globals.lastSelectMap }
+    ];
+    for (const { key, value } of variables) {
+      const serializedValue = key === "lastSelectMap" ? JSON.stringify(Object.fromEntries(value)) : JSON.stringify(value);
+      const currentHash = simpleHash(serializedValue);
+      if (currentHash !== globals.lastHashes[key]) {
+        commands.push(["SET", key, serializedValue]);
+        updates.push({ key, hash: currentHash });
+      }
+    }
+    if (commands.length > 0) {
+      log("info", `Updating ${commands.length} changed keys: ${updates.map((u) => u.key).join(", ")}`);
+      const results = await runPipeline(commands);
+      let successCount = 0;
+      let failureCount = 0;
+      if (Array.isArray(results)) {
+        results.forEach((result, index) => {
+          if (result && result.result === "OK") {
+            successCount++;
+          } else {
+            failureCount++;
+            log("warn", `Failed to update Redis key: ${updates[index]?.key}, result: ${JSON.stringify(result)}`);
+          }
+        });
+      }
+      if (failureCount === 0) {
+        updates.forEach(({ key, hash }) => {
+          globals.lastHashes[key] = hash;
+        });
+        log("info", `Redis update completed successfully: ${successCount} keys updated`);
+      } else {
+        log("warn", `Redis update partially failed: ${successCount} succeeded, ${failureCount} failed`);
+      }
+    } else {
+      log("info", "No changes detected, skipping Redis update.");
+    }
+  } catch (error) {
+    log("error", `updateRedisCaches failed: ${error.message}`, error.stack);
+    log("error", `Error details - Name: ${error.name}, Cause: ${error.cause ? error.cause.message : "N/A"}`);
+  }
+}
+
+// danmu_api/utils/common-util.js
 function printFirst200Chars(data) {
   let dataToPrint;
-
-  if (typeof data === 'string') {
-    dataToPrint = data;  // 如果是字符串，直接使用
+  if (typeof data === "string") {
+    dataToPrint = data;
   } else if (Array.isArray(data)) {
-    dataToPrint = JSON.stringify(data);  // 如果是数组，转为字符串
-  } else if (typeof data === 'object') {
-    dataToPrint = JSON.stringify(data);  // 如果是对象，转为字符串
+    dataToPrint = JSON.stringify(data);
+  } else if (typeof data === "object") {
+    dataToPrint = JSON.stringify(data);
   } else {
     log("error", "Unsupported data type");
     return;
   }
-
-  log("info", dataToPrint.slice(0, 200));  // 打印前200个字符
+  log("info", dataToPrint.slice(0, 200));
+}
+var extractAnimeTitle = (str) => str.split("(")[0].trim();
+function extractYear(animeTitle) {
+  const match = animeTitle.match(/\((\d{4})\)/);
+  return match ? parseInt(match[1]) : null;
+}
+function convertChineseNumber(chineseNumber) {
+  if (/^\d+$/.test(chineseNumber)) {
+    return Number(chineseNumber);
+  }
+  const digits = {
+    // 简体
+    "\u96F6": 0,
+    "\u4E00": 1,
+    "\u4E8C": 2,
+    "\u4E09": 3,
+    "\u56DB": 4,
+    "\u4E94": 5,
+    "\u516D": 6,
+    "\u4E03": 7,
+    "\u516B": 8,
+    "\u4E5D": 9,
+    // 繁体
+    "\u58F9": 1,
+    "\u8CB3": 2,
+    "\u53C3": 3,
+    "\u8086": 4,
+    "\u4F0D": 5,
+    "\u9678": 6,
+    "\u67D2": 7,
+    "\u634C": 8,
+    "\u7396": 9
+  };
+  const units = {
+    // 简体
+    "\u5341": 10,
+    "\u767E": 100,
+    "\u5343": 1e3,
+    // 繁体
+    "\u62FE": 10,
+    "\u4F70": 100,
+    "\u4EDF": 1e3
+  };
+  let result = 0;
+  let current = 0;
+  let lastUnit = 1;
+  for (let i = 0; i < chineseNumber.length; i++) {
+    const char = chineseNumber[i];
+    if (digits[char] !== void 0) {
+      current = digits[char];
+    } else if (units[char] !== void 0) {
+      const unit = units[char];
+      if (current === 0) current = 1;
+      if (unit >= lastUnit) {
+        result = current * unit;
+      } else {
+        result += current * unit;
+      }
+      lastUnit = unit;
+      current = 0;
+    }
+  }
+  if (current > 0) {
+    result += current;
+  }
+  return result;
+}
+function normalizeSpaces(str) {
+  if (!str) return "";
+  return String(str).trim().replace(/\s+/g, "");
+}
+function strictTitleMatch(title, query) {
+  if (!title || !query) return false;
+  const t = normalizeSpaces(title);
+  const q = normalizeSpaces(query);
+  if (t === q) return true;
+  const separators = [" ", "(", "\uFF08", ":", "\uFF1A", "-", "\u2014", "\xB7", "\u7B2C", "S", "s"];
+  for (const sep of separators) {
+    if (t.startsWith(q + sep)) return true;
+  }
+  return false;
+}
+function titleMatches(title, query) {
+  if (globals.strictTitleMatch) {
+    return strictTitleMatch(title, query);
+  } else {
+    const normalizedTitle = normalizeSpaces(title);
+    const normalizedQuery = normalizeSpaces(query);
+    return normalizedTitle.includes(normalizedQuery);
+  }
+}
+function validateType(value, expectedType) {
+  const fieldName = value?.constructor?.name;
+  if (expectedType === "array") {
+    if (!Array.isArray(value)) {
+      throw new TypeError(`${value} \u5FC5\u987B\u662F\u4E00\u4E2A\u6570\u7EC4\uFF0C\u4F46\u4F20\u5165\u7684\u662F ${fieldName}`);
+    }
+  } else if (expectedType === "boolean") {
+    if (typeof value !== "boolean" && typeof value !== "number") {
+      throw new TypeError(`${value} \u5FC5\u987B\u662F boolean \u6216 number\uFF0C\u4F46\u4F20\u5165\u7684\u662F ${fieldName}`);
+    }
+  } else if (typeof value !== expectedType) {
+    throw new TypeError(`${value} \u5FC5\u987B\u662F ${expectedType}\uFF0C\u4F46\u4F20\u5165\u7684\u662F ${fieldName}`);
+  }
 }
 
+// danmu_api/models/dandan-model.js
+var Anime = class _Anime {
+  constructor({
+    animeId = 111,
+    bangumiId = "",
+    animeTitle = "",
+    type = "",
+    typeDescription = "",
+    imageUrl = "",
+    startDate = "",
+    episodeCount = 1,
+    rating = 0,
+    isFavorited = true,
+    source = "",
+    links = []
+  } = {}) {
+    validateType(animeId, "number");
+    validateType(bangumiId, "string");
+    validateType(animeTitle, "string");
+    validateType(type, "string", "type");
+    validateType(typeDescription, "string");
+    validateType(imageUrl, "string");
+    validateType(startDate, "string");
+    validateType(episodeCount, "number");
+    validateType(rating, "number");
+    validateType(isFavorited, "boolean");
+    validateType(source, "string");
+    validateType(links, "array");
+    this.links = links.map((linkData) => Link.fromJson(linkData));
+    Object.assign(this, {
+      animeId,
+      bangumiId,
+      animeTitle,
+      type,
+      typeDescription,
+      imageUrl,
+      startDate,
+      episodeCount,
+      rating,
+      isFavorited,
+      source
+    });
+  }
+  // ---- 静态方法：从 JSON 创建 Anime 对象 ----
+  static fromJson(json) {
+    if (typeof json !== "object" || json === null) {
+      throw new TypeError("fromJson \u53C2\u6570\u5FC5\u987B\u662F\u5BF9\u8C61");
+    }
+    const links = (json.links || []).map((link) => Link.fromJson(link));
+    return new _Anime({ ...json, links });
+  }
+  // ---- 转换为纯 JSON ----
+  toJson() {
+    return {
+      ...this,
+      // 将 this 中的其他属性直接展开
+      links: this.links.map((link) => link.toJson())
+      // 转换每个 link 为 JSON
+    };
+  }
+};
+var Link = class _Link {
+  constructor({ name = "", url = "", title = "", id = 10001 } = {}) {
+    validateType(name, "string");
+    validateType(url, "string");
+    validateType(title, "string");
+    validateType(id, "number");
+    Object.assign(this, { name, url, title, id });
+  }
+  // ---- 静态方法：从 JSON 创建 Link 对象 ----
+  static fromJson(json) {
+    if (typeof json !== "object" || json === null) {
+      throw new TypeError("fromJson \u53C2\u6570\u5FC5\u987B\u662F\u5BF9\u8C61");
+    }
+    return new _Link(json);
+  }
+  // ---- 转换为纯 JSON ----
+  toJson() {
+    return { ...this };
+  }
+};
+var Episode = class {
+  constructor({ episodeId = "", episodeTitle = "" } = {}) {
+    this.episodeId = episodeId;
+    this.episodeTitle = episodeTitle;
+  }
+};
+Episode.prototype.toJson = function() {
+  return {
+    episodeId: this.episodeId,
+    episodeTitle: this.episodeTitle
+  };
+};
+var Season = class _Season {
+  constructor({ id = "", airDate = "", name = "", episodeCount = 0 } = {}) {
+    validateType(id, "string");
+    validateType(airDate, "string");
+    validateType(name, "string");
+    validateType(episodeCount, "number");
+    Object.assign(this, { id, airDate, name, episodeCount });
+  }
+  // ---- 静态方法：从 JSON 创建 Season 对象 ----
+  static fromJson(json) {
+    if (typeof json !== "object" || json === null) {
+      throw new TypeError("fromJson \u53C2\u6570\u5FC5\u987B\u662F\u5BF9\u8C61");
+    }
+    return new _Season(json);
+  }
+  // ---- 转换为纯 JSON ----
+  toJson() {
+    return { ...this };
+  }
+};
+var BangumiEpisode = class _BangumiEpisode {
+  constructor({
+    seasonId = "",
+    episodeId = 10001,
+    episodeTitle = "",
+    episodeNumber = "",
+    airDate = ""
+  } = {}) {
+    validateType(seasonId, "string");
+    validateType(episodeId, "number");
+    validateType(episodeTitle, "string");
+    validateType(episodeNumber, "string");
+    validateType(airDate, "string");
+    Object.assign(this, { seasonId, episodeId, episodeTitle, episodeNumber, airDate });
+  }
+  // ---- 静态方法：从 JSON 创建 BangumiEpisode 对象 ----
+  static fromJson(json) {
+    if (typeof json !== "object" || json === null) {
+      throw new TypeError("fromJson \u53C2\u6570\u5FC5\u987B\u662F\u5BF9\u8C61");
+    }
+    return new _BangumiEpisode(json);
+  }
+  // ---- 转换为纯 JSON ----
+  toJson() {
+    return { ...this };
+  }
+};
+var Bangumi = class _Bangumi {
+  constructor({
+    animeId = 111,
+    bangumiId = "",
+    animeTitle = "",
+    imageUrl = "",
+    isOnAir = true,
+    airDay = 1,
+    isFavorited = true,
+    rating = 0,
+    type = "",
+    typeDescription = "",
+    seasons = [],
+    episodes = []
+  } = {}) {
+    validateType(animeId, "number");
+    validateType(bangumiId, "string");
+    validateType(animeTitle, "string");
+    validateType(imageUrl, "string");
+    validateType(isOnAir, "boolean");
+    validateType(airDay, "number");
+    validateType(isFavorited, "boolean");
+    validateType(rating, "number");
+    validateType(type, "string");
+    validateType(typeDescription, "string");
+    validateType(seasons, "array");
+    validateType(episodes, "array");
+    const seasonInstances = seasons.map((seasonData) => Season.fromJson(seasonData));
+    Object.assign(this, {
+      animeId,
+      bangumiId,
+      animeTitle,
+      imageUrl,
+      isOnAir,
+      airDay,
+      isFavorited,
+      rating,
+      type,
+      typeDescription,
+      seasons: seasonInstances,
+      episodes
+    });
+  }
+  // ---- 静态方法：从 JSON 创建 Bangumi 对象 ----
+  static fromJson(json) {
+    if (typeof json !== "object" || json === null) {
+      throw new TypeError("fromJson \u53C2\u6570\u5FC5\u987B\u662F\u5BF9\u8C61");
+    }
+    const episodes = json.episodes.map((ep) => BangumiEpisode.fromJson(ep));
+    return new _Bangumi({ ...json, episodes });
+  }
+  // ---- 转换为纯 JSON ----
+  toJson() {
+    return {
+      ...this,
+      seasons: this.seasons.map((season) => season.toJson()),
+      // 转换每个 season 为 JSON
+      episodes: this.episodes.map((ep) => ep.toJson())
+      // 转换每个 episode 为 JSON
+    };
+  }
+};
+var SegmentListResponse = class _SegmentListResponse {
+  constructor({ type = "", segmentList = [] } = {}) {
+    validateType(type, "string");
+    validateType(segmentList, "array");
+    this.segmentList = segmentList.map((segmentData) => Segment.fromJson(segmentData));
+    Object.assign(this, { type });
+  }
+  // ---- 静态方法：从 JSON 创建 SegmentListResponse 对象 ----
+  static fromJson(json) {
+    if (typeof json !== "object" || json === null) {
+      throw new TypeError("fromJson \u53C2\u6570\u5FC5\u987B\u662F\u5BF9\u8C61");
+    }
+    const segmentList = (json.segmentList || []).map((segment) => Segment.fromJson(segment));
+    return new _SegmentListResponse({ ...json, segmentList });
+  }
+  // ---- 转换为纯 JSON ----
+  toJson() {
+    return {
+      ...this,
+      segmentList: this.segmentList.map((segment) => segment.toJson())
+    };
+  }
+};
+var Segment = class _Segment {
+  constructor({ type, segment_start, segment_end, url, data, _m_h5_tk, _m_h5_tk_enc } = {}) {
+    validateType(type, "string", "type");
+    validateType(segment_start, "number", "segment_start");
+    validateType(segment_end, "number", "segment_end");
+    validateType(url, "string", "url");
+    if (data !== void 0) validateType(data, "string", "data");
+    if (_m_h5_tk !== void 0) validateType(_m_h5_tk, "string", "_m_h5_tk");
+    if (_m_h5_tk_enc !== void 0) validateType(_m_h5_tk_enc, "string", "_m_h5_tk_enc");
+    Object.assign(this, { type, segment_start, segment_end, url, data, _m_h5_tk, _m_h5_tk_enc });
+  }
+  // ---- 静态方法：从 JSON 创建 Segment 对象 ----
+  static fromJson(json) {
+    if (typeof json !== "object" || json === null) {
+      throw new TypeError("fromJson \u53C2\u6570\u5FC5\u987B\u662F\u5BF9\u8C61");
+    }
+    return new _Segment(json);
+  }
+  // ---- 转换为纯 JSON ----
+  toJson() {
+    return { ...this };
+  }
+};
+
+// danmu_api/utils/cache-util.js
+var fs;
+var path;
+function isSearchCacheValid(keyword) {
+  if (!globals.searchCache.has(keyword)) {
+    return false;
+  }
+  const cached = globals.searchCache.get(keyword);
+  const now = Date.now();
+  const cacheAgeMinutes = (now - cached.timestamp) / (1e3 * 60);
+  if (cacheAgeMinutes > globals.searchCacheMinutes) {
+    globals.searchCache.delete(keyword);
+    log("info", `Search cache for "${keyword}" expired after ${cacheAgeMinutes.toFixed(2)} minutes`);
+    return false;
+  }
+  return true;
+}
+function getSearchCache(keyword) {
+  if (isSearchCacheValid(keyword)) {
+    log("info", `Using search cache for "${keyword}"`);
+    return globals.searchCache.get(keyword).results;
+  }
+  return null;
+}
+function setSearchCache(keyword, results) {
+  globals.searchCache.set(keyword, {
+    results,
+    timestamp: Date.now()
+  });
+  log("info", `Cached search results for "${keyword}" (${results.length} animes)`);
+}
+function isCommentCacheValid(videoUrl) {
+  if (!globals.commentCache.has(videoUrl)) {
+    return false;
+  }
+  const cached = globals.commentCache.get(videoUrl);
+  const now = Date.now();
+  const cacheAgeMinutes = (now - cached.timestamp) / (1e3 * 60);
+  if (cacheAgeMinutes > globals.commentCacheMinutes) {
+    globals.commentCache.delete(videoUrl);
+    log("info", `Comment cache for "${videoUrl}" expired after ${cacheAgeMinutes.toFixed(2)} minutes`);
+    return false;
+  }
+  return true;
+}
+function getCommentCache(videoUrl) {
+  if (isCommentCacheValid(videoUrl)) {
+    log("info", `Using comment cache for "${videoUrl}"`);
+    return globals.commentCache.get(videoUrl).comments;
+  }
+  return null;
+}
+function setCommentCache(videoUrl, comments) {
+  globals.commentCache.set(videoUrl, {
+    comments,
+    timestamp: Date.now()
+  });
+  log("info", `Cached comments for "${videoUrl}" (${comments.length} comments)`);
+}
+function addEpisode(url, title) {
+  const existingEpisode = globals.episodeIds.find((episode) => episode.url === url && episode.title === title);
+  if (existingEpisode) {
+    log("info", `Episode with URL ${url} and title ${title} already exists in episodeIds, returning existing episode.`);
+    return existingEpisode;
+  }
+  globals.episodeNum++;
+  const newEpisode = { id: globals.episodeNum, url, title };
+  globals.episodeIds.push(newEpisode);
+  log("info", `Added to episodeIds: ${JSON.stringify(newEpisode)}`);
+  return newEpisode;
+}
+function removeEpisodeByUrl(url) {
+  const initialLength = globals.episodeIds.length;
+  globals.episodeIds = globals.episodeIds.filter((episode) => episode.url !== url);
+  const removedCount = initialLength - globals.episodeIds.length;
+  if (removedCount > 0) {
+    log("info", `Removed ${removedCount} episode(s) from episodeIds with URL: ${url}`);
+    return true;
+  }
+  log("error", `No episode found in episodeIds with URL: ${url}`);
+  return false;
+}
+function findUrlById(id) {
+  const episode = globals.episodeIds.find((episode2) => episode2.id === id);
+  if (episode) {
+    log("info", `Found URL for ID ${id}: ${episode.url}`);
+    return episode.url;
+  }
+  log("error", `No URL found for ID: ${id}`);
+  return null;
+}
+function findTitleById(id) {
+  const episode = globals.episodeIds.find((episode2) => episode2.id === id);
+  if (episode) {
+    log("info", `Found TITLE for ID ${id}: ${episode.title}`);
+    return episode.title;
+  }
+  log("error", `No TITLE found for ID: ${id}`);
+  return null;
+}
+function addAnime(anime) {
+  anime = Anime.fromJson(anime);
+  try {
+    if (!anime.links || !Array.isArray(anime.links)) {
+      log("error", `Invalid or missing links in anime: ${JSON.stringify(anime)}`);
+      return false;
+    }
+    const newLinks = [];
+    anime.links.forEach((link) => {
+      if (link.url) {
+        const episode = addEpisode(link.url, link.title);
+        if (episode) {
+          newLinks.push(episode);
+        }
+      } else {
+        log("error", `Invalid link in anime, missing url: ${JSON.stringify(link)}`);
+      }
+    });
+    const animeCopy = Anime.fromJson({ ...anime, links: newLinks });
+    const existingAnimeIndex = globals.animes.findIndex((a) => a.animeId === anime.animeId);
+    if (existingAnimeIndex !== -1) {
+      globals.animes.splice(existingAnimeIndex, 1);
+      log("info", `Removed old anime at index: ${existingAnimeIndex}`);
+    }
+    globals.animes.push(animeCopy);
+    log("info", `Added anime to latest position: ${anime.animeId}`);
+    if (globals.animes.length > globals.MAX_ANIMES) {
+      const removeSuccess = removeEarliestAnime();
+      if (!removeSuccess) {
+        log("error", "Failed to remove earliest anime, but continuing");
+      }
+    }
+    log("info", `animes: ${JSON.stringify(
+      globals.animes,
+      (key, value) => key === "links" ? value.length : value
+    )}`);
+    return true;
+  } catch (error) {
+    log("error", `addAnime failed: ${error.message}`);
+    return false;
+  }
+}
+function removeEarliestAnime() {
+  if (globals.animes.length === 0) {
+    log("error", "No animes to remove.");
+    return false;
+  }
+  const removedAnime = globals.animes.shift();
+  log("info", `Removed earliest anime: ${JSON.stringify(removedAnime)}`);
+  if (removedAnime.links && Array.isArray(removedAnime.links)) {
+    removedAnime.links.forEach((link) => {
+      if (link.url) {
+        removeEpisodeByUrl(link.url);
+      }
+    });
+  }
+  return true;
+}
+function storeAnimeIdsToMap(curAnimes, key) {
+  const uniqueAnimeIds = /* @__PURE__ */ new Set();
+  for (const anime of curAnimes) {
+    uniqueAnimeIds.add(anime.animeId);
+  }
+  const oldValue = globals.lastSelectMap.get(key);
+  const oldPrefer = oldValue?.prefer;
+  if (globals.lastSelectMap.has(key)) {
+    globals.lastSelectMap.delete(key);
+  }
+  globals.lastSelectMap.set(key, {
+    animeIds: [...uniqueAnimeIds],
+    ...oldPrefer !== void 0 && { prefer: oldPrefer }
+  });
+  if (globals.lastSelectMap.size > globals.MAX_LAST_SELECT_MAP) {
+    const firstKey = globals.lastSelectMap.keys().next().value;
+    globals.lastSelectMap.delete(firstKey);
+    log("info", `Removed earliest entry from lastSelectMap: ${firstKey}`);
+  }
+}
+function findAnimeIdByCommentId(commentId) {
+  for (const anime of globals.animes) {
+    for (const link of anime.links) {
+      if (link.id === commentId) {
+        return [anime.animeId, anime.source];
+      }
+    }
+  }
+  return [null, null];
+}
+function setPreferByAnimeId(animeId, source) {
+  for (const [key, value] of globals.lastSelectMap.entries()) {
+    if (value.animeIds && value.animeIds.includes(animeId)) {
+      value.prefer = animeId;
+      value.source = source;
+      globals.lastSelectMap.set(key, value);
+      return key;
+    }
+  }
+  return null;
+}
+function getDirname() {
+  if (typeof __dirname !== "undefined") {
+    return __dirname;
+  }
+  return path.join(process.cwd(), "danmu_api", "utils");
+}
+function writeCacheToFile(key, value) {
+  const cacheFilePath = path.join(getDirname(), "..", "..", ".cache", `${key}`);
+  fs.writeFileSync(cacheFilePath, JSON.stringify(value), "utf8");
+}
+async function updateLocalCaches() {
+  try {
+    log("info", "updateLocalCaches start.");
+    const updates = [];
+    const variables = [
+      { key: "animes", value: globals.animes },
+      { key: "episodeIds", value: globals.episodeIds },
+      { key: "episodeNum", value: globals.episodeNum },
+      { key: "lastSelectMap", value: globals.lastSelectMap }
+    ];
+    for (const { key, value } of variables) {
+      const serializedValue = key === "lastSelectMap" ? JSON.stringify(Object.fromEntries(value)) : JSON.stringify(value);
+      const currentHash = simpleHash(serializedValue);
+      if (currentHash !== globals.lastHashes[key]) {
+        writeCacheToFile(key, serializedValue);
+        updates.push({ key, hash: currentHash });
+      }
+    }
+    if (updates.length > 0) {
+      log("info", `Updated local caches for keys: ${updates.map((u) => u.key).join(", ")}`);
+      updates.forEach(({ key, hash }) => {
+        globals.lastHashes[key] = hash;
+      });
+    } else {
+      log("info", "No changes detected, skipping local cache update.");
+    }
+  } catch (error) {
+    log("error", `updateLocalCaches failed: ${error.message}`, error.stack);
+    log("error", `Error details - Name: ${error.name}, Cause: ${error.cause ? error.cause.message : "N/A"}`);
+  }
+}
+
+// danmu_api/utils/danmu-util.js
 function groupDanmusByMinute(filteredDanmus, n) {
-  // 如果 n 为 0，直接返回原始数据
   if (n === 0) {
-    return filteredDanmus.map(danmu => ({
+    return filteredDanmus.map((danmu) => ({
       ...danmu,
-      t: danmu.t !== undefined ? danmu.t : parseFloat(danmu.p.split(',')[0])
+      t: danmu.t !== void 0 ? danmu.t : parseFloat(danmu.p.split(",")[0])
     }));
   }
-
-  // 按 n 分钟分组
   const groupedByMinute = filteredDanmus.reduce((acc, danmu) => {
-    // 获取时间：优先使用 t 字段，如果没有则使用 p 的第一个值
-    const time = danmu.t !== undefined ? danmu.t : parseFloat(danmu.p.split(',')[0]);
-    // 计算分组（每 n 分钟一组，向下取整）
+    const time = danmu.t !== void 0 ? danmu.t : parseFloat(danmu.p.split(",")[0]);
     const group = Math.floor(time / (n * 60));
-
-    // 初始化分组
     if (!acc[group]) {
       acc[group] = [];
     }
-
-    // 添加到对应分组
     acc[group].push({ ...danmu, t: time });
     return acc;
   }, {});
-
-  // 处理每组的弹幕
-  const result = Object.keys(groupedByMinute).map(group => {
+  const result = Object.keys(groupedByMinute).map((group) => {
     const danmus = groupedByMinute[group];
-
-    // 按消息内容分组
     const groupedByMessage = danmus.reduce((acc, danmu) => {
-      const message = danmu.m.split(' X')[0]; // 提取原始消息（去除 Xn 后缀）
+      const message = danmu.m.split(" X")[0];
       if (!acc[message]) {
         acc[message] = {
           count: 0,
@@ -819,13 +2823,10 @@ function groupDanmusByMinute(filteredDanmus, n) {
         };
       }
       acc[message].count += 1;
-      // 更新最早时间
       acc[message].earliestT = Math.min(acc[message].earliestT, danmu.t);
       return acc;
     }, {});
-
-    // 转换为结果格式
-    return Object.keys(groupedByMessage).map(message => {
+    return Object.keys(groupedByMessage).map((message) => {
       const data = groupedByMessage[message];
       return {
         cid: data.cid,
@@ -835,147 +2836,708 @@ function groupDanmusByMinute(filteredDanmus, n) {
       };
     });
   });
-
-  // 展平结果并按时间排序
   return result.flat().sort((a, b) => a.t - b.t);
 }
-
+function limitDanmusByCount(filteredDanmus, danmuLimit) {
+  if (danmuLimit === 0) {
+    return filteredDanmus;
+  }
+  const targetCount = danmuLimit * 1e3;
+  const totalCount = filteredDanmus.length;
+  if (totalCount <= targetCount) {
+    return filteredDanmus;
+  }
+  const interval = totalCount / targetCount;
+  const result = [];
+  for (let i = 0; i < targetCount; i++) {
+    const index = Math.floor(i * interval);
+    result.push(filteredDanmus[index]);
+  }
+  return result;
+}
 function convertToDanmakuJson(contents, platform) {
   let danmus = [];
   let cidCounter = 1;
-
-  // 统一处理输入为数组
   let items = [];
   if (typeof contents === "string") {
-    // 处理 XML 字符串
-    items = [...contents.matchAll(/<d p="([^"]+)">([^<]+)<\/d>/g)].map(match => ({
+    items = [...contents.matchAll(/<d p="([^"]+)">([^<]+)<\/d>/g)].map((match) => ({
       p: match[1],
       m: match[2]
     }));
   } else if (contents && Array.isArray(contents.danmuku)) {
-    // 处理 danmuku 数组，映射为对象格式
     const typeMap = { right: 1, top: 4, bottom: 5 };
-    const hexToDecimal = (hex) => (hex ? parseInt(hex.replace("#", ""), 16) : 16777215);
-    items = contents.danmuku.map(item => ({
+    const hexToDecimal = (hex) => hex ? parseInt(hex.replace("#", ""), 16) : 16777215;
+    items = contents.danmuku.map((item) => ({
       timepoint: item[0],
-      ct: typeMap[item[1]] !== undefined ? typeMap[item[1]] : 1,
+      ct: typeMap[item[1]] !== void 0 ? typeMap[item[1]] : 1,
       color: hexToDecimal(item[2]),
       content: item[4]
     }));
   } else if (Array.isArray(contents)) {
-    // 处理标准对象数组
     items = contents;
   }
-
   if (!items.length) {
-    throw new Error("无效输入，需为 XML 字符串或弹幕数组");
+    return [];
   }
-
   for (const item of items) {
     let attributes, m;
-
-    // 新增：处理新格式的弹幕数据
+    let time, mode, color;
     if ("progress" in item && "mode" in item && "content" in item) {
-      // 处理新格式的弹幕对象
-      attributes = [
-        (item.progress / 1000).toFixed(2), // progress 转换为秒
-        item.mode || 1,
-        item.color || 16777215,
-        `[${platform}]`
-      ].join(",");
+      time = (item.progress / 1e3).toFixed(2);
+      mode = item.mode || 1;
+      color = item.color || 16777215;
       m = item.content;
     } else if ("timepoint" in item) {
-      // 处理对象数组输入
-      attributes = [
-        parseFloat(item.timepoint).toFixed(2),
-        item.ct || 0,
-        item.color || 16777215,
-        `[${platform}]`
-      ].join(",");
+      time = parseFloat(item.timepoint).toFixed(2);
+      mode = item.ct || 0;
+      color = item.color || 16777215;
       m = item.content;
     } else {
       if (!("p" in item)) {
         continue;
       }
-      // 处理 XML 解析后的格式
       const pValues = item.p.split(",");
+      time = parseFloat(pValues[0]).toFixed(2);
+      mode = pValues[1] || 0;
       if (pValues.length === 4) {
-        attributes = [
-          parseFloat(pValues[0]).toFixed(2),
-          pValues[1] || 0,
-          pValues[2] || 16777215,
-          `[${platform}]`
-        ].join(",");
+        color = pValues[2] || 16777215;
+      } else if (pValues.length >= 8) {
+        color = pValues[3] || 16777215;
       } else {
-        attributes = [
-          parseFloat(pValues[0]).toFixed(2),
-          pValues[1] || 0,
-          pValues[3] || 16777215,
-          `[${platform}]`
-        ].join(",");
+        color = pValues[3] || pValues[2] || 16777215;
       }
       m = item.m;
     }
-
+    attributes = [
+      time,
+      mode,
+      color,
+      `[${platform}]`
+    ].join(",");
     danmus.push({ p: attributes, m, cid: cidCounter++ });
   }
-
-  // 切割字符串成正则表达式数组
-  const regexArray = blockedWords.split(/(?<=\/),(?=\/)/).map(str => {
-    // 去除两端的斜杠并转换为正则对象
+  const regexArray = globals.blockedWords.split(/(?<=\/),(?=\/)/).map((str) => {
     const pattern = str.trim();
-    if (pattern.startsWith('/') && pattern.endsWith('/')) {
+    if (pattern.startsWith("/") && pattern.endsWith("/")) {
       try {
-        // 去除两边的 `/` 并转化为正则
         return new RegExp(pattern.slice(1, -1));
       } catch (e) {
-        log("error", `无效的正则表达式: ${pattern}`, e);
+        log("error", `\u65E0\u6548\u7684\u6B63\u5219\u8868\u8FBE\u5F0F: ${pattern}`, e);
         return null;
       }
     }
-    return null; // 如果不是有效的正则格式则返回 null
-  }).filter(regex => regex !== null); // 过滤掉无效的项
-
-  log("info", "原始屏蔽词字符串:", blockedWords);
-  const regexArrayToString = array => Array.isArray(array) ? array.map(regex => regex.toString()).join('\n') : String(array);
-  log("info", "屏蔽词列表:", regexArrayToString(regexArray));
-
-  // 过滤列表
-  const filteredDanmus = danmus.filter(item => {
-    return !regexArray.some(regex => regex.test(item.m)); // 针对 `m` 字段进行匹配
+    return null;
+  }).filter((regex) => regex !== null);
+  log("info", `\u539F\u59CB\u5C4F\u853D\u8BCD\u5B57\u7B26\u4E32: ${globals.blockedWords}`);
+  const regexArrayToString = (array) => Array.isArray(array) ? array.map((regex) => regex.toString()).join("\n") : String(array);
+  log("info", `\u5C4F\u853D\u8BCD\u5217\u8868: ${regexArrayToString(regexArray)}`);
+  const filteredDanmus = danmus.filter((item) => {
+    return !regexArray.some((regex) => regex.test(item.m));
   });
-
-  // 按n分钟内去重
-  log("info", "去重分钟数:", groupMinute);
-  const groupedDanmus = groupDanmusByMinute(filteredDanmus, groupMinute);
-
-  log("info", "danmus_original:", danmus.length);
-  log("info", "danmus_filter:", filteredDanmus.length);
-  log("info", "danmus_group:", groupedDanmus.length);
-  // 输出前五条弹幕
-  log("info", "Top 5 danmus:", JSON.stringify(groupedDanmus.slice(0, 5), null, 2));
-  return groupedDanmus;
-}
-
-function buildQueryString(params) {
-  let queryString = '';
-
-  // 遍历 params 对象的每个属性
-  for (let key in params) {
-    if (params.hasOwnProperty(key)) {
-      // 如果 queryString 已经有参数了，则添加 '&'
-      if (queryString.length > 0) {
-        queryString += '&';
+  log("info", `\u53BB\u91CD\u5206\u949F\u6570: ${globals.groupMinute}`);
+  const groupedDanmus = groupDanmusByMinute(filteredDanmus, globals.groupMinute);
+  let convertedDanmus = limitDanmusByCount(groupedDanmus, globals.danmuLimit);
+  if (globals.convertTopBottomToScroll || globals.convertColor === "white" || globals.convertColor === "color") {
+    let topBottomCount = 0;
+    let colorCount = 0;
+    convertedDanmus = groupedDanmus.map((danmu) => {
+      const pValues = danmu.p.split(",");
+      if (pValues.length < 3) return danmu;
+      let mode = parseInt(pValues[1], 10);
+      let color = parseInt(pValues[2], 10);
+      let modified = false;
+      if (globals.convertTopBottomToScroll && (mode === 4 || mode === 5)) {
+        topBottomCount++;
+        mode = 1;
+        modified = true;
       }
-
-      // 将 key 和 value 使用 encodeURIComponent 编码，并拼接成查询字符串
-      queryString += encodeURIComponent(key) + '=' + encodeURIComponent(params[key]);
+      if (globals.convertColor === "white" && color !== 16777215) {
+        colorCount++;
+        color = 16777215;
+        modified = true;
+      }
+      let colors = [
+        16777215,
+        16777215,
+        16777215,
+        16777215,
+        16777215,
+        16777215,
+        16777215,
+        16777215,
+        16744319,
+        16752762,
+        16774799,
+        9498256,
+        8388564,
+        8900346,
+        14204888,
+        16758465
+      ];
+      let randomColor = colors[Math.floor(Math.random() * colors.length)];
+      if (globals.convertColor === "color" && color === 16777215 && color !== randomColor) {
+        colorCount++;
+        color = randomColor;
+        modified = true;
+      }
+      if (modified) {
+        const newP = [pValues[0], mode, color, ...pValues.slice(3)].join(",");
+        return { ...danmu, p: newP };
+      }
+      return danmu;
+    });
+    if (topBottomCount > 0) {
+      log("info", `[danmu convert] \u8F6C\u6362\u4E86 ${topBottomCount} \u6761\u9876\u90E8/\u5E95\u90E8\u5F39\u5E55\u4E3A\u6D6E\u52A8\u5F39\u5E55`);
+    }
+    if (colorCount > 0) {
+      log("info", `[danmu convert] \u8F6C\u6362\u4E86 ${colorCount} \u6761\u5F39\u5E55\u989C\u8272`);
     }
   }
-
-  return queryString;
+  log("info", `danmus_original: ${danmus.length}`);
+  log("info", `danmus_filter: ${filteredDanmus.length}`);
+  log("info", `danmus_group: ${groupedDanmus.length}`);
+  log("info", `danmus_limit: ${convertedDanmus.length}`);
+  log("info", "Top 5 danmus:", JSON.stringify(convertedDanmus.slice(0, 5), null, 2));
+  return convertedDanmus;
+}
+function rgbToInt(color) {
+  if (typeof color.r !== "number" || color.r < 0 || color.r > 255 || typeof color.g !== "number" || color.g < 0 || color.g > 255 || typeof color.b !== "number" || color.b < 0 || color.b > 255) {
+    return -1;
+  }
+  return color.r * 256 * 256 + color.g * 256 + color.b;
+}
+function convertDanmuToXml(danmuData) {
+  let xml = '<?xml version="1.0" ?>\n';
+  xml += "<i>\n";
+  const comments = danmuData.comments || [];
+  if (Array.isArray(comments)) {
+    for (const comment of comments) {
+      const pValue = buildBilibiliDanmuP(comment);
+      xml += '    <d p="' + escapeXmlAttr(pValue) + '">' + escapeXmlText(comment.m) + "</d>\n";
+    }
+  }
+  xml += "</i>";
+  return xml;
+}
+function generateDanmuId() {
+  const timestamp = Date.now();
+  const lastEightDigits = (timestamp % 1e8).toString().padStart(8, "0");
+  const randomThreeDigits = Math.floor(Math.random() * 1e3).toString().padStart(3, "0");
+  return lastEightDigits + randomThreeDigits;
+}
+function buildBilibiliDanmuP(comment) {
+  const pValues = comment.p.split(",");
+  const timeNum = parseFloat(pValues[0]) || 0;
+  const time = timeNum.toFixed(1);
+  const mode = pValues[1] || "1";
+  const fontSize = "25";
+  const color = pValues[2] || "16777215";
+  const timestamp = "1751533608";
+  const pool = "0";
+  const userHash = "0";
+  const danmuId = generateDanmuId();
+  return `${time},${mode},${fontSize},${color},${timestamp},${pool},${userHash},${danmuId}`;
+}
+function escapeXmlAttr(str) {
+  if (!str) return "";
+  return String(str).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&apos;");
+}
+function escapeXmlText(str) {
+  if (!str) return "";
+  return String(str).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+function formatDanmuResponse(danmuData, queryFormat) {
+  let format = queryFormat || globals.danmuOutputFormat;
+  format = format.toLowerCase();
+  log("info", `[Format] Using format: ${format}`);
+  if (format === "xml") {
+    try {
+      const xmlData = convertDanmuToXml(danmuData);
+      return xmlResponse(xmlData);
+    } catch (error) {
+      log("error", `Failed to convert to XML: ${error.message}`);
+      return jsonResponse(danmuData);
+    }
+  }
+  return jsonResponse(danmuData);
 }
 
+// danmu_api/utils/zh-util.js
+function charPYStr() {
+  return "\u9515\u7691\u853C\u788D\u7231\u55F3\u5AD2\u7477\u66A7\u972D\u8C19\u94F5\u9E4C\u80AE\u8884\u5965\u5AAA\u9A9C\u9CCC\u575D\u7F62\u94AF\u6446\u8D25\u5457\u9881\u529E\u7ECA\u94A3\u5E2E\u7ED1\u9551\u8C24\u5265\u9971\u5B9D\u62A5\u9C8D\u9E28\u9F85\u8F88\u8D1D\u94A1\u72C8\u5907\u60EB\u9E4E\u8D32\u951B\u7EF7\u7B14\u6BD5\u6BD9\u5E01\u95ED\u835C\u54D4\u6ED7\u94CB\u7B5A\u8DF8\u8FB9\u7F16\u8D2C\u53D8\u8FA9\u8FAB\u82C4\u7F0F\u7B3E\u6807\u9AA0\u98D1\u98D9\u9556\u9573\u9CD4\u9CD6\u522B\u762A\u6FD2\u6EE8\u5BBE\u6448\u50A7\u7F24\u69DF\u6BA1\u8191\u9554\u9ACC\u9B13\u997C\u7980\u62E8\u94B5\u94C2\u9A73\u997D\u94B9\u9E41\u8865\u94B8\u8D22\u53C2\u8695\u6B8B\u60ED\u60E8\u707F\u9A96\u9EEA\u82CD\u8231\u4ED3\u6CA7\u5395\u4FA7\u518C\u6D4B\u607B\u5C42\u8BE7\u9538\u4FAA\u9497\u6400\u63BA\u8749\u998B\u8C17\u7F20\u94F2\u4EA7\u9610\u98A4\u5181\u8C04\u8C36\u8487\u5FCF\u5A75\u9AA3\u89C7\u7985\u9561\u573A\u5C1D\u957F\u507F\u80A0\u5382\u7545\u4F25\u82CC\u6005\u960A\u9CB3\u949E\u8F66\u5F7B\u7817\u5C18\u9648\u886C\u4F27\u8C0C\u6987\u789C\u9F80\u6491\u79F0\u60E9\u8BDA\u9A8B\u67A8\u67FD\u94D6\u94DB\u75F4\u8FDF\u9A70\u803B\u9F7F\u70BD\u996C\u9E31\u51B2\u51B2\u866B\u5BA0\u94F3\u7574\u8E0C\u7B79\u7EF8\u4FE6\u5E31\u96E0\u6A71\u53A8\u9504\u96CF\u7840\u50A8\u89E6\u5904\u520D\u7ECC\u8E70\u4F20\u948F\u75AE\u95EF\u521B\u6006\u9524\u7F0D\u7EAF\u9E51\u7EF0\u8F8D\u9F8A\u8F9E\u8BCD\u8D50\u9E5A\u806A\u8471\u56F1\u4ECE\u4E1B\u82C1\u9AA2\u679E\u51D1\u8F8F\u8E7F\u7A9C\u64BA\u9519\u9509\u9E7E\u8FBE\u54D2\u9791\u5E26\u8D37\u9A80\u7ED0\u62C5\u5355\u90F8\u63B8\u80C6\u60EE\u8BDE\u5F39\u6B9A\u8D55\u7605\u7BAA\u5F53\u6321\u515A\u8361\u6863\u8C20\u7800\u88C6\u6363\u5C9B\u7977\u5BFC\u76D7\u7118\u706F\u9093\u956B\u654C\u6DA4\u9012\u7F14\u7C74\u8BCB\u8C1B\u7EE8\u89CC\u955D\u98A0\u70B9\u57AB\u7535\u5DC5\u94BF\u766B\u9493\u8C03\u94EB\u9CB7\u8C0D\u53E0\u9CBD\u9489\u9876\u952D\u8BA2\u94E4\u4E22\u94E5\u4E1C\u52A8\u680B\u51BB\u5CBD\u9E2B\u7AA6\u728A\u72EC\u8BFB\u8D4C\u9540\u6E0E\u691F\u724D\u7B03\u9EE9\u953B\u65AD\u7F0E\u7C16\u5151\u961F\u5BF9\u603C\u9566\u5428\u987F\u949D\u7096\u8DB8\u593A\u5815\u94CE\u9E45\u989D\u8BB9\u6076\u997F\u8C14\u57A9\u960F\u8F6D\u9507\u9537\u9E57\u989A\u989B\u9CC4\u8BF6\u513F\u5C14\u9975\u8D30\u8FE9\u94D2\u9E38\u9C95\u53D1\u7F5A\u9600\u73D0\u77FE\u9492\u70E6\u8D29\u996D\u8BBF\u7EBA\u94AB\u9C82\u98DE\u8BFD\u5E9F\u8D39\u7EEF\u9544\u9CB1\u7EB7\u575F\u594B\u6124\u7CAA\u507E\u4E30\u67AB\u950B\u98CE\u75AF\u51AF\u7F1D\u8BBD\u51E4\u6CA3\u80A4\u8F90\u629A\u8F85\u8D4B\u590D\u8D1F\u8BA3\u5987\u7F1A\u51EB\u9A78\u7EC2\u7ECB\u8D59\u9EB8\u9C8B\u9CC6\u9486\u8BE5\u9499\u76D6\u8D45\u6746\u8D76\u79C6\u8D63\u5C34\u64C0\u7EC0\u5188\u521A\u94A2\u7EB2\u5C97\u6206\u9550\u777E\u8BF0\u7F1F\u9506\u6401\u9E3D\u9601\u94EC\u4E2A\u7EA5\u9549\u988D\u7ED9\u4E98\u8D53\u7EE0\u9CA0\u9F9A\u5BAB\u5DE9\u8D21\u94A9\u6C9F\u82DF\u6784\u8D2D\u591F\u8BDF\u7F11\u89CF\u86CA\u987E\u8BC2\u6BC2\u94B4\u9522\u9E2A\u9E44\u9E58\u5250\u6302\u9E39\u63B4\u5173\u89C2\u9986\u60EF\u8D2F\u8BD6\u63BC\u9E73\u9CCF\u5E7F\u72B7\u89C4\u5F52\u9F9F\u95FA\u8F68\u8BE1\u8D35\u523D\u5326\u523F\u59AB\u6867\u9C91\u9CDC\u8F8A\u6EDA\u886E\u7EF2\u9CA7\u9505\u56FD\u8FC7\u57DA\u5459\u5E3C\u6901\u8748\u94EA\u9A87\u97E9\u6C49\u961A\u7ED7\u9889\u53F7\u704F\u98A2\u9602\u9E64\u8D3A\u8BC3\u9616\u86CE\u6A2A\u8F70\u9E3F\u7EA2\u9EC9\u8BA7\u836D\u95F3\u9C8E\u58F6\u62A4\u6CAA\u6237\u6D52\u9E55\u54D7\u534E\u753B\u5212\u8BDD\u9A85\u6866\u94E7\u6000\u574F\u6B22\u73AF\u8FD8\u7F13\u6362\u5524\u75EA\u7115\u6DA3\u5942\u7F33\u953E\u9CA9\u9EC4\u8C0E\u9CC7\u6325\u8F89\u6BC1\u8D3F\u79FD\u4F1A\u70E9\u6C47\u8BB3\u8BF2\u7ED8\u8BD9\u835F\u54D5\u6D4D\u7F0B\u73F2\u6656\u8364\u6D51\u8BE8\u9984\u960D\u83B7\u8D27\u7978\u94AC\u956C\u51FB\u673A\u79EF\u9965\u8FF9\u8BA5\u9E21\u7EE9\u7F09\u6781\u8F91\u7EA7\u6324\u51E0\u84DF\u5242\u6D4E\u8BA1\u8BB0\u9645\u7EE7\u7EAA\u8BA6\u8BD8\u8360\u53FD\u54DC\u9AA5\u7391\u89CA\u9F51\u77F6\u7F81\u867F\u8DFB\u9701\u9C9A\u9CAB\u5939\u835A\u988A\u8D3E\u94BE\u4EF7\u9A7E\u90CF\u6D43\u94D7\u9553\u86F2\u6B7C\u76D1\u575A\u7B3A\u95F4\u8270\u7F04\u8327\u68C0\u78B1\u7877\u62E3\u6361\u7B80\u4FED\u51CF\u8350\u69DB\u9274\u8DF5\u8D31\u89C1\u952E\u8230\u5251\u996F\u6E10\u6E85\u6DA7\u8C0F\u7F23\u620B\u622C\u7751\u9E63\u7B15\u9CA3\u97AF\u5C06\u6D46\u848B\u6868\u5956\u8BB2\u9171\u7EDB\u7F30\u80F6\u6D47\u9A84\u5A07\u6405\u94F0\u77EB\u4FA5\u811A\u997A\u7F34\u7EDE\u8F7F\u8F83\u6322\u5CE4\u9E6A\u9C9B\u9636\u8282\u6D01\u7ED3\u8BEB\u5C4A\u7596\u988C\u9C92\u7D27\u9526\u4EC5\u8C28\u8FDB\u664B\u70EC\u5C3D\u52B2\u8346\u830E\u537A\u8369\u9991\u7F19\u8D46\u89D0\u9CB8\u60CA\u7ECF\u9888\u9759\u955C\u5F84\u75C9\u7ADE\u51C0\u522D\u6CFE\u8FF3\u5F2A\u80EB\u9753\u7EA0\u53A9\u65E7\u9604\u9E20\u9E6B\u9A79\u4E3E\u636E\u952F\u60E7\u5267\u8BB5\u5C66\u6989\u98D3\u949C\u9514\u7AAD\u9F83\u9E43\u7EE2\u9529\u954C\u96BD\u89C9\u51B3\u7EDD\u8C32\u73CF\u94A7\u519B\u9A8F\u76B2\u5F00\u51EF\u5240\u57B2\u5FFE\u607A\u94E0\u9534\u9F9B\u95F6\u94AA\u94D0\u9897\u58F3\u8BFE\u9A92\u7F02\u8F72\u94B6\u951E\u9894\u57A6\u6073\u9F88\u94FF\u62A0\u5E93\u88E4\u55BE\u5757\u4FA9\u90D0\u54D9\u810D\u5BBD\u72EF\u9ACB\u77FF\u65F7\u51B5\u8BD3\u8BF3\u909D\u5739\u7EA9\u8D36\u4E8F\u5CBF\u7AA5\u9988\u6E83\u532E\u8489\u6126\u8069\u7BD1\u9603\u951F\u9CB2\u6269\u9614\u86F4\u8721\u814A\u83B1\u6765\u8D56\u5D03\u5F95\u6D9E\u6FD1\u8D49\u7750\u94FC\u765E\u7C41\u84DD\u680F\u62E6\u7BEE\u9611\u5170\u6F9C\u8C30\u63FD\u89C8\u61D2\u7F06\u70C2\u6EE5\u5C9A\u6984\u6593\u9567\u8934\u7405\u9606\u9512\u635E\u52B3\u6D9D\u5520\u5D02\u94D1\u94F9\u75E8\u4E50\u9CD3\u956D\u5792\u7C7B\u6CEA\u8BD4\u7F27\u7BF1\u72F8\u79BB\u9CA4\u793C\u4E3D\u5389\u52B1\u783E\u5386\u6CA5\u96B6\u4FEA\u90E6\u575C\u82C8\u8385\u84E0\u5456\u9026\u9A8A\u7F21\u67A5\u680E\u8F79\u783A\u9502\u9E42\u75A0\u7C9D\u8DDE\u96F3\u9CA1\u9CE2\u4FE9\u8054\u83B2\u8FDE\u9570\u601C\u6D9F\u5E18\u655B\u8138\u94FE\u604B\u70BC\u7EC3\u8539\u5941\u6F4B\u740F\u6B93\u88E2\u88E3\u9CA2\u7CAE\u51C9\u4E24\u8F86\u8C05\u9B49\u7597\u8FBD\u9563\u7F2D\u948C\u9E69\u730E\u4E34\u90BB\u9CDE\u51DB\u8D41\u853A\u5EEA\u6AA9\u8F9A\u8E8F\u9F84\u94C3\u7075\u5CAD\u9886\u7EEB\u68C2\u86CF\u9CAE\u998F\u5218\u6D4F\u9A9D\u7EFA\u954F\u9E68\u9F99\u804B\u5499\u7B3C\u5784\u62E2\u9647\u830F\u6CF7\u73D1\u680A\u80E7\u783B\u697C\u5A04\u6402\u7BD3\u507B\u848C\u55BD\u5D5D\u9542\u7618\u8027\u877C\u9AC5\u82A6\u5362\u9885\u5E90\u7089\u63B3\u5364\u864F\u9C81\u8D42\u7984\u5F55\u9646\u5786\u64B8\u565C\u95FE\u6CF8\u6E0C\u680C\u6A79\u8F73\u8F82\u8F98\u6C07\u80EA\u9E2C\u9E6D\u823B\u9C88\u5CE6\u631B\u5B6A\u6EE6\u4E71\u8114\u5A08\u683E\u9E3E\u92AE\u62A1\u8F6E\u4F26\u4ED1\u6CA6\u7EB6\u8BBA\u56F5\u841D\u7F57\u903B\u9523\u7BA9\u9AA1\u9A86\u7EDC\u8366\u7321\u6CFA\u6924\u8136\u9559\u9A74\u5415\u94DD\u4FA3\u5C61\u7F15\u8651\u6EE4\u7EFF\u6988\u891B\u950A\u5452\u5988\u739B\u7801\u8682\u9A6C\u9A82\u5417\u551B\u5B37\u6769\u4E70\u9EA6\u5356\u8FC8\u8109\u52A2\u7792\u9992\u86EE\u6EE1\u8C29\u7F26\u9558\u98A1\u9CD7\u732B\u951A\u94C6\u8D38\u4E48\u6CA1\u9541\u95E8\u95F7\u4EEC\u626A\u7116\u61D1\u9494\u9530\u68A6\u772F\u8C1C\u5F25\u89C5\u5E42\u8288\u8C27\u7315\u7962\u7EF5\u7F05\u6E11\u817C\u9EFE\u5E99\u7F08\u7F2A\u706D\u60AF\u95FD\u95F5\u7F17\u9E23\u94ED\u8C2C\u8C1F\u84E6\u998D\u6B81\u9546\u8C0B\u4EA9\u94BC\u5450\u94A0\u7EB3\u96BE\u6320\u8111\u607C\u95F9\u94D9\u8BB7\u9981\u5185\u62DF\u817B\u94CC\u9CB5\u64B5\u8F87\u9CB6\u917F\u9E1F\u8311\u8885\u8042\u556E\u954A\u954D\u9667\u8616\u55EB\u989F\u8E51\u67E0\u72DE\u5B81\u62E7\u6CDE\u82CE\u549B\u804D\u94AE\u7EBD\u8113\u6D53\u519C\u4FAC\u54DD\u9A7D\u9495\u8BFA\u50A9\u759F\u6B27\u9E25\u6BB4\u5455\u6CA4\u8BB4\u6004\u74EF\u76D8\u8E52\u5E9E\u629B\u75B1\u8D54\u8F94\u55B7\u9E4F\u7EB0\u7F74\u94CD\u9A97\u8C1D\u9A88\u98D8\u7F25\u9891\u8D2B\u5AD4\u82F9\u51ED\u8BC4\u6CFC\u9887\u948B\u6251\u94FA\u6734\u8C31\u9564\u9568\u6816\u8110\u9F50\u9A91\u5C82\u542F\u6C14\u5F03\u8BAB\u8572\u9A90\u7EEE\u6864\u789B\u9880\u9883\u9CCD\u7275\u948E\u94C5\u8FC1\u7B7E\u8C26\u94B1\u94B3\u6F5C\u6D45\u8C34\u5811\u4F65\u8368\u60AD\u9A9E\u7F31\u6920\u94A4\u67AA\u545B\u5899\u8537\u5F3A\u62A2\u5AF1\u6A2F\u6217\u709D\u9516\u9535\u956A\u7F9F\u8DC4\u9539\u6865\u4E54\u4FA8\u7FD8\u7A8D\u8BEE\u8C2F\u835E\u7F32\u7857\u8DF7\u7A83\u60EC\u9532\u7BA7\u94A6\u4EB2\u5BDD\u9513\u8F7B\u6C22\u503E\u9877\u8BF7\u5E86\u63FF\u9CAD\u743C\u7A77\u8315\u86F1\u5DEF\u8D47\u866E\u9CC5\u8D8B\u533A\u8EAF\u9A71\u9F8B\u8BCE\u5C96\u9612\u89D1\u9E32\u98A7\u6743\u529D\u8BE0\u7EFB\u8F81\u94E8\u5374\u9E4A\u786E\u9615\u9619\u60AB\u8BA9\u9976\u6270\u7ED5\u835B\u5A06\u6861\u70ED\u97E7\u8BA4\u7EAB\u996A\u8F6B\u8363\u7ED2\u5D58\u877E\u7F1B\u94F7\u98A6\u8F6F\u9510\u86AC\u95F0\u6DA6\u6D12\u8428\u98D2\u9CC3\u8D5B\u4F1E\u6BF5\u7CC1\u4E27\u9A9A\u626B\u7F2B\u6DA9\u556C\u94EF\u7A51\u6740\u5239\u7EB1\u94E9\u9CA8\u7B5B\u6652\u917E\u5220\u95EA\u9655\u8D61\u7F2E\u8BAA\u59D7\u9A9F\u9490\u9CDD\u5892\u4F24\u8D4F\u57A7\u6B87\u89DE\u70E7\u7ECD\u8D4A\u6444\u6151\u8BBE\u538D\u6EE0\u7572\u7EC5\u5BA1\u5A76\u80BE\u6E17\u8BDC\u8C02\u6E16\u58F0\u7EF3\u80DC\u5E08\u72EE\u6E7F\u8BD7\u65F6\u8680\u5B9E\u8BC6\u9A76\u52BF\u9002\u91CA\u9970\u89C6\u8BD5\u8C25\u57D8\u83B3\u5F11\u8F7C\u8D33\u94C8\u9CA5\u5BFF\u517D\u7EF6\u67A2\u8F93\u4E66\u8D4E\u5C5E\u672F\u6811\u7AD6\u6570\u6445\u7EBE\u5E05\u95E9\u53CC\u8C01\u7A0E\u987A\u8BF4\u7855\u70C1\u94C4\u4E1D\u9972\u53AE\u9A77\u7F0C\u9536\u9E36\u8038\u6002\u9882\u8BBC\u8BF5\u64DE\u85AE\u998A\u98D5\u953C\u82CF\u8BC9\u8083\u8C21\u7A23\u867D\u968F\u7EE5\u5C81\u8C07\u5B59\u635F\u7B0B\u836A\u72F2\u7F29\u7410\u9501\u5522\u7743\u736D\u631E\u95FC\u94CA\u9CCE\u53F0\u6001\u949B\u9C90\u644A\u8D2A\u762B\u6EE9\u575B\u8C2D\u8C08\u53F9\u6619\u94BD\u952C\u9878\u6C64\u70EB\u50A5\u9967\u94F4\u9557\u6D9B\u7EE6\u8BA8\u97EC\u94FD\u817E\u8A8A\u9511\u9898\u4F53\u5C49\u7F07\u9E48\u9617\u6761\u7C9C\u9F86\u9CA6\u8D34\u94C1\u5385\u542C\u70C3\u94DC\u7EDF\u6078\u5934\u94AD\u79C3\u56FE\u948D\u56E2\u629F\u9893\u8715\u9968\u8131\u9E35\u9A6E\u9A7C\u692D\u7BA8\u9F0D\u889C\u5A32\u817D\u5F2F\u6E7E\u987D\u4E07\u7EA8\u7EFE\u7F51\u8F8B\u97E6\u8FDD\u56F4\u4E3A\u6F4D\u7EF4\u82C7\u4F1F\u4F2A\u7EAC\u8C13\u536B\u8BFF\u5E0F\u95F1\u6CA9\u6DA0\u73AE\u97EA\u709C\u9C94\u6E29\u95FB\u7EB9\u7A33\u95EE\u960C\u74EE\u631D\u8717\u6DA1\u7A9D\u5367\u83B4\u9F8C\u545C\u94A8\u4E4C\u8BEC\u65E0\u829C\u5434\u575E\u96FE\u52A1\u8BEF\u90AC\u5E91\u6003\u59A9\u9A9B\u9E49\u9E5C\u9521\u727A\u88AD\u4E60\u94E3\u620F\u7EC6\u9969\u960B\u73BA\u89CB\u867E\u8F96\u5CE1\u4FA0\u72ED\u53A6\u5413\u7856\u9C9C\u7EA4\u8D24\u8854\u95F2\u663E\u9669\u73B0\u732E\u53BF\u9985\u7FA1\u5BAA\u7EBF\u82CB\u83B6\u85D3\u5C98\u7303\u5A34\u9E47\u75EB\u869D\u7C7C\u8DF9\u53A2\u9576\u4E61\u8BE6\u54CD\u9879\u8297\u9977\u9AA7\u7F03\u98E8\u8427\u56A3\u9500\u6653\u5578\u54D3\u6F47\u9A81\u7EE1\u67AD\u7BAB\u534F\u631F\u643A\u80C1\u8C10\u5199\u6CFB\u8C22\u4EB5\u64B7\u7EC1\u7F2C\u950C\u8845\u5174\u9649\u8365\u51F6\u6C79\u9508\u7EE3\u9990\u9E3A\u865A\u5618\u987B\u8BB8\u53D9\u7EEA\u7EED\u8BE9\u987C\u8F69\u60AC\u9009\u7663\u7EDA\u8C16\u94C9\u955F\u5B66\u8C11\u6CF6\u9CD5\u52CB\u8BE2\u5BFB\u9A6F\u8BAD\u8BAF\u900A\u57D9\u6D54\u9C9F\u538B\u9E26\u9E2D\u54D1\u4E9A\u8BB6\u57AD\u5A05\u6860\u6C29\u9609\u70DF\u76D0\u4E25\u5CA9\u989C\u960E\u8273\u538C\u781A\u5F66\u8C1A\u9A8C\u53A3\u8D5D\u4FE8\u5156\u8C33\u6079\u95EB\u917D\u9B47\u990D\u9F39\u9E2F\u6768\u626C\u75A1\u9633\u75D2\u517B\u6837\u7080\u7476\u6447\u5C27\u9065\u7A91\u8C23\u836F\u8F7A\u9E5E\u9CD0\u7237\u9875\u4E1A\u53F6\u9765\u8C12\u90BA\u6654\u70E8\u533B\u94F1\u9890\u9057\u4EEA\u8681\u827A\u4EBF\u5FC6\u4E49\u8BE3\u8BAE\u8C0A\u8BD1\u5F02\u7ECE\u8BD2\u5453\u5CC4\u9974\u603F\u9A7F\u7F22\u8F76\u8D3B\u9487\u9552\u9571\u7617\u8223\u836B\u9634\u94F6\u996E\u9690\u94DF\u763E\u6A31\u5A74\u9E70\u5E94\u7F28\u83B9\u8424\u8425\u8367\u8747\u8D62\u9896\u8314\u83BA\u8426\u84E5\u6484\u5624\u6EE2\u6F46\u748E\u9E66\u763F\u988F\u7F42\u54DF\u62E5\u4F63\u75C8\u8E0A\u548F\u955B\u4F18\u5FE7\u90AE\u94C0\u72B9\u8BF1\u83B8\u94D5\u9C7F\u8206\u9C7C\u6E14\u5A31\u4E0E\u5C7F\u8BED\u72F1\u8A89\u9884\u9A6D\u4F1B\u4FE3\u8C00\u8C15\u84E3\u5D5B\u996B\u9608\u59AA\u7EA1\u89CE\u6B24\u94B0\u9E46\u9E6C\u9F89\u9E33\u6E0A\u8F95\u56ED\u5458\u5706\u7F18\u8FDC\u6A7C\u9E22\u9F0B\u7EA6\u8DC3\u94A5\u7CA4\u60A6\u9605\u94BA\u90E7\u5300\u9668\u8FD0\u8574\u915D\u6655\u97F5\u90D3\u82B8\u607D\u6120\u7EAD\u97EB\u6B92\u6C32\u6742\u707E\u8F7D\u6512\u6682\u8D5E\u74D2\u8DB1\u933E\u8D43\u810F\u9A75\u51FF\u67A3\u8D23\u62E9\u5219\u6CFD\u8D5C\u5567\u5E3B\u7BA6\u8D3C\u8C2E\u8D60\u7EFC\u7F2F\u8F67\u94E1\u95F8\u6805\u8BC8\u658B\u503A\u6BE1\u76CF\u65A9\u8F97\u5D2D\u6808\u6218\u7EFD\u8C35\u5F20\u6DA8\u5E10\u8D26\u80C0\u8D75\u8BCF\u948A\u86F0\u8F99\u9517\u8FD9\u8C2A\u8F84\u9E67\u8D1E\u9488\u4FA6\u8BCA\u9547\u9635\u6D48\u7F1C\u6862\u8F78\u8D48\u796F\u9E29\u6323\u7741\u72F0\u4E89\u5E27\u75C7\u90D1\u8BC1\u8BE4\u5CE5\u94B2\u94EE\u7B5D\u7EC7\u804C\u6267\u7EB8\u631A\u63B7\u5E1C\u8D28\u6EDE\u9A98\u6809\u6800\u8F75\u8F7E\u8D3D\u9E37\u86F3\u7D77\u8E2C\u8E2F\u89EF\u949F\u7EC8\u79CD\u80BF\u4F17\u953A\u8BCC\u8F74\u76B1\u663C\u9AA4\u7EA3\u7EC9\u732A\u8BF8\u8BDB\u70DB\u77A9\u5631\u8D2E\u94F8\u9A7B\u4F2B\u69E0\u94E2\u4E13\u7816\u8F6C\u8D5A\u556D\u9994\u989E\u6869\u5E84\u88C5\u5986\u58EE\u72B6\u9525\u8D58\u5760\u7F00\u9A93\u7F12\u8C06\u51C6\u7740\u6D4A\u8BFC\u956F\u5179\u8D44\u6E0D\u8C18\u7F01\u8F8E\u8D40\u7726\u9531\u9F87\u9CBB\u8E2A\u603B\u7EB5\u506C\u90B9\u8BF9\u9A7A\u9CB0\u8BC5\u7EC4\u955E\u94BB\u7F35\u8E9C\u9CDF\u7FF1\u5E76\u535C\u6C89\u4E11\u6DC0\u8FED\u6597\u8303\u5E72\u768B\u7845\u67DC\u540E\u4F19\u79F8\u6770\u8BC0\u5938\u91CC\u91CC\u51CC\u4E48\u9709\u637B\u51C4\u6266\u5723\u5C38\u62AC\u6D82\u6D3C\u5582\u6C61\u9528\u54B8\u874E\u5F5D\u6D8C\u6E38\u5401\u5FA1\u613F\u5CB3\u4E91\u7076\u624E\u672D\u7B51\u4E8E\u5FD7\u6CE8\u51CB\u8BA0\u8C2B\u90C4\u52D0\u51FC\u5742\u5785\u57B4\u57EF\u57DD\u82D8\u836C\u836E\u839C\u83BC\u83F0\u85C1\u63F8\u5412\u5423\u5494\u549D\u54B4\u5658\u567C\u56AF\u5E5E\u5C99\u5D74\u5F77\u5FBC\u72B8\u72CD\u9980\u9987\u9993\u9995\u6123\u61B7\u61D4\u4E2C\u6E86\u6EDF\u6EB7\u6F24\u6F74\u6FB9\u752F\u7E9F\u7ED4\u7EF1\u73C9\u67A7\u684A\u6849\u69D4\u6A65\u8F71\u8F77\u8D4D\u80B7\u80E8\u98DA\u7173\u7145\u7198\u610D\u6DFC\u781C\u78D9\u770D\u949A\u94B7\u94D8\u94DE\u9503\u950D\u950E\u950F\u9518\u951D\u952A\u952B\u953F\u9545\u954E\u9562\u9565\u9569\u9572\u7A06\u9E4B\u9E5B\u9E71\u75AC\u75B4\u75D6\u766F\u88E5\u8941\u8022\u98A5\u87A8\u9EB4\u9C85\u9C86\u9C87\u9C9E\u9CB4\u9CBA\u9CBC\u9CCA\u9CCB\u9CD8\u9CD9\u9792\u97B4\u9F44\u4E2C\u4E3A\u4EB8\u4F17\u4F2A\u4F59\u51A2\u51C0\u51CC\u51FC\u522C\u52CB\u52D0\u52DA\u5364\u53C6\u53C7\u542F\u5494\u54A4\u54B4\u54CC\u54D7\u551D\u5521\u5523\u553F\u556E\u5570\u5574\u5475\u567C\u56AF\u5785\u57A7\u57AF\u57B1\u57D9\u57DD\u5846\u5899\u58F8\u59AB\u59DC\u5A34\u5A73\u5C43\u5CBD\u5CC3\u5CE3\u5D04\u5D5A\u5D5B\u5D74\u5EBC\u5F5F\u5FA1\u610D\u616D\u61B7\u624E\u6266\u631C\u6326\u637B\u63F8\u65F8\u663D\u672D\u684A\u68BC\u68BE\u68C2\u69DA\u6A90\u6C61\u6C93\u6CA8\u6CA9\u6CB5\u6D49\u6D50\u6D55\u6D8C\u6DA2\u6E7F\u6E87\u6EEA\u6F24\u7145\u7173\u7198\u7266\u729F\u72CD\u72DD\u732C\u7399\u739A\u73B1\u73C9\u73CF\u73F0\u740E\u7487\u7572\u75B4\u7606\u7618\u766F\u772C\u7740\u7841\u7845\u7859\u785A\u7877\u78B9\u78D9\u794E\u79FE\u7B5C\u7B7E\u7B93\u7CC7\u7E9F\u7EAE\u7EB4\u7EBB\u7EBC\u7ED6\u7EE4\u7EE6\u7EEC\u7EF1\u7EF9\u7F0A\u7F10\u7F1E\u7F30\u7FD9\u7FDA\u80B7\u810F\u814C\u8158\u816D\u81DC\u8273\u8279\u8359\u839C\u83BC\u841A\u85C1\u866C\u8780\u87CF\u8885\u8886\u88AF\u88C8\u88E5\u8941\u8955\u89C3\u89CD\u8A5F\u8BB1\u8BBB\u8BC7\u8BD0\u8BEA\u8C1E\u8C25\u8C37\u8C6E\u8D20\u8D4D\u8D51\u8D52\u8D57\u8D5F\u8D6A\u8DD6\u8DF6\u8E0A\u8F6A\u8F80\u8F8C\u8F92\u90C1\u90C4\u9166\u9245\u9274\u948E\u9491\u9496\u9498\u94B5\u94BB\u94CF\u94DA\u94E6\u94FB\u9508\u950F\u951C\u9520\u9528\u9533\u953D\u9543\u9548\u9555\u955A\u9560\u9562\u956E\u9574\u95EC\u95F2\u95FF\u9607\u9613\u9618\u961B\u9655\u97B4\u97E8\u988B\u988E\u9892\u9895\u9899\u98A3\u98CF\u98D0\u98D4\u98D6\u98D7\u9964\u9965\u9966\u9973\u9978\u9979\u997B\u997E\u9982\u9983\u9989\u998C\u998E\u9A72\u9A83\u9A89\u9A8D\u9A8E\u9A94\u9A95\u9A99\u9AA6\u9C7D\u9C7E\u9C80\u9C84\u9C89\u9C8A\u9C8C\u9C8F\u9C93\u9C96\u9C97\u9C98\u9C99\u9C9D\u9CAA\u9CAC\u9CAF\u9CB9\u9CBE\u9CBF\u9CC0\u9CC1\u9CC2\u9CC8\u9CC9\u9CD1\u9CD2\u9CDB\u9CE0\u9CE1\u9CE3\u9E24\u9E27\u9E2E\u9E30\u9E34\u9E3B\u9E3C\u9E40\u9E47\u9E4D\u9E50\u9E52\u9E53\u9E54\u9E56\u9E5D\u9E5F\u9E60\u9E61\u9E62\u9E65\u9E6F\u9E72\u9E74\u9EE1\u9F0C\u9F17\u9F81\u9F82\u5FD7\u5236\u54A8\u53EA\u7CFB\u677E\u5C1D\u9762\u5E72\u62FC\u6076\u8D5E\u53D1\u50F5\u81F4\u5978\u83B7\u7EC3\u56DE\u7CFB\u8FF9\u53EA\u8F9F\u677F\u4F60";
+}
+function ftPYStr() {
+  return "\u9312\u769A\u85F9\u7919\u611B\u566F\u5B21\u74A6\u66D6\u9744\u8AF3\u92A8\u9D6A\u9AAF\u8956\u5967\u5ABC\u9A41\u9C32\u58E9\u7F77\u9200\u64FA\u6557\u5504\u9812\u8FA6\u7D46\u9211\u5E6B\u7D81\u938A\u8B17\u525D\u98FD\u5BF6\u5831\u9B91\u9D07\u9F59\u8F29\u8C9D\u92C7\u72FD\u5099\u618A\u9D6F\u8CC1\u931B\u7E43\u7B46\u7562\u6583\u5E63\u9589\u84FD\u55F6\u6F77\u924D\u7BF3\u8E55\u908A\u7DE8\u8CB6\u8B8A\u8FAF\u8FAE\u8290\u7DF6\u7C69\u6A19\u9A43\u98AE\u98C6\u93E2\u9463\u9C3E\u9C49\u5225\u765F\u7015\u6FF1\u8CD3\u64EF\u5110\u7E7D\u6AB3\u6BAF\u81CF\u944C\u9AD5\u9B22\u9905\u7A1F\u64A5\u7F3D\u9251\u99C1\u9911\u9238\u9D53\u88DC\u923D\u8CA1\u53C3\u8836\u6B98\u615A\u6158\u71E6\u9A42\u9EF2\u84BC\u8259\u5009\u6EC4\u5EC1\u5074\u518A\u6E2C\u60FB\u5C64\u8A6B\u9364\u5115\u91F5\u6519\u647B\u87EC\u995E\u8B92\u7E8F\u93DF\u7522\u95E1\u986B\u56C5\u8AC2\u8B96\u8546\u61FA\u5B0B\u9A4F\u8998\u79AA\u9414\u5834\u5617\u9577\u511F\u8178\u5EE0\u66A2\u5000\u8407\u60B5\u95B6\u9BE7\u9214\u8ECA\u5FB9\u7868\u5875\u9673\u896F\u5096\u8AF6\u6AEC\u78E3\u9F54\u6490\u7A31\u61F2\u8AA0\u9A01\u68D6\u6A89\u92EE\u943A\u7661\u9072\u99B3\u6065\u9F52\u71BE\u98ED\u9D1F\u6C96\u885D\u87F2\u5BF5\u9283\u7587\u8E8A\u7C4C\u7DA2\u5114\u5E6C\u8B8E\u6AE5\u5EDA\u92E4\u96DB\u790E\u5132\u89F8\u8655\u82BB\u7D40\u8E95\u50B3\u91E7\u7621\u95D6\u5275\u6134\u9318\u7D9E\u7D14\u9D89\u7DBD\u8F1F\u9F6A\u8FAD\u8A5E\u8CDC\u9DBF\u8070\u8525\u56EA\u5F9E\u53E2\u84EF\u9A44\u6A05\u6E4A\u8F33\u8EA5\u7AC4\u651B\u932F\u92BC\u9E7A\u9054\u5660\u97C3\u5E36\u8CB8\u99D8\u7D3F\u64D4\u55AE\u9132\u64A3\u81BD\u619A\u8A95\u5F48\u6BAB\u8CE7\u7649\u7C1E\u7576\u64CB\u9EE8\u8569\u6A94\u8B9C\u78AD\u8960\u6417\u5CF6\u79B1\u5C0E\u76DC\u71FE\u71C8\u9127\u9419\u6575\u6ECC\u905E\u7DE0\u7CF4\u8A46\u8AE6\u7D88\u89BF\u93D1\u985B\u9EDE\u588A\u96FB\u5DD4\u923F\u7672\u91E3\u8ABF\u929A\u9BDB\u8ADC\u758A\u9C08\u91D8\u9802\u9320\u8A02\u92CC\u4E1F\u92A9\u6771\u52D5\u68DF\u51CD\u5D20\u9D87\u7AC7\u72A2\u7368\u8B80\u8CED\u934D\u7006\u6ADD\u7258\u7BE4\u9EF7\u935B\u65B7\u7DDE\u7C6A\u514C\u968A\u5C0D\u61DF\u9413\u5678\u9813\u920D\u71C9\u8E89\u596A\u58AE\u9438\u9D5D\u984D\u8A1B\u60E1\u9913\u8AE4\u580A\u95BC\u8EDB\u92E8\u9354\u9D9A\u984E\u9853\u9C77\u8A92\u5152\u723E\u990C\u8CB3\u9087\u927A\u9D2F\u9B9E\u767C\u7F70\u95A5\u743A\u792C\u91E9\u7169\u8CA9\u98EF\u8A2A\u7D21\u9201\u9B74\u98DB\u8AB9\u5EE2\u8CBB\u7DCB\u9428\u9BE1\u7D1B\u58B3\u596E\u61A4\u7CDE\u50E8\u8C50\u6953\u92D2\u98A8\u760B\u99AE\u7E2B\u8AF7\u9CF3\u7043\u819A\u8F3B\u64AB\u8F14\u8CE6\u5FA9\u8CA0\u8A03\u5A66\u7E1B\u9CE7\u99D9\u7D31\u7D3C\u8CFB\u9EA9\u9B92\u9C12\u91D3\u8A72\u9223\u84CB\u8CC5\u687F\u8D95\u7A08\u8D1B\u5C37\u641F\u7D3A\u5CA1\u525B\u92FC\u7DB1\u5D17\u6207\u93AC\u776A\u8AA5\u7E1E\u92EF\u64F1\u9D3F\u95A3\u927B\u500B\u7D07\u9398\u6F41\u7D66\u4E99\u8CE1\u7D86\u9BC1\u9F94\u5BAE\u978F\u8CA2\u9264\u6E9D\u830D\u69CB\u8CFC\u5920\u8A6C\u7DF1\u89AF\u8831\u9867\u8A41\u8F42\u9237\u932E\u9D23\u9D60\u9DBB\u526E\u639B\u9D30\u6451\u95DC\u89C0\u9928\u6163\u8CAB\u8A7F\u645C\u9E1B\u9C25\u5EE3\u7377\u898F\u6B78\u9F9C\u95A8\u8ECC\u8A6D\u8CB4\u528A\u532D\u528C\u5AAF\u6A9C\u9BAD\u9C56\u8F25\u6EFE\u889E\u7DC4\u9BC0\u934B\u570B\u904E\u581D\u54BC\u5E57\u69E8\u87C8\u927F\u99ED\u97D3\u6F22\u95DE\u7D4E\u9821\u865F\u705D\u9865\u95A1\u9DB4\u8CC0\u8A36\u95D4\u8823\u6A6B\u8F5F\u9D3B\u7D05\u9ECC\u8A0C\u8452\u958E\u9C5F\u58FA\u8B77\u6EEC\u6236\u6EF8\u9D98\u5629\u83EF\u756B\u5283\u8A71\u9A4A\u6A3A\u93F5\u61F7\u58DE\u6B61\u74B0\u9084\u7DE9\u63DB\u559A\u7613\u7165\u6E19\u5950\u7E6F\u9370\u9BC7\u9EC3\u8B0A\u9C09\u63EE\u8F1D\u6BC0\u8CC4\u7A62\u6703\u71F4\u532F\u8AF1\u8AA8\u7E6A\u8A7C\u8588\u5666\u6FAE\u7E62\u743F\u6689\u8477\u6E3E\u8AE2\u991B\u95BD\u7372\u8CA8\u798D\u9225\u944A\u64CA\u6A5F\u7A4D\u9951\u8DE1\u8B4F\u96DE\u7E3E\u7DDD\u6975\u8F2F\u7D1A\u64E0\u5E7E\u858A\u5291\u6FDF\u8A08\u8A18\u969B\u7E7C\u7D00\u8A10\u8A70\u85BA\u5630\u568C\u9A65\u74A3\u89AC\u9F4F\u78EF\u7F88\u8806\u8E8B\u973D\u9C6D\u9BFD\u593E\u83A2\u9830\u8CC8\u9240\u50F9\u99D5\u90DF\u6D79\u92CF\u93B5\u87EF\u6BB2\u76E3\u5805\u7B8B\u9593\u8271\u7DD8\u7E6D\u6AA2\u583F\u9E7C\u63C0\u64BF\u7C21\u5109\u6E1B\u85A6\u6ABB\u9452\u8E10\u8CE4\u898B\u9375\u8266\u528D\u991E\u6F38\u6FFA\u6F97\u8AEB\u7E11\u6214\u6229\u77BC\u9DBC\u7B67\u9C39\u97C9\u5C07\u6F3F\u8523\u69F3\u734E\u8B1B\u91AC\u7D73\u97C1\u81A0\u6F86\u9A55\u5B0C\u652A\u9278\u77EF\u50E5\u8173\u9903\u7E73\u7D5E\u8F4E\u8F03\u649F\u5DA0\u9DE6\u9BAB\u968E\u7BC0\u6F54\u7D50\u8AA1\u5C46\u7664\u981C\u9B9A\u7DCA\u9326\u50C5\u8B39\u9032\u6649\u71FC\u76E1\u52C1\u834A\u8396\u5DF9\u85CE\u9949\u7E09\u8D10\u89B2\u9BE8\u9A5A\u7D93\u9838\u975C\u93E1\u5F91\u75D9\u7AF6\u51C8\u5244\u6D87\u9015\u5F33\u811B\u975A\u7CFE\u5EC4\u820A\u9B2E\u9CE9\u9DF2\u99D2\u8209\u64DA\u92F8\u61FC\u5287\u8A4E\u5C68\u6AF8\u98B6\u9245\u92E6\u7AB6\u9F5F\u9D51\u7D79\u9308\u942B\u96CB\u89BA\u6C7A\u7D55\u8B4E\u73A8\u921E\u8ECD\u99FF\u76B8\u958B\u51F1\u5274\u584F\u613E\u6137\u93A7\u9347\u9F95\u958C\u9227\u92AC\u9846\u6BBC\u8AB2\u9A0D\u7DD9\u8EFB\u9233\u9301\u9837\u58BE\u61C7\u9F66\u93D7\u6473\u5EAB\u8932\u56B3\u584A\u5108\u9136\u5672\u81BE\u5BEC\u736A\u9AD6\u7926\u66E0\u6CC1\u8A86\u8A91\u913A\u58D9\u7E8A\u8CBA\u8667\u5DCB\u7ABA\u994B\u6F70\u5331\u8562\u6192\u8075\u7C23\u95AB\u9315\u9BE4\u64F4\u95CA\u8810\u881F\u81D8\u840A\u4F86\u8CF4\u5D0D\u5FA0\u6DF6\u7028\u8CDA\u775E\u9338\u7669\u7C5F\u85CD\u6B04\u6514\u7C43\u95CC\u862D\u703E\u8B95\u652C\u89BD\u61F6\u7E9C\u721B\u6FEB\u5D50\u6B16\u6595\u946D\u8964\u746F\u95AC\u92C3\u6488\u52DE\u6F87\u562E\u5D97\u92A0\u9412\u7646\u6A02\u9C33\u9433\u58D8\u985E\u6DDA\u8A84\u7E32\u7C6C\u8C8D\u96E2\u9BC9\u79AE\u9E97\u53B2\u52F5\u792B\u6B77\u701D\u96B8\u5137\u9148\u58E2\u85F6\u849E\u863A\u56A6\u9090\u9A6A\u7E2D\u6AEA\u6ADF\u8F62\u792A\u92F0\u9E1D\u7658\u7CF2\u8E92\u9742\u9C7A\u9C67\u5006\u806F\u84EE\u9023\u942E\u6190\u6F23\u7C3E\u6582\u81C9\u93C8\u6200\u7149\u7DF4\u861E\u5969\u7032\u7489\u6BAE\u8933\u895D\u9C31\u7CE7\u6DBC\u5169\u8F1B\u8AD2\u9B4E\u7642\u907C\u9410\u7E5A\u91D5\u9DEF\u7375\u81E8\u9130\u9C57\u51DC\u8CC3\u85FA\u5EE9\u6A81\u8F54\u8EAA\u9F61\u9234\u9748\u5DBA\u9818\u7DBE\u6B1E\u87F6\u9BEA\u993E\u5289\u700F\u9A2E\u7DB9\u93A6\u9DDA\u9F8D\u807E\u56A8\u7C60\u58DF\u650F\u96B4\u8622\u7027\u74CF\u6AF3\u6727\u7931\u6A13\u5A41\u645F\u7C0D\u50C2\u851E\u560D\u5D81\u93E4\u763A\u802C\u87BB\u9ACF\u8606\u76E7\u9871\u5EEC\u7210\u64C4\u9E75\u865C\u9B6F\u8CC2\u797F\u9304\u9678\u58DA\u64FC\u5695\u95AD\u7018\u6DE5\u6AE8\u6AD3\u8F64\u8F05\u8F46\u6C0C\u81DA\u9E15\u9DFA\u826B\u9C78\u5DD2\u6523\u5B7F\u7064\u4E82\u81E0\u5B4C\u6B12\u9E1E\u947E\u6384\u8F2A\u502B\u4F96\u6DEA\u7DB8\u8AD6\u5707\u863F\u7F85\u908F\u947C\u7C6E\u9A3E\u99F1\u7D61\u7296\u7380\u6FFC\u6B0F\u8161\u93CD\u9A62\u5442\u92C1\u4FB6\u5C62\u7E37\u616E\u6FFE\u7DA0\u6ADA\u8938\u92DD\u5638\u5ABD\u746A\u78BC\u879E\u99AC\u7F75\u55CE\u561C\u5B24\u69AA\u8CB7\u9EA5\u8CE3\u9081\u8108\u52F1\u779E\u9945\u883B\u6EFF\u8B3E\u7E35\u93DD\u9859\u9C3B\u8C93\u9328\u925A\u8CBF\u9EBC\u6C92\u9382\u9580\u60B6\u5011\u636B\u71DC\u61E3\u9346\u9333\u5922\u7787\u8B0E\u5F4C\u8993\u51AA\u7F8B\u8B10\u737C\u79B0\u7DBF\u7DEC\u6FA0\u9766\u9EFD\u5EDF\u7DF2\u7E46\u6EC5\u61AB\u95A9\u9594\u7DE1\u9CF4\u9298\u8B2C\u8B28\u9A40\u9943\u6B7F\u93CC\u8B00\u755D\u926C\u5436\u9209\u7D0D\u96E3\u6493\u8166\u60F1\u9B27\u9403\u8A25\u9912\u5167\u64EC\u81A9\u922E\u9BE2\u6506\u8F26\u9BF0\u91C0\u9CE5\u8526\u88CA\u8076\u5699\u9477\u93B3\u9689\u8617\u56C1\u9862\u8EA1\u6AB8\u7370\u5BE7\u64F0\u6FD8\u82E7\u5680\u8079\u9215\u7D10\u81BF\u6FC3\u8FB2\u5102\u5665\u99D1\u91F9\u8AFE\u513A\u7627\u6B50\u9DD7\u6BC6\u5614\u6F1A\u8B33\u616A\u750C\u76E4\u8E63\u9F90\u62CB\u76B0\u8CE0\u8F61\u5674\u9D6C\u7D15\u7F86\u9239\u9A19\u8ADE\u99E2\u98C4\u7E39\u983B\u8CA7\u5B2A\u860B\u6191\u8A55\u6F51\u9817\u91D9\u64B2\u92EA\u6A38\u8B5C\u93F7\u9420\u68F2\u81CD\u9F4A\u9A0E\u8C48\u555F\u6C23\u68C4\u8A16\u8604\u9A0F\u7DBA\u69BF\u78E7\u980E\u980F\u9C2D\u727D\u91EC\u925B\u9077\u7C3D\u8B19\u9322\u9257\u6F5B\u6DFA\u8B74\u5879\u50C9\u8541\u6173\u9A2B\u7E7E\u69E7\u9210\u69CD\u55C6\u58BB\u8594\u5F37\u6436\u5B19\u6AA3\u6227\u7197\u9306\u93D8\u93F9\u7FA5\u8E4C\u936C\u6A4B\u55AC\u50D1\u7FF9\u7AC5\u8A9A\u8B59\u854E\u7E70\u78FD\u8E7A\u7ACA\u611C\u9365\u7BCB\u6B3D\u89AA\u5BE2\u92DF\u8F15\u6C2B\u50BE\u9803\u8ACB\u6176\u64B3\u9BD6\u74CA\u7AAE\u7162\u86FA\u5DF0\u8CD5\u87E3\u9C0D\u8DA8\u5340\u8EC0\u9A45\u9F72\u8A58\u5D87\u95C3\u89B7\u9D1D\u9874\u6B0A\u52F8\u8A6E\u7DA3\u8F07\u9293\u537B\u9D72\u78BA\u95CB\u95D5\u6128\u8B93\u9952\u64FE\u7E5E\u8558\u5B08\u6A48\u71B1\u97CC\u8A8D\u7D09\u98EA\u8ED4\u69AE\u7D68\u5DB8\u8811\u7E1F\u92A3\u9870\u8EDF\u92B3\u8706\u958F\u6F64\u7051\u85A9\u98AF\u9C13\u8CFD\u5098\u6BFF\u7CDD\u55AA\u9A37\u6383\u7E45\u6F80\u55C7\u92AB\u7A61\u6BBA\u524E\u7D17\u93A9\u9BCA\u7BE9\u66EC\u91C3\u522A\u9583\u965C\u8D0D\u7E55\u8A15\u59CD\u9A38\u91E4\u9C54\u5891\u50B7\u8CDE\u5770\u6BA4\u89F4\u71D2\u7D39\u8CD2\u651D\u61FE\u8A2D\u5399\u7044\u756C\u7D33\u5BE9\u5B38\u814E\u6EF2\u8A75\u8AD7\u700B\u8072\u7E69\u52DD\u5E2B\u7345\u6FD5\u8A69\u6642\u8755\u5BE6\u8B58\u99DB\u52E2\u9069\u91CB\u98FE\u8996\u8A66\u8B1A\u5852\u8494\u5F12\u8EFE\u8CB0\u9230\u9C23\u58FD\u7378\u7DAC\u6A1E\u8F38\u66F8\u8D16\u5C6C\u8853\u6A39\u8C4E\u6578\u6504\u7D13\u5E25\u9582\u96D9\u8AB0\u7A05\u9806\u8AAA\u78A9\u720D\u9460\u7D72\u98FC\u5EDD\u99DF\u7DE6\u9376\u9DE5\u8073\u616B\u980C\u8A1F\u8AA6\u64FB\u85EA\u993F\u98BC\u93AA\u8607\u8A34\u8085\u8B16\u7A4C\u96D6\u96A8\u7D8F\u6B72\u8AB6\u5B6B\u640D\u7B4D\u84C0\u733B\u7E2E\u7463\u9396\u55E9\u8127\u737A\u64BB\u95E5\u9248\u9C28\u81FA\u614B\u9226\u9B90\u6524\u8CAA\u7671\u7058\u58C7\u8B5A\u8AC7\u5606\u66C7\u926D\u931F\u9807\u6E6F\u71D9\u513B\u9933\u940B\u93DC\u6FE4\u7D73\u8A0E\u97DC\u92F1\u9A30\u8B04\u92BB\u984C\u9AD4\u5C5C\u7DF9\u9D5C\u95D0\u689D\u7CF6\u9F60\u9C37\u8CBC\u9435\u5EF3\u807D\u70F4\u9285\u7D71\u615F\u982D\u9204\u79BF\u5716\u91F7\u5718\u6476\u9839\u86FB\u98E9\u812B\u9D15\u99B1\u99DD\u6A62\u7C5C\u9F09\u896A\u5AA7\u8183\u5F4E\u7063\u9811\u842C\u7D08\u7DB0\u7DB2\u8F1E\u97CB\u9055\u570D\u70BA\u6FF0\u7DAD\u8466\u5049\u507D\u7DEF\u8B02\u885B\u8AC9\u5E43\u95C8\u6E88\u6F7F\u744B\u97D9\u7152\u9BAA\u6EAB\u805E\u7D0B\u7A69\u554F\u95BF\u7515\u64BE\u8778\u6E26\u7AA9\u81E5\u8435\u9F77\u55DA\u93A2\u70CF\u8AA3\u7121\u856A\u5433\u5862\u9727\u52D9\u8AA4\u9114\u5EE1\u61AE\u5AF5\u9A16\u9D61\u9DA9\u932B\u72A7\u8972\u7FD2\u9291\u6232\u7D30\u993C\u9B29\u74BD\u89A1\u8766\u8F44\u5CFD\u4FE0\u72F9\u5EC8\u5687\u7864\u9BAE\u7E96\u8CE2\u929C\u9591\u986F\u96AA\u73FE\u737B\u7E23\u9921\u7FA8\u61B2\u7DDA\u83A7\u859F\u861A\u5CF4\u736B\u5AFB\u9DF4\u7647\u8814\u79C8\u8E9A\u5EC2\u9472\u9109\u8A73\u97FF\u9805\u858C\u9909\u9A64\u7DD7\u9957\u856D\u56C2\u92B7\u66C9\u562F\u5635\u701F\u9A4D\u7D83\u689F\u7C2B\u5354\u633E\u651C\u8105\u8AE7\u5BEB\u7009\u8B1D\u893B\u64F7\u7D32\u7E88\u92C5\u91C1\u8208\u9658\u6ECE\u5147\u6D36\u92B9\u7E61\u9948\u9D42\u865B\u5653\u9808\u8A31\u6558\u7DD2\u7E8C\u8A61\u980A\u8ED2\u61F8\u9078\u766C\u7D62\u8AFC\u9249\u93C7\u5B78\u8B14\u6FA9\u9C48\u52DB\u8A62\u5C0B\u99B4\u8A13\u8A0A\u905C\u5864\u6F6F\u9C58\u58D3\u9D09\u9D28\u555E\u4E9E\u8A1D\u57E1\u5A6D\u690F\u6C2C\u95B9\u7159\u9E7D\u56B4\u5DD6\u984F\u95BB\u8277\u53AD\u786F\u5F65\u8AFA\u9A57\u53B4\u8D17\u513C\u5157\u8B9E\u61E8\u9586\u91C5\u9B58\u995C\u9F34\u9D26\u694A\u63DA\u760D\u967D\u7662\u990A\u6A23\u716C\u7464\u6416\u582F\u9059\u7AAF\u8B20\u85E5\u8EFA\u9DC2\u9C29\u723A\u9801\u696D\u8449\u9768\u8B01\u9134\u66C4\u71C1\u91AB\u92A5\u9824\u907A\u5100\u87FB\u85DD\u5104\u61B6\u7FA9\u8A63\u8B70\u8ABC\u8B6F\u7570\u7E79\u8A52\u56C8\u5DA7\u98F4\u61CC\u9A5B\u7E0A\u8EFC\u8CBD\u91D4\u93B0\u943F\u761E\u8264\u852D\u9670\u9280\u98F2\u96B1\u92A6\u766E\u6AFB\u5B30\u9DF9\u61C9\u7E93\u7469\u87A2\u71DF\u7192\u8805\u8D0F\u7A4E\u584B\u9DAF\u7E08\u93A3\u6516\u56B6\u7005\u7020\u74D4\u9E1A\u766D\u9826\u7F4C\u55B2\u64C1\u50AD\u7670\u8E34\u8A60\u93DE\u512A\u6182\u90F5\u923E\u7336\u8A98\u8555\u92AA\u9B77\u8F3F\u9B5A\u6F01\u5A1B\u8207\u5DBC\u8A9E\u7344\u8B7D\u9810\u99AD\u50B4\u4FC1\u8ADB\u8AED\u8577\u5D33\u98EB\u95BE\u5AD7\u7D06\u89A6\u6B5F\u923A\u9D52\u9DF8\u9F6C\u9D1B\u6DF5\u8F45\u5712\u54E1\u5713\u7DE3\u9060\u6ADE\u9CF6\u9EFF\u7D04\u8E8D\u9470\u7CB5\u6085\u95B1\u925E\u9116\u52FB\u9695\u904B\u860A\u919E\u6688\u97FB\u9106\u8553\u60F2\u614D\u7D1C\u97DE\u6B9E\u6C33\u96DC\u707D\u8F09\u6522\u66AB\u8D0A\u74DA\u8DB2\u93E8\u8D13\u81DF\u99D4\u947F\u68D7\u8CAC\u64C7\u5247\u6FA4\u8CFE\u5616\u5E58\u7C00\u8CCA\u8B56\u8D08\u7D9C\u7E52\u8ECB\u9358\u9598\u67F5\u8A50\u9F4B\u50B5\u6C08\u76DE\u65AC\u8F3E\u5D84\u68E7\u6230\u7DBB\u8B6B\u5F35\u6F32\u5E33\u8CEC\u8139\u8D99\u8A54\u91D7\u87C4\u8F4D\u937A\u9019\u8B2B\u8F12\u9DD3\u8C9E\u91DD\u5075\u8A3A\u93AE\u9663\u6E5E\u7E1D\u6968\u8EEB\u8CD1\u798E\u9D06\u6399\u775C\u7319\u722D\u5E40\u7665\u912D\u8B49\u8ACD\u5D22\u9266\u931A\u7B8F\u7E54\u8077\u57F7\u7D19\u646F\u64F2\u5E5F\u8CEA\u6EEF\u9A2D\u6ADB\u6894\u8EF9\u8F0A\u8D04\u9DD9\u8784\u7E36\u8E93\u8E91\u89F6\u9418\u7D42\u7A2E\u816B\u773E\u937E\u8B05\u8EF8\u76BA\u665D\u9A5F\u7D02\u7E10\u8C6C\u8AF8\u8A85\u71ED\u77DA\u56D1\u8CAF\u9444\u99D0\u4F47\u6AE7\u9296\u5C08\u78DA\u8F49\u8CFA\u56C0\u994C\u9873\u6A01\u838A\u88DD\u599D\u58EF\u72C0\u9310\u8D05\u589C\u7DB4\u9A05\u7E0B\u8AC4\u6E96\u8457\u6FC1\u8AD1\u9432\u8332\u8CC7\u6F2C\u8AEE\u7DC7\u8F1C\u8CB2\u7725\u9319\u9F5C\u9BD4\u8E64\u7E3D\u7E31\u50AF\u9112\u8ACF\u9A36\u9BEB\u8A5B\u7D44\u93C3\u9246\u7E98\u8EA6\u9C52\u7FFA\u4E26\u8514\u6C88\u919C\u6FB1\u53E0\u9B25\u7BC4\u5E79\u81EF\u77FD\u6AC3\u5F8C\u5925\u7A2D\u5091\u8A23\u8A87\u88E1\u88CF\u6DE9\u9EBD\u9EF4\u649A\u6DD2\u6261\u8056\u5C4D\u64E1\u5857\u7AAA\u9935\u6C59\u9341\u9E79\u880D\u5F5C\u6E67\u904A\u7C72\u79A6\u9858\u5DBD\u96F2\u7AC8\u7D2E\u5284\u7BC9\u65BC\u8A8C\u8A3B\u96D5\u8A01\u8B7E\u90E4\u731B\u6C39\u962A\u58DF\u5816\u57B5\u588A\u6ABE\u8552\u8464\u84E7\u8493\u83C7\u69C1\u6463\u54A4\u551A\u54E2\u565D\u5645\u6485\u5288\u8B14\u8946\u5DB4\u810A\u4EFF\u50E5\u7341\u9E85\u9918\u9937\u994A\u9962\u695E\u6035\u61CD\u723F\u6F35\u7069\u6DF7\u6FEB\u7026\u6DE1\u5BE7\u7CF8\u7D5D\u7DD4\u7449\u6898\u68EC\u6848\u6A70\u6AEB\u8EF2\u8EE4\u8CEB\u8181\u8156\u98C8\u7CCA\u7146\u6E9C\u6E63\u6E3A\u78B8\u6EFE\u7798\u9208\u9255\u92E3\u92B1\u92E5\u92F6\u9426\u9427\u9369\u9340\u9343\u9307\u9384\u9387\u93BF\u941D\u9465\u9479\u9454\u7A6D\u9D93\u9DA5\u9E0C\u7667\u5C59\u7602\u81D2\u8947\u7E48\u802E\u986C\u87CE\u9EAF\u9B81\u9B83\u9B8E\u9BD7\u9BDD\u9BF4\u9C5D\u9BFF\u9C20\u9C35\u9C45\u97BD\u97DD\u9F47\u4E2C\u7232\u56B2\u8846\u50DE\u9918\u51A2\u6DE8\u51CC\u51FC\u5257\u52F3\u52D0\u52E9\u6EF7\u9749\u9746\u5553\u5494\u5412\u54B4\u54CC\u8B41\u55CA\u5562\u5523\u553F\u9F67\u56C9\u563D\u5475\u567C\u56AF\u58E0\u57A7\u58B6\u58CB\u58CE\u57DD\u58EA\u7246\u58FC\u5B00\u59DC\u5AFA\u5AFF\u5C53\u5D2C\u5DA8\u5DA2\u5DAE\u5D94\u5D5B\u5D74\u5ECE\u5F60\u5FA1\u610D\u6196\u61B7\u624E\u6266\u6397\u648F\u637B\u63F8\u6698\u66E8\u672D\u684A\u6AAE\u68F6\u6AFA\u6A9F\u6A90\u6C61\u6C93\u6E22\u6F59\u6CB5\u6EAE\u6EFB\u6FDC\u6D8C\u6EB3\u6EBC\u6F0A\u6FA6\u6F24\u7145\u7173\u7198\u729B\u729F\u72CD\u736E\u875F\u74B5\u7452\u7472\u73C9\u73CF\u74AB\u74A1\u7487\u7572\u75FE\u762E\u763B\u766F\u77D3\u7740\u785C\u7845\u78D1\u7904\u7906\u78B9\u78D9\u7995\u7A60\u7C39\u7C64\u7C59\u9931\u7CF9\u7D18\u7D1D\u7D35\u7D16\u7D70\u7D8C\u7D5B\u7DD3\u979D\u7DAF\u7E15\u7DDA\u7E17\u7E6E\u7FFD\u7FEC\u80B7\u9AD2\u9183\u8195\u9F76\u81E2\u8C54\u8279\u8598\u839C\u84F4\u8600\u85C1\u866F\u87BF\u8828\u5ACB\u8918\u894F\u890C\u8949\u8941\u8974\u898E\u89A5\u8B8B\u8A12\u8A29\u8A57\u8A56\u8B78\u8ADD\u8AE1\u8C37\u8C76\u8C9F\u9F4E\u8D14\u8CD9\u8CF5\u8D07\u8D6C\u8DD6\u8E82\u8E0A\u8ED1\u8F08\u8F2C\u8F40\u9B31\u90C4\u91B1\u9245\u9451\u91FA\u9212\u935A\u9203\u9262\u947D\u9276\u928D\u929B\u92D9\u93FD\u9417\u9321\u9329\u6774\u9348\u9360\u93A1\u939B\u9394\u93F0\u93D0\u9481\u9436\u945E\u9588\u9592\u95D3\u95CD\u95E0\u95D2\u95E4\u965D\u97B4\u97CD\u9832\u71B2\u982E\u9834\u9852\u7E87\u98BA\u98AD\u98B8\u98BB\u98C0\u98E3\u98E2\u98E5\u98FF\u9904\u990E\u990F\u9916\u9915\u991C\u9936\u9941\u993A\u99B9\u99F0\u9A6B\u9A02\u99F8\u9A0C\u9A4C\u9A24\u9A66\u9B5B\u9B62\u9B68\u9B7A\u9B8B\u9B93\u9B8A\u9B8D\u9BB3\u9BA6\u9C02\u9B9C\u9C60\u9BBA\u9BB6\u9BD2\u9BD5\u9C3A\u9C0F\u9C68\u9BF7\u9C2E\u9C03\u9C01\u9C42\u9C1F\u9C1C\u9C3C\u9C6F\u9C64\u9C63\u9CF2\u9DAC\u9D1E\u9D12\u9DFD\u9D34\u9D43\u9D50\u9DF3\u9D7E\u9D6E\u9D8A\u9D77\u9DEB\u9DA1\u9DCA\u9DB2\u9DB9\u9DBA\u9DC1\u9DD6\u9E07\u9E0F\u9E18\u9EF6\u9F02\u9780\u9F55\u9F57\u5FD7\u5236\u8AEE\u53EA\u7CFB\u9B06\u5690\u9762\u4E7E\u62FC\u5641\u8B9A\u9AEE\u6BAD\u7DFB\u59E6\u7A6B\u934A\u8FF4\u4FC2\u8E5F\u96BB\u95E2\u95C6\u59B3";
+}
+function traditionalized(cc) {
+  let str = "";
+  for (let i = 0; i < cc.length; i++) {
+    if (charPYStr().indexOf(cc.charAt(i)) != -1)
+      str += ftPYStr().charAt(charPYStr().indexOf(cc.charAt(i)));
+    else
+      str += cc.charAt(i);
+  }
+  return str;
+}
+function simplized(cc) {
+  let str = "";
+  for (let i = 0; i < cc.length; i++) {
+    if (ftPYStr().indexOf(cc.charAt(i)) != -1)
+      str += charPYStr().charAt(ftPYStr().indexOf(cc.charAt(i)));
+    else
+      str += cc.charAt(i);
+  }
+  return str;
+}
+function isNonChinese(str) {
+  const chineseRegex = /[\u4e00-\u9fff]/;
+  return !chineseRegex.test(str);
+}
+
+// danmu_api/utils/tmdb-util.js
+async function tmdbApiGet(url) {
+  const tmdbApi = "https://api.tmdb.org/3/";
+  const tartgetUrl = `${tmdbApi}${url}`;
+  const nextUrl = globals.proxyUrl ? `http://127.0.0.1:5321/proxy?url=${encodeURIComponent(tartgetUrl)}` : tartgetUrl;
+  try {
+    const response = await Widget.http.get(nextUrl, {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+        "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
+      }
+    });
+    if (response.status != 200) return null;
+    return response;
+  } catch (error) {
+    log("error", "[TMDB] Api error:", {
+      message: error.message,
+      name: error.name,
+      stack: error.stack
+    });
+    return null;
+  }
+}
+async function searchTmdbTitles(title, mediaType = "multi", options = {}) {
+  const {
+    page = 1,
+    // 起始页码
+    maxPages = 3,
+    // 最多获取几页结果
+    signal = null
+    // 中断信号
+  } = options;
+  if (options.page !== void 0) {
+    const url = `search/${mediaType}?api_key=${globals.tmdbApiKey}&query=${encodeURIComponent(title)}&language=zh-CN&page=${page}`;
+    return await tmdbApiGet(url);
+  }
+  const allResults = [];
+  for (let currentPage = 1; currentPage <= maxPages; currentPage++) {
+    if (signal && signal.aborted) {
+      throw new DOMException("Aborted", "AbortError");
+    }
+    const url = `search/${mediaType}?api_key=${globals.tmdbApiKey}&query=${encodeURIComponent(title)}&language=zh-CN&page=${currentPage}`;
+    const response = await tmdbApiGet(url);
+    if (!response || !response.data) {
+      break;
+    }
+    const data = typeof response.data === "string" ? JSON.parse(response.data) : response.data;
+    if (!data.results || data.results.length === 0) {
+      break;
+    }
+    allResults.push(...data.results);
+    if (data.results.length < 20) {
+      break;
+    }
+  }
+  log("info", `[TMDB] \u5171\u83B7\u53D6\u5230 ${allResults.length} \u6761\u641C\u7D22\u7ED3\u679C\uFF08\u6700\u591A${maxPages}\u9875\uFF09`);
+  return {
+    data: {
+      results: allResults
+    },
+    status: 200
+  };
+}
+async function getTmdbJpDetail(mediaType, tmdbId) {
+  const url = `${mediaType}/${tmdbId}?api_key=${globals.tmdbApiKey}&language=ja-JP`;
+  return await tmdbApiGet(url);
+}
+async function getTmdbExternalIds(mediaType, tmdbId) {
+  const url = `${mediaType}/${tmdbId}/external_ids?api_key=${globals.tmdbApiKey}`;
+  return await tmdbApiGet(url);
+}
+async function getTmdbAlternativeTitles(mediaType, tmdbId) {
+  const url = `${mediaType}/${tmdbId}/alternative_titles?api_key=${globals.tmdbApiKey}`;
+  return await tmdbApiGet(url);
+}
+function extractChineseTitleFromAlternatives(altData, mediaType) {
+  if (!altData || !altData.data) return null;
+  const titles = altData.data.results || altData.data.titles || [];
+  if (!Array.isArray(titles) || titles.length === 0) {
+    return null;
+  }
+  const priorityRegions = ["CN", "TW", "HK", "SG"];
+  for (const region of priorityRegions) {
+    const match = titles.find((t) => {
+      const iso = t.iso_3166_1 || t.iso_639_1;
+      const title = t.title || t.name || "";
+      return iso === region && title && !isNonChinese(title);
+    });
+    if (match) {
+      const chineseTitle = match.title || match.name;
+      log("info", `[TMDB] \u4ECE\u522B\u540D\u4E2D\u627E\u5230\u4E2D\u6587\u6807\u9898 (${region}): ${chineseTitle}`);
+      return chineseTitle;
+    }
+  }
+  const anyChineseTitle = titles.find((t) => {
+    const title = t.title || t.name || "";
+    return title && !isNonChinese(title);
+  });
+  if (anyChineseTitle) {
+    const title = anyChineseTitle.title || anyChineseTitle.name;
+    log("info", `[TMDB] \u4ECE\u522B\u540D\u4E2D\u627E\u5230\u4E2D\u6587\u6807\u9898 (\u5176\u4ED6\u5730\u533A): ${title}`);
+    return title;
+  }
+  return null;
+}
+async function getChineseTitleForResult(result, signal) {
+  const resultTitle = result.name || result.title || "";
+  if (!isNonChinese(resultTitle)) {
+    return resultTitle;
+  }
+  log("info", `[TMDB] \u68C0\u6D4B\u5230\u975E\u4E2D\u6587\u6807\u9898 "${resultTitle}", \u5C1D\u8BD5\u83B7\u53D6\u4E2D\u6587\u522B\u540D`);
+  const mediaType = result.media_type || (result.name ? "tv" : "movie");
+  try {
+    if (signal && signal.aborted) {
+      throw new DOMException("Aborted", "AbortError");
+    }
+    const altResp = await getTmdbAlternativeTitles(mediaType, result.id);
+    if (signal && signal.aborted) {
+      throw new DOMException("Aborted", "AbortError");
+    }
+    const chineseTitle = extractChineseTitleFromAlternatives(altResp, mediaType);
+    if (chineseTitle) {
+      log("info", `[TMDB] \u5C06\u4F7F\u7528\u4E2D\u6587\u522B\u540D\u8FDB\u884C\u76F8\u4F3C\u5339\u914D: ${chineseTitle}`);
+      return chineseTitle;
+    } else {
+      log("info", `[TMDB] \u672A\u627E\u5230\u4E2D\u6587\u522B\u540D\uFF0C\u4F7F\u7528\u539F\u6807\u9898: ${resultTitle}`);
+      return resultTitle;
+    }
+  } catch (error) {
+    if (error.name === "AbortError") {
+      throw error;
+    }
+    log("error", `[TMDB] \u83B7\u53D6\u522B\u540D\u5931\u8D25: ${error.message}`);
+    return resultTitle;
+  }
+}
+async function getTmdbJaOriginalTitle(title, signal = null) {
+  if (!globals.tmdbApiKey) {
+    log("info", "[TMDB] \u672A\u914D\u7F6EAPI\u5BC6\u94A5\uFF0C\u8DF3\u8FC7TMDB\u641C\u7D22");
+    return null;
+  }
+  try {
+    const isValidContent = (mediaInfo) => {
+      const genreIds = mediaInfo.genre_ids || [];
+      const genres = mediaInfo.genres || [];
+      const allGenreIds = genreIds.length > 0 ? genreIds : genres.map((g) => g.id);
+      const originalLanguage = mediaInfo.original_language || "";
+      const ANIMATION_GENRE_ID = 16;
+      if (allGenreIds.includes(ANIMATION_GENRE_ID)) {
+        return { isValid: true, reason: "\u660E\u786E\u52A8\u753B\u7C7B\u578B(genre_id: 16)" };
+      }
+      if (originalLanguage === "ja") {
+        return { isValid: true, reason: `\u539F\u59CB\u8BED\u8A00\u4E3A\u65E5\u8BED(ja),\u53EF\u80FD\u662F\u65E5\u5267/\u65E5\u5F71/\u65E5\u7EFC\u827A` };
+      }
+      return {
+        isValid: false,
+        reason: `\u975E\u52A8\u753B\u4E14\u975E\u65E5\u8BED\u5185\u5BB9(language: ${originalLanguage}, genres: ${allGenreIds.join(",")})`
+      };
+    };
+    const validateResults = (results) => {
+      if (!results || results.length === 0) {
+        return {
+          hasValid: false,
+          validCount: 0,
+          totalCount: 0,
+          details: "\u641C\u7D22\u7ED3\u679C\u4E3A\u7A7A"
+        };
+      }
+      let validCount = 0;
+      const validItems = [];
+      for (const item of results) {
+        const validation = isValidContent(item);
+        if (validation.isValid) {
+          validCount++;
+          const itemTitle = item.name || item.title || "\u672A\u77E5";
+          validItems.push(`${itemTitle}(${validation.reason})`);
+        }
+      }
+      return {
+        hasValid: validCount > 0,
+        validCount,
+        totalCount: results.length,
+        details: validCount > 0 ? `\u627E\u5230${validCount}\u4E2A\u7B26\u5408\u6761\u4EF6\u7684\u5185\u5BB9: ${validItems.slice(0, 3).join(", ")}${validCount > 3 ? "..." : ""}` : `\u6240\u6709${results.length}\u4E2A\u7ED3\u679C\u5747\u4E0D\u7B26\u5408\u6761\u4EF6(\u975E\u52A8\u753B\u4E14\u975E\u65E5\u8BED)`
+      };
+    };
+    const similarity = (s1, s2) => {
+      const normalize = (str) => {
+        return str.toLowerCase().replace(/\s+/g, "").replace(/[：:、，。！？；""''（）【】《》]/g, "").trim();
+      };
+      const n1 = normalize(s1);
+      const n2 = normalize(s2);
+      if (n1 === n2) return 1;
+      const shorter = n1.length < n2.length ? n1 : n2;
+      const longer = n1.length >= n2.length ? n1 : n2;
+      if (longer.includes(shorter) && shorter.length > 0) {
+        const lengthRatio = shorter.length / longer.length;
+        return 0.6 + lengthRatio * 0.3;
+      }
+      const longer2 = s1.length > s2.length ? s1 : s2;
+      const shorter2 = s1.length > s2.length ? s2 : s1;
+      if (longer2.length === 0) return 1;
+      const editDistance = (str1, str2) => {
+        str1 = str1.toLowerCase();
+        str2 = str2.toLowerCase();
+        const costs = [];
+        for (let i = 0; i <= str1.length; i++) {
+          let lastValue = i;
+          for (let j = 0; j <= str2.length; j++) {
+            if (i === 0) {
+              costs[j] = j;
+            } else if (j > 0) {
+              let newValue = costs[j - 1];
+              if (str1.charAt(i - 1) !== str2.charAt(j - 1)) {
+                newValue = Math.min(Math.min(newValue, lastValue), costs[j]) + 1;
+              }
+              costs[j - 1] = lastValue;
+              lastValue = newValue;
+            }
+          }
+          if (i > 0) costs[str2.length] = lastValue;
+        }
+        return costs[str2.length];
+      };
+      return (longer2.length - editDistance(longer2, shorter2)) / longer2.length;
+    };
+    log("info", `[TMDB] \u6B63\u5728\u641C\u7D22: ${title}`);
+    if (signal && signal.aborted) {
+      throw new DOMException("Aborted", "AbortError");
+    }
+    const respZh = await searchTmdbTitles(title, "multi", { signal });
+    if (!respZh || !respZh.data) {
+      log("info", "[TMDB] TMDB\u641C\u7D22\u7ED3\u679C\u4E3A\u7A7A");
+      return null;
+    }
+    const dataZh = typeof respZh.data === "string" ? JSON.parse(respZh.data) : respZh.data;
+    if (!dataZh.results || dataZh.results.length === 0) {
+      log("info", "[TMDB] TMDB\u672A\u627E\u5230\u4EFB\u4F55\u7ED3\u679C");
+      return null;
+    }
+    const validationResult = validateResults(dataZh.results);
+    if (!validationResult.hasValid) {
+      log("info", `[TMDB] \u7C7B\u578B\u5224\u65AD\u672A\u901A\u8FC7,\u8DF3\u8FC7\u540E\u7EED\u641C\u7D22: ${validationResult.details}`);
+      return null;
+    }
+    log("info", `[TMDB] \u7C7B\u578B\u5224\u65AD\u901A\u8FC7: ${validationResult.details}`);
+    let bestMatch = null;
+    let bestScore = -1;
+    let bestMatchChineseTitle = null;
+    let alternativeTitleFetchCount = 0;
+    const MAX_ALTERNATIVE_FETCHES = 5;
+    let skipAlternativeFetch = false;
+    for (const result of dataZh.results) {
+      const resultTitle = result.name || result.title || "";
+      if (!resultTitle) continue;
+      const directScore = similarity(title, resultTitle);
+      const originalTitle = result.original_name || result.original_title || "";
+      const originalScore = originalTitle ? similarity(title, originalTitle) : 0;
+      const initialScore = Math.max(directScore, originalScore);
+      if (initialScore === 1 && !skipAlternativeFetch) {
+        skipAlternativeFetch = true;
+        log("info", `[TMDB] \u5339\u914D\u68C0\u67E5 "${resultTitle}" - \u76F8\u4F3C\u5EA6: 100.00% (\u5B8C\u5168\u5339\u914D\uFF0C\u8DF3\u8FC7\u540E\u7EED\u6240\u6709\u522B\u540D\u641C\u7D22)`);
+        if (initialScore > bestScore) {
+          bestScore = initialScore;
+          bestMatch = result;
+          bestMatchChineseTitle = resultTitle;
+        }
+        continue;
+      }
+      let chineseTitle;
+      let finalScore;
+      if (skipAlternativeFetch || !isNonChinese(resultTitle)) {
+        chineseTitle = resultTitle;
+        finalScore = initialScore;
+        if (skipAlternativeFetch && isNonChinese(resultTitle)) {
+          log("info", `[TMDB] \u5339\u914D\u68C0\u67E5 "${resultTitle}" - \u76F8\u4F3C\u5EA6: ${(finalScore * 100).toFixed(2)}% (\u5DF2\u627E\u5230\u5B8C\u5168\u5339\u914D\uFF0C\u8DF3\u8FC7\u522B\u540D\u641C\u7D22)`);
+        } else {
+          log("info", `[TMDB] \u5339\u914D\u68C0\u67E5 "${resultTitle}" - \u76F8\u4F3C\u5EA6: ${(finalScore * 100).toFixed(2)}%`);
+        }
+      } else {
+        if (alternativeTitleFetchCount < MAX_ALTERNATIVE_FETCHES) {
+          try {
+            chineseTitle = await getChineseTitleForResult(result, signal);
+            if (chineseTitle !== resultTitle) {
+              alternativeTitleFetchCount++;
+            }
+          } catch (error) {
+            if (error.name === "AbortError") {
+              throw error;
+            }
+            log("error", `[TMDB] \u5904\u7406\u7ED3\u679C\u5931\u8D25: ${error.message}`);
+            chineseTitle = resultTitle;
+          }
+        } else {
+          chineseTitle = resultTitle;
+          log("info", `[TMDB] \u5DF2\u8FBE\u5230\u522B\u540D\u83B7\u53D6\u4E0A\u9650(${MAX_ALTERNATIVE_FETCHES})\uFF0C\u4F7F\u7528\u539F\u6807\u9898: ${resultTitle}`);
+        }
+        const finalDirectScore = similarity(title, chineseTitle);
+        finalScore = Math.max(finalDirectScore, originalScore);
+        const displayInfo = chineseTitle !== resultTitle ? `"${resultTitle}" (\u522B\u540D: ${chineseTitle})` : `"${resultTitle}"`;
+        log("info", `[TMDB] \u5339\u914D\u68C0\u67E5 ${displayInfo} - \u76F8\u4F3C\u5EA6: ${(finalScore * 100).toFixed(2)}%`);
+        if (finalScore === 1 && !skipAlternativeFetch) {
+          skipAlternativeFetch = true;
+          log("info", `[TMDB] \u901A\u8FC7\u522B\u540D\u627E\u5230\u5B8C\u5168\u5339\u914D\uFF0C\u8DF3\u8FC7\u540E\u7EED\u6240\u6709\u522B\u540D\u641C\u7D22`);
+        }
+      }
+      if (finalScore > bestScore) {
+        bestScore = finalScore;
+        bestMatch = result;
+        bestMatchChineseTitle = chineseTitle;
+      }
+    }
+    const MIN_SIMILARITY = 0.2;
+    if (!bestMatch || bestScore < MIN_SIMILARITY) {
+      log("info", `[TMDB] \u6700\u4F73\u5339\u914D\u76F8\u4F3C\u5EA6\u8FC7\u4F4E\u6216\u672A\u627E\u5230\u5339\u914D (${bestMatch ? (bestScore * 100).toFixed(2) + "%" : "N/A"}),\u8DF3\u8FC7`);
+      return null;
+    }
+    log("info", `[TMDB] TMDB\u6700\u4F73\u5339\u914D: ${bestMatchChineseTitle}, \u76F8\u4F3C\u5EA6: ${(bestScore * 100).toFixed(2)}%`);
+    const mediaType = bestMatch.media_type || (bestMatch.name ? "tv" : "movie");
+    if (signal && signal.aborted) {
+      throw new DOMException("Aborted", "AbortError");
+    }
+    const detailResp = await getTmdbJpDetail(mediaType, bestMatch.id);
+    if (!detailResp || !detailResp.data) {
+      const fallbackTitle = bestMatch.name || bestMatch.title;
+      log("info", `[TMDB] \u4F7F\u7528\u4E2D\u6587\u641C\u7D22\u7ED3\u679C\u6807\u9898: ${fallbackTitle}`);
+      return fallbackTitle;
+    }
+    const detail = typeof detailResp.data === "string" ? JSON.parse(detailResp.data) : detailResp.data;
+    const jaOriginalTitle = detail.original_name || detail.original_title || detail.name || detail.title;
+    log("info", `[TMDB] \u627E\u5230\u65E5\u8BED\u539F\u540D: ${jaOriginalTitle}`);
+    return jaOriginalTitle;
+  } catch (error) {
+    if (error.name === "AbortError") {
+      log("info", "[TMDB] \u641C\u7D22\u5DF2\u88AB\u4E2D\u65AD");
+      return null;
+    }
+    log("error", "[TMDB] Search error:", {
+      message: error.message,
+      name: error.name,
+      stack: error.stack
+    });
+    return null;
+  }
+}
+
+// danmu_api/sources/base.js
+var BaseSource = class {
+  constructor() {
+  }
+  // 搜索关键字
+  async search(keyword) {
+    throw new Error("Method 'search' must be implemented");
+  }
+  // 获取剧集详情
+  async getEpisodes(id) {
+    throw new Error("Method 'Episodes' must be implemented");
+  }
+  // 处理animes结果，用数据模型Anime存储
+  async handleAnimes(sourceAnimes, queryTitle, curAnimes, vodName) {
+    throw new Error("Method 'handleAnimes' must be implemented");
+  }
+  // 获取某集的弹幕
+  async getEpisodeDanmu(id) {
+    throw new Error("Method 'getEpisodeDanmu' must be implemented");
+  }
+  // 获取某集的弹幕分片列表
+  async getEpisodeDanmuSegments(id) {
+    throw new Error("Method 'getEpisodeDanmuSegments' must be implemented");
+  }
+  // 获取某集的分片弹幕
+  async getEpisodeSegmentDanmu(segment) {
+    throw new Error("Method 'getEpisodeSegmentDanmu' must be implemented");
+  }
+  // 格式化弹幕
+  formatComments(comments) {
+    throw new Error("Method 'formatComments' must be implemented");
+  }
+  // 获取弹幕流水线方法(获取某集弹幕 -> 格式化弹幕 -> 弹幕处理，如去重/屏蔽字等)
+  async getComments(id, sourceName, segmentFlag = false, progressCallback = null) {
+    if (segmentFlag) {
+      if (progressCallback) await progressCallback(5, `\u5F00\u59CB\u83B7\u53D6\u5F39\u5E55${sourceName}\u5F39\u5E55\u5206\u7247\u5217\u8868`);
+      log("info", `\u5F00\u59CB\u83B7\u53D6\u5F39\u5E55${sourceName}\u5F39\u5E55\u5206\u7247\u5217\u8868`);
+      return await this.getEpisodeDanmuSegments(id);
+    }
+    if (progressCallback) await progressCallback(5, `\u5F00\u59CB\u83B7\u53D6\u5F39\u5E55${sourceName}\u5F39\u5E55`);
+    log("info", `\u5F00\u59CB\u83B7\u53D6\u5F39\u5E55${sourceName}\u5F39\u5E55`);
+    const raw = await this.getEpisodeDanmu(id);
+    if (progressCallback) await progressCallback(85, `\u539F\u59CB\u5F39\u5E55 ${raw.length} \u6761\uFF0C\u6B63\u5728\u89C4\u8303\u5316`);
+    log("info", `\u539F\u59CB\u5F39\u5E55 ${raw.length} \u6761\uFF0C\u6B63\u5728\u89C4\u8303\u5316`);
+    const formatted = this.formatComments(raw);
+    if (progressCallback) await progressCallback(100, `\u5F39\u5E55\u5904\u7406\u5B8C\u6210\uFF0C\u5171 ${formatted.length} \u6761`);
+    log("info", `\u5F39\u5E55\u5904\u7406\u5B8C\u6210\uFF0C\u5171 ${formatted.length} \u6761`);
+    return convertToDanmakuJson(formatted, sourceName);
+  }
+  // 获取分片弹幕流水线方法(获取某集分片弹幕 -> 格式化弹幕 -> 弹幕处理，如去重/屏蔽字等)
+  async getSegmentComments(segment, progressCallback = null) {
+    if (progressCallback) await progressCallback(5, `\u5F00\u59CB\u83B7\u53D6\u5206\u7247\u5F39\u5E55${segment.type}\u5F39\u5E55`);
+    log("info", `\u5F00\u59CB\u83B7\u53D6\u5206\u7247\u5F39\u5E55${segment.type}\u5F39\u5E55`);
+    const raw = await this.getEpisodeSegmentDanmu(segment);
+    if (progressCallback) await progressCallback(85, `\u539F\u59CB\u5206\u7247\u5F39\u5E55 ${raw.length} \u6761\uFF0C\u6B63\u5728\u89C4\u8303\u5316`);
+    log("info", `\u539F\u59CB\u5206\u7247\u5F39\u5E55 ${raw.length} \u6761\uFF0C\u6B63\u5728\u89C4\u8303\u5316`);
+    const formatted = this.formatComments(raw);
+    if (progressCallback) await progressCallback(100, `\u5206\u7247\u5F39\u5E55\u5904\u7406\u5B8C\u6210\uFF0C\u5171 ${formatted.length} \u6761`);
+    log("info", `\u5206\u7247\u5F39\u5E55\u5904\u7406\u5B8C\u6210\uFF0C\u5171 ${formatted.length} \u6761`);
+    return convertToDanmakuJson(formatted, segment.type);
+  }
+  // 按年份降序排序并添加到curAnimes
+  sortAndPushAnimesByYear(processedAnimes, curAnimes) {
+    processedAnimes.filter((anime) => anime !== null).sort((a, b) => {
+      const yearA = extractYear(a.animeTitle);
+      const yearB = extractYear(b.animeTitle);
+      if (yearA !== null && yearA !== void 0 && yearB !== null && yearB !== void 0) {
+        if (yearB !== yearA) {
+          return yearB - yearA;
+        }
+        const titleA = extractAnimeTitle(a.animeTitle);
+        const titleB = extractAnimeTitle(b.animeTitle);
+        return titleA.length - titleB.length;
+      }
+      if (yearA !== null && yearA !== void 0 && (yearB === null || yearB === void 0)) {
+        return -1;
+      }
+      if ((yearA === null || yearA === void 0) && (yearB !== null && yearB !== void 0)) {
+        return 1;
+      }
+      return 0;
+    }).forEach((anime) => {
+      const existingIndex = curAnimes.findIndex((a) => a.animeId === anime.animeId);
+      if (existingIndex === -1) {
+        curAnimes.push(anime);
+      }
+    });
+  }
+};
+
+// danmu_api/utils/time-util.js
+function generateValidStartDate(year) {
+  const yearNum = parseInt(year);
+  if (isNaN(yearNum) || yearNum < 1900 || yearNum > 2100) {
+    return `${(/* @__PURE__ */ new Date()).getFullYear()}-01-01T00:00:00Z`;
+  }
+  return `${yearNum}-01-01T00:00:00Z`;
+}
 function time_to_second(time) {
   const parts = time.split(":").map(Number);
   let seconds = 0;
@@ -989,752 +3551,3452 @@ function time_to_second(time) {
   return seconds;
 }
 
-// md5.js 本地版本
-function md5(message) {
-  // --- UTF-8 转换 ---
-  function toUtf8(str) {
-    let utf8 = "";
-    for (let i = 0; i < str.length; i++) {
-      const charCode = str.charCodeAt(i);
-      if (charCode < 0x80) {
-        utf8 += String.fromCharCode(charCode);
-      } else if (charCode < 0x800) {
-        utf8 += String.fromCharCode(0xc0 | (charCode >> 6));
-        utf8 += String.fromCharCode(0x80 | (charCode & 0x3f));
-      } else {
-        utf8 += String.fromCharCode(0xe0 | (charCode >> 12));
-        utf8 += String.fromCharCode(0x80 | ((charCode >> 6) & 0x3f));
-        utf8 += String.fromCharCode(0x80 | (charCode & 0x3f));
-      }
-    }
-    return utf8;
-  }
-
-  message = toUtf8(message);
-
-  function rotateLeft(lValue, iShiftBits) {
-    return (lValue << iShiftBits) | (lValue >>> (32 - iShiftBits));
-  }
-
-  function addUnsigned(lX, lY) {
-    const lX4 = lX & 0x40000000;
-    const lY4 = lY & 0x40000000;
-    const lX8 = lX & 0x80000000;
-    const lY8 = lY & 0x80000000;
-    const lResult = (lX & 0x3FFFFFFF) + (lY & 0x3FFFFFFF);
-    if (lX4 & lY4) return lResult ^ 0x80000000 ^ lX8 ^ lY8;
-    if (lX4 | lY4) {
-      if (lResult & 0x40000000) return lResult ^ 0xC0000000 ^ lX8 ^ lY8;
-      else return lResult ^ 0x40000000 ^ lX8 ^ lY8;
-    } else return lResult ^ lX8 ^ lY8;
-  }
-
-  function F(x, y, z) { return (x & y) | (~x & z); }
-  function G(x, y, z) { return (x & z) | (y & ~z); }
-  function H(x, y, z) { return x ^ y ^ z; }
-  function I(x, y, z) { return y ^ (x | ~z); }
-
-  function FF(a, b, c, d, x, s, ac) {
-    a = addUnsigned(a, addUnsigned(addUnsigned(F(b, c, d), x), ac));
-    return addUnsigned(rotateLeft(a, s), b);
-  }
-
-  function GG(a, b, c, d, x, s, ac) {
-    a = addUnsigned(a, addUnsigned(addUnsigned(G(b, c, d), x), ac));
-    return addUnsigned(rotateLeft(a, s), b);
-  }
-
-  function HH(a, b, c, d, x, s, ac) {
-    a = addUnsigned(a, addUnsigned(addUnsigned(H(b, c, d), x), ac));
-    return addUnsigned(rotateLeft(a, s), b);
-  }
-
-  function II(a, b, c, d, x, s, ac) {
-    a = addUnsigned(a, addUnsigned(addUnsigned(I(b, c, d), x), ac));
-    return addUnsigned(rotateLeft(a, s), b);
-  }
-
-  function convertToWordArray(str) {
-    const lMessageLength = str.length;
-    const lNumberOfWords = (((lMessageLength + 8) >>> 6) + 1) * 16;
-    const lWordArray = new Array(lNumberOfWords).fill(0);
-    for (let i = 0; i < lMessageLength; i++) {
-      lWordArray[i >> 2] |= str.charCodeAt(i) << ((i % 4) * 8);
-    }
-    lWordArray[lMessageLength >> 2] |= 0x80 << ((lMessageLength % 4) * 8);
-    lWordArray[lNumberOfWords - 2] = lMessageLength * 8;
-    return lWordArray;
-  }
-
-  function wordToHex(lValue) {
-    let wordToHexValue = "";
-    for (let lCount = 0; lCount <= 3; lCount++) {
-      const lByte = (lValue >>> (lCount * 8)) & 255;
-      let wordToHexValueTemp = "0" + lByte.toString(16);
-      wordToHexValue += wordToHexValueTemp.substr(wordToHexValueTemp.length - 2, 2);
-    }
-    return wordToHexValue;
-  }
-
-  let x = convertToWordArray(message);
-  let a = 0x67452301;
-  let b = 0xEFCDAB89;
-  let c = 0x98BADCFE;
-  let d = 0x10325476;
-
-  for (let k = 0; k < x.length; k += 16) {
-    let AA = a, BB = b, CC = c, DD = d;
-
-    // --- Round 1 ---
-    a = FF(a, b, c, d, x[k + 0], 7, 0xD76AA478);
-    d = FF(d, a, b, c, x[k + 1], 12, 0xE8C7B756);
-    c = FF(c, d, a, b, x[k + 2], 17, 0x242070DB);
-    b = FF(b, c, d, a, x[k + 3], 22, 0xC1BDCEEE);
-    a = FF(a, b, c, d, x[k + 4], 7, 0xF57C0FAF);
-    d = FF(d, a, b, c, x[k + 5], 12, 0x4787C62A);
-    c = FF(c, d, a, b, x[k + 6], 17, 0xA8304613);
-    b = FF(b, c, d, a, x[k + 7], 22, 0xFD469501);
-    a = FF(a, b, c, d, x[k + 8], 7, 0x698098D8);
-    d = FF(d, a, b, c, x[k + 9], 12, 0x8B44F7AF);
-    c = FF(c, d, a, b, x[k + 10], 17, 0xFFFF5BB1);
-    b = FF(b, c, d, a, x[k + 11], 22, 0x895CD7BE);
-    a = FF(a, b, c, d, x[k + 12], 7, 0x6B901122);
-    d = FF(d, a, b, c, x[k + 13], 12, 0xFD987193);
-    c = FF(c, d, a, b, x[k + 14], 17, 0xA679438E);
-    b = FF(b, c, d, a, x[k + 15], 22, 0x49B40821);
-
-    // --- Round 2 ---
-    a = GG(a, b, c, d, x[k + 1], 5, 0xF61E2562);
-    d = GG(d, a, b, c, x[k + 6], 9, 0xC040B340);
-    c = GG(c, d, a, b, x[k + 11], 14, 0x265E5A51);
-    b = GG(b, c, d, a, x[k + 0], 20, 0xE9B6C7AA);
-    a = GG(a, b, c, d, x[k + 5], 5, 0xD62F105D);
-    d = GG(d, a, b, c, x[k + 10], 9, 0x02441453);
-    c = GG(c, d, a, b, x[k + 15], 14, 0xD8A1E681);
-    b = GG(b, c, d, a, x[k + 4], 20, 0xE7D3FBC8);
-    a = GG(a, b, c, d, x[k + 9], 5, 0x21E1CDE6);
-    d = GG(d, a, b, c, x[k + 14], 9, 0xC33707D6);
-    c = GG(c, d, a, b, x[k + 3], 14, 0xF4D50D87);
-    b = GG(b, c, d, a, x[k + 8], 20, 0x455A14ED);
-    a = GG(a, b, c, d, x[k + 13], 5, 0xA9E3E905);
-    d = GG(d, a, b, c, x[k + 2], 9, 0xFCEFA3F8);
-    c = GG(c, d, a, b, x[k + 7], 14, 0x676F02D9);
-    b = GG(b, c, d, a, x[k + 12], 20, 0x8D2A4C8A);
-
-    // --- Round 3 ---
-    a = HH(a, b, c, d, x[k + 5], 4, 0xFFFA3942);
-    d = HH(d, a, b, c, x[k + 8], 11, 0x8771F681);
-    c = HH(c, d, a, b, x[k + 11], 16, 0x6D9D6122);
-    b = HH(b, c, d, a, x[k + 14], 23, 0xFDE5380C);
-    a = HH(a, b, c, d, x[k + 1], 4, 0xA4BEEA44);
-    d = HH(d, a, b, c, x[k + 4], 11, 0x4BDECFA9);
-    c = HH(c, d, a, b, x[k + 7], 16, 0xF6BB4B60);
-    b = HH(b, c, d, a, x[k + 10], 23, 0xBEBFBC70);
-    a = HH(a, b, c, d, x[k + 13], 4, 0x289B7EC6);
-    d = HH(d, a, b, c, x[k + 0], 11, 0xEAA127FA);
-    c = HH(c, d, a, b, x[k + 3], 16, 0xD4EF3085);
-    b = HH(b, c, d, a, x[k + 6], 23, 0x04881D05);
-    a = HH(a, b, c, d, x[k + 9], 4, 0xD9D4D039);
-    d = HH(d, a, b, c, x[k + 12], 11, 0xE6DB99E5);
-    c = HH(c, d, a, b, x[k + 15], 16, 0x1FA27CF8);
-    b = HH(b, c, d, a, x[k + 2], 23, 0xC4AC5665);
-
-    // --- Round 4 ---
-    a = II(a, b, c, d, x[k + 0], 6, 0xF4292244);
-    d = II(d, a, b, c, x[k + 7], 10, 0x432AFF97);
-    c = II(c, d, a, b, x[k + 14], 15, 0xAB9423A7);
-    b = II(b, c, d, a, x[k + 5], 21, 0xFC93A039);
-    a = II(a, b, c, d, x[k + 12], 6, 0x655B59C3);
-    d = II(d, a, b, c, x[k + 3], 10, 0x8F0CCC92);
-    c = II(c, d, a, b, x[k + 10], 15, 0xFFEFF47D);
-    b = II(b, c, d, a, x[k + 1], 21, 0x85845DD1);
-    a = II(a, b, c, d, x[k + 8], 6, 0x6FA87E4F);
-    d = II(d, a, b, c, x[k + 15], 10, 0xFE2CE6E0);
-    c = II(c, d, a, b, x[k + 6], 15, 0xA3014314);
-    b = II(b, c, d, a, x[k + 13], 21, 0x4E0811A1);
-    a = II(a, b, c, d, x[k + 4], 6, 0xF7537E82);
-    d = II(d, a, b, c, x[k + 11], 10, 0xBD3AF235);
-    c = II(c, d, a, b, x[k + 2], 15, 0x2AD7D2BB);
-    b = II(b, c, d, a, x[k + 9], 21, 0xEB86D391);
-
-    a = addUnsigned(a, AA);
-    b = addUnsigned(b, BB);
-    c = addUnsigned(c, CC);
-    d = addUnsigned(d, DD);
-  }
-
-  return (wordToHex(a) + wordToHex(b) + wordToHex(c) + wordToHex(d)).toLowerCase();
-}
-
-function parseDanmakuBase64(base64) {
-  const bytes = base64ToBytes(base64);
-  const elems = [];
-
-  let offset = 0;
-  while (offset < bytes.length) {
-    // 每个 DanmakuElem 在 elems 列表里是 length-delimited
-    const key = bytes[offset++];
-    if (key !== 0x0a) break; // field=1 (elems), wire=2
-    const [msgBytes, nextOffset] = readLengthDelimited(bytes, offset);
-    offset = nextOffset;
-
-    let innerOffset = 0;
-    const elem = {};
-
-    while (innerOffset < msgBytes.length) {
-      const tag = msgBytes[innerOffset++];
-      const fieldNumber = tag >> 3;
-      const wireType = tag & 0x07;
-
-      if (wireType === 0) {
-        // varint
-        const [val, innerNext] = readVarint(msgBytes, innerOffset);
-        innerOffset = innerNext;
-        switch (fieldNumber) {
-          case 1: elem.id = val; break;
-          case 2: elem.progress = val; break;
-          case 3: elem.mode = val; break;
-          case 4: elem.fontsize = val; break;
-          case 5: elem.color = val; break;
-          case 8: elem.ctime = val; break;
-          case 9: elem.weight = val; break;
-          case 11: elem.pool = val; break;
-          case 13: elem.attr = val; break;
-          case 15: elem.like_num = val; break;
-          case 17: elem.dm_type_v2 = val; break;
+// danmu_api/sources/kan360.js
+var Kan360Source = class extends BaseSource {
+  // 查询360kan综艺详情
+  async get360Zongyi(title, entId, site, year) {
+    try {
+      let links = [];
+      for (let j = 0; j <= 10; j++) {
+        const response = await Widget.http.get(
+          `https://api.so.360kan.com/episodeszongyi?entid=${entId}&site=${site}&y=${year}&count=20&offset=${j * 20}`,
+          {
+            headers: {
+              "Content-Type": "application/json",
+              "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
+            }
+          }
+        );
+        const data = await response.data;
+        log("info", `360kan zongyi response: ${JSON.stringify(data)}`);
+        const episodeList = data.data.list;
+        if (!episodeList) {
+          break;
         }
-      } else if (wireType === 2) {
-        // length-delimited
-        const [valBytes, innerNext] = readLengthDelimited(msgBytes, innerOffset);
-        innerOffset = innerNext;
-        switch (fieldNumber) {
-          case 6: elem.midHash = utf8BytesToString(valBytes); break;
-          case 7: elem.content = utf8BytesToString(valBytes); break;
-          case 10: elem.action = utf8BytesToString(valBytes); break;
-          case 12: elem.idStr = utf8BytesToString(valBytes); break;
-          case 14: elem.animation = utf8BytesToString(valBytes); break;
-          case 16: elem.color_v2 = utf8BytesToString(valBytes); break;
+        for (const episodeInfo of episodeList) {
+          const epNumMatch = episodeInfo.name.match(/第(\d+)期([上中下])?/) || episodeInfo.period.match(/第(\d+)期([上中下])?/);
+          let epNum = epNumMatch ? epNumMatch[1] : null;
+          if (epNum && epNumMatch[2]) {
+            epNum = epNumMatch[2] === "\u4E0A" ? `${epNum}.1` : epNumMatch[2] === "\u4E2D" ? `${epNum}.2` : `${epNum}.3`;
+          }
+          links.push({
+            "name": episodeInfo.id,
+            "url": episodeInfo.url,
+            "title": `\u3010${site}\u3011 ${episodeInfo.name} ${episodeInfo.period}`,
+            "sort": epNum || episodeInfo.sort || null
+          });
         }
-      } else {
-        // 其他类型不常用，忽略
-        const [_, innerNext] = readVarint(msgBytes, innerOffset);
-        innerOffset = innerNext;
+        log("info", `links.length: ${links.length}`);
       }
-    }
-
-    elems.push(elem);
-  }
-
-  return elems;
-}
-
-function readVarint(bytes, offset) {
-  let result = 0n;
-  let shift = 0n;
-  let pos = offset;
-  while (true) {
-    const b = bytes[pos++];
-    result |= BigInt(b & 0x7f) << shift;
-    if ((b & 0x80) === 0) break;
-    shift += 7n;
-  }
-  return [Number(result), pos];
-}
-
-function readLengthDelimited(bytes, offset) {
-  const [length, newOffset] = readVarint(bytes, offset);
-  const start = newOffset;
-  const end = start + length;
-  const slice = bytes.slice(start, end);
-  return [slice, end];
-}
-
-// djb2 哈希算法将string转成id
-function convertToAsciiSum(sid) {
-  let hash = 5381;
-  for (let i = 0; i < sid.length; i++) {
-    hash = (hash * 33) ^ sid.charCodeAt(i);
-  }
-  hash = (hash >>> 0) % 9999999;
-  // 确保至少 5 位
-  return hash < 10000 ? hash + 10000 : hash;
-}
-
-// 基础加密函数 - 将字符串转换为星号
-function encryptStr(str) {
-  return '*'.repeat(str.length);
-}
-
-// RGB 转整数的函数
-function rgbToInt(color) {
-  // 检查 RGB 值是否有效
-  if (
-    typeof color.r !== 'number' || color.r < 0 || color.r > 255 ||
-    typeof color.g !== 'number' || color.g < 0 || color.g > 255 ||
-    typeof color.b !== 'number' || color.b < 0 || color.b > 255
-  ) {
-    return -1;
-  }
-  return color.r * 256 * 256 + color.g * 256 + color.b;
-}
-
-// =====================
-// 获取腾讯弹幕
-// =====================
-
-async function fetchTencentVideo(inputUrl, segmentTime, tmdbId, season, episode, other_server, vod_servers, bilibili_cookie, source_order, blocked_words, group_minute) {
-  log("info", "开始从本地请求腾讯视频弹幕...", inputUrl);
-
-  // 弹幕 API 基础地址
-  const api_danmaku_base = "https://dm.video.qq.com/barrage/base/";
-
-  // 解析 URL 获取 vid
-  let vid;
-  // 1. 尝试从查询参数中提取 vid
-  const queryMatch = inputUrl.match(/[?&]vid=([^&]+)/);
-  if (queryMatch) {
-    vid = queryMatch[1]; // 获取 vid 参数值
-  } else {
-    // 2. 从路径末尾提取 vid
-    const pathParts = inputUrl.split('/');
-    const lastPart = pathParts[pathParts.length - 1];
-    vid = lastPart.split('.')[0]; // 去除文件扩展名
-  }
-
-  log("info", "vid:", vid);
-
-  // 获取页面标题
-  let res;
-  try {
-    res = await Widget.http.get(inputUrl, {
-      headers: {
-        "Content-Type": "application/json",
-        "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
-      },
-    });
-  } catch (error) {
-    log("error", "请求页面失败:", error);
-    return [];
-  }
-
-  // 使用正则表达式提取 <title> 标签内容
-  const titleMatch = res.data.match(/<title[^>]*>(.*?)<\/title>/i);
-  const title = titleMatch ? titleMatch[1].split("_")[0] : "未知标题";
-  log("info", "标题:", title);
-
-  // 获取弹幕基础数据
-  try {
-    res = await Widget.http.get(api_danmaku_base + vid, {
-      headers: {
-        "Content-Type": "application/json",
-        "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
-      },
-    });
-  } catch (error) {
-    if (error.response?.status === 404) {
+      links.sort((a, b) => {
+        if (!a.sort || !b.sort) return 0;
+        const aNum = parseFloat(a.sort);
+        const bNum = parseFloat(b.sort);
+        return aNum - bNum;
+      });
+      return links;
+    } catch (error) {
+      log("error", "get360Animes error:", {
+        message: error.message,
+        name: error.name,
+        stack: error.stack
+      });
       return [];
     }
-    log("error", "请求弹幕基础数据失败:", error);
+  }
+  async search(keyword) {
+    try {
+      const response = await Widget.http.get(
+        `https://api.so.360kan.com/index?force_v=1&kw=${encodeURIComponent(keyword)}&from=&pageno=1&v_ap=1&tab=all`,
+        {
+          headers: {
+            "Content-Type": "application/json",
+            "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
+          }
+        }
+      );
+      const data = response.data;
+      log("info", `360kan response: ${JSON.stringify(data)}`);
+      let tmpAnimes = [];
+      if ("rows" in data.data.longData) {
+        tmpAnimes = data.data.longData.rows;
+      }
+      log("info", `360kan animes.length: ${tmpAnimes.length}`);
+      return tmpAnimes;
+    } catch (error) {
+      log("error", "get360Animes error:", {
+        message: error.message,
+        name: error.name,
+        stack: error.stack
+      });
+      return [];
+    }
+  }
+  async getEpisodes(id) {
+  }
+  async handleAnimes(sourceAnimes, queryTitle, curAnimes) {
+    const tmpAnimes = [];
+    if (!sourceAnimes || !Array.isArray(sourceAnimes)) {
+      log("error", "[360kan] sourceAnimes is not a valid array");
+      return [];
+    }
+    const process360Animes = await Promise.all(sourceAnimes.filter((anime) => titleMatches(anime.titleTxt, queryTitle)).map(async (anime) => {
+      try {
+        let links = [];
+        if (anime.cat_name === "\u7535\u5F71") {
+          for (const key of Object.keys(anime.playlinks)) {
+            if (globals.vodAllowedPlatforms.includes(key)) {
+              links.push({
+                "name": key.toString(),
+                "url": anime.playlinks[key],
+                "title": `\u3010${key}\u3011 ${anime.titleTxt}(${anime.year})`
+              });
+            }
+          }
+        } else if (anime.cat_name === "\u7535\u89C6\u5267" || anime.cat_name === "\u52A8\u6F2B") {
+          if (globals.vodAllowedPlatforms.includes(anime.seriesSite)) {
+            for (let i = 0; i < anime.seriesPlaylinks.length; i++) {
+              const item = anime.seriesPlaylinks[i];
+              links.push({
+                "name": (i + 1).toString(),
+                "url": item.url,
+                "title": `\u3010${anime.seriesSite}\u3011 \u7B2C${i + 1}\u96C6`
+              });
+            }
+          }
+        } else if (anime.cat_name === "\u7EFC\u827A") {
+          const zongyiLinks = await Promise.all(
+            Object.keys(anime.playlinks_year).map(async (site) => {
+              if (globals.vodAllowedPlatforms.includes(site)) {
+                const yearLinks = await Promise.all(
+                  anime.playlinks_year[site].map(async (year) => {
+                    return await this.get360Zongyi(anime.titleTxt, anime.id, site, year);
+                  })
+                );
+                return yearLinks.flat();
+              }
+              return [];
+            })
+          );
+          links = zongyiLinks.flat();
+        }
+        if (links.length > 0) {
+          let transformedAnime = {
+            animeId: Number(anime.id),
+            bangumiId: String(anime.id),
+            animeTitle: `${anime.titleTxt}(${anime.year})\u3010${anime.cat_name}\u3011from 360`,
+            type: anime.cat_name,
+            typeDescription: anime.cat_name,
+            imageUrl: anime.cover,
+            startDate: generateValidStartDate(anime.year),
+            episodeCount: links.length,
+            rating: 0,
+            isFavorited: true,
+            source: "360"
+          };
+          tmpAnimes.push(transformedAnime);
+          addAnime({ ...transformedAnime, links });
+          if (globals.animes.length > globals.MAX_ANIMES) removeEarliestAnime();
+        }
+      } catch (error) {
+        log("error", `[360kan] Error processing anime: ${error.message}`);
+      }
+    }));
+    this.sortAndPushAnimesByYear(tmpAnimes, curAnimes);
+    return process360Animes;
+  }
+  async getEpisodeDanmu(id) {
+  }
+  formatComments(comments) {
+  }
+};
+
+// danmu_api/sources/vod.js
+var VodSource = class extends BaseSource {
+  // 查询vod站点影片信息
+  async getVodAnimes(title, server, serverName) {
+    try {
+      const response = await Widget.http.get(
+        `${server}/api.php/provide/vod/?ac=detail&wd=${title}&pg=1`,
+        {
+          headers: {
+            "Content-Type": "application/json",
+            "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
+          }
+        }
+      );
+      if (response && response.data && response.data.list && response.data.list.length > 0) {
+        log("info", `\u8BF7\u6C42 ${serverName}(${server}) \u6210\u529F`);
+        const data = response.data;
+        log("info", `${serverName} response: \u2193\u2193\u2193`);
+        printFirst200Chars(data);
+        return { serverName, list: data.list };
+      } else {
+        log("info", `\u8BF7\u6C42 ${serverName}(${server}) \u6210\u529F\uFF0C\u4F46 response.data.list \u4E3A\u7A7A`);
+        return { serverName, list: [] };
+      }
+    } catch (error) {
+      log("error", `\u8BF7\u6C42 ${serverName}(${server}) \u5931\u8D25:`, {
+        message: error.message,
+        name: error.name,
+        stack: error.stack
+      });
+      return { serverName, list: [] };
+    }
+  }
+  // 查询所有vod站点影片信息（返回所有结果）
+  async getVodAnimesFromAllServersImpl(title, servers) {
+    const promises = servers.map(
+      (server) => this.getVodAnimes(title, server.url, server.name)
+    );
+    const results = await Promise.allSettled(promises);
+    return results.filter((result) => result.status === "fulfilled").map((result) => result.value);
+  }
+  // 查询vod站点影片信息（返回最快的结果）
+  async getVodAnimesFromFastestServer(title, servers, preferAnimeId = null, preferSource = null) {
+    if (!servers || servers.length === 0) {
+      return [];
+    }
+    const promises = servers.map(
+      (server) => this.getVodAnimes(title, server.url, server.name)
+    );
+    let fastest;
+    try {
+      fastest = await Promise.race(promises);
+    } catch (err) {
+      log("error", `[VOD fastest mode] \u6240\u6709\u670D\u52A1\u5668\u76F4\u63A5\u629B\u9519`, err);
+      return [];
+    }
+    const stringContainsPreferId = (result) => {
+      if (!preferAnimeId || preferSource !== "vod") return true;
+      const str = JSON.stringify(result)?.toLowerCase() || "";
+      return str.includes(String(preferAnimeId).toLowerCase());
+    };
+    if (stringContainsPreferId(fastest) && fastest && fastest.list && fastest.list.length > 0) {
+      log("info", `[VOD fastest mode] \u6700\u5FEB\u670D\u52A1\u5668 ${fastest.serverName}${preferSource === "vod" ? " \u5B57\u7B26\u4E32\u5305\u542B preferAnimeId \u2192 \u4F18\u5148\u4F7F\u7528" : ""}`);
+      return [fastest];
+    }
+    log("info", `[VOD fastest mode] \u6700\u5FEB\u670D\u52A1\u5668 ${fastest.serverName} \u4E0D\u542B preferAnimeId\uFF0C\u7B49\u5F85\u5176\u4ED6\u670D\u52A1\u5668\u2026`);
+    const allSettled = await Promise.allSettled(promises);
+    if (preferAnimeId) {
+      for (const settled of allSettled) {
+        if (settled.status === "fulfilled" && stringContainsPreferId(settled.value) && settled.value && settled.value.list && settled.value.list.length > 0) {
+          log("info", `[VOD fastest mode] \u627E\u5230\u5305\u542B preferAnimeId \u7684\u670D\u52A1\u5668: ${settled.value.serverName}`);
+          return [settled.value];
+        }
+      }
+      log("info", `[VOD fastest mode] \u6240\u6709\u670D\u52A1\u5668\u90FD\u4E0D\u5305\u542B preferAnimeId\uFF0C\u56DE\u9000\u5230\u201C\u771F\u6B63\u6709\u6570\u636E\u201D\u7684\u6700\u5FEB\u670D\u52A1\u5668`);
+    }
+    const validResults = allSettled.filter((r) => r.status === "fulfilled").map((r) => r.value).filter((result) => result && result.list && result.list.length > 0);
+    if (validResults.length > 0) {
+      const chosen = validResults[0];
+      log("info", `[VOD fastest mode] \u4F7F\u7528\u6700\u5FEB\u6709\u6570\u636E\u7684\u670D\u52A1\u5668: ${chosen.serverName}`);
+      return [chosen];
+    }
+    log("error", `[VOD fastest mode] \u6240\u6709\u670D\u52A1\u5668\u5747\u65E0\u6709\u6548\u6570\u636E`);
     return [];
   }
-
-  // 先把 res.data 转成 JSON
-  const data = typeof res.data === "string" ? JSON.parse(res.data) : res.data;
-
-  // 获取弹幕分段数据
-  try {
-    let segmentList = Object.values(data.segment_index);
-    const domain = ".qq.com";
-    segmentList.sort((a, b) => a.segment_start - b.segment_start);
-    const mediaInfo = {
-        segmentList,
-        vid,
-        domain,
+  async search(keyword, preferAnimeId = null, preferSource = null) {
+    if (!globals.vodServers || globals.vodServers.length === 0) {
+      return [];
     }
-    const storeKey = season && episode ? `${tmdbId}.${season}.${episode}` : `${tmdbId}`;
-    Widget.storage.set(storeKey, mediaInfo);
-    return await getDanmuWithSegmentTime({ segmentTime, tmdbId, season, episode, other_server, vod_servers, bilibili_cookie, source_order, blocked_words, group_minute })
+    if (globals.vodReturnMode === "fastest") {
+      return await this.getVodAnimesFromFastestServer(keyword, globals.vodServers, preferAnimeId, preferSource);
+    } else {
+      return await this.getVodAnimesFromAllServersImpl(keyword, globals.vodServers);
+    }
+  }
+  async getEpisodes(id) {
+  }
+  async handleAnimes(sourceAnimes, queryTitle, curAnimes, vodName) {
+    const tmpAnimes = [];
+    if (!sourceAnimes || !Array.isArray(sourceAnimes)) {
+      log("error", "[VOD] sourceAnimes is not a valid array");
+      return [];
+    }
+    const processVodAnimes = await Promise.all(sourceAnimes.filter((anime) => titleMatches(anime.vod_name, queryTitle)).map(async (anime) => {
+      try {
+        let vodPlayFromList = anime.vod_play_from.split("$$$");
+        vodPlayFromList = vodPlayFromList.map((item) => {
+          if (item === "mgtv") return "imgo";
+          if (item === "bilibili") return "bilibili1";
+          return item;
+        });
+        const vodPlayUrlList = anime.vod_play_url.split("$$$");
+        const validIndices = vodPlayFromList.map((item, index) => globals.vodAllowedPlatforms.includes(item) ? index : -1).filter((index) => index !== -1);
+        let links = [];
+        let count = 0;
+        for (const num of validIndices) {
+          const platform = vodPlayFromList[num];
+          const eps = vodPlayUrlList[num].split("#");
+          for (const ep of eps) {
+            const epInfo = ep.split("$");
+            count++;
+            links.push({
+              "name": count.toString(),
+              "url": epInfo[1],
+              "title": `\u3010${platform}\u3011 ${epInfo[0]}`
+            });
+          }
+        }
+        if (links.length > 0) {
+          let transformedAnime = {
+            animeId: Number(anime.vod_id),
+            bangumiId: String(anime.vod_id),
+            animeTitle: `${anime.vod_name}(${anime.vod_year})\u3010${anime.type_name}\u3011from ${vodName}`,
+            type: anime.type_name,
+            typeDescription: anime.type_name,
+            imageUrl: anime.vod_pic,
+            startDate: generateValidStartDate(anime.vod_year),
+            episodeCount: links.length,
+            rating: 0,
+            isFavorited: true,
+            source: "vod"
+          };
+          tmpAnimes.push(transformedAnime);
+          addAnime({ ...transformedAnime, links });
+          if (globals.animes.length > globals.MAX_ANIMES) removeEarliestAnime();
+        }
+      } catch (error) {
+        log("error", `[VOD] Error processing anime: ${error.message}`);
+      }
+    }));
+    this.sortAndPushAnimesByYear(tmpAnimes, curAnimes);
+    return processVodAnimes;
+  }
+  async getEpisodeDanmu(id) {
+  }
+  formatComments(comments) {
+  }
+};
+
+// danmu_api/utils/douban-util.js
+async function doubanApiGet(url) {
+  const doubanApi = "https://m.douban.com/rexxar/api/v2";
+  try {
+    const response = await Widget.http.get(`${doubanApi}${url}`, {
+      method: "GET",
+      headers: {
+        "Referer": "https://m.douban.com/movie/",
+        "Content-Type": "application/json",
+        "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
+      }
+    });
+    if (response.status != 200) return null;
+    return response;
   } catch (error) {
-    log("error", "获取弹幕分段数据失败:", error);
+    log("error", "[DOUBAN] GET API error:", {
+      message: error.message,
+      name: error.name,
+      stack: error.stack
+    });
+    return null;
   }
 }
+async function doubanApiPost(url, data = {}) {
+  const doubanApi = "https://api.douban.com/v2";
+  try {
+    const response = await Widget.http.post(
+      `${doubanApi}${url}`,
+      JSON.stringify({ ...data, apikey: "0ac44ae016490db2204ce0a042db2916" }),
+      {
+        method: "GET",
+        headers: {
+          "Referer": "https://api.douban.com",
+          "Content-Type": "application/json",
+          "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
+        }
+      }
+    );
+    if (response.status != 200) return null;
+    return response;
+  } catch (error) {
+    log("error", "[DOUBAN] POST API error:", {
+      message: error.message,
+      name: error.name,
+      stack: error.stack
+    });
+    return null;
+  }
+}
+async function searchDoubanTitles(keyword, count = 20) {
+  const url = `/search?q=${keyword}&start=0&count=${count}&type=movie`;
+  return await doubanApiGet(url);
+}
+async function getDoubanDetail(doubanId) {
+  const url = `/movie/${doubanId}?for_mobile=1`;
+  return await doubanApiGet(url);
+}
+async function getDoubanInfoByImdbId(imdbId) {
+  const url = `/movie/imdb/${imdbId}`;
+  return await doubanApiPost(url);
+}
 
-async function fetchTencentVideoDanmaku(vid, segment) {
-  log("info", "开始从本地请求腾讯视频弹幕...", vid, segment);
-  const api_danmaku_segment = "https://dm.video.qq.com/barrage/segment/";
-  let contents = [];
-  let res = await Widget.http.get(`${api_danmaku_segment}${vid}/${segment.segment_name}`, {
+// danmu_api/utils/imdb-util.js
+async function imdbApiGet(url) {
+  const imdbApi = "https://api.imdbapi.dev";
+  try {
+    const response = await Widget.http.get(`${imdbApi}${url}`, {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+        "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
+      }
+    });
+    if (response.status != 200) return null;
+    return response;
+  } catch (error) {
+    log("error", "[IMDB] API error:", {
+      message: error.message,
+      name: error.name,
+      stack: error.stack
+    });
+    return null;
+  }
+}
+async function getImdbSeasons(imdbId) {
+  const url = `/titles/${imdbId}/seasons`;
+  return await imdbApiGet(url);
+}
+async function getImdbepisodes(imdbId, season) {
+  const url = `/titles/${imdbId}/episodes?season=${season}`;
+  return await imdbApiGet(url);
+}
+
+// danmu_api/sources/tmdb.js
+var TmdbSource = class extends BaseSource {
+  constructor(doubanSource2) {
+    super("BaseSource");
+    this.doubanSource = doubanSource2;
+  }
+  async _getDoubanInfo(finalImdbId, mediaType, doubanIds) {
+    if (!finalImdbId) return;
+    const doubanInfo = await getDoubanInfoByImdbId(finalImdbId);
+    if (!doubanInfo || !doubanInfo?.data) return;
+    const url = doubanInfo?.data?.id;
+    if (url) {
+      const parts = url.split("/");
+      const doubanId = parts.pop();
+      const typeName = mediaType === "movie" ? "\u7535\u5F71" : "\u7535\u89C6\u5267";
+      if (doubanId) {
+        doubanIds.push({
+          layout: "subject",
+          target_id: doubanId,
+          type_name: typeName,
+          target: { cover_url: doubanInfo.data?.image, title: doubanInfo.data?.alt_title }
+        });
+      }
+    }
+  }
+  async getDoubanIdByTmdbId(mediaType, tmdbId) {
+    try {
+      const doubanIds = [];
+      const response = await getTmdbExternalIds(mediaType, tmdbId);
+      const imdbId = response.data?.imdb_id;
+      if (!imdbId) return [];
+      if (mediaType === "movie") {
+        await this._getDoubanInfo(imdbId, mediaType, doubanIds);
+      } else {
+        const seasons = await getImdbSeasons(imdbId);
+        log("info", "imdb seasons:", seasons.data.seasons);
+        const seasonPromises = (seasons?.data?.seasons ?? []).map(async (season) => {
+          let finalImdbId = imdbId;
+          log("info", "imdb season:", season.season);
+          try {
+            if (Number(season.season) !== 1) {
+              const episodes = await getImdbepisodes(imdbId, season.season);
+              finalImdbId = episodes.data?.episodes.find((ep) => ep.episodeNumber === 1)?.id ?? "";
+            }
+            await this._getDoubanInfo(finalImdbId, mediaType, doubanIds);
+          } catch (error) {
+            log("error", `\u5904\u7406\u7B2C ${season.season} \u5B63\u5931\u8D25\uFF0C\u7EE7\u7EED\u6267\u884C\u5176\u4ED6\u5B63:`, error);
+          }
+        });
+        await Promise.all(seasonPromises);
+      }
+      return doubanIds;
+    } catch (error) {
+      log("error", "getTmdbIds error:", {
+        message: error.message,
+        name: error.name,
+        stack: error.stack
+      });
+      return [];
+    }
+  }
+  async search(keyword) {
+    try {
+      const response = await searchTmdbTitles(keyword);
+      const data = response.data;
+      let tmpAnimes = [];
+      let tmdbItems = [];
+      if (data?.results?.length > 0) {
+        tmdbItems = data.results.filter((item) => (item.name || item.title) === keyword);
+      }
+      log("info", `tmdb items.length: ${tmdbItems.length}`);
+      const doubanPromises = tmdbItems.map(async (tmdbItem) => {
+        try {
+          const doubanIds = await this.getDoubanIdByTmdbId(tmdbItem.media_type, tmdbItem.id);
+          return doubanIds;
+        } catch (error) {
+          log("error", `\u83B7\u53D6 TMDB ID ${tmdbItem.id} \u7684\u8C46\u74E3 ID \u5931\u8D25\uFF0C\u7EE7\u7EED\u5904\u7406\u5176\u4ED6\u6761\u76EE:`, error);
+          return [];
+        }
+      });
+      const doubanResults = await Promise.all(doubanPromises);
+      tmpAnimes = [...tmpAnimes, ...doubanResults.flat()];
+      return tmpAnimes;
+    } catch (error) {
+      log("error", "getTmdbAnimes error:", {
+        message: error.message,
+        name: error.name,
+        stack: error.stack
+      });
+      return [];
+    }
+  }
+  async getEpisodes(id) {
+  }
+  async handleAnimes(sourceAnimes, queryTitle, curAnimes, vodName) {
+    return this.doubanSource.handleAnimes(sourceAnimes, queryTitle, curAnimes, vodName);
+  }
+  async getEpisodeDanmu(id) {
+  }
+  formatComments(comments) {
+  }
+};
+
+// danmu_api/sources/douban.js
+var DoubanSource = class extends BaseSource {
+  constructor(tencentSource2, iqiyiSource2, youkuSource2, bilibiliSource2) {
+    super("BaseSource");
+    this.tencentSource = tencentSource2;
+    this.iqiyiSource = iqiyiSource2;
+    this.youkuSource = youkuSource2;
+    this.bilibiliSource = bilibiliSource2;
+  }
+  async search(keyword) {
+    try {
+      const response = await searchDoubanTitles(keyword);
+      const data = response.data;
+      let tmpAnimes = [];
+      if (data?.subjects?.items?.length > 0) {
+        tmpAnimes = [...tmpAnimes, ...data.subjects.items];
+      }
+      if (data?.smart_box?.length > 0) {
+        tmpAnimes = [...tmpAnimes, ...data.smart_box];
+      }
+      log("info", `douban animes.length: ${tmpAnimes.length}`);
+      return tmpAnimes;
+    } catch (error) {
+      log("error", "getDoubanAnimes error:", {
+        message: error.message,
+        name: error.name,
+        stack: error.stack
+      });
+      return [];
+    }
+  }
+  async getEpisodes(id) {
+  }
+  async handleAnimes(sourceAnimes, queryTitle, curAnimes, vodName) {
+    const doubanAnimes = [];
+    if (!sourceAnimes || !Array.isArray(sourceAnimes)) {
+      log("error", "[Douban] sourceAnimes is not a valid array");
+      return [];
+    }
+    const processDoubanAnimes = await Promise.allSettled(sourceAnimes.map(async (anime) => {
+      try {
+        if (anime?.layout !== "subject") return;
+        const doubanId = anime.target_id;
+        let animeType = anime?.type_name;
+        if (animeType !== "\u7535\u5F71" && animeType !== "\u7535\u89C6\u5267") return;
+        log("info", "doubanId: ", doubanId, anime?.target?.title, animeType);
+        const response = await getDoubanDetail(doubanId);
+        const results = [];
+        for (const vendor of response.data?.vendors ?? []) {
+          if (!vendor) {
+            continue;
+          }
+          log("info", "vendor uri: ", vendor.uri);
+          if (response.data?.genres.includes("\u771F\u4EBA\u79C0")) {
+            animeType = "\u7EFC\u827A";
+          } else if (response.data?.genres.includes("\u7EAA\u5F55\u7247")) {
+            animeType = "\u7EAA\u5F55\u7247";
+          } else if (animeType === "\u7535\u89C6\u5267" && response.data?.genres.includes("\u52A8\u753B") && response.data?.countries.some((country) => country.includes("\u4E2D\u56FD"))) {
+            animeType = "\u56FD\u6F2B";
+          } else if (animeType === "\u7535\u89C6\u5267" && response.data?.genres.includes("\u52A8\u753B") && response.data?.countries.includes("\u65E5\u672C")) {
+            animeType = "\u65E5\u756A";
+          } else if (animeType === "\u7535\u89C6\u5267" && response.data?.genres.includes("\u52A8\u753B")) {
+            animeType = "\u52A8\u6F2B";
+          } else if (animeType === "\u7535\u5F71" && response.data?.genres.includes("\u52A8\u753B")) {
+            animeType = "\u52A8\u753B\u7535\u5F71";
+          } else if (animeType === "\u7535\u5F71" && response.data?.countries.some((country) => country.includes("\u4E2D\u56FD"))) {
+            animeType = "\u534E\u8BED\u7535\u5F71";
+          } else if (animeType === "\u7535\u5F71") {
+            animeType = "\u5916\u8BED\u7535\u5F71";
+          } else if (animeType === "\u7535\u89C6\u5267" && response.data?.countries.some((country) => country.includes("\u4E2D\u56FD"))) {
+            animeType = "\u56FD\u4EA7\u5267";
+          } else if (animeType === "\u7535\u89C6\u5267" && response.data?.countries.some((country) => ["\u65E5\u672C", "\u97E9\u56FD"].includes(country))) {
+            animeType = "\u65E5\u97E9\u5267";
+          } else if (animeType === "\u7535\u89C6\u5267" && response.data?.countries.some(
+            (country) => ["\u7F8E\u56FD", "\u82F1\u56FD", "\u52A0\u62FF\u5927", "\u6CD5\u56FD", "\u5FB7\u56FD", "\u610F\u5927\u5229", "\u897F\u73ED\u7259", "\u6FB3\u5927\u5229\u4E9A"].includes(country)
+          )) {
+            animeType = "\u6B27\u7F8E\u5267";
+          }
+          const tmpAnimes = [{
+            title: response.data?.title,
+            year: response.data?.year,
+            type: animeType,
+            imageUrl: anime?.target?.cover_url
+          }];
+          switch (vendor.id) {
+            case "qq": {
+              const cid = new URL(vendor.uri).searchParams.get("cid");
+              if (cid) {
+                tmpAnimes[0].provider = "tencent";
+                tmpAnimes[0].mediaId = cid;
+                await this.tencentSource.handleAnimes(tmpAnimes, response.data?.title, doubanAnimes);
+              }
+              break;
+            }
+            case "iqiyi": {
+              const tvid = new URL(vendor.uri).searchParams.get("tvid");
+              if (tvid) {
+                tmpAnimes[0].provider = "iqiyi";
+                tmpAnimes[0].mediaId = anime?.type_name === "\u7535\u5F71" ? `movie_${tvid}` : tvid;
+                await this.iqiyiSource.handleAnimes(tmpAnimes, response.data?.title, doubanAnimes);
+              }
+              break;
+            }
+            case "youku": {
+              const showId = new URL(vendor.uri).searchParams.get("showid");
+              if (showId) {
+                tmpAnimes[0].provider = "youku";
+                tmpAnimes[0].mediaId = showId;
+                await this.youkuSource.handleAnimes(tmpAnimes, response.data?.title, doubanAnimes);
+              }
+              break;
+            }
+            case "bilibili": {
+              const seasonId = new URL(vendor.uri).pathname.split("/").pop();
+              if (seasonId) {
+                tmpAnimes[0].provider = "bilibili";
+                tmpAnimes[0].mediaId = `ss${seasonId}`;
+                await this.bilibiliSource.handleAnimes(tmpAnimes, response.data?.title, doubanAnimes);
+              }
+              break;
+            }
+          }
+        }
+        return results;
+      } catch (error) {
+        log("error", `[Douban] Error processing anime: ${error.message}`);
+        return [];
+      }
+    }));
+    this.sortAndPushAnimesByYear(doubanAnimes, curAnimes);
+    return processDoubanAnimes;
+  }
+  async getEpisodeDanmu(id) {
+  }
+  formatComments(comments) {
+  }
+};
+
+// danmu_api/sources/renren.js
+var RenrenSource = class extends BaseSource {
+  constructor() {
+    super(...arguments);
+    __publicField(this, "API_CONFIG", {
+      SECRET_KEY: "cf65GPholnICgyw1xbrpA79XVkizOdMq",
+      SEARCH_HOST: "api.qwdjapp.com",
+      DRAMA_HOST: "api.zhimeisj.top",
+      DANMU_HOST: "static-dm.qwdjapp.com",
+      USER_AGENT: "Mozilla/5.0 (Linux; Android 15; PJC110 Build/AP3A.240617.008; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/140.0.7339.207 Mobile Safari/537.36 App/RRSPApp platform/android AppVersion/10.27.4"
+    });
+  }
+  generateAppCommonHeaders(timestamp, sign, xCaSign = null) {
+    const headers = {
+      "User-Agent": this.API_CONFIG.USER_AGENT,
+      "deviceId": "fG1vO5jzBm22vJ5mfcCYGp2NrBii5SPysgiy%2FaUb63EOTrtXyXdxHm1cUajUR1zbszl62ApHyWc1GKZtH%2FbmF0UMZWgEetdDy9QVXd9WvPU%3D",
+      "aliId": "aPuaf9shK3QDAL6WwVdhc7cC",
+      "umId": "380998657e22ed51b5a21f2b519aa5beod",
+      "clientType": "android_rrsp_xb_RRSP",
+      "t": timestamp.toString(),
+      "sign": sign,
+      "isAgree": "1",
+      "cv": "10.27.4"
+    };
+    if (xCaSign) {
+      headers["x-ca-sign"] = xCaSign;
+      headers["x-ca-method"] = "1";
+    }
+    return headers;
+  }
+  async searchAppContent(keyword, size = 15) {
+    try {
+      const timestamp = Date.now();
+      const path2 = "/search/content";
+      const queryParams = {
+        keywords: keyword,
+        size,
+        search_after: "",
+        order: "match",
+        isAgeLimit: false
+      };
+      const sign = generateSign(path2, timestamp, queryParams, this.API_CONFIG.SECRET_KEY);
+      const queryString = Object.entries(queryParams).map(([k, v]) => `${k}=${encodeURIComponent(v)}`).join("&");
+      const xCaSign = generateXCaSign(path2, timestamp, queryString, this.API_CONFIG.SECRET_KEY);
+      const headers = this.generateAppCommonHeaders(timestamp, sign, xCaSign);
+      headers["Host"] = this.API_CONFIG.SEARCH_HOST;
+      const resp = await Widget.http.get(`https://${this.API_CONFIG.SEARCH_HOST}${path2}?${queryString}`, {
+        headers
+      });
+      if (!resp.data) return [];
+      const list = resp?.data?.data?.searchDramaList || [];
+      return list.map((item, idx) => ({
+        provider: "renren",
+        mediaId: String(item.id),
+        title: String(item.title || "").replace(/<[^>]+>/g, "").replace(/:/g, "\uFF1A"),
+        type: "tv_series",
+        season: null,
+        year: item.year,
+        imageUrl: item.cover,
+        episodeCount: item.episodeTotal,
+        currentEpisodeIndex: null
+      }));
+    } catch (error) {
+      log("error", "getRenrenAppAnimes error:", {
+        message: error.message,
+        name: error.name,
+        stack: error.stack
+      });
+      return [];
+    }
+  }
+  async getAppDramaDetail(dramaId, episodeSid = "") {
+    try {
+      if (!episodeSid) episodeSid = generateRandomSid();
+      const timestamp = Date.now();
+      const path2 = "/app/drama/page";
+      const queryParams = {
+        isAgeLimit: false,
+        dramaId,
+        episodeSid,
+        quality: "SD",
+        subtitle: 3,
+        hsdrOpen: 1,
+        hevcOpen: 1,
+        tria4k: 1
+      };
+      const sign = generateSign(path2, timestamp, queryParams, this.API_CONFIG.SECRET_KEY);
+      const queryString = Object.entries(queryParams).map(([k, v]) => `${k}=${encodeURIComponent(v)}`).join("&");
+      const headers = this.generateAppCommonHeaders(timestamp, sign);
+      headers["Host"] = this.API_CONFIG.DRAMA_HOST;
+      headers["ignore"] = "false";
+      const resp = await Widget.http.get(`https://${this.API_CONFIG.DRAMA_HOST}${path2}?${queryString}`, {
+        headers
+      });
+      if (!resp.data) return null;
+      return resp.data;
+    } catch (error) {
+      log("error", "getRenrenAppDramaDetail error:", {
+        message: error.message,
+        name: error.name,
+        stack: error.stack
+      });
+      return null;
+    }
+  }
+  // ========== 弹幕API ==========
+  async getAppDanmu(episodeSid) {
+    try {
+      const timestamp = Date.now();
+      const path2 = `/v1/produce/danmu/emo/EPISODE/${episodeSid}`;
+      const sign = generateSign(path2, timestamp, {}, this.API_CONFIG.SECRET_KEY);
+      const xCaSign = generateXCaSign(path2, timestamp, "", this.API_CONFIG.SECRET_KEY);
+      const headers = this.generateAppCommonHeaders(timestamp, sign, xCaSign);
+      headers["Host"] = this.API_CONFIG.DANMU_HOST;
+      const resp = await Widget.http.get(`https://${this.API_CONFIG.DANMU_HOST}${path2}`, {
+        headers,
+        retries: 1
+      });
+      if (!resp.data) return null;
+      return resp.data;
+    } catch (error) {
+      log("error", "getRenrenDramaDetail error:", {
+        message: error.message,
+        name: error.name,
+        stack: error.stack
+      });
+      return null;
+    }
+  }
+  parseRRSPPFields(pField) {
+    const parts = String(pField).split(",");
+    const num = (i, cast, dft) => {
+      try {
+        return cast(parts[i]);
+      } catch {
+        return dft;
+      }
+    };
+    const timestamp = num(0, parseFloat, 0);
+    const mode = num(1, (x) => parseInt(x, 10), 1);
+    const size = num(2, (x) => parseInt(x, 10), 25);
+    const color = num(3, (x) => parseInt(x, 10), 16777215);
+    const userId = parts[6] || "";
+    const contentId = parts[7] || `${timestamp}:${userId}`;
+    return { timestamp, mode, size, color, userId, contentId };
+  }
+  generateSignature(method, aliId, ct, cv, timestamp, path2, sortedQuery, secret) {
+    const signStr = `${method.toUpperCase()}
+aliId:${aliId}
+ct:${ct}
+cv:${cv}
+t:${timestamp}
+${path2}?${sortedQuery}`;
+    return createHmacSha256(secret, signStr);
+  }
+  buildSignedHeaders({ method, url, params = {}, deviceId, token }) {
+    const ClientProfile = {
+      client_type: "web_pc",
+      client_version: "1.0.0",
+      user_agent: "Mozilla/5.0",
+      origin: "https://rrsp.com.cn",
+      referer: "https://rrsp.com.cn/"
+    };
+    const pathname = getPathname(url);
+    const qs = sortedQueryString(params);
+    const nowMs = Date.now();
+    const SIGN_SECRET = "ES513W0B1CsdUrR13Qk5EgDAKPeeKZY";
+    const xCaSign = this.generateSignature(
+      method,
+      deviceId,
+      ClientProfile.client_type,
+      ClientProfile.client_version,
+      nowMs,
+      pathname,
+      qs,
+      SIGN_SECRET
+    );
+    return {
+      clientVersion: ClientProfile.client_version,
+      deviceId,
+      clientType: ClientProfile.client_type,
+      t: String(nowMs),
+      aliId: deviceId,
+      umid: deviceId,
+      token: token || "",
+      cv: ClientProfile.client_version,
+      ct: ClientProfile.client_type,
+      uet: "9",
+      "x-ca-sign": xCaSign,
+      Accept: "application/json",
+      "User-Agent": ClientProfile.user_agent,
+      Origin: ClientProfile.origin,
+      Referer: ClientProfile.referer
+    };
+  }
+  async renrenHttpGet(url, { params = {}, headers = {} } = {}) {
+    const u = updateQueryString(url, params);
+    const resp = await Widget.http.get(u, {
+      headers,
+      retries: 1
+    });
+    return resp;
+  }
+  generateDeviceId() {
+    return Math.random().toString(36).slice(2).toUpperCase();
+  }
+  async renrenRequest(method, url, params = {}) {
+    const deviceId = this.generateDeviceId();
+    const headers = this.buildSignedHeaders({ method, url, params, deviceId });
+    const resp = await Widget.http.get(url + "?" + sortedQueryString(params), {
+      headers
+    });
+    return resp;
+  }
+  async performNetworkSearch(keyword, {
+    lockRef = null,
+    lastRequestTimeRef = { value: 0 },
+    // 调用方传引用
+    minInterval = 500
+    // 默认节流间隔（毫秒）
+  } = {}) {
+    try {
+      const url = `https://api.rrmj.plus/m-station/search/drama`;
+      const params = { keywords: keyword, size: 20, order: "match", search_after: "", isExecuteVipActivity: true };
+      if (lockRef) {
+        while (lockRef.value) await new Promise((r) => setTimeout(r, 50));
+        lockRef.value = true;
+      }
+      const now = Date.now();
+      const dt = now - lastRequestTimeRef.value;
+      if (dt < minInterval) await new Promise((r) => setTimeout(r, minInterval - dt));
+      const resp = await this.renrenRequest("GET", url, params);
+      lastRequestTimeRef.value = Date.now();
+      if (lockRef) lockRef.value = false;
+      if (!resp.data) return [];
+      const decoded = autoDecode(resp.data);
+      const list = decoded?.data?.searchDramaList || [];
+      return list.map((item, idx) => ({
+        provider: "renren",
+        mediaId: String(item.id),
+        title: String(item.title || "").replace(/<[^>]+>/g, "").replace(/:/g, "\uFF1A"),
+        type: "tv_series",
+        season: null,
+        year: item.year,
+        imageUrl: item.cover,
+        episodeCount: item.episodeTotal,
+        currentEpisodeIndex: null
+      }));
+    } catch (error) {
+      log("error", "getRenrenAnimes error:", {
+        message: error.message,
+        name: error.name,
+        stack: error.stack
+      });
+      return [];
+    }
+  }
+  async search(keyword) {
+    const parsedKeyword = { title: keyword, season: null };
+    const searchTitle = parsedKeyword.title;
+    const searchSeason = parsedKeyword.season;
+    let allResults = [];
+    allResults = await this.searchAppContent(searchTitle);
+    if (allResults.length === 0) {
+      const lock = { value: false };
+      const lastRequestTime = { value: 0 };
+      allResults = await this.performNetworkSearch(searchTitle, { lockRef: lock, lastRequestTimeRef: lastRequestTime, minInterval: 400 });
+    }
+    if (searchSeason == null) return allResults;
+    return allResults.filter((r) => r.season === searchSeason);
+  }
+  async getDetail(id) {
+    const resp = await this.getAppDramaDetail(String(id));
+    if (!resp) {
+      const url = `https://api.rrmj.plus/m-station/drama/page`;
+      const params = { hsdrOpen: 0, isAgeLimit: 0, dramaId: String(id), hevcOpen: 1 };
+      const resp2 = await this.renrenRequest("GET", url, params);
+      if (!resp2.data) return null;
+      const decoded = autoDecode(resp2.data);
+      return decoded?.data || null;
+    } else {
+      return resp.data;
+    }
+  }
+  async getEpisodes(id) {
+    const detail = await this.getDetail(id);
+    if (!detail || !detail.episodeList) return [];
+    let episodes = [];
+    detail.episodeList.forEach((ep, idx) => {
+      const sid = String(ep.sid || "").trim();
+      if (!sid) return;
+      const title = String(ep.title || `\u7B2C${idx + 1}`.padStart(2, "0") + "\u96C6");
+      episodes.push({ sid, order: idx + 1, title });
+    });
+    return episodes.map((e) => ({
+      provider: "renren",
+      episodeId: e.sid,
+      title: e.title,
+      episodeIndex: e.order,
+      url: null
+    }));
+  }
+  async handleAnimes(sourceAnimes, queryTitle, curAnimes) {
+    const tmpAnimes = [];
+    if (!sourceAnimes || !Array.isArray(sourceAnimes)) {
+      log("error", "[Renren] sourceAnimes is not a valid array");
+      return [];
+    }
+    const processRenrenAnimes = await Promise.all(
+      sourceAnimes.filter((s) => titleMatches(s.title, queryTitle)).map(async (anime) => {
+        try {
+          const eps = await this.getEpisodes(anime.mediaId);
+          let links = [];
+          for (const ep of eps) {
+            links.push({
+              "name": ep.episodeIndex.toString(),
+              "url": ep.episodeId,
+              "title": `\u3010${ep.provider}\u3011 ${ep.title}`
+            });
+          }
+          if (links.length > 0) {
+            let transformedAnime = {
+              animeId: Number(anime.mediaId),
+              bangumiId: String(anime.mediaId),
+              animeTitle: `${anime.title}(${anime.year})\u3010${anime.type}\u3011from renren`,
+              type: anime.type,
+              typeDescription: anime.type,
+              imageUrl: anime.imageUrl,
+              startDate: generateValidStartDate(anime.year),
+              episodeCount: links.length,
+              rating: 0,
+              isFavorited: true,
+              source: "renren"
+            };
+            tmpAnimes.push(transformedAnime);
+            addAnime({ ...transformedAnime, links });
+            if (globals.animes.length > globals.MAX_ANIMES) removeEarliestAnime();
+          }
+        } catch (error) {
+          log("error", `[Renren] Error processing anime: ${error.message}`);
+        }
+      })
+    );
+    this.sortAndPushAnimesByYear(tmpAnimes, curAnimes);
+    return processRenrenAnimes;
+  }
+  async getEpisodeDanmu(id) {
+    const resp = await this.getAppDanmu(id);
+    if (!resp) {
+      const ClientProfile = {
+        user_agent: "Mozilla/5.0",
+        origin: "https://rrsp.com.cn",
+        referer: "https://rrsp.com.cn/"
+      };
+      const url = `https://static-dm.rrmj.plus/v1/produce/danmu/EPISODE/${id}`;
+      const headers = {
+        "Accept": "application/json",
+        "User-Agent": ClientProfile.user_agent,
+        "Origin": ClientProfile.origin,
+        "Referer": ClientProfile.referer
+      };
+      const resp2 = await this.renrenHttpGet(url, { headers });
+      if (!resp2.data) return null;
+      const data = autoDecode(resp2.data);
+      if (Array.isArray(data)) return data;
+      if (data?.data && Array.isArray(data.data)) return data.data;
+      return null;
+    } else {
+      return resp;
+    }
+  }
+  async getEpisodeDanmuSegments(id) {
+    log("info", "\u83B7\u53D6\u4EBA\u4EBA\u89C6\u9891\u5F39\u5E55\u5206\u6BB5\u5217\u8868...", id);
+    return new SegmentListResponse({
+      "type": "renren",
+      "segmentList": [{
+        "type": "renren",
+        "segment_start": 0,
+        "segment_end": 3e4,
+        "url": id
+      }]
+    });
+  }
+  async getEpisodeSegmentDanmu(segment) {
+    return this.getEpisodeDanmu(segment.url);
+  }
+  formatComments(comments) {
+    return comments.map((item) => {
+      const text = String(item.d || "");
+      const meta = this.parseRRSPPFields(item.p);
+      return {
+        cid: Number(meta.contentId),
+        p: `${meta.timestamp.toFixed(2)},${meta.mode},${meta.color},[renren]`,
+        m: text,
+        t: meta.timestamp
+      };
+    });
+  }
+};
+
+// danmu_api/sources/hanjutv.js
+var HanjutvSource = class extends BaseSource {
+  async search(keyword) {
+    try {
+      const resp = await Widget.http.get(`https://hxqapi.hiyun.tv/wapi/search/aggregate/search?keyword=${keyword}&scope=101&page=1`, {
         headers: {
           "Content-Type": "application/json",
-          "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
-        },
-      })
-  const data = typeof res.data === "string" ? JSON.parse(res.data) : res.data;
-  for (const item of data.barrage_list) {
-    const content = {
-        timepoint: 0,	// 弹幕发送时间（秒）
-        ct: 1,	// 弹幕类型，1-3 为滚动弹幕、4 为底部、5 为顶端、6 为逆向、7 为精确、8 为高级
-        size: 25,	//字体大小，25 为中，18 为小
-        color: 16777215,	//弹幕颜色，RGB 颜色转为十进制后的值，16777215 为白色
-        unixtime: Math.floor(Date.now() / 1000),	//Unix 时间戳格式
-        uid: 0,		//发送人的 id
-        content: "",
-    };
-    content.timepoint = item.time_offset / 1000;
-    if (item.content_style && item.content_style !== "") {
-      try {
-        const content_style = JSON.parse(item.content_style);
-        // 优先使用渐变色的第一个颜色，否则使用基础色
-        if (content_style.gradient_colors && content_style.gradient_colors.length > 0) {
-          content.color = parseInt(content_style.gradient_colors[0].replace("#", ""), 16);
-        } else if (content_style.color && content_style.color !== "ffffff") {
-          content.color = parseInt(content_style.color.replace("#", ""), 16);
+          "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
         }
+      });
+      if (!resp || !resp.data) {
+        log("info", "hanjutvSearchresp: \u8BF7\u6C42\u5931\u8D25\u6216\u65E0\u6570\u636E\u8FD4\u56DE");
+        return [];
+      }
+      if (!resp.data.seriesData || !resp.data.seriesData.seriesList) {
+        log("info", "hanjutvSearchresp: seriesData \u6216 seriesList \u4E0D\u5B58\u5728");
+        return [];
+      }
+      log("info", `hanjutvSearchresp: ${JSON.stringify(resp.data.seriesData.seriesList)}`);
+      let resList = [];
+      for (const anime of resp.data.seriesData.seriesList) {
+        const animeId = convertToAsciiSum(anime.sid);
+        resList.push({ ...anime, animeId });
+      }
+      return resList;
+    } catch (error) {
+      log("error", "getHanjutvAnimes error:", {
+        message: error.message,
+        name: error.name,
+        stack: error.stack
+      });
+      return [];
+    }
+  }
+  async getDetail(id) {
+    try {
+      const resp = await Widget.http.get(`https://hxqapi.hiyun.tv/wapi/series/series/detail?sid=${id}`, {
+        headers: {
+          "Content-Type": "application/json",
+          "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
+        }
+      });
+      if (!resp || !resp.data) {
+        log("info", "getHanjutvDetail: \u8BF7\u6C42\u5931\u8D25\u6216\u65E0\u6570\u636E\u8FD4\u56DE");
+        return [];
+      }
+      if (!resp.data.series) {
+        log("info", "getHanjutvDetail: series \u4E0D\u5B58\u5728");
+        return [];
+      }
+      log("info", `getHanjutvDetail: ${JSON.stringify(resp.data.series)}`);
+      return resp.data.series;
+    } catch (error) {
+      log("error", "getHanjutvDetail error:", {
+        message: error.message,
+        name: error.name,
+        stack: error.stack
+      });
+      return [];
+    }
+  }
+  async getEpisodes(id) {
+    try {
+      const resp = await Widget.http.get(`https://hxqapi.hiyun.tv/wapi/series/series/detail?sid=${id}`, {
+        headers: {
+          "Content-Type": "application/json",
+          "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
+        }
+      });
+      if (!resp || !resp.data) {
+        log("info", "getHanjutvEposides: \u8BF7\u6C42\u5931\u8D25\u6216\u65E0\u6570\u636E\u8FD4\u56DE");
+        return [];
+      }
+      if (!resp.data.episodes) {
+        log("info", "getHanjutvEposides: episodes \u4E0D\u5B58\u5728");
+        return [];
+      }
+      const sortedEpisodes = resp.data.episodes.sort((a, b) => a.serialNo - b.serialNo);
+      log("info", `getHanjutvEposides: ${JSON.stringify(sortedEpisodes)}`);
+      return sortedEpisodes;
+    } catch (error) {
+      log("error", "getHanjutvEposides error:", {
+        message: error.message,
+        name: error.name,
+        stack: error.stack
+      });
+      return [];
+    }
+  }
+  async handleAnimes(sourceAnimes, queryTitle, curAnimes) {
+    const cateMap = { 1: "\u97E9\u5267", 2: "\u7EFC\u827A", 3: "\u7535\u5F71", 4: "\u65E5\u5267", 5: "\u7F8E\u5267", 6: "\u6CF0\u5267", 7: "\u56FD\u4EA7\u5267" };
+    function getCategory(key) {
+      return cateMap[key] || "\u5176\u4ED6";
+    }
+    const tmpAnimes = [];
+    if (!sourceAnimes || !Array.isArray(sourceAnimes)) {
+      log("error", "[Hanjutv] sourceAnimes is not a valid array");
+      return [];
+    }
+    const processHanjutvAnimes = await Promise.all(
+      sourceAnimes.filter((s) => titleMatches(s.name, queryTitle)).map(async (anime) => {
+        try {
+          const detail = await this.getDetail(anime.sid);
+          const eps = await this.getEpisodes(anime.sid);
+          let links = [];
+          for (const ep of eps) {
+            const epTitle = ep.title && ep.title.trim() !== "" ? `\u7B2C${ep.serialNo}\u96C6\uFF1A${ep.title}` : `\u7B2C${ep.serialNo}\u96C6`;
+            links.push({
+              "name": epTitle,
+              "url": ep.pid,
+              "title": `\u3010hanjutv\u3011 ${epTitle}`
+            });
+          }
+          if (links.length > 0) {
+            let transformedAnime = {
+              animeId: anime.animeId,
+              bangumiId: String(anime.animeId),
+              animeTitle: `${anime.name}(${new Date(anime.updateTime).getFullYear()})\u3010${getCategory(detail.category)}\u3011from hanjutv`,
+              type: getCategory(detail.category),
+              typeDescription: getCategory(detail.category),
+              imageUrl: anime.image.thumb,
+              startDate: generateValidStartDate(new Date(anime.updateTime).getFullYear()),
+              episodeCount: links.length,
+              rating: detail.rank,
+              isFavorited: true,
+              source: "hanjutv"
+            };
+            tmpAnimes.push(transformedAnime);
+            addAnime({ ...transformedAnime, links });
+            if (globals.animes.length > globals.MAX_ANIMES) removeEarliestAnime();
+          }
+        } catch (error) {
+          log("error", `[Hanjutv] Error processing anime: ${error.message}`);
+        }
+      })
+    );
+    this.sortAndPushAnimesByYear(tmpAnimes, curAnimes);
+    return processHanjutvAnimes;
+  }
+  async getEpisodeDanmu(id) {
+    let allDanmus = [];
+    let fromAxis = 0;
+    const maxAxis = 1e8;
+    try {
+      while (fromAxis < maxAxis) {
+        const resp = await Widget.http.get(`https://hxqapi.zmdcq.com/api/danmu/playItem/list?fromAxis=${fromAxis}&pid=${id}&toAxis=${maxAxis}`, {
+          headers: {
+            "Content-Type": "application/json",
+            "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
+          },
+          retries: 1
+        });
+        if (resp.data && resp.data.danmus) {
+          allDanmus = allDanmus.concat(resp.data.danmus);
+        }
+        const nextAxis = resp.data.nextAxis || maxAxis;
+        if (nextAxis >= maxAxis) {
+          break;
+        }
+        fromAxis = nextAxis;
+      }
+      return allDanmus;
+    } catch (error) {
+      log("error", "fetchHanjutvEpisodeDanmu error:", {
+        message: error.message,
+        name: error.name,
+        stack: error.stack
+      });
+      return allDanmus;
+    }
+  }
+  async getEpisodeDanmuSegments(id) {
+    log("info", "\u83B7\u53D6\u97E9\u5267TV\u5F39\u5E55\u5206\u6BB5\u5217\u8868...", id);
+    return new SegmentListResponse({
+      "type": "hanjutv",
+      "segmentList": [{
+        "type": "hanjutv",
+        "segment_start": 0,
+        "segment_end": 3e4,
+        "url": id
+      }]
+    });
+  }
+  async getEpisodeSegmentDanmu(segment) {
+    return this.getEpisodeDanmu(segment.url);
+  }
+  formatComments(comments) {
+    return comments.map((c) => ({
+      cid: Number(c.did),
+      p: `${(c.t / 1e3).toFixed(2)},${c.tp === 2 ? 5 : c.tp},${Number(c.sc)},[hanjutv]`,
+      m: c.con,
+      t: Math.round(c.t / 1e3)
+    }));
+  }
+};
 
-        if (content_style.position) {
+// danmu_api/sources/bahamut.js
+var BahamutSource = class extends BaseSource {
+  async search(keyword) {
+    try {
+      const traditionalizedKeyword = traditionalized(keyword);
+      const tmdbSearchKeyword = keyword;
+      const encodedKeyword = encodeURIComponent(traditionalizedKeyword);
+      log("info", `[Bahamut] \u539F\u59CB\u641C\u7D22\u8BCD: ${keyword}`);
+      log("info", `[Bahamut] \u5DF4\u54C8\u4F7F\u7528\u641C\u7D22\u8BCD: ${traditionalizedKeyword}`);
+      const tmdbAbortController = new AbortController();
+      const originalSearchPromise = (async () => {
+        try {
+          const targetUrl = `https://api.gamer.com.tw/mobile_app/anime/v1/search.php?kw=${encodedKeyword}`;
+          const url = globals.proxyUrl ? `http://127.0.0.1:5321/proxy?url=${encodeURIComponent(targetUrl)}` : targetUrl;
+          const originalResp = await Widget.http.get(url, {
+            headers: {
+              "Content-Type": "application/json",
+              "User-Agent": "Anime/2.29.2 (7N5749MM3F.tw.com.gamer.anime; build:972; iOS 26.0.0) Alamofire/5.6.4"
+            }
+          });
+          if (originalResp && originalResp.data && originalResp.data.anime && originalResp.data.anime.length > 0) {
+            tmdbAbortController.abort();
+            const anime = originalResp.data.anime;
+            for (const a of anime) {
+              try {
+                a._originalQuery = keyword;
+                a._searchUsedTitle = traditionalizedKeyword;
+              } catch (e) {
+              }
+            }
+            log("info", `bahamutSearchresp (original): ${JSON.stringify(anime)}`);
+            log("info", `[Bahamut] \u8FD4\u56DE ${anime.length} \u6761\u7ED3\u679C (source: original)`);
+            return { success: true, data: anime, source: "original" };
+          }
+          log("info", `[Bahamut] \u539F\u59CB\u641C\u7D22\u6210\u529F\uFF0C\u4F46\u672A\u8FD4\u56DE\u4EFB\u4F55\u7ED3\u679C (source: original)`);
+          return { success: false, source: "original" };
+        } catch (error) {
+          log("error", "[Bahamut] \u539F\u59CB\u641C\u7D22\u5931\u8D25:", {
+            message: error.message,
+            name: error.name,
+            stack: error.stack
+          });
+          return { success: false, source: "original" };
+        }
+      })();
+      const tmdbSearchPromise = (async () => {
+        try {
+          await new Promise((resolve) => setTimeout(resolve, 100));
+          if (tmdbAbortController.signal.aborted) {
+            throw new DOMException("Aborted", "AbortError");
+          }
+          const tmdbTitle = await getTmdbJaOriginalTitle(tmdbSearchKeyword, tmdbAbortController.signal);
+          if (tmdbAbortController.signal.aborted) {
+            log("info", "[Bahamut] \u539F\u59CB\u641C\u7D22\u6210\u529F\uFF0C\u53D6\u6D88TMDB\u65E5\u8BED\u539F\u540D\u83B7\u53D6");
+            throw new DOMException("Aborted", "AbortError");
+          }
+          if (!tmdbTitle) {
+            log("info", "[Bahamut] TMDB\u8F6C\u6362\u672A\u8FD4\u56DE\u7ED3\u679C\uFF0C\u53D6\u6D88\u65E5\u8BED\u539F\u540D\u641C\u7D22");
+            return { success: false, source: "tmdb" };
+          }
+          if (tmdbAbortController.signal.aborted) {
+            log("info", "[Bahamut] \u539F\u59CB\u641C\u7D22\u6210\u529F\uFF0C\u53D6\u6D88\u65E5\u8BED\u539F\u540D\u641C\u7D22");
+            throw new DOMException("Aborted", "AbortError");
+          }
+          log("info", `[Bahamut] \u4F7F\u7528\u65E5\u8BED\u539F\u540D\u8FDB\u884C\u641C\u7D22: ${tmdbTitle}`);
+          const encodedTmdbTitle = encodeURIComponent(tmdbTitle);
+          const targetUrl = `https://api.gamer.com.tw/mobile_app/anime/v1/search.php?kw=${encodedTmdbTitle}`;
+          const tmdbSearchUrl = globals.proxyUrl ? `http://127.0.0.1:5321/proxy?url=${encodeURIComponent(targetUrl)}` : targetUrl;
+          const tmdbResp = await Widget.http.get(tmdbSearchUrl, {
+            headers: {
+              "Content-Type": "application/json",
+              "User-Agent": "Anime/2.29.2 (7N5749MM3F.tw.com.gamer.anime; build:972; iOS 26.0.0) Alamofire/5.6.4"
+            }
+          });
+          if (tmdbResp && tmdbResp.data && tmdbResp.data.anime && tmdbResp.data.anime.length > 0) {
+            const anime = tmdbResp.data.anime;
+            for (const a of anime) {
+              try {
+                a._originalQuery = keyword;
+                a._searchUsedTitle = tmdbTitle;
+              } catch (e) {
+              }
+            }
+            log("info", `bahamutSearchresp (TMDB): ${JSON.stringify(anime)}`);
+            log("info", `[Bahamut] \u8FD4\u56DE ${anime.length} \u6761\u7ED3\u679C (source: tmdb)`);
+            return { success: true, data: anime, source: "tmdb" };
+          }
+          log("info", `[Bahamut] \u65E5\u8BED\u539F\u540D\u641C\u7D22\u6210\u529F\uFF0C\u4F46\u672A\u8FD4\u56DE\u4EFB\u4F55\u7ED3\u679C (source: tmdb)`);
+          return { success: false, source: "tmdb" };
+        } catch (error) {
+          if (error.name === "AbortError") {
+            log("info", "[Bahamut] \u539F\u59CB\u641C\u7D22\u6210\u529F\uFF0C\u4E2D\u65AD\u65E5\u8BED\u539F\u540D\u641C\u7D22");
+            return { success: false, source: "tmdb", aborted: true };
+          }
+          throw error;
+        }
+      })();
+      const [originalResult, tmdbResult] = await Promise.all([
+        originalSearchPromise,
+        tmdbSearchPromise
+      ]);
+      if (originalResult.success) {
+        return originalResult.data;
+      }
+      if (tmdbResult.success) {
+        return tmdbResult.data;
+      }
+      log("info", "[Bahamut] \u539F\u59CB\u641C\u7D22\u548C\u57FA\u4E8ETMDB\u7684\u641C\u7D22\u5747\u672A\u8FD4\u56DE\u4EFB\u4F55\u7ED3\u679C");
+      return [];
+    } catch (error) {
+      log("error", "getBahamutAnimes error:", {
+        message: error.message,
+        name: error.name,
+        stack: error.stack
+      });
+      return [];
+    }
+  }
+  async getEpisodes(id) {
+    try {
+      const targetUrl = `https://api.gamer.com.tw/anime/v1/video.php?videoSn=${id}`;
+      const url = globals.proxyUrl ? `http://127.0.0.1:5321/proxy?url=${encodeURIComponent(targetUrl)}` : targetUrl;
+      const resp = await Widget.http.get(url, {
+        headers: {
+          "Content-Type": "application/json",
+          "User-Agent": "Anime/2.29.2 (7N5749MM3F.tw.com.gamer.anime; build:972; iOS 26.0.0) Alamofire/5.6.4"
+        }
+      });
+      if (!resp || !resp.data) {
+        log("info", "getBahamutEposides: \u8BF7\u6C42\u5931\u8D25\u6216\u65E0\u6570\u636E\u8FD4\u56DE");
+        return [];
+      }
+      if (!resp.data.data || !resp.data.data.video || !resp.data.data.anime) {
+        log("info", "getBahamutEposides: video \u6216 anime \u4E0D\u5B58\u5728");
+        return [];
+      }
+      log("info", `getBahamutEposides: ${JSON.stringify(resp.data.data)}`);
+      return resp.data.data;
+    } catch (error) {
+      log("error", "getBahamutEposides error:", {
+        message: error.message,
+        name: error.name,
+        stack: error.stack
+      });
+      return [];
+    }
+  }
+  async handleAnimes(sourceAnimes, queryTitle, curAnimes) {
+    const tmpAnimes = [];
+    queryTitle = traditionalized(queryTitle);
+    function bahamutTitleMatches(itemTitle, queryTitle2, searchUsedTitle) {
+      if (!itemTitle) return false;
+      const tItem = String(itemTitle);
+      const q = String(queryTitle2 || "");
+      const used = String(searchUsedTitle || "");
+      if (globals.strictTitleMatch) {
+        if (strictTitleMatch(tItem, q)) return true;
+        if (used && strictTitleMatch(tItem, used)) return true;
+        try {
+          if (strictTitleMatch(tItem, traditionalized(q))) return true;
+          if (strictTitleMatch(tItem, simplized(q))) return true;
+          if (used) {
+            if (strictTitleMatch(tItem, traditionalized(used))) return true;
+            if (strictTitleMatch(tItem, simplized(used))) return true;
+          }
+        } catch (e) {
+        }
+        return false;
+      }
+      const normalizedItem = normalizeSpaces(tItem);
+      const normalizedQ = normalizeSpaces(q);
+      const normalizedUsed = used ? normalizeSpaces(used) : "";
+      if (normalizedItem.includes(normalizedQ)) return true;
+      if (normalizedUsed && normalizedItem.includes(normalizedUsed)) return true;
+      try {
+        if (normalizedItem.includes(normalizeSpaces(traditionalized(q)))) return true;
+        if (normalizedItem.includes(normalizeSpaces(simplized(q)))) return true;
+        if (normalizedUsed) {
+          if (normalizedItem.includes(normalizeSpaces(traditionalized(used)))) return true;
+          if (normalizedItem.includes(normalizeSpaces(simplized(used)))) return true;
+        }
+      } catch (e) {
+      }
+      try {
+        if (normalizedItem.toLowerCase().includes(normalizedQ.toLowerCase())) return true;
+        if (normalizedUsed && normalizedItem.toLowerCase().includes(normalizedUsed.toLowerCase())) return true;
+      } catch (e) {
+      }
+      return false;
+    }
+    const arr = Array.isArray(sourceAnimes) ? sourceAnimes : [];
+    const filtered = arr.filter((item) => {
+      const itemTitle = item.title || "";
+      const usedSearchTitle = item._searchUsedTitle || item._originalQuery || "";
+      if (item._searchUsedTitle && item._searchUsedTitle !== queryTitle) {
+        log("info", `[Bahamut] TMDB\u7ED3\u679C\u76F4\u63A5\u4FDD\u7559: ${itemTitle}`);
+        return true;
+      }
+      return bahamutTitleMatches(itemTitle, queryTitle, usedSearchTitle);
+    });
+    const processBahamutAnimes = await Promise.all(filtered.map(async (anime) => {
+      try {
+        const epData = await this.getEpisodes(anime.video_sn);
+        const detail = epData.video;
+        let eps = null;
+        if (epData.anime.episodes) {
+          eps = epData.anime.episodes["0"] || Object.values(epData.anime.episodes)[0];
+        }
+        let links = [];
+        if (eps && Array.isArray(eps)) {
+          for (const ep of eps) {
+            const epTitle = `\u7B2C${ep.episode}\u96C6`;
+            links.push({
+              "name": ep.episode.toString(),
+              "url": ep.videoSn.toString(),
+              "title": `\u3010bahamut\u3011 ${epTitle}`
+            });
+          }
+        }
+        if (links.length > 0) {
+          let yearMatch = (anime.info || "").match(/(\d{4})/);
+          let transformedAnime = {
+            animeId: anime.video_sn,
+            bangumiId: String(anime.video_sn),
+            animeTitle: `${simplized(anime.title)}(${(anime.info.match(/(\d{4})/) || [null])[0]})\u3010\u52A8\u6F2B\u3011from bahamut`,
+            type: "\u52A8\u6F2B",
+            typeDescription: "\u52A8\u6F2B",
+            imageUrl: anime.cover,
+            startDate: generateValidStartDate(new Date(epData.anime.seasonStart).getFullYear()),
+            episodeCount: links.length,
+            rating: detail.rating,
+            isFavorited: true,
+            source: "bahamut"
+          };
+          tmpAnimes.push(transformedAnime);
+          addAnime({ ...transformedAnime, links });
+          if (globals.animes.length > globals.MAX_ANIMES) removeEarliestAnime();
+        }
+      } catch (error) {
+        log("error", `[Bahamut] Error processing anime: ${error.message}`);
+      }
+    }));
+    this.sortAndPushAnimesByYear(tmpAnimes, curAnimes);
+    return processBahamutAnimes;
+  }
+  async getEpisodeDanmu(id) {
+    let danmus = [];
+    try {
+      const targetUrl = `https://api.gamer.com.tw/anime/v1/danmu.php?geo=TW%2CHK&videoSn=${id}`;
+      const url = globals.proxyUrl ? `http://127.0.0.1:5321/proxy?url=${encodeURIComponent(targetUrl)}` : targetUrl;
+      const resp = await Widget.http.get(url, {
+        headers: {
+          "Content-Type": "application/json",
+          "User-Agent": "Anime/2.29.2 (7N5749MM3F.tw.com.gamer.anime; build:972; iOS 26.0.0) Alamofire/5.6.4"
+        },
+        retries: 1
+      });
+      if (resp.data && resp.data.data && resp.data.data.danmu) {
+        danmus = resp.data.data.danmu;
+      }
+      return danmus;
+    } catch (error) {
+      log("error", "fetchBahamutEpisodeDanmu error:", {
+        message: error.message,
+        name: error.name,
+        stack: error.stack
+      });
+      return danmus;
+    }
+  }
+  async getEpisodeDanmuSegments(id) {
+    log("info", "\u83B7\u53D6\u5DF4\u54C8\u59C6\u7279\u5F39\u5E55\u5206\u6BB5\u5217\u8868...", id);
+    return new SegmentListResponse({
+      "type": "bahamut",
+      "segmentList": [{
+        "type": "bahamut",
+        "segment_start": 0,
+        "segment_end": 3e4,
+        "url": id
+      }]
+    });
+  }
+  async getEpisodeSegmentDanmu(segment) {
+    return this.getEpisodeDanmu(segment.url);
+  }
+  formatComments(comments) {
+    const positionToMode = { 0: 1, 1: 5, 2: 4 };
+    return comments.map((c) => ({
+      cid: Number(c.sn),
+      p: `${Math.round(c.time / 10).toFixed(2)},${positionToMode[c.position] || c.tp},${parseInt(c.color.slice(1), 16)},[bahamut]`,
+      // 根据 globals.danmuSimplified 控制是否繁转简
+      m: globals.danmuSimplified ? simplized(c.text) : c.text,
+      t: Math.round(c.time / 10)
+    }));
+  }
+};
+
+// danmu_api/sources/dandan.js
+var DandanSource = class extends BaseSource {
+  async search(keyword) {
+    try {
+      const resp = await Widget.http.get(`https://api.danmaku.weeblify.app/ddp/v1?path=/v2/search/anime?keyword=${keyword}`, {
+        headers: {
+          "Content-Type": "application/json",
+          "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
+        }
+      });
+      if (!resp || !resp.data) {
+        log("info", "dandanSearchresp: \u8BF7\u6C42\u5931\u8D25\u6216\u65E0\u6570\u636E\u8FD4\u56DE");
+        return [];
+      }
+      if (!resp.data.animes) {
+        log("info", "dandanSearchresp: seriesData \u6216 seriesList \u4E0D\u5B58\u5728");
+        return [];
+      }
+      log("info", `dandanSearchresp: ${JSON.stringify(resp.data.animes)}`);
+      return resp.data.animes;
+    } catch (error) {
+      log("error", "getDandanAnimes error:", {
+        message: error.message,
+        name: error.name,
+        stack: error.stack
+      });
+      return [];
+    }
+  }
+  async getEpisodes(id) {
+    try {
+      const resp = await Widget.http.get(`https://api.danmaku.weeblify.app/ddp/v1?path=/v2/bangumi/${id}`, {
+        headers: {
+          "Content-Type": "application/json",
+          "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
+        }
+      });
+      if (!resp || !resp.data) {
+        log("info", "getDandanEposides: \u8BF7\u6C42\u5931\u8D25\u6216\u65E0\u6570\u636E\u8FD4\u56DE");
+        return [];
+      }
+      if (!resp.data.bangumi && !resp.data.bangumi.episodes) {
+        log("info", "getDandanEposides: episodes \u4E0D\u5B58\u5728");
+        return [];
+      }
+      log("info", `getDandanEposides: ${JSON.stringify(resp.data.bangumi.episodes)}`);
+      return resp.data.bangumi.episodes;
+    } catch (error) {
+      log("error", "getDandanEposides error:", {
+        message: error.message,
+        name: error.name,
+        stack: error.stack
+      });
+      return [];
+    }
+  }
+  async handleAnimes(sourceAnimes, queryTitle, curAnimes) {
+    const tmpAnimes = [];
+    if (!sourceAnimes || !Array.isArray(sourceAnimes)) {
+      log("error", "[Dandan] sourceAnimes is not a valid array");
+      return [];
+    }
+    const processDandanAnimes = await Promise.all(
+      sourceAnimes.map(async (anime) => {
+        try {
+          const eps = await this.getEpisodes(anime.animeId);
+          let links = [];
+          for (const ep of eps) {
+            const epTitle = ep.episodeTitle && ep.episodeTitle.trim() !== "" ? `${ep.episodeTitle}` : `\u7B2C${ep.episodeNumber}\u96C6`;
+            links.push({
+              "name": epTitle,
+              "url": ep.episodeId.toString(),
+              "title": `\u3010dandan\u3011 ${epTitle}`
+            });
+          }
+          if (links.length > 0) {
+            let transformedAnime = {
+              animeId: anime.animeId,
+              bangumiId: String(anime.animeId),
+              animeTitle: `${anime.animeTitle}(${new Date(anime.startDate).getFullYear()})\u3010${anime.typeDescription}\u3011from dandan`,
+              type: anime.type,
+              typeDescription: anime.typeDescription,
+              imageUrl: anime.imageUrl,
+              startDate: anime.startDate,
+              episodeCount: links.length,
+              rating: anime.rating,
+              isFavorited: true,
+              source: "dandan"
+            };
+            tmpAnimes.push(transformedAnime);
+            addAnime({ ...transformedAnime, links });
+            if (globals.animes.length > globals.MAX_ANIMES) removeEarliestAnime();
+          }
+        } catch (error) {
+          log("error", `[Dandan] Error processing anime: ${error.message}`);
+        }
+      })
+    );
+    this.sortAndPushAnimesByYear(tmpAnimes, curAnimes);
+    return processDandanAnimes;
+  }
+  async getEpisodeDanmu(id) {
+    let allDanmus = [];
+    try {
+      const resp = await Widget.http.get(`https://api.danmaku.weeblify.app/ddp/v1?path=%2Fv2%2Fcomment%2F${id}%3Ffrom%3D0%26withRelated%3Dtrue%26chConvert%3D0`, {
+        headers: {
+          "Content-Type": "application/json",
+          "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
+        },
+        retries: 1
+      });
+      if (resp.data && resp.data.comments) {
+        allDanmus = resp.data.comments;
+      }
+      return allDanmus;
+    } catch (error) {
+      log("error", "fetchDandanEpisodeDanmu error:", {
+        message: error.message,
+        name: error.name,
+        stack: error.stack
+      });
+      return allDanmus;
+    }
+  }
+  async getEpisodeDanmuSegments(id) {
+    log("info", "\u83B7\u53D6\u5F39\u5F39play\u5F39\u5E55\u5206\u6BB5\u5217\u8868...", id);
+    return new SegmentListResponse({
+      "type": "dandan",
+      "segmentList": [{
+        "type": "dandan",
+        "segment_start": 0,
+        "segment_end": 3e4,
+        "url": id
+      }]
+    });
+  }
+  async getEpisodeSegmentDanmu(segment) {
+    return this.getEpisodeDanmu(segment.url);
+  }
+  formatComments(comments) {
+    return comments.map((c) => ({
+      cid: c.cid,
+      p: `${c.p.replace(/([A-Za-z]+)([0-9a-fA-F]{6})/, (_, platform, hexColor) => {
+        const r = parseInt(hexColor.substring(0, 2), 16);
+        const g = parseInt(hexColor.substring(2, 4), 16);
+        const b = parseInt(hexColor.substring(4, 6), 16);
+        const decimalColor = r * 256 * 256 + g * 256 + b;
+        return `${platform}${decimalColor}`;
+      })}`,
+      // 根据 globals.danmuSimplified 控制是否繁转简
+      m: globals.danmuSimplified ? simplized(c.m) : c.m
+    }));
+  }
+};
+
+// danmu_api/sources/tencent.js
+var TencentSource = class extends BaseSource {
+  /**
+   * 过滤腾讯视频搜索项
+   * @param {Object} item - 搜索项
+   * @param {string} keyword - 搜索关键词
+   * @returns {Object|null} 过滤后的结果
+   */
+  filterTencentSearchItem(item, keyword) {
+    if (!item.videoInfo || !item.doc) {
+      return null;
+    }
+    const videoInfo = item.videoInfo;
+    const mediaId = item.doc.id;
+    if (!videoInfo.year || videoInfo.year === 0) {
+      return null;
+    }
+    if (videoInfo.subTitle === "\u5168\u7F51\u641C" || videoInfo.playFlag === 2) {
+      return null;
+    }
+    let title = videoInfo.title.replace(/<em>/g, "").replace(/<\/em>/g, "");
+    if (!title || !mediaId) {
+      return null;
+    }
+    const contentType = videoInfo.typeName;
+    if (contentType.includes("\u77ED\u5267")) {
+      return null;
+    }
+    const allowedTypes = ["\u7535\u89C6\u5267", "\u52A8\u6F2B", "\u7535\u5F71", "\u7EAA\u5F55\u7247", "\u7EFC\u827A", "\u7EFC\u827A\u8282\u76EE"];
+    if (!allowedTypes.includes(contentType)) {
+      return null;
+    }
+    const allSites = (videoInfo.playSites || []).concat(videoInfo.episodeSites || []);
+    if (allSites.length > 0 && !allSites.some((site) => site.enName === "qq")) {
+      return null;
+    }
+    if (contentType === "\u7535\u5F71") {
+      const nonFormalKeywords = ["\u82B1\u7D6E", "\u5F69\u86CB", "\u5E55\u540E", "\u72EC\u5BB6", "\u89E3\u8BF4", "\u7279\u8F91", "\u63A2\u73ED", "\u62CD\u6444", "\u5236\u4F5C", "\u5BFC\u6F14", "\u8BB0\u5F55", "\u56DE\u987E", "\u76D8\u70B9", "\u6DF7\u526A", "\u89E3\u6790", "\u62A2\u5148"];
+      if (nonFormalKeywords.some((kw) => title.includes(kw))) {
+        return null;
+      }
+    }
+    const episodeCount = contentType === "\u7535\u5F71" ? 1 : videoInfo.subjectDoc ? videoInfo.subjectDoc.videoNum : 0;
+    return {
+      provider: "tencent",
+      mediaId,
+      title,
+      type: contentType,
+      // 使用中文类型,与360/vod保持一致
+      year: videoInfo.year,
+      imageUrl: videoInfo.imgUrl,
+      episodeCount
+    };
+  }
+  async search(keyword) {
+    try {
+      log("info", `[Tencent] \u5F00\u59CB\u641C\u7D22: ${keyword}`);
+      const searchUrl = "https://pbaccess.video.qq.com/trpc.videosearch.mobile_search.MultiTerminalSearch/MbSearch?vplatform=2";
+      const payload = {
+        version: "25071701",
+        clientType: 1,
+        filterValue: "",
+        uuid: "0379274D-05A0-4EB6-A89C-878C9A460426",
+        query: keyword,
+        retry: 0,
+        pagenum: 0,
+        isPrefetch: true,
+        pagesize: 30,
+        queryFrom: 0,
+        searchDatakey: "",
+        transInfo: "",
+        isneedQc: true,
+        preQid: "",
+        adClientInfo: "",
+        extraInfo: {
+          multi_terminal_pc: "1",
+          themeType: "1",
+          sugRelatedIds: "{}",
+          appVersion: ""
+        }
+      };
+      const headers = {
+        "Content-Type": "application/json",
+        "Origin": "https://v.qq.com",
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        "Accept": "application/json, text/plain, */*",
+        "Accept-Language": "zh-CN,zh;q=0.9,en;q=0.8",
+        "Referer": `https://v.qq.com/x/search/?q=${encodeURIComponent(keyword)}&stag=&smartbox_ab=`,
+        "H38": "220496a1fb1498325e9be6d938",
+        "H42": "335a00a80ab9bbbef56793d8e7a97e87b9341dee34ebd83d61afc0cdb303214caaece3",
+        "Uk": "8e91af25d3af99d0f0640327e7307666",
+        "Cookie": "tvfe_boss_uuid=ee8f05103d59226f; pgv_pvid=3155633511; video_platform=2; ptag=v_qq_com; main_login=qq"
+      };
+      const response = await Widget.http.post(searchUrl, JSON.stringify(payload), { headers });
+      if (!response || !response.data) {
+        log("info", "[Tencent] \u641C\u7D22\u54CD\u5E94\u4E3A\u7A7A");
+        return [];
+      }
+      const data = typeof response.data === "string" ? JSON.parse(response.data) : response.data;
+      if (data.ret !== 0) {
+        log("error", `[Tencent] API\u8FD4\u56DE\u9519\u8BEF: ${data.msg} (ret: ${data.ret})`);
+        return [];
+      }
+      let itemList = [];
+      if (data.data && data.data.areaBoxList) {
+        for (const box of data.data.areaBoxList) {
+          if (box.boxId === "MainNeed" && box.itemList) {
+            log("info", `[Tencent] \u4ECE MainNeed box \u627E\u5230 ${box.itemList.length} \u4E2A\u9879\u76EE`);
+            itemList = box.itemList;
+            break;
+          }
+        }
+      }
+      if (itemList.length === 0 && data.data && data.data.normalList && data.data.normalList.itemList) {
+        log("info", "[Tencent] MainNeed box \u672A\u627E\u5230\uFF0C\u4F7F\u7528 normalList");
+        itemList = data.data.normalList.itemList;
+      }
+      if (itemList.length === 0) {
+        log("info", "[Tencent] \u641C\u7D22\u65E0\u7ED3\u679C");
+        return [];
+      }
+      const results = [];
+      for (const item of itemList) {
+        const filtered = this.filterTencentSearchItem(item, keyword);
+        if (filtered) {
+          results.push(filtered);
+        }
+      }
+      log("info", `[Tencent] \u641C\u7D22\u627E\u5230 ${results.length} \u4E2A\u6709\u6548\u7ED3\u679C`);
+      return results;
+    } catch (error) {
+      log("error", "[Tencent] \u641C\u7D22\u51FA\u9519:", error.message);
+      return [];
+    }
+  }
+  async getEpisodes(id) {
+    try {
+      log("info", `[Tencent] \u83B7\u53D6\u5206\u96C6\u5217\u8868: cid=${id}`);
+      const episodesUrl = "https://pbaccess.video.qq.com/trpc.universal_backend_service.page_server_rpc.PageServer/GetPageData?video_appid=3000010&vversion_name=8.2.96&vversion_platform=2";
+      const payload = {
+        has_cache: 1,
+        page_params: {
+          req_from: "web_vsite",
+          page_id: "vsite_episode_list",
+          page_type: "detail_operation",
+          id_type: "1",
+          page_size: "",
+          cid: id,
+          vid: "",
+          lid: "",
+          page_num: "",
+          page_context: `cid=${id}&detail_page_type=1&req_from=web_vsite&req_from_second_type=&req_type=0`,
+          detail_page_type: "1"
+        }
+      };
+      const headers = {
+        "Content-Type": "application/json",
+        "Origin": "https://v.qq.com",
+        "Referer": `https://v.qq.com/x/cover/${id}.html`,
+        "User-Agent": "Mozilla/5.0 (iPhone; CPU iPhone OS 16_6 like Mac OS X) AppleWebKit/537.36 (KHTML, like Gecko) Version/16.6 Mobile/15E148 Safari/604.1",
+        "Accept": "application/json",
+        "Accept-Language": "zh-CN,zh;q=0.9"
+      };
+      const response = await Widget.http.post(episodesUrl, JSON.stringify(payload), { headers });
+      if (!response || !response.data) {
+        log("info", "[Tencent] \u5206\u96C6\u54CD\u5E94\u4E3A\u7A7A");
+        return [];
+      }
+      const data = typeof response.data === "string" ? JSON.parse(response.data) : response.data;
+      if (data.ret !== 0) {
+        log("error", `[Tencent] \u5206\u96C6API\u8FD4\u56DE\u9519\u8BEF: ret=${data.ret}`);
+        return [];
+      }
+      let tabs = [];
+      if (data.data && data.data.module_list_datas) {
+        for (const moduleListData of data.data.module_list_datas) {
+          for (const moduleData of moduleListData.module_datas) {
+            if (moduleData.module_params && moduleData.module_params.tabs) {
+              try {
+                tabs = JSON.parse(moduleData.module_params.tabs);
+                break;
+              } catch (e) {
+                log("error", "[Tencent] \u89E3\u6790tabs\u5931\u8D25:", e.message);
+              }
+            }
+          }
+          if (tabs.length > 0) break;
+        }
+      }
+      const allEpisodes = [];
+      if (tabs.length === 0) {
+        log("info", "[Tencent] \u672A\u627E\u5230\u5206\u9875\u4FE1\u606F,\u5C1D\u8BD5\u4ECE\u521D\u59CB\u54CD\u5E94\u4E2D\u63D0\u53D6\u5206\u96C6");
+        if (data.data && data.data.module_list_datas) {
+          for (const moduleListData of data.data.module_list_datas) {
+            for (const moduleData of moduleListData.module_datas) {
+              if (moduleData.item_data_lists && moduleData.item_data_lists.item_datas) {
+                for (const item of moduleData.item_data_lists.item_datas) {
+                  if (item.item_params && item.item_params.vid && item.item_params.is_trailer !== "1") {
+                    allEpisodes.push({
+                      vid: item.item_params.vid,
+                      title: item.item_params.title,
+                      unionTitle: item.item_params.union_title || item.item_params.title
+                    });
+                  }
+                }
+              }
+            }
+          }
+        }
+        if (allEpisodes.length === 0) {
+          log("info", "[Tencent] \u521D\u59CB\u54CD\u5E94\u4E2D\u4E5F\u672A\u627E\u5230\u5206\u96C6\u4FE1\u606F");
+          return [];
+        }
+        log("info", `[Tencent] \u4ECE\u521D\u59CB\u54CD\u5E94\u4E2D\u63D0\u53D6\u5230 ${allEpisodes.length} \u96C6`);
+      } else {
+        log("info", `[Tencent] \u627E\u5230 ${tabs.length} \u4E2A\u5206\u9875`);
+        for (const tab of tabs) {
+          if (!tab.page_context) continue;
+          const tabPayload = {
+            has_cache: 1,
+            page_params: {
+              req_from: "web_vsite",
+              page_id: "vsite_episode_list",
+              page_type: "detail_operation",
+              id_type: "1",
+              page_size: "",
+              cid: id,
+              vid: "",
+              lid: "",
+              page_num: "",
+              page_context: tab.page_context,
+              detail_page_type: "1"
+            }
+          };
+          const tabResponse = await Widget.http.post(episodesUrl, JSON.stringify(tabPayload), { headers });
+          if (!tabResponse || !tabResponse.data) continue;
+          const tabData = typeof tabResponse.data === "string" ? JSON.parse(tabResponse.data) : tabResponse.data;
+          if (tabData.ret !== 0 || !tabData.data) continue;
+          if (tabData.data.module_list_datas) {
+            for (const moduleListData of tabData.data.module_list_datas) {
+              for (const moduleData of moduleListData.module_datas) {
+                if (moduleData.item_data_lists && moduleData.item_data_lists.item_datas) {
+                  for (const item of moduleData.item_data_lists.item_datas) {
+                    if (item.item_params && item.item_params.vid && item.item_params.is_trailer !== "1") {
+                      allEpisodes.push({
+                        vid: item.item_params.vid,
+                        title: item.item_params.title,
+                        unionTitle: item.item_params.union_title || item.item_params.title
+                      });
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+      log("info", `[Tencent] \u5171\u83B7\u53D6 ${allEpisodes.length} \u96C6`);
+      return allEpisodes;
+    } catch (error) {
+      log("error", "[Tencent] \u83B7\u53D6\u5206\u96C6\u51FA\u9519:", error.message);
+      return [];
+    }
+  }
+  async handleAnimes(sourceAnimes, queryTitle, curAnimes) {
+    const tmpAnimes = [];
+    if (!sourceAnimes || !Array.isArray(sourceAnimes)) {
+      log("error", "[Tencent] sourceAnimes is not a valid array");
+      return [];
+    }
+    const processTencentAnimes = await Promise.all(
+      sourceAnimes.filter((s) => titleMatches(s.title, queryTitle)).map(async (anime) => {
+        try {
+          const eps = await this.getEpisodes(anime.mediaId);
+          let links = [];
+          for (let i = 0; i < eps.length; i++) {
+            const ep = eps[i];
+            const epTitle = ep.unionTitle || ep.title || `\u7B2C${i + 1}\u96C6`;
+            const fullUrl = `https://v.qq.com/x/cover/${anime.mediaId}/${ep.vid}.html`;
+            links.push({
+              "name": (i + 1).toString(),
+              "url": fullUrl,
+              "title": `\u3010qq\u3011 ${epTitle}`
+            });
+          }
+          if (links.length > 0) {
+            const numericAnimeId = convertToAsciiSum(anime.mediaId);
+            let transformedAnime = {
+              animeId: numericAnimeId,
+              bangumiId: anime.mediaId,
+              animeTitle: `${anime.title}(${anime.year})\u3010${anime.type}\u3011from tencent`,
+              type: anime.type,
+              typeDescription: anime.type,
+              imageUrl: anime.imageUrl,
+              startDate: generateValidStartDate(anime.year),
+              episodeCount: links.length,
+              rating: 0,
+              isFavorited: true,
+              source: "tencent"
+            };
+            tmpAnimes.push(transformedAnime);
+            addAnime({ ...transformedAnime, links });
+            if (globals.animes.length > globals.MAX_ANIMES) removeEarliestAnime();
+          }
+        } catch (error) {
+          log("error", `[Tencent] Error processing anime: ${error.message}`);
+        }
+      })
+    );
+    this.sortAndPushAnimesByYear(tmpAnimes, curAnimes);
+    return processTencentAnimes;
+  }
+  // 提取vid的公共函数
+  extractVid(id) {
+    let vid = id;
+    if (typeof id === "string" && (id.startsWith("http") || id.includes("vid="))) {
+      const queryMatch = id.match(/[?&]vid=([^&]+)/);
+      if (queryMatch) {
+        vid = queryMatch[1];
+      } else {
+        const pathParts = id.split("/");
+        const lastPart = pathParts[pathParts.length - 1];
+        vid = lastPart.split(".")[0];
+      }
+    }
+    return vid;
+  }
+  async getEpisodeDanmu(id) {
+    log("info", "\u5F00\u59CB\u4ECE\u672C\u5730\u8BF7\u6C42\u817E\u8BAF\u89C6\u9891\u5F39\u5E55...", id);
+    let vid = this.extractVid(id);
+    log("info", `vid: ${vid}`);
+    let res;
+    try {
+      res = await Widget.http.get(id, {
+        headers: {
+          "Content-Type": "application/json",
+          "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
+        }
+      });
+    } catch (error) {
+      log("error", "\u8BF7\u6C42\u9875\u9762\u5931\u8D25:", error);
+      return [];
+    }
+    const titleMatch = res.data.match(/<title[^>]*>(.*?)<\/title>/i);
+    const title = titleMatch ? titleMatch[1].split("_")[0] : "\u672A\u77E5\u6807\u9898";
+    log("info", `\u6807\u9898: ${title}`);
+    const segmentResult = await this.getEpisodeDanmuSegments(id);
+    if (!segmentResult || !segmentResult.segmentList || segmentResult.segmentList.length === 0) {
+      return [];
+    }
+    const segmentList = segmentResult.segmentList;
+    log("info", `\u5F39\u5E55\u5206\u6BB5\u6570\u91CF: ${segmentList.length}`);
+    const promises = [];
+    for (const segment of segmentList) {
+      promises.push(
+        httpGet(segment.url, {
+          headers: {
+            "Content-Type": "application/json",
+            "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
+          },
+          retries: 1
+        })
+      );
+    }
+    let contents = [];
+    try {
+      const results = await Promise.allSettled(promises);
+      const datas = results.filter((result) => result.status === "fulfilled").map((result) => {
+        if (result.value && result.value.data) {
+          return result.value.data;
+        }
+        return null;
+      }).filter((data) => data !== null);
+      datas.forEach((data) => {
+        data = typeof data === "string" ? JSON.parse(data) : data;
+        contents.push(...data.barrage_list);
+      });
+    } catch (error) {
+      log("error", "\u89E3\u6790\u5F39\u5E55\u6570\u636E\u5931\u8D25:", error);
+      return [];
+    }
+    printFirst200Chars(contents);
+    return contents;
+  }
+  async getEpisodeDanmuSegments(id) {
+    log("info", "\u83B7\u53D6\u817E\u8BAF\u89C6\u9891\u5F39\u5E55\u5206\u6BB5\u5217\u8868...", id);
+    const api_danmaku_base = "https://dm.video.qq.com/barrage/base/";
+    const api_danmaku_segment = "https://dm.video.qq.com/barrage/segment/";
+    let vid = this.extractVid(id);
+    log("info", `\u83B7\u53D6\u5F39\u5E55\u5206\u6BB5\u5217\u8868 - vid: ${vid}`);
+    let res;
+    try {
+      res = await Widget.http.get(api_danmaku_base + vid, {
+        headers: {
+          "Content-Type": "application/json",
+          "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
+        }
+      });
+    } catch (error) {
+      if (error.response?.status === 404) {
+        return new SegmentListResponse({
+          "type": "qq",
+          "segmentList": []
+        });
+      }
+      log("error", "\u8BF7\u6C42\u5F39\u5E55\u57FA\u7840\u6570\u636E\u5931\u8D25:", error);
+      return new SegmentListResponse({
+        "type": "qq",
+        "segmentList": []
+      });
+    }
+    const data = typeof res.data === "string" ? JSON.parse(res.data) : res.data;
+    const segmentList = [];
+    const segmentItems = Object.values(data.segment_index);
+    for (const item of segmentItems) {
+      segmentList.push({
+        "type": "qq",
+        "segment_start": (() => {
+          const start = Number(item.segment_start) || 0;
+          return start / 1e3;
+        })(),
+        "segment_end": (() => {
+          const end = Number(item.segment_name.split("/").pop()) || 0;
+          return end / 1e3;
+        })(),
+        "url": `${api_danmaku_segment}${vid}/${item.segment_name}`
+      });
+    }
+    return new SegmentListResponse({
+      "type": "qq",
+      "segmentList": segmentList
+    });
+  }
+  async getEpisodeSegmentDanmu(segment) {
+    try {
+      const response = await Widget.http.get(segment.url, {
+        headers: {
+          "Content-Type": "application/json",
+          "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
+        },
+        retries: 1
+      });
+      let contents = [];
+      if (response && response.data) {
+        const parsedData = typeof response.data === "string" ? JSON.parse(response.data) : response.data;
+        contents.push(...parsedData.barrage_list);
+      }
+      return contents;
+    } catch (error) {
+      log("error", "\u8BF7\u6C42\u5206\u7247\u5F39\u5E55\u5931\u8D25:", error);
+      return [];
+    }
+  }
+  formatComments(comments) {
+    return comments.map((item) => {
+      const content = {
+        timepoint: item.time_offset / 1e3,
+        ct: 1,
+        size: 25,
+        color: 16777215,
+        unixtime: Math.floor(Date.now() / 1e3),
+        uid: 0,
+        content: item.content
+      };
+      if (item.content_style && item.content_style !== "") {
+        try {
+          const content_style = JSON.parse(item.content_style);
+          if (content_style.gradient_colors && content_style.gradient_colors.length > 0) {
+            content.color = parseInt(content_style.gradient_colors[0].replace("#", ""), 16);
+          } else if (content_style.color && content_style.color !== "ffffff") {
+            content.color = parseInt(content_style.color.replace("#", ""), 16);
+          }
           if (content_style.position === 2) {
             content.ct = 5;
           } else if (content_style.position === 3) {
             content.ct = 4;
           }
+        } catch (e) {
         }
-      } catch (e) {
-        // JSON 解析失败，使用默认白色
       }
-    }
-    content.content = item.content;
-    contents.push(content);
+      return content;
+    });
   }
+};
 
-  printFirst200Chars(contents);
-
-  // 返回结果
-  return convertToDanmakuJson(contents, "tecent");
-}
-
-// =====================
-// 获取爱奇艺弹幕
-// =====================
-
-async function fetchIqiyi(inputUrl, segmentTime, tmdbId, season, episode, other_server, vod_servers, bilibili_cookie, source_order, blocked_words, group_minute) {
-  log("info", "开始从本地请求爱奇艺弹幕...", inputUrl);
-
-  // 弹幕 API 基础地址
-  const api_decode_base = "https://pcw-api.iq.com/api/decode/";
-  const api_video_info = "https://pcw-api.iqiyi.com/video/video/baseinfo/";
-  const api_danmaku_base = "https://cmts.iqiyi.com/bullet/";
-
-  // 解析 URL 获取 tvid
-  let tvid;
-  try {
-    const idMatch = inputUrl.match(/v_(\w+)/);
-    if (!idMatch) {
-      log("error", "无法从 URL 中提取 tvid");
+// danmu_api/sources/iqiyi.js
+var _IqiyiSource = class _IqiyiSource extends BaseSource {
+  /**
+   * 搜索爱奇艺内容
+   * @param {string} keyword - 搜索关键词
+   * @returns {Promise<Array>} 搜索结果数组
+   */
+  async search(keyword) {
+    try {
+      log("info", `[iQiyi] \u5F00\u59CB\u641C\u7D22: ${keyword}`);
+      const params = {
+        key: keyword,
+        current_page: "1",
+        mode: "1",
+        source: "input",
+        suggest: "",
+        pcv: "13.074.22699",
+        version: "13.074.22699",
+        pageNum: "1",
+        pageSize: "25",
+        pu: "",
+        u: "f6440fc5d919dca1aea12b6aff56e1c7",
+        scale: "200",
+        token: "",
+        userVip: "0",
+        conduit: "",
+        vipType: "-1",
+        os: "",
+        osShortName: "win10",
+        dataType: "",
+        appMode: "",
+        ad: JSON.stringify({ "lm": 3, "azd": 1000000000951, "azt": 733, "position": "feed" }),
+        adExt: JSON.stringify({ "r": "2.1.5-ares6-pure" })
+      };
+      const queryString = buildQueryString(params);
+      const url = `https://mesh.if.iqiyi.com/portal/lw/search/homePageV3?${queryString}`;
+      const response = await Widget.http.get(url, {
+        headers: {
+          "accept": "*/*",
+          "origin": "https://www.iqiyi.com",
+          "referer": "https://www.iqiyi.com/",
+          "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+        }
+      });
+      if (!response || !response.data) {
+        log("info", "[iQiyi] \u641C\u7D22\u54CD\u5E94\u4E3A\u7A7A");
+        return [];
+      }
+      const data = typeof response.data === "string" ? JSON.parse(response.data) : response.data;
+      if (!data.data || !data.data.templates) {
+        log("info", "[iQiyi] \u641C\u7D22\u65E0\u7ED3\u679C");
+        return [];
+      }
+      const results = [];
+      const templates = data.data.templates;
+      for (const template of templates) {
+        let albumsToProcess = [];
+        if (template.template === 112 && template.intentAlbumInfos) {
+          log("debug", `[iQiyi] \u627E\u5230\u610F\u56FE\u5361\u7247 (template 112)\uFF0C\u5904\u7406 ${template.intentAlbumInfos.length} \u4E2A\u7ED3\u679C`);
+          albumsToProcess = template.intentAlbumInfos;
+        } else if ([101, 102, 103].includes(template.template) && template.albumInfo) {
+          log("debug", `[iQiyi] \u627E\u5230\u666E\u901A\u7ED3\u679C\u5361\u7247 (template ${template.template})`);
+          albumsToProcess = [template.albumInfo];
+        }
+        for (const album of albumsToProcess) {
+          const filtered = this._filterIqiyiSearchItem(album, keyword);
+          if (filtered) {
+            results.push(filtered);
+          }
+        }
+      }
+      log("info", `[iQiyi] \u641C\u7D22\u627E\u5230 ${results.length} \u4E2A\u6709\u6548\u7ED3\u679C`);
+      return results;
+    } catch (error) {
+      log("error", "[iQiyi] \u641C\u7D22\u51FA\u9519:", error.message);
       return [];
     }
-    tvid = idMatch[1];
-    log("info", "tvid:", tvid);
-
-    // 获取 tvid 的解码信息
-    const decodeUrl = `${api_decode_base}${tvid}?platformId=3&modeCode=intl&langCode=sg`;
-    let res = await Widget.http.get(decodeUrl, {
-      headers: {
-        "Content-Type": "application/json",
-        "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
-      },
-    });
-    const data = typeof res.data === "string" ? JSON.parse(res.data) : res.data;
-    tvid = data.data.toString();
-    log("info", "解码后 tvid:", tvid);
-  } catch (error) {
-    log("error", "请求解码信息失败:", error);
-    return [];
   }
-
-  // 获取视频基础信息
-  let title, duration, albumid, categoryid;
-  try {
-    const videoInfoUrl = `${api_video_info}${tvid}`;
-    const res = await Widget.http.get(videoInfoUrl, {
-      headers: {
-        "Content-Type": "application/json",
-        "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
-      },
-    });
-    const data = typeof res.data === "string" ? JSON.parse(res.data) : res.data;
-    const videoInfo = data.data;
-    title = videoInfo.name || videoInfo.tvName || "未知标题";
-    duration = videoInfo.durationSec;
-    albumid = videoInfo.albumId;
-    categoryid = videoInfo.channelId || videoInfo.categoryId;
-    log("info", "标题:", title, "时长:", duration);
-  } catch (error) {
-    log("error", "请求视频基础信息失败:", error);
-    return [];
+  /**
+   * 过滤爱奇艺搜索项
+   * @param {Object} album - 搜索结果专辑信息
+   * @param {string} keyword - 搜索关键词
+   * @returns {Object|null} 过滤后的结果
+   */
+  _filterIqiyiSearchItem(album, keyword) {
+    if (!album.title) {
+      return null;
+    }
+    if (album.btnText === "\u5916\u7AD9\u4ED8\u8D39\u64AD\u653E") {
+      log("debug", `[iQiyi] \u8FC7\u6EE4\u6389\u5916\u7AD9\u4ED8\u8D39\u64AD\u653E\u5185\u5BB9: ${album.title}`);
+      return null;
+    }
+    const channel = album.channel || "";
+    let mediaType = "\u7535\u89C6\u5267";
+    if (channel.includes("\u7535\u5F71")) {
+      mediaType = "\u7535\u5F71";
+    } else if (channel.includes("\u52A8\u6F2B")) {
+      mediaType = "\u52A8\u6F2B";
+    } else if (channel.includes("\u7EFC\u827A")) {
+      mediaType = "\u7EFC\u827A";
+    } else if (channel.includes("\u7EAA\u5F55\u7247")) {
+      mediaType = "\u7EAA\u5F55\u7247";
+    } else if (channel.includes("\u7535\u89C6\u5267")) {
+      mediaType = "\u7535\u89C6\u5267";
+    } else {
+      return null;
+    }
+    if (mediaType === "\u7535\u5F71") {
+      const qipuId = album.qipuId || album.playQipuId;
+      if (!qipuId) {
+        log("debug", `[iQiyi] \u7535\u5F71\u7F3A\u5C11 qipuId: ${album.title}`);
+        return null;
+      }
+      let year2 = null;
+      if (album.year) {
+        const yearStr = album.year.value || album.year.name;
+        if (yearStr && typeof yearStr === "string" && yearStr.length === 4 && /^\d{4}$/.test(yearStr)) {
+          year2 = parseInt(yearStr);
+        }
+      }
+      const cleanedTitle2 = album.title.replace(/<[^>]+>/g, "").replace(/:/g, "\uFF1A");
+      return {
+        provider: "iqiyi",
+        mediaId: `movie_${qipuId}`,
+        // 使用特殊前缀标识电影
+        title: cleanedTitle2,
+        type: mediaType,
+        year: year2,
+        imageUrl: album.img || album.imgH,
+        episodeCount: 1,
+        // 电影只有1集
+        _qipuId: qipuId
+        // 保存原始 qipuId 供后续使用
+      };
+    }
+    const url = album.pageUrl;
+    if (!url) {
+      log("debug", `[iQiyi] \u975E\u7535\u5F71\u5185\u5BB9\u7F3A\u5C11 pageUrl: ${album.title}`);
+      return null;
+    }
+    const linkIdMatch = url.match(/v_(\w+?)\.html/);
+    if (!linkIdMatch) {
+      log("debug", `[iQiyi] \u65E0\u6CD5\u4ECE pageUrl \u63D0\u53D6 link_id: ${url}`);
+      return null;
+    }
+    const linkId = linkIdMatch[1];
+    let year = null;
+    if (album.year) {
+      const yearStr = album.year.value || album.year.name;
+      if (yearStr && typeof yearStr === "string" && yearStr.length === 4 && /^\d{4}$/.test(yearStr)) {
+        year = parseInt(yearStr);
+      }
+    }
+    let episodeCount = null;
+    if (album.videos && album.videos.length > 0) {
+      episodeCount = album.videos.length;
+    } else if (album.subscriptContent) {
+      const countMatch = album.subscriptContent.match(/(?:更新至|全|共)\s*(\d+)\s*(?:集|话|期)/);
+      if (countMatch) {
+        episodeCount = parseInt(countMatch[1]);
+      } else {
+        const simpleMatch = album.subscriptContent.trim().match(/^(\d+)$/);
+        if (simpleMatch) {
+          episodeCount = parseInt(simpleMatch[1]);
+        }
+      }
+    }
+    const cleanedTitle = album.title.replace(/<[^>]+>/g, "").replace(/:/g, "\uFF1A");
+    return {
+      provider: "iqiyi",
+      mediaId: linkId,
+      title: cleanedTitle,
+      type: mediaType,
+      year,
+      imageUrl: album.img || album.imgH,
+      episodeCount
+    };
   }
-
-  // 计算弹幕分段数量（每5分钟一个分段）
-  const page = Math.ceil(duration / (60 * 5));
-  log("info", "弹幕分段数量:", page);
-
-  let segmentList = [];
-  for (let i = 0; i < page; i++) {
-    const params = {
+  /**
+   * 获取分集列表
+   * @param {string} id - 视频 ID (link_id 或 movie_qipuId)
+   * @returns {Promise<Array>} 分集列表
+   */
+  async getEpisodes(id) {
+    try {
+      log("info", `[iQiyi] \u83B7\u53D6\u5206\u96C6\u5217\u8868: media_id=${id}`);
+      if (id.startsWith("movie_")) {
+        const qipuId = id.substring(6);
+        log("info", `[iQiyi] \u7535\u5F71\u7C7B\u578B\uFF0C\u8C03\u7528 base_info API \u83B7\u53D6\u89C6\u9891ID: qipuId=${qipuId}`);
+        const videoId = await this._getMovieVideoId(qipuId);
+        if (!videoId) {
+          log("error", `[iQiyi] \u65E0\u6CD5\u83B7\u53D6\u7535\u5F71\u7684\u89C6\u9891ID: qipuId=${qipuId}`);
+          return [];
+        }
+        log("info", `[iQiyi] \u7535\u5F71\u89C6\u9891ID: ${videoId}`);
+        return [{
+          id: videoId,
+          title: "\u6B63\u7247",
+          order: 1,
+          link: `https://www.iqiyi.com/v_${videoId}.html`
+        }];
+      }
+      const entityId = /^\d+$/.test(id) ? id : this._videoIdToEntityId(id);
+      if (!entityId) {
+        log("error", `[iQiyi] \u65E0\u6CD5\u5C06 media_id '${id}' \u8F6C\u6362\u4E3A entity_id`);
+        return [];
+      }
+      const params = {
+        entity_id: entityId,
+        device_id: "qd5fwuaj4hunxxdgzwkcqmefeb3ww5hx",
+        auth_cookie: "",
+        user_id: "0",
+        vip_type: "-1",
+        vip_status: "0",
+        conduit_id: "",
+        pcv: "13.082.22866",
+        app_version: "13.082.22866",
+        ext: "",
+        app_mode: "standard",
+        scale: "100",
+        timestamp: String(Date.now()),
+        src: "pca_tvg",
+        os: "",
+        ad_ext: '{"r":"2.2.0-ares6-pure"}'
+      };
+      params.sign = this._createSign(params);
+      const queryString = buildQueryString(params);
+      const url = `https://www.iqiyi.com/prelw/tvg/v2/lw/base_info?${queryString}`;
+      const response = await Widget.http.get(url, {
+        headers: {
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+          "Referer": "https://www.iqiyi.com/"
+        }
+      });
+      if (!response || !response.data) {
+        log("error", "[iQiyi] \u83B7\u53D6\u5206\u96C6\u54CD\u5E94\u4E3A\u7A7A");
+        return [];
+      }
+      const data = typeof response.data === "string" ? JSON.parse(response.data) : response.data;
+      if (data.status_code !== 0 || !data.data || !data.data.template) {
+        log("error", `[iQiyi] API \u8FD4\u56DE\u9519\u8BEF\uFF0Cstatus_code: ${data.status_code}`);
+        return [];
+      }
+      const allEpisodes = [];
+      const tabs = data.data.template.tabs || [];
+      if (tabs.length === 0) {
+        log("info", "[iQiyi] \u672A\u627E\u5230\u5206\u96C6\u6807\u7B7E\u9875");
+        return [];
+      }
+      const blocks = tabs[0].blocks || [];
+      let foundEpisodes = false;
+      for (const block of blocks) {
+        if (block.bk_type === "video_list" && block.data?.data) {
+          log("debug", `[iQiyi] \u627E\u5230 video_list \u7C7B\u578B\u7684\u5206\u96C6\u6570\u636E\u5757, bk_id: ${block.bk_id}`);
+          if (!block.tag || !block.tag.includes("episodes")) {
+            log("debug", `[iQiyi] \u8DF3\u8FC7\u975E\u5206\u96C6\u5757: ${block.bk_id}`);
+            continue;
+          }
+          foundEpisodes = true;
+          const dataGroups = block.data.data;
+          if (!Array.isArray(dataGroups)) {
+            log("warn", "[iQiyi] data.data \u4E0D\u662F\u6570\u7EC4\uFF0C\u8DF3\u8FC7\u6B64\u5757");
+            continue;
+          }
+          for (const group of dataGroups) {
+            if (!group.videos || !Array.isArray(group.videos)) continue;
+            for (const videoGroup of group.videos) {
+              if (!videoGroup.data || !Array.isArray(videoGroup.data)) continue;
+              for (const epData of videoGroup.data) {
+                if (epData.content_type !== 1) continue;
+                const playUrl = epData.play_url || "";
+                const tvidMatch = playUrl.match(/tvid=(\d+)/);
+                if (!tvidMatch) continue;
+                const tvid = tvidMatch[1];
+                let title = epData.short_display_name || epData.title || "\u672A\u77E5\u5206\u96C6";
+                const subtitle = epData.subtitle;
+                if (subtitle && !title.includes(subtitle)) {
+                  title = `${title} ${subtitle}`;
+                }
+                const order = epData.album_order;
+                const pageUrl = epData.page_url;
+                if (tvid && title && pageUrl) {
+                  allEpisodes.push({
+                    id: tvid,
+                    title,
+                    order: order !== void 0 ? order : allEpisodes.length,
+                    link: pageUrl
+                  });
+                }
+              }
+            }
+          }
+        } else if (block.bk_type === "album_episodes" && block.data?.data) {
+          log("debug", "[iQiyi] \u627E\u5230 album_episodes \u7C7B\u578B\u7684\u5206\u96C6\u6570\u636E\u5757");
+          foundEpisodes = true;
+          const episodeGroups = block.data.data;
+          for (const group of episodeGroups) {
+            let videosData = group.videos;
+            if (typeof videosData === "string") {
+              log("info", `[iQiyi] \u53D1\u73B0\u5206\u5B63URL\uFF0C\u6B63\u5728\u83B7\u53D6: ${videosData}`);
+              try {
+                const seasonResponse = await Widget.http.get(videosData);
+                videosData = typeof seasonResponse.data === "string" ? JSON.parse(seasonResponse.data) : seasonResponse.data;
+              } catch (error) {
+                log("error", `[iQiyi] \u83B7\u53D6\u5206\u5B63\u6570\u636E\u5931\u8D25: ${error.message}`);
+                continue;
+              }
+            }
+            if (videosData && typeof videosData === "object" && videosData.feature_paged) {
+              for (const pageKey in videosData.feature_paged) {
+                const pagedList = videosData.feature_paged[pageKey];
+                for (const epData of pagedList) {
+                  if (epData.content_type !== 1) continue;
+                  const playUrl = epData.play_url || "";
+                  const tvidMatch = playUrl.match(/tvid=(\d+)/);
+                  if (!tvidMatch) continue;
+                  const tvid = tvidMatch[1];
+                  let title = epData.short_display_name || epData.title || "\u672A\u77E5\u5206\u96C6";
+                  const subtitle = epData.subtitle;
+                  if (subtitle && !title.includes(subtitle)) {
+                    title = `${title} ${subtitle}`;
+                  }
+                  const order = epData.album_order;
+                  const pageUrl = epData.page_url;
+                  if (tvid && title && order && pageUrl) {
+                    allEpisodes.push({
+                      id: tvid,
+                      title,
+                      order,
+                      link: pageUrl
+                    });
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+      if (!foundEpisodes) {
+        log("info", "[iQiyi] \u672A\u627E\u5230\u5206\u96C6\u6570\u636E\u5757");
+        return [];
+      }
+      const uniqueEpisodes = Array.from(
+        new Map(allEpisodes.map((ep) => [ep.id, ep])).values()
+      );
+      uniqueEpisodes.sort((a, b) => a.order - b.order);
+      log("info", `[iQiyi] \u6210\u529F\u83B7\u53D6 ${uniqueEpisodes.length} \u4E2A\u5206\u96C6`);
+      return uniqueEpisodes;
+    } catch (error) {
+      log("error", "[iQiyi] \u83B7\u53D6\u5206\u96C6\u51FA\u9519:", error.message);
+      return [];
+    }
+  }
+  /**
+   * 获取电影的视频ID（从 qipuId 获取正确的 video_id）
+   * @param {string} qipuId - 电影的 qipuId
+   * @returns {Promise<string|null>} 视频ID
+   */
+  async _getMovieVideoId(qipuId) {
+    try {
+      const params = {
+        entity_id: qipuId,
+        device_id: "qd5fwuaj4hunxxdgzwkcqmefeb3ww5hx",
+        auth_cookie: "",
+        user_id: "0",
+        vip_type: "-1",
+        vip_status: "0",
+        conduit_id: "",
+        pcv: "13.103.23529",
+        app_version: "13.103.23529",
+        ext: "",
+        app_mode: "standard",
+        scale: "125",
+        timestamp: String(Date.now()),
+        src: "pca_tvg",
+        os: "",
+        ad_ext: '{"r":"2.5.0-ares6-pure"}'
+      };
+      params.sign = this._createSign(params);
+      const queryString = buildQueryString(params);
+      const url = `https://mesh.if.iqiyi.com/tvg/v2/lw/base_info?${queryString}`;
+      log("debug", `[iQiyi] \u8BF7\u6C42\u7535\u5F71\u8BE6\u60C5: ${url}`);
+      const response = await Widget.http.get(url, {
+        headers: {
+          "accept": "*/*",
+          "origin": "https://www.iqiyi.com",
+          "referer": "https://www.iqiyi.com/",
+          "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+        }
+      });
+      if (!response || !response.data) {
+        log("error", "[iQiyi] base_info API \u54CD\u5E94\u4E3A\u7A7A");
+        return null;
+      }
+      const data = typeof response.data === "string" ? JSON.parse(response.data) : response.data;
+      if (data.data && data.data.base_data) {
+        const baseData = data.data.base_data;
+        if (baseData.share_url) {
+          const match = baseData.share_url.match(/v_(\w+)\.html/);
+          if (match) {
+            const videoId = match[1];
+            log("info", `[iQiyi] \u4ECE share_url \u63D0\u53D6\u89C6\u9891ID: ${videoId}`);
+            return videoId;
+          }
+        }
+        if (baseData.page_url) {
+          const match = baseData.page_url.match(/v_(\w+)\.html/);
+          if (match) {
+            const videoId = match[1];
+            log("info", `[iQiyi] \u4ECE page_url \u63D0\u53D6\u89C6\u9891ID: ${videoId}`);
+            return videoId;
+          }
+        }
+      }
+      log("error", "[iQiyi] base_info API \u54CD\u5E94\u4E2D\u672A\u627E\u5230\u89C6\u9891ID");
+      log("debug", `[iQiyi] \u54CD\u5E94\u6570\u636E\u7ED3\u6784: ${JSON.stringify(data).substring(0, 1e3)}...`);
+      return null;
+    } catch (error) {
+      log("error", `[iQiyi] \u83B7\u53D6\u7535\u5F71\u89C6\u9891ID\u65F6\u51FA\u9519: ${error.message}`);
+      return null;
+    }
+  }
+  /**
+   * 将 video_id 转换为 entity_id
+   * @param {string} videoId - 视频 ID
+   * @returns {string|null} entity_id
+   */
+  _videoIdToEntityId(videoId) {
+    try {
+      const base36Decoded = parseInt(videoId, 36);
+      const xorResult = this._xorOperation(base36Decoded);
+      const finalResult = xorResult < 9e5 ? 100 * (xorResult + 9e5) : xorResult;
+      return String(finalResult);
+    } catch (error) {
+      log("error", `[iQiyi] \u5C06 video_id '${videoId}' \u8F6C\u6362\u4E3A entity_id \u65F6\u51FA\u9519: ${error.message}`);
+      return null;
+    }
+  }
+  /**
+   * 异或运算
+   * @param {number} num - 输入数字
+   * @returns {number} 异或结果
+   */
+  _xorOperation(num) {
+    const numBinary = num.toString(2);
+    const keyBinary = _IqiyiSource.XOR_KEY.toString(2);
+    const numBits = numBinary.split("").reverse();
+    const keyBits = keyBinary.split("").reverse();
+    const resultBits = [];
+    const maxLen = Math.max(numBits.length, keyBits.length);
+    for (let i = 0; i < maxLen; i++) {
+      const numBit = i < numBits.length ? numBits[i] : "0";
+      const keyBit = i < keyBits.length ? keyBits[i] : "0";
+      if (numBit === "1" && keyBit === "1") {
+        resultBits.push("0");
+      } else if (numBit === "1" || keyBit === "1") {
+        resultBits.push("1");
+      } else {
+        resultBits.push("0");
+      }
+    }
+    const resultBinary = resultBits.reverse().join("");
+    return resultBinary ? parseInt(resultBinary, 2) : 0;
+  }
+  /**
+   * 为 API 生成签名
+   * @param {Object} params - 请求参数
+   * @returns {string} MD5 签名
+   */
+  _createSign(params) {
+    const cleanParams = {};
+    for (const key in params) {
+      if (key !== "sign") {
+        cleanParams[key] = params[key];
+      }
+    }
+    const sortedKeys = Object.keys(cleanParams).sort();
+    const paramParts = [];
+    for (const key of sortedKeys) {
+      const value = cleanParams[key] === null || cleanParams[key] === void 0 ? "" : cleanParams[key];
+      paramParts.push(`${key}=${value}`);
+    }
+    const paramString = paramParts.join("&");
+    const signString = `${paramString}&${_IqiyiSource.KEY_NAME}=${_IqiyiSource.SECRET_KEY}`;
+    return md5(signString).toUpperCase();
+  }
+  /**
+   * 处理搜索结果并格式化为 DanDanPlay 格式
+   * @param {Array} sourceAnimes - 搜索结果数组
+   * @param {string} queryTitle - 搜索关键词
+   * @param {Array} curAnimes - 当前动漫列表
+   * @returns {Promise<void>}
+   */
+  async handleAnimes(sourceAnimes, queryTitle, curAnimes) {
+    const tmpAnimes = [];
+    if (!sourceAnimes || !Array.isArray(sourceAnimes)) {
+      log("error", "[iQiyi] sourceAnimes is not a valid array");
+      return [];
+    }
+    const processIqiyiAnimes = await Promise.all(
+      sourceAnimes.filter((s) => titleMatches(s.title, queryTitle)).map(async (anime) => {
+        try {
+          const eps = await this.getEpisodes(anime.mediaId);
+          const links = [];
+          for (const ep of eps) {
+            const fullUrl = ep.link || `https://www.iqiyi.com/v_${anime.mediaId}.html`;
+            links.push({
+              "name": ep.order.toString(),
+              "url": fullUrl,
+              "title": `\u3010qiyi\u3011 ${ep.title}`
+            });
+          }
+          if (links.length > 0) {
+            const numericAnimeId = convertToAsciiSum(anime.mediaId);
+            const transformedAnime = {
+              animeId: numericAnimeId,
+              bangumiId: anime.mediaId,
+              animeTitle: `${anime.title}(${anime.year || "N/A"})\u3010${anime.type}\u3011from iqiyi`,
+              type: anime.type,
+              typeDescription: anime.type,
+              imageUrl: anime.imageUrl,
+              startDate: generateValidStartDate(anime.year),
+              episodeCount: links.length,
+              rating: 0,
+              isFavorited: true,
+              source: "iqiyi"
+            };
+            tmpAnimes.push(transformedAnime);
+            addAnime({ ...transformedAnime, links });
+            if (globals.animes.length > globals.MAX_ANIMES) {
+              removeEarliestAnime();
+            }
+          }
+        } catch (error) {
+          log("error", `[iQiyi] Error processing anime: ${error.message}`);
+        }
+      })
+    );
+    this.sortAndPushAnimesByYear(tmpAnimes, curAnimes);
+    return processIqiyiAnimes;
+  }
+  async getEpisodeDanmu(id) {
+    log("info", "\u5F00\u59CB\u4ECE\u672C\u5730\u8BF7\u6C42\u7231\u5947\u827A\u5F39\u5E55...", id);
+    let res;
+    try {
+      res = await Widget.http.get(id, {
+        headers: {
+          "Content-Type": "application/json",
+          "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
+        }
+      });
+    } catch (error) {
+      log("error", "\u8BF7\u6C42\u9875\u9762\u5931\u8D25:", error);
+      return [];
+    }
+    const titleMatch = res.data.match(/<title[^>]*>(.*?)<\/title>/i);
+    const title = titleMatch ? titleMatch[1].split("_")[0] : "\u672A\u77E5\u6807\u9898";
+    log("info", `\u6807\u9898: ${title}`);
+    const segmentResult = await this.getEpisodeDanmuSegments(id);
+    if (!segmentResult || !segmentResult.segmentList || segmentResult.segmentList.length === 0) {
+      return [];
+    }
+    const segmentList = segmentResult.segmentList;
+    log("info", `\u5F39\u5E55\u5206\u6BB5\u6570\u91CF: ${segmentList.length}`);
+    const promises = [];
+    for (const segment of segmentList) {
+      promises.push(this.getEpisodeSegmentDanmu(segment));
+    }
+    let contents = [];
+    try {
+      const results = await Promise.allSettled(promises);
+      const datas = results.filter((result) => result.status === "fulfilled").map((result) => result.value).filter((data) => data !== null);
+      datas.forEach((data) => {
+        contents.push(...data);
+      });
+    } catch (error) {
+      log("error", "\u89E3\u6790\u5F39\u5E55\u6570\u636E\u5931\u8D25:", error);
+      return [];
+    }
+    printFirst200Chars(contents);
+    return contents;
+  }
+  async getEpisodeDanmuSegments(id) {
+    log("info", "\u83B7\u53D6\u7231\u5947\u827A\u89C6\u9891\u5F39\u5E55\u5206\u6BB5\u5217\u8868...", id);
+    const api_decode_base = "https://pcw-api.iq.com/api/decode/";
+    const api_video_info = "https://pcw-api.iqiyi.com/video/video/baseinfo/";
+    let tvid;
+    try {
+      const idMatch = id.match(/v_(\w+)/);
+      if (!idMatch) {
+        log("error", "\u65E0\u6CD5\u4ECE URL \u4E2D\u63D0\u53D6 tvid");
+        return new SegmentListResponse({
+          "type": "qiyi",
+          "segmentList": []
+        });
+      }
+      tvid = idMatch[1];
+      log("info", `tvid: ${tvid}`);
+      const decodeUrl = `${api_decode_base}${tvid}?platformId=3&modeCode=intl&langCode=sg`;
+      let res = await Widget.http.get(decodeUrl, {
+        headers: {
+          "Content-Type": "application/json",
+          "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
+        }
+      });
+      const data = typeof res.data === "string" ? JSON.parse(res.data) : res.data;
+      tvid = data.data.toString();
+      log("info", `\u89E3\u7801\u540E tvid: ${tvid}`);
+    } catch (error) {
+      log("error", "\u8BF7\u6C42\u89E3\u7801\u4FE1\u606F\u5931\u8D25:", error);
+      return new SegmentListResponse({
+        "type": "qiyi",
+        "segmentList": []
+      });
+    }
+    let duration, albumid, categoryid;
+    try {
+      const videoInfoUrl = `${api_video_info}${tvid}`;
+      const res = await Widget.http.get(videoInfoUrl, {
+        headers: {
+          "Content-Type": "application/json",
+          "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
+        }
+      });
+      const data = typeof res.data === "string" ? JSON.parse(res.data) : res.data;
+      const videoInfo = data.data;
+      duration = videoInfo.durationSec;
+      albumid = videoInfo.albumId;
+      categoryid = videoInfo.channelId || videoInfo.categoryId;
+      log("info", `\u65F6\u957F: ${duration}`);
+    } catch (error) {
+      log("error", "\u8BF7\u6C42\u89C6\u9891\u57FA\u7840\u4FE1\u606F\u5931\u8D25:", error);
+      return new SegmentListResponse({
+        "type": "qiyi",
+        "segmentList": []
+      });
+    }
+    const page = Math.ceil(duration / (60 * 5));
+    log("info", `\u5F39\u5E55\u5206\u6BB5\u6570\u91CF: ${page}`);
+    const segmentList = [];
+    for (let i = 0; i < page; i++) {
+      const params = {
         rn: "0.0123456789123456",
         business: "danmu",
         is_iqiyi: "true",
         is_video_page: "true",
-        tvid: tvid,
-        albumid: albumid,
-        categoryid: categoryid,
-        qypid: "01010021010000000000",
-    };
-    let queryParams = buildQueryString(params);
-    const api_url = `${api_danmaku_base}${tvid.slice(-4, -2)}/${tvid.slice(-2)}/${tvid}_300_${i + 1}.z?${queryParams.toString()}`;
-
-    segmentList.push({
-      "segment_start": 300 * 1000 * i,
-      "segment_end": 300 * 1000 * (i + 1),
-      "url": api_url
-    });
-  }
-
-  const domain = ".iqiyi.com";
-  const mediaInfo = {
-      segmentList,
-      domain,
-  };
-  const storeKey = season && episode ? `${tmdbId}.${season}.${episode}` : `${tmdbId}`;
-  Widget.storage.set(storeKey, mediaInfo);
-
-  return await getDanmuWithSegmentTime({ segmentTime, tmdbId, season, episode, other_server, vod_servers, bilibili_cookie, source_order, blocked_words, group_minute });
-}
-
-async function fetchIqiyiDanmaku(segment) {
-  log("info", "开始从本地请求爱奇艺弹幕...", segment);
-  // 提取 XML 标签内容的辅助函数
-  function extract(xml, tag) {
-      const reg = new RegExp(`<${tag}>(.*?)</${tag}>`, "g");
-      const res = xml.match(reg)?.map((x) => x.substring(tag.length + 2, x.length - tag.length - 3));
-      return res || [];
-  }
-
-  // 解析弹幕数据
-  let contents = [];
-  try {
-    // let res = await Widget.http.get(`https://zlib-decompress.hxd.ip-ddns.com/?url=${segment.url}`, {
-    let res = await Widget.http.get(segment.url, {
-      headers: {
-        "Accpet-Encoding": "gzip",
-        "Content-Type": "application/xml",
-        "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
-      },
-      zlibMode: true
-    })
-    log("info", "piece data: ", printFirst200Chars(res.data));
-    let xml = res.data;
-
-    // 解析 XML 数据
-    const danmaku = extract(xml, "content");
-    const showTime = extract(xml, "showTime");
-    const color = extract(xml, "color");
-    const step = 1;
-
-    for (let i = 0; i < danmaku.length; i += step) {
-        const content = {
-            timepoint: 0,	// 弹幕发送时间（秒）
-            ct: 1,	// 弹幕类型，1-3 为滚动弹幕、4 为底部、5 为顶端、6 为逆向、7 为精确、8 为高级
-            size: 25,	//字体大小，25 为中，18 为小
-            color: 16777215,	//弹幕颜色，RGB 颜色转为十进制后的值，16777215 为白色
-            unixtime: Math.floor(Date.now() / 1000),	//Unix 时间戳格式
-            uid: 0,		//发送人的 id
-            content: "",
-        };
-        content.timepoint = parseFloat(showTime[i]);
-        content.color = parseInt(color[i], 16);
-        content.content = danmaku[i];
-        content.size = 25;
-        contents.push(content);
+        tvid,
+        albumid,
+        categoryid,
+        qypid: "010102101000000000"
+      };
+      let queryParams = buildQueryString(params);
+      const api_url = `https://cmts.iqiyi.com/bullet/${tvid.slice(-4, -2)}/${tvid.slice(-2)}/${tvid}_300_${i + 1}.z?${queryParams.toString()}`;
+      segmentList.push({
+        "type": "qiyi",
+        "segment_start": i * 5 * 60,
+        // 每段5分钟
+        "segment_end": Math.min((i + 1) * 5 * 60, duration),
+        "url": api_url
+      });
     }
-  } catch (error) {
-      log("error", "解析弹幕数据失败:", error);
-  }
-
-  printFirst200Chars(contents);
-
-  // 返回结果
-  return convertToDanmakuJson(contents, "iqiyi");
-}
-
-// =====================
-// 获取芒果TV弹幕
-// =====================
-
-async function fetchMangoTV(inputUrl, segmentTime, tmdbId, season, episode, other_server, vod_servers, bilibili_cookie, source_order, blocked_words, group_minute) {
-  log("info", "开始从本地请求芒果TV弹幕...", inputUrl);
-
-  // 弹幕和视频信息 API 基础地址
-  const api_video_info = "https://pcweb.api.mgtv.com/video/info";
-  const api_ctl_barrage = "https://galaxy.bz.mgtv.com/getctlbarrage";
-  const api_rd_barrage = "https://galaxy.bz.mgtv.com/rdbarrage";
-
-  // 解析 URL 获取 cid 和 vid
-  // 手动解析 URL（没有 URL 对象的情况下）
-  const regex = /^(https?:\/\/[^\/]+)(\/[^?#]*)/;
-  const match = inputUrl.match(regex);
-
-  let path;
-  if (match) {
-    path = match[2].split('/').filter(Boolean);  // 分割路径并去掉空字符串
-    log("info", path);
-  } else {
-    log("error", 'Invalid URL');
-    return [];
-  }
-  const cid = path[path.length - 2];
-  const vid = path[path.length - 1].split(".")[0];
-
-  log("info", "cid:", cid, "vid:", vid);
-
-  // 获取页面标题和视频时长
-  let res;
-  try {
-    const videoInfoUrl = `${api_video_info}?cid=${cid}&vid=${vid}`;
-    res = await Widget.http.get(videoInfoUrl, {
-      headers: {
-        "Content-Type": "application/json",
-        "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
-      },
+    return new SegmentListResponse({
+      "type": "qiyi",
+      "segmentList": segmentList
     });
-  } catch (error) {
-    log("error", "请求视频信息失败:", error);
-    return [];
   }
-
-  const data = typeof res.data === "string" ? JSON.parse(res.data) : res.data;
-  const title = data.data.info.videoName;
-  const time = data.data.info.time;
-  log("info", "标题:", title);
-
-  // 计算弹幕分段请求
-  let segmentList = [];
-  let useNewApi = true;
-
-  // 尝试使用新API（支持彩色弹幕）
-  try {
-    const ctlBarrageUrl = `${api_ctl_barrage}?version=8.1.39&abroad=0&uuid=&os=10.15.7&platform=0&mac=&vid=${vid}&pid=&cid=${cid}&ticket=`;
-    const res = await Widget.http.get(ctlBarrageUrl, {
-      headers: {
-        "Content-Type": "application/json",
-        "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
-      },
-    });
-    const ctlBarrage = typeof res.data === "string" ? JSON.parse(res.data) : res.data;
-
-    // 检查数据结构
-    if (!ctlBarrage.data || !ctlBarrage.data.cdn_list || !ctlBarrage.data.cdn_version) {
-      log("warn", `新API缺少必要字段，切换到旧API`);
-      useNewApi = false;
-    } else {
-      // 每1分钟一个分段
-      for (let i = 0; i < Math.ceil(time_to_second(time) / 60); i += 1) {
-        const danmakuUrl = `https://${ctlBarrage.data?.cdn_list.split(',')[0]}/${ctlBarrage.data?.cdn_version}/${i}.json`;
-        segmentList.push({
-          "segment_start": i * 60 * 1000,
-          "segment_end": (i + 1) * 60 * 1000,
-          "url": danmakuUrl
-        });
-      }
-    }
-  } catch (error) {
-    log("warn", "新API请求失败，切换到旧API:", error.message);
-    useNewApi = false;
-  }
-
-  // 如果新API失败，使用旧API作为兜底
-  if (!useNewApi) {
+  async getEpisodeSegmentDanmu(segment) {
     try {
-      const step = 60 * 1000; // 每60秒一个分段
-      const end_time = time_to_second(time) * 1000;
-      for (let i = 0; i < end_time; i += step) {
-        const danmakuUrl = `${api_rd_barrage}?vid=${vid}&cid=${cid}&time=${i}`;
-        segmentList.push({
-          "segment_start": i,
-          "segment_end": i + step,
-          "url": danmakuUrl
-        });
+      let extract = function(xml, tag) {
+        const reg = new RegExp(`<${tag}>(.*?)</${tag}>`, "g");
+        const res = xml.match(reg)?.map((x) => x.substring(tag.length + 2, x.length - tag.length - 3));
+        return res || [];
+      };
+      const response = await Widget.http.get(segment.url, {
+        headers: {
+          "Accpet-Encoding": "gzip",
+          "Content-Type": "application/xml",
+          "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
+        },
+        zlibMode: true,
+        retries: 1
+      });
+      let contents = [];
+      if (response && response.data) {
+        const xml = response.data;
+        const danmaku = extract(xml, "content");
+        const showTime = extract(xml, "showTime");
+        const color = extract(xml, "color");
+        contents.push(...danmaku.map((content, i) => ({
+          content,
+          showTime: showTime[i],
+          color: color[i]
+        })));
       }
+      return contents;
     } catch (error) {
-      log("error", "旧API请求失败:", error);
+      log("error", "\u8BF7\u6C42\u5206\u7247\u5F39\u5E55\u5931\u8D25:", error);
       return [];
     }
   }
+  formatComments(comments) {
+    return comments.map((item) => {
+      const content = {
+        timepoint: 0,
+        // 弹幕发送时间（秒）
+        ct: 1,
+        // 弹幕类型，1-3 为滚动弹幕、4 为底部、5 为顶端、6 为逆向、7 为精确、8 为高级
+        size: 25,
+        //字体大小，25 为中，18 为小
+        color: 16777215,
+        //弹幕颜色，RGB 颜色转为十进制后的值，16777215 为白色
+        unixtime: Math.floor(Date.now() / 1e3),
+        //Unix 时间戳格式
+        uid: 0,
+        //发送人的 id
+        content: ""
+      };
+      content.timepoint = parseFloat(item["showTime"]);
+      content.color = parseInt(item["color"], 16);
+      content.content = item["content"];
+      content.size = 25;
+      return content;
+    });
+  }
+};
+// 爱奇艺 API 签名相关常量
+__publicField(_IqiyiSource, "XOR_KEY", 129125665826668);
+__publicField(_IqiyiSource, "SECRET_KEY", "howcuteitis");
+__publicField(_IqiyiSource, "KEY_NAME", "secret_key");
+var IqiyiSource = _IqiyiSource;
 
-  const domain = ".mgtv.com";
-  const mediaInfo = {
-      segmentList,
-      domain,
-  };
-  const storeKey = season && episode ? `${tmdbId}.${season}.${episode}` : `${tmdbId}`;
-  Widget.storage.set(storeKey, mediaInfo);
-
-  return await getDanmuWithSegmentTime({ segmentTime, tmdbId, season, episode, other_server, vod_servers, bilibili_cookie, source_order, blocked_words, group_minute })
-}
-
-async function fetchMangoDanmaku(segment) {
-  log("info", "开始从本地请求芒果TV弹幕...", segment);
-
-  // 默认颜色值
-  const DEFAULT_COLOR_INT = -1;
-
+// danmu_api/sources/mango.js
+var MangoSource = class extends BaseSource {
   // 处理 v2_color 对象的转换逻辑
-  function transformV2Color(v2_color) {
-    // 如果 v2_color 不存在，返回默认值
+  transformV2Color(v2_color) {
+    const DEFAULT_COLOR_INT = -1;
     if (!v2_color) {
       return DEFAULT_COLOR_INT;
     }
-    // 计算左右颜色的整数值
     const leftColor = rgbToInt(v2_color.color_left);
     const rightColor = rgbToInt(v2_color.color_right);
-    // 如果左右颜色均为 -1，返回默认值
     if (leftColor === -1 && rightColor === -1) {
       return DEFAULT_COLOR_INT;
     }
-    // 如果左颜色无效，返回右颜色
     if (leftColor === -1) {
       return rightColor;
     }
-    // 如果右颜色无效，返回左颜色
     if (rightColor === -1) {
       return leftColor;
     }
-    // 返回左右颜色的平均值
     return Math.floor((leftColor + rightColor) / 2);
   }
-
-  // 解析弹幕数据
-  let contents = [];
-  try {
-    let res = await Widget.http.get(segment.url, {
-      headers: {
-        "Content-Type": "application/xml",
-        "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
-      },
-    })
-    const dataJson = typeof res.data === "string" ? JSON.parse(res.data) : res.data;
-
-    for (const item of dataJson.data.items) {
+  /**
+   * 从类型字符串中提取标准化的媒体类型
+   * @param {string} typeStr - API 返回的类型字符串
+   * @returns {string} 标准化的媒体类型
+   */
+  _extractMediaType(typeStr) {
+    const type = (typeStr || "").toLowerCase();
+    if (type.includes("\u7535\u5F71") || type.includes("movie")) {
+      return "\u7535\u5F71";
+    }
+    if (type.includes("\u52A8\u6F2B") || type.includes("\u52A8\u753B") || type.includes("anime")) {
+      return "\u52A8\u6F2B";
+    }
+    if (type.includes("\u7EFC\u827A") || type.includes("\u771F\u4EBA\u79C0") || type.includes("variety")) {
+      return "\u7EFC\u827A";
+    }
+    if (type.includes("\u7EAA\u5F55\u7247") || type.includes("documentary")) {
+      return "\u7EAA\u5F55\u7247";
+    }
+    if (type.includes("\u7535\u89C6\u5267") || type.includes("\u5267\u96C6") || type.includes("drama") || type.includes("tv")) {
+      return "\u7535\u89C6\u5267";
+    }
+    return "\u7535\u89C6\u5267";
+  }
+  async search(keyword) {
+    try {
+      log("info", `[Mango] \u5F00\u59CB\u641C\u7D22: ${keyword}`);
+      const encodedKeyword = encodeURIComponent(keyword);
+      const searchUrl = `https://mobileso.bz.mgtv.com/msite/search/v2?q=${encodedKeyword}&pc=30&pn=1&sort=-99&ty=0&du=0&pt=0&corr=1&abroad=0&_support=10000000000000000`;
+      const response = await Widget.http.get(searchUrl, {
+        headers: {
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+          "Accept": "application/json",
+          "Referer": "https://www.mgtv.com/"
+        }
+      });
+      if (!response || !response.data) {
+        log("info", "[Mango] \u641C\u7D22\u54CD\u5E94\u4E3A\u7A7A");
+        return [];
+      }
+      const data = typeof response.data === "string" ? JSON.parse(response.data) : response.data;
+      if (!data.data || !data.data.contents) {
+        log("info", "[Mango] \u641C\u7D22\u65E0\u7ED3\u679C");
+        return [];
+      }
+      const results = [];
+      for (const content of data.data.contents) {
+        if (content.type !== "media") {
+          continue;
+        }
+        for (const item of content.data) {
+          if (item.source !== "imgo") {
+            continue;
+          }
+          const urlMatch = item.url ? item.url.match(/\/b\/(\d+)/) : null;
+          if (!urlMatch) {
+            continue;
+          }
+          const mediaId = urlMatch[1];
+          const cleanedTitle = item.title ? item.title.replace(/<[^>]+>/g, "").replace(/:/g, "\uFF1A") : "";
+          const yearMatch = item.desc && item.desc[0] ? item.desc[0].match(/[12][890][0-9][0-9]/) : null;
+          const year = yearMatch ? parseInt(yearMatch[0]) : null;
+          const typeMatch = item.desc && item.desc[0] ? item.desc[0].split("/")[0].replace("\u7C7B\u578B:", "").trim() : "";
+          const mediaType = this._extractMediaType(typeMatch);
+          results.push({
+            provider: "imgo",
+            mediaId,
+            title: cleanedTitle,
+            type: mediaType,
+            year,
+            imageUrl: item.img || null,
+            episodeCount: item.videoCount || null
+          });
+        }
+      }
+      log("info", `[Mango] \u641C\u7D22\u627E\u5230 ${results.length} \u4E2A\u6709\u6548\u7ED3\u679C`);
+      return results;
+    } catch (error) {
+      log("error", "[Mango] \u641C\u7D22\u51FA\u9519:", error.message);
+      return [];
+    }
+  }
+  async getEpisodes(id) {
+    try {
+      log("info", `[Mango] \u83B7\u53D6\u5206\u96C6\u5217\u8868: collection_id=${id}`);
+      let allEpisodes = [];
+      let month = "";
+      let pageIndex = 0;
+      let totalPages = 1;
+      while (pageIndex < totalPages) {
+        const url = `https://pcweb.api.mgtv.com/variety/showlist?allowedRC=1&collection_id=${id}&month=${month}&page=1&_support=10000000`;
+        const response = await Widget.http.get(url, {
+          headers: {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+            "Referer": "https://www.mgtv.com/"
+          }
+        });
+        if (!response || !response.data) {
+          log("info", "[Mango] \u672A\u627E\u5230\u5206\u96C6\u4FE1\u606F");
+          break;
+        }
+        const data = typeof response.data === "string" ? JSON.parse(response.data) : response.data;
+        if (!data.data || !data.data.list) {
+          log("info", "[Mango] \u5206\u96C6\u5217\u8868\u4E3A\u7A7A");
+          break;
+        }
+        if (data.data.list && data.data.list.length > 0) {
+          allEpisodes.push(...data.data.list.filter((ep) => ep.src_clip_id === id));
+        }
+        if (pageIndex === 0) {
+          totalPages = data.data.tab_m && data.data.tab_m.length > 0 ? data.data.tab_m.length : 1;
+          log("info", `[Mango] \u68C0\u6D4B\u5230 ${totalPages} \u4E2A\u6708\u4EFD\u5206\u9875`);
+        }
+        pageIndex++;
+        if (pageIndex < totalPages && data.data.tab_m && data.data.tab_m[pageIndex]) {
+          month = data.data.tab_m[pageIndex].m;
+        }
+      }
+      const mangoBlacklist = /^(.*?)(抢先(看|版)|加更(版)?|花絮|预告|特辑|(特别|惊喜|纳凉)?企划|彩蛋|专访|幕后(花絮)?|直播|纯享|未播|衍生|番外|合伙人手记|会员(专享|加长)|片花|精华|看点|速看|解读|reaction|超前营业|超前(vlog)?|陪看(记)?|.{3,}篇|影评)(.*?)$/i;
+      const episodes = allEpisodes.filter((ep) => {
+        const fullTitle = `${ep.t2 || ""} ${ep.t1 || ""}`.trim();
+        if (ep.isnew === "2") {
+          log("debug", `[Mango] \u8FC7\u6EE4\u9884\u544A\u7247: ${fullTitle}`);
+          return false;
+        }
+        if (mangoBlacklist.test(fullTitle)) {
+          log("debug", `[Mango] \u9ED1\u540D\u5355\u8FC7\u6EE4: ${fullTitle}`);
+          return false;
+        }
+        return true;
+      });
+      const processedEpisodes = this._processVarietyEpisodes(episodes);
+      log("info", `[Mango] \u5171\u83B7\u53D6 ${processedEpisodes.length} \u96C6`);
+      return processedEpisodes;
+    } catch (error) {
+      log("error", "[Mango] \u83B7\u53D6\u5206\u96C6\u51FA\u9519:", error.message);
+      return [];
+    }
+  }
+  /**
+   * 获取电影正片
+   * @param {string} mediaId - 媒体ID
+   * @returns {Object|null} 电影正片信息
+   */
+  async _getMovieEpisode(mediaId) {
+    try {
+      log("info", `[Mango] \u83B7\u53D6\u7535\u5F71\u6B63\u7247: collection_id=${mediaId}`);
+      const url = `https://pcweb.api.mgtv.com/variety/showlist?allowedRC=1&collection_id=${mediaId}&month=&page=1&_support=10000000`;
+      const response = await Widget.http.get(url, {
+        headers: {
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+          "Referer": "https://www.mgtv.com/"
+        }
+      });
+      if (!response || !response.data) {
+        log("info", "[Mango] \u672A\u627E\u5230\u7535\u5F71\u4FE1\u606F");
+        return null;
+      }
+      const data = typeof response.data === "string" ? JSON.parse(response.data) : response.data;
+      if (!data.data || !data.data.list || data.data.list.length === 0) {
+        log("info", "[Mango] \u7535\u5F71\u5217\u8868\u4E3A\u7A7A");
+        return null;
+      }
+      let mainFeature = data.data.list.find((ep) => ep.isIntact === "1");
+      if (!mainFeature) {
+        mainFeature = data.data.list.find((ep) => ep.isnew !== "2");
+      }
+      if (!mainFeature) {
+        mainFeature = data.data.list[0];
+      }
+      log("info", `[Mango] \u627E\u5230\u7535\u5F71\u6B63\u7247: ${mainFeature.t3 || mainFeature.t1 || "\u6B63\u7247"}`);
+      return mainFeature;
+    } catch (error) {
+      log("error", "[Mango] \u83B7\u53D6\u7535\u5F71\u6B63\u7247\u51FA\u9519:", error.message);
+      return null;
+    }
+  }
+  /**
+   * 处理综艺分集，智能过滤和排序
+   * @param {Array} rawEpisodes - 原始分集数据
+   * @returns {Array} 处理后的分集列表
+   */
+  _processVarietyEpisodes(rawEpisodes) {
+    if (!rawEpisodes || rawEpisodes.length === 0) {
+      return [];
+    }
+    log("debug", `[Mango] \u7EFC\u827A\u5904\u7406\u5F00\u59CB\uFF0C\u539F\u59CB\u5206\u96C6\u6570: ${rawEpisodes.length}`);
+    const hasQiFormat = rawEpisodes.some((ep) => {
+      const fullTitle = `${ep.t2 || ""} ${ep.t1 || ""}`.trim();
+      return /第\d+期/.test(fullTitle);
+    });
+    log("debug", `[Mango] \u7EFC\u827A\u683C\u5F0F\u5206\u6790: \u6709\u671F\u6570\u683C\u5F0F=${hasQiFormat}`);
+    const episodeInfos = [];
+    const qiInfoMap = /* @__PURE__ */ new Map();
+    for (const ep of rawEpisodes) {
+      const fullTitle = `${ep.t2 || ""} ${ep.t1 || ""}`.trim();
+      if (hasQiFormat) {
+        const qiUpMidDownMatch = fullTitle.match(/第(\d+)期([上中下])/);
+        const qiPureMatch = fullTitle.match(/第(\d+)期/);
+        const hasUpMidDown = /第\d+期[上中下]/.test(fullTitle);
+        if (qiUpMidDownMatch) {
+          const qiNum = qiUpMidDownMatch[1];
+          const upMidDown = qiUpMidDownMatch[2];
+          const qiUpMidDownText = `\u7B2C${qiNum}\u671F${upMidDown}`;
+          const afterUpMidDown = fullTitle.substring(fullTitle.indexOf(qiUpMidDownText) + qiUpMidDownText.length);
+          const hasInvalidSuffix = /^(加更|会员版|纯享版|特别版|独家版|Plus|\+|花絮|预告|彩蛋|抢先|精选|未播|回顾|特辑|幕后)/.test(afterUpMidDown);
+          if (!hasInvalidSuffix) {
+            qiInfoMap.set(ep, [parseInt(qiNum), upMidDown]);
+            episodeInfos.push(ep);
+            log("debug", `[Mango] \u7EFC\u827A\u4FDD\u7559\u4E0A\u4E2D\u4E0B\u683C\u5F0F: ${fullTitle}`);
+          } else {
+            log("debug", `[Mango] \u7EFC\u827A\u8FC7\u6EE4\u4E0A\u4E2D\u4E0B\u683C\u5F0F+\u540E\u7F00: ${fullTitle}`);
+          }
+        } else if (qiPureMatch && !hasUpMidDown && !/会员版|纯享版|特别版|独家版|加更|Plus|\+|花絮|预告|彩蛋|抢先|精选|未播|回顾|特辑|幕后|访谈|采访|混剪|合集|盘点|总结|删减|未播放|NG|番外|片段|看点|精彩|制作|导演|演员|拍摄|片尾曲|插曲|主题曲|背景音乐|OST|音乐|歌曲/.test(fullTitle)) {
+          const qiNum = qiPureMatch[1];
+          qiInfoMap.set(ep, [parseInt(qiNum), ""]);
+          episodeInfos.push(ep);
+          log("debug", `[Mango] \u7EFC\u827A\u4FDD\u7559\u6807\u51C6\u671F\u6570: ${fullTitle}`);
+        } else {
+          log("debug", `[Mango] \u7EFC\u827A\u8FC7\u6EE4\u975E\u6807\u51C6\u671F\u6570\u683C\u5F0F: ${fullTitle}`);
+        }
+      } else {
+        if (fullTitle.includes("\u5E7F\u544A") || fullTitle.includes("\u63A8\u5E7F")) {
+          log("debug", `[Mango] \u8DF3\u8FC7\u5E7F\u544A\u5185\u5BB9: ${fullTitle}`);
+          continue;
+        }
+        episodeInfos.push(ep);
+        log("debug", `[Mango] \u7EFC\u827A\u4FDD\u7559\u539F\u59CB\u6807\u9898: ${fullTitle}`);
+      }
+    }
+    if (hasQiFormat) {
+      episodeInfos.sort((a, b) => {
+        const infoA = qiInfoMap.get(a) || [0, ""];
+        const infoB = qiInfoMap.get(b) || [0, ""];
+        if (infoA[0] !== infoB[0]) {
+          return infoA[0] - infoB[0];
+        }
+        const orderMap = { "": 0, "\u4E0A": 1, "\u4E2D": 2, "\u4E0B": 3 };
+        return (orderMap[infoA[1]] || 0) - (orderMap[infoB[1]] || 0);
+      });
+    } else {
+      episodeInfos.sort((a, b) => {
+        const getEpisodeNumber = (ep) => {
+          const fullTitle = `${ep.t2 || ""} ${ep.t1 || ""}`.trim();
+          const match = fullTitle.match(/第(\d+)集/);
+          return match ? parseInt(match[1]) : 999999;
+        };
+        const numA = getEpisodeNumber(a);
+        const numB = getEpisodeNumber(b);
+        if (numA === 999999 && numB === 999999) {
+          const timeA = a.ts || "0";
+          const timeB = b.ts || "0";
+          return timeA.localeCompare(timeB);
+        }
+        return numA - numB;
+      });
+    }
+    log("debug", `[Mango] \u7EFC\u827A\u5904\u7406\u5B8C\u6210\uFF0C\u8FC7\u6EE4\u540E\u5206\u96C6\u6570: ${episodeInfos.length}`);
+    return episodeInfos;
+  }
+  async handleAnimes(sourceAnimes, queryTitle, curAnimes) {
+    const tmpAnimes = [];
+    if (!sourceAnimes || !Array.isArray(sourceAnimes)) {
+      log("error", "[Mango] sourceAnimes is not a valid array");
+      return [];
+    }
+    const processMangoAnimes = await Promise.all(
+      sourceAnimes.filter((s) => titleMatches(s.title, queryTitle)).map(async (anime) => {
+        try {
+          if (anime.type === "\u7535\u5F71") {
+            const movieEpisode = await this._getMovieEpisode(anime.mediaId);
+            if (!movieEpisode) {
+              return;
+            }
+            const fullUrl = `https://www.mgtv.com/b/${anime.mediaId}/${movieEpisode.video_id}.html`;
+            const episodeTitle = movieEpisode.t3 || movieEpisode.t1 || "\u6B63\u7247";
+            const links2 = [{
+              "name": "1",
+              "url": fullUrl,
+              "title": `\u3010imgo\u3011 ${episodeTitle}`
+            }];
+            const numericAnimeId = convertToAsciiSum(anime.mediaId);
+            let transformedAnime = {
+              animeId: numericAnimeId,
+              bangumiId: anime.mediaId,
+              animeTitle: `${anime.title}(${anime.year || "N/A"})\u3010${anime.type}\u3011from imgo`,
+              type: anime.type,
+              typeDescription: anime.type,
+              imageUrl: anime.imageUrl,
+              startDate: generateValidStartDate(anime.year),
+              episodeCount: 1,
+              rating: 0,
+              isFavorited: true,
+              source: "imgo"
+            };
+            tmpAnimes.push(transformedAnime);
+            addAnime({ ...transformedAnime, links: links2 });
+            if (globals.animes.length > globals.MAX_ANIMES) removeEarliestAnime();
+            return;
+          }
+          const eps = await this.getEpisodes(anime.mediaId);
+          let links = [];
+          for (let i = 0; i < eps.length; i++) {
+            const ep = eps[i];
+            const fullUrl = `https://www.mgtv.com/b/${anime.mediaId}/${ep.video_id}.html`;
+            const episodeTitle = `${ep.t2 || ""} ${ep.t1 || ""}`.trim();
+            links.push({
+              "name": String(i + 1),
+              "url": fullUrl,
+              "title": `\u3010imgo\u3011 ${episodeTitle}`
+            });
+          }
+          if (links.length > 0) {
+            const numericAnimeId = convertToAsciiSum(anime.mediaId);
+            let transformedAnime = {
+              animeId: numericAnimeId,
+              bangumiId: anime.mediaId,
+              animeTitle: `${anime.title}(${anime.year || "N/A"})\u3010${anime.type}\u3011from imgo`,
+              type: anime.type,
+              typeDescription: anime.type,
+              imageUrl: anime.imageUrl,
+              startDate: generateValidStartDate(anime.year),
+              episodeCount: links.length,
+              rating: 0,
+              isFavorited: true,
+              source: "imgo"
+            };
+            tmpAnimes.push(transformedAnime);
+            addAnime({ ...transformedAnime, links });
+            if (globals.animes.length > globals.MAX_ANIMES) removeEarliestAnime();
+          }
+        } catch (error) {
+          log("error", `[Mango] Error processing anime: ${error.message}`);
+        }
+      })
+    );
+    this.sortAndPushAnimesByYear(tmpAnimes, curAnimes);
+    return processMangoAnimes;
+  }
+  async getEpisodeDanmu(id) {
+    log("info", "\u5F00\u59CB\u4ECE\u672C\u5730\u8BF7\u6C42\u8292\u679CTV\u5F39\u5E55...", id);
+    const segmentResult = await this.getEpisodeDanmuSegments(id);
+    if (!segmentResult || !segmentResult.segmentList || segmentResult.segmentList.length === 0) {
+      return [];
+    }
+    const segmentList = segmentResult.segmentList;
+    log("info", `\u5F39\u5E55\u5206\u6BB5\u6570\u91CF: ${segmentList.length}`);
+    const promises = [];
+    for (const segment of segmentList) {
+      promises.push(
+        httpGet(segment.url, {
+          headers: {
+            "Content-Type": "application/json",
+            "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
+          },
+          retries: 1
+        })
+      );
+    }
+    let contents = [];
+    try {
+      const results = await Promise.allSettled(promises);
+      const datas = results.filter((result) => result.status === "fulfilled").map((result) => {
+        if (result.value && result.value.data) {
+          return result.value.data;
+        }
+        return null;
+      }).filter((data) => data !== null);
+      datas.forEach((data) => {
+        data = typeof data === "string" ? JSON.parse(data) : data;
+        if (data.data?.items) {
+          contents.push(...data.data.items);
+        }
+      });
+    } catch (error) {
+      log("error", "\u89E3\u6790\u5F39\u5E55\u6570\u636E\u5931\u8D25:", error);
+      return [];
+    }
+    printFirst200Chars(contents);
+    return contents;
+  }
+  async getEpisodeDanmuSegments(id) {
+    log("info", "\u83B7\u53D6\u8292\u679CTV\u5F39\u5E55\u5206\u6BB5\u5217\u8868...", id);
+    const api_video_info = "https://pcweb.api.mgtv.com/video/info";
+    const api_ctl_barrage = "https://galaxy.bz.mgtv.com/getctlbarrage";
+    const regex = /^(https?:\/\/[^\/]+)(\/[^?#]*)/;
+    const match = id.match(regex);
+    let path2;
+    if (match) {
+      path2 = match[2].split("/").filter(Boolean);
+    } else {
+      log("error", "Invalid URL");
+      return new SegmentListResponse({
+        "type": "imgo",
+        "segmentList": []
+      });
+    }
+    const cid = path2[path2.length - 2];
+    const vid = path2[path2.length - 1].split(".")[0];
+    log("info", `\u83B7\u53D6\u5F39\u5E55\u5206\u6BB5\u5217\u8868 - cid: ${cid}, vid: ${vid}`);
+    let res;
+    try {
+      const videoInfoUrl = `${api_video_info}?cid=${cid}&vid=${vid}`;
+      res = await Widget.http.get(videoInfoUrl, {
+        headers: {
+          "Content-Type": "application/json",
+          "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
+        }
+      });
+    } catch (error) {
+      if (error.response?.status === 404) {
+        return new SegmentListResponse({
+          "type": "imgo",
+          "segmentList": []
+        });
+      }
+      log("error", "\u8BF7\u6C42\u89C6\u9891\u4FE1\u606F\u5931\u8D25:", error);
+      return new SegmentListResponse({
+        "type": "imgo",
+        "segmentList": []
+      });
+    }
+    const data = typeof res.data === "string" ? JSON.parse(res.data) : res.data;
+    const time = data.data.info.time;
+    try {
+      const ctlBarrageUrl = `${api_ctl_barrage}?version=8.1.39&abroad=0&uuid=&os=10.15.7&platform=0&mac=&vid=${vid}&pid=&cid=${cid}&ticket=`;
+      const res2 = await Widget.http.get(ctlBarrageUrl, {
+        headers: {
+          "Content-Type": "application/json",
+          "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
+        }
+      });
+      const ctlBarrage = typeof res2.data === "string" ? JSON.parse(res2.data) : res2.data;
+      if (!ctlBarrage.data || !ctlBarrage.data.cdn_list || !ctlBarrage.data.cdn_version) {
+        log("warn", `\u65B0API\u7F3A\u5C11\u5FC5\u8981\u5B57\u6BB5\uFF0C\u8FD4\u56DE\u7A7A\u5206\u6BB5\u5217\u8868`);
+        return new SegmentListResponse({
+          "type": "imgo",
+          "segmentList": []
+        });
+      }
+      const segmentList = [];
+      const totalSegments = Math.ceil(time_to_second(time) / 60);
+      const cdnList = ctlBarrage.data.cdn_list.split(",")[0];
+      const cdnVersion = ctlBarrage.data.cdn_version;
+      for (let i = 0; i < totalSegments; i++) {
+        segmentList.push({
+          "type": "imgo",
+          "segment_start": i * 60,
+          // 每段开始时间（秒）
+          "segment_end": Math.min((i + 1) * 60, time_to_second(time)),
+          // 每段结束时间（秒）
+          "url": `https://${cdnList}/${cdnVersion}/${i}.json`
+          // 每段弹幕URL
+        });
+      }
+      return new SegmentListResponse({
+        "type": "imgo",
+        "segmentList": segmentList
+      });
+    } catch (error) {
+      log("error", "\u8BF7\u6C42\u5F39\u5E55\u5206\u6BB5\u6570\u636E\u5931\u8D25:", error);
+      return new SegmentListResponse({
+        "type": "imgo",
+        "segmentList": []
+      });
+    }
+  }
+  async getEpisodeSegmentDanmu(segment) {
+    try {
+      const response = await Widget.http.get(segment.url, {
+        headers: {
+          "Content-Type": "application/json",
+          "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
+        },
+        retries: 1
+      });
+      let contents = [];
+      if (response && response.data) {
+        const parsedData = typeof response.data === "string" ? JSON.parse(response.data) : response.data;
+        if (parsedData.data?.items) {
+          contents.push(...parsedData.data.items);
+        }
+      }
+      return contents;
+    } catch (error) {
+      log("error", "\u8BF7\u6C42\u5206\u7247\u5F39\u5E55\u5931\u8D25:", error);
+      return [];
+    }
+  }
+  formatComments(comments) {
+    return comments.map((item) => {
       const content = {
-        timepoint: 0,	// 弹幕发送时间（秒）
-        ct: 1,	// 弹幕类型，1-3 为滚动弹幕、4 为底部、5 为顶端、6 为逆向、7 为精确、8 为高级
-        size: 25,	//字体大小，25 为中，18 为小
-        color: 16777215,	//弹幕颜色，RGB 颜色转为十进制后的值，16777215 为白色
-        unixtime: Math.floor(Date.now() / 1000),	//Unix 时间戳格式
-        uid: 0,		//发送人的 id
-        content: "",
+        timepoint: 0,
+        // 弹幕发送时间（秒）
+        ct: 1,
+        // 弹幕类型，1-3 为滚动弹幕、4 为底部、5 为顶端、6 为逆向、7 为精确、8 为高级
+        size: 25,
+        //字体大小，25 为中，18 为小
+        color: 16777215,
+        //弹幕颜色，RGB 颜色转为十进制后的值，16777215 为白色
+        unixtime: Math.floor(Date.now() / 1e3),
+        //Unix 时间戳格式
+        uid: 0,
+        //发送人的 id
+        content: ""
       };
       if (item?.v2_color) {
-        content.color = transformV2Color(item?.v2_color);
+        content.color = this.transformV2Color(item?.v2_color);
       }
       if (item?.v2_position) {
         if (item?.v2_position === 1) {
@@ -1743,1968 +7005,1278 @@ async function fetchMangoDanmaku(segment) {
           content.ct = 4;
         }
       }
-      content.timepoint = item.time / 1000;
+      content.timepoint = item.time / 1e3;
       content.content = item.content;
       content.uid = item.uid;
-      contents.push(content);
-    }
-  } catch (error) {
-      log("error", "解析弹幕数据失败:", error);
+      return content;
+    });
   }
+};
 
-  printFirst200Chars(contents);
-
-  // 返回结果
-  return convertToDanmakuJson(contents, "mango");
-}
-
-// =====================
-// 获取bilibili弹幕
-// =====================
-
-async function fetchBilibili(inputUrl, segmentTime, tmdbId, season, episode, other_server, vod_servers, bilibili_cookie, source_order, blocked_words, group_minute) {
-  log("info", "开始从本地请求B站弹幕...", inputUrl);
-
-  // 弹幕和视频信息 API 基础地址
-  const api_video_info = "https://api.bilibili.com/x/web-interface/view";
-  const api_epid_cid = "https://api.bilibili.com/pgc/view/web/season";
-
-  // 解析 URL 获取必要参数
-  // 手动解析 URL（没有 URL 对象的情况下）
-  const regex = /^(https?:\/\/[^\/]+)(\/[^?#]*)/;
-  const match = inputUrl.match(regex);
-
-  let path;
-  if (match) {
-    path = match[2].split('/').filter(Boolean);  // 分割路径并去掉空字符串
-    path.unshift("");
-    log("info", path);
-  } else {
-    log("error", 'Invalid URL');
-    return [];
-  }
-
-  let title, danmakuUrl, cid, aid, duration;
-
-  // 普通投稿视频
-  if (inputUrl.includes("video/")) {
+// danmu_api/sources/bilibili.js
+var _BilibiliSource = class _BilibiliSource extends BaseSource {
+  // 解析 b23.tv 短链接
+  async resolveB23Link(shortUrl) {
     try {
-      // 获取查询字符串部分（从 `?` 开始的部分）
-      const queryString = inputUrl.split('?')[1];
-
-      // 如果查询字符串存在，则查找参数 p
-      let p = 1; // 默认值为 1
-      if (queryString) {
-          const params = queryString.split('&'); // 按 `&` 分割多个参数
-          for (let param of params) {
-            const [key, value] = param.split('='); // 分割每个参数的键值对
-            if (key === 'p') {
-              p = value || 1; // 如果找到 p，使用它的值，否则使用默认值
+      log("info", `\u6B63\u5728\u89E3\u6790 b23.tv \u77ED\u94FE\u63A5: ${shortUrl}`);
+      const timeout = parseInt(globals.vodRequestTimeout);
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), timeout);
+      const response = await Widget.http.get(shortUrl, {
+        headers: {
+          "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
+        },
+        signal: controller.signal,
+        redirect: "follow"
+      });
+      clearTimeout(timeoutId);
+      const finalUrl = response.url;
+      if (finalUrl && finalUrl !== shortUrl) {
+        log("info", `b23.tv \u77ED\u94FE\u63A5\u5DF2\u89E3\u6790\u4E3A: ${finalUrl}`);
+        return finalUrl;
+      }
+      log("error", "\u65E0\u6CD5\u89E3\u6790 b23.tv \u77ED\u94FE\u63A5");
+      return shortUrl;
+    } catch (error) {
+      log("error", "\u89E3\u6790 b23.tv \u77ED\u94FE\u63A5\u5931\u8D25:", error);
+      return shortUrl;
+    }
+  }
+  /**
+   * 获取 WBI mixin key（带缓存）
+   */
+  async _getWbiMixinKey() {
+    const now = Math.floor(Date.now() / 1e3);
+    const cache = _BilibiliSource.WBI_MIXIN_KEY_CACHE;
+    if (cache.key && now - cache.timestamp < _BilibiliSource.WBI_MIXIN_KEY_CACHE_TTL) {
+      return cache.key;
+    }
+    log("info", "[Bilibili] WBI mixin key \u5DF2\u8FC7\u671F\u6216\u4E0D\u5B58\u5728\uFF0C\u6B63\u5728\u83B7\u53D6\u65B0\u7684...");
+    try {
+      const navResp = await Widget.http.get("https://api.bilibili.com/x/web-interface/nav", {
+        headers: {
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+          "Referer": "https://www.bilibili.com/",
+          "Cookie": globals.bilibliCookie || ""
+        }
+      });
+      const data = typeof navResp.data === "string" ? JSON.parse(navResp.data) : navResp.data;
+      if (data.code !== 0) {
+        log("error", "[Bilibili] \u83B7\u53D6 WBI \u5BC6\u94A5\u5931\u8D25:", data.message);
+        return "dba4a5925b345b4598b7452c75070bca";
+      }
+      const wbiImg = data.data?.wbi_img || {};
+      const imgUrl = wbiImg.img_url || "";
+      const subUrl = wbiImg.sub_url || "";
+      const imgKey = imgUrl.split("/").pop()?.split(".")[0] || "";
+      const subKey = subUrl.split("/").pop()?.split(".")[0] || "";
+      const mixinKey = _BilibiliSource.WBI_MIXIN_KEY_TABLE.map((i) => (imgKey + subKey)[i]).join("").substring(0, 32);
+      cache.key = mixinKey;
+      cache.timestamp = now;
+      log("info", "[Bilibili] \u6210\u529F\u83B7\u53D6\u65B0\u7684 WBI mixin key");
+      return mixinKey;
+    } catch (error) {
+      log("error", "[Bilibili] \u83B7\u53D6 WBI \u5BC6\u94A5\u5931\u8D25:", error.message);
+      return "dba4a5925b345b4598b7452c75070bca";
+    }
+  }
+  /**
+   * 对参数进行 WBI 签名
+   */
+  _getWbiSignedParams(params, mixinKey) {
+    const signedParams = { ...params };
+    signedParams.wts = Math.floor(Date.now() / 1e3);
+    const sortedKeys = Object.keys(signedParams).sort();
+    const queryParts = sortedKeys.map((key) => {
+      const value = signedParams[key] ?? "";
+      return `${encodeURIComponent(key)}=${encodeURIComponent(value)}`;
+    });
+    const query = queryParts.join("&");
+    const signedQuery = query + mixinKey;
+    const wRid = md5(signedQuery);
+    signedParams.w_rid = wRid;
+    return signedParams;
+  }
+  /**
+   * 按类型搜索
+   */
+  async _searchByType(keyword, searchType, mixinKey) {
+    try {
+      log("info", `[Bilibili] \u641C\u7D22\u7C7B\u578B '${searchType}'\uFF0C\u5173\u952E\u8BCD '${keyword}'`);
+      const searchParams = { keyword, search_type: searchType };
+      const signedParams = this._getWbiSignedParams(searchParams, mixinKey);
+      const queryString = Object.keys(signedParams).map((key) => `${encodeURIComponent(key)}=${encodeURIComponent(signedParams[key])}`).join("&");
+      const url = `https://api.bilibili.com/x/web-interface/wbi/search/type?${queryString}`;
+      const response = await Widget.http.get(url, {
+        headers: {
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+          "Referer": "https://www.bilibili.com/",
+          "Cookie": globals.bilibliCookie || ""
+        }
+      });
+      const data = typeof response.data === "string" ? JSON.parse(response.data) : response.data;
+      if (data.code !== 0 || !data.data?.result) {
+        log("info", `[Bilibili] \u7C7B\u578B '${searchType}' \u65E0\u7ED3\u679C (Code: ${data.code})`);
+        return [];
+      }
+      const results = [];
+      for (const item of data.data.result) {
+        const mediaId = item.season_id ? `ss${item.season_id}` : item.bvid ? `bv${item.bvid}` : "";
+        if (!mediaId) continue;
+        const mediaType = this._extractMediaType(item.season_type_name);
+        const episodeCount = mediaType === "\u7535\u5F71" ? 1 : item.ep_size || 0;
+        let year = null;
+        try {
+          if (item.pubdate) {
+            if (typeof item.pubdate === "number") {
+              year = new Date(item.pubdate * 1e3).getFullYear();
+            } else if (typeof item.pubdate === "string" && item.pubdate.length >= 4) {
+              year = parseInt(item.pubdate.substring(0, 4));
             }
+          } else if (item.pubtime) {
+            year = new Date(item.pubtime * 1e3).getFullYear();
           }
-      }
-      log("info", "p: ", p);
-
-      let videoInfoUrl;
-      if (inputUrl.includes("BV")) {
-        videoInfoUrl = `${api_video_info}?bvid=${path[2]}`;
-      } else {
-        aid = path[2].substring(2)
-        videoInfoUrl = `${api_video_info}?aid=${path[2].substring(2)}`;
-      }
-
-      const res = await Widget.http.get(videoInfoUrl, {
-        headers: {
-          "Content-Type": "application/json",
-          "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
-        },
-      });
-
-      const data = typeof res.data === "string" ? JSON.parse(res.data) : res.data;
-      if (data.code !== 0) {
-        log("error", "获取普通投稿视频信息失败:", data.message);
-        return [];
-      }
-
-      duration = data.data.duration;
-      cid = data.data.pages[p - 1].cid;
-      danmakuUrl = `https://comment.bilibili.com/${cid}.xml`;
-    } catch (error) {
-      log("error", "请求普通投稿视频信息失败:", error);
-      return [];
-    }
-
-  // 番剧
-  } else if (inputUrl.includes("bangumi/") && inputUrl.includes("ep")) {
-    try {
-      const epid = path.slice(-1)[0].slice(2);
-      const epInfoUrl = `${api_epid_cid}?ep_id=${epid}`;
-
-      const res = await Widget.http.get(epInfoUrl, {
-        headers: {
-          "Content-Type": "application/json",
-          "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
-        },
-      });
-
-      const data = typeof res.data === "string" ? JSON.parse(res.data) : res.data;
-      if (data.code !== 0) {
-        log("error", "获取番剧视频信息失败:", data.message);
-        return [];
-      }
-
-      for (const episode of data.result.episodes) {
-        if (episode.id == epid) {
-          title = episode.share_copy;
-          cid = episode.cid;
-          duration = episode.duration / 1000;
-          danmakuUrl = `https://comment.bilibili.com/${cid}.xml`;
-          break;
+        } catch (e) {
         }
-      }
-
-      if (!danmakuUrl) {
-        log("error", "未找到匹配的番剧集信息");
-        return [];
-      }
-
-    } catch (error) {
-      log("error", "请求番剧视频信息失败:", error);
-      return [];
-    }
-
-  } else {
-    log("error", "不支持的B站视频网址，仅支持普通视频(av,bv)、剧集视频(ep)");
-    return [];
-  }
-  log("info", danmakuUrl, cid, aid, duration);
-
-  let segmentList = [];
-  const maxLen = Math.floor(duration / 360) + 1;
-  log("info", "maxLen: ", maxLen);
-  for (let i = 0; i < maxLen; i += 1) {
-    let danmakuUrl;
-    if (aid) {
-      danmakuUrl = `https://api.bilibili.com/x/v2/dm/web/seg.so?type=1&oid=${cid}&pid=${aid}&segment_index=${i+1}`;
-    } else {
-      danmakuUrl = `https://api.bilibili.com/x/v2/dm/web/seg.so?type=1&oid=${cid}&segment_index=${i+1}`;
-    }
-
-    segmentList.push({
-      "segment_start": i * 360 * 1000,
-      "segment_end": (i + 1) * 360 * 1000,
-      "url": danmakuUrl
-    });
-  }
-
-  const domain = ".bilibili.com";
-  const mediaInfo = {
-      segmentList,
-      domain,
-  };
-  const storeKey = season && episode ? `${tmdbId}.${season}.${episode}` : `${tmdbId}`;
-  Widget.storage.set(storeKey, mediaInfo);
-
-  return await getDanmuWithSegmentTime({ segmentTime, tmdbId, season, episode, other_server, vod_servers, bilibili_cookie, source_order, blocked_words, group_minute });
-}
-
-async function fetchBilibiliDanmaku(segment) {
-  log("info", "开始从本地请求B站弹幕...", segment);
-
-  // 解析弹幕数据
-  let res = await Widget.http.get(segment.url, {
-    headers: {
-      "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
-      "Cookie": bilibliCookie
-    },
-    base64Data: true,
-  })
-  const comments = parseDanmakuBase64(res.data);
-
-  return convertToDanmakuJson(comments, "bilibili");
-}
-
-// =====================
-// 获取优酷弹幕
-// =====================
-
-function convertYoukuUrl(url) {
-  // 使用正则表达式提取 vid 参数
-  const vidMatch = url.match(/vid=([^&]+)/);
-  if (!vidMatch || !vidMatch[1]) {
-    return null; // 如果没有找到 vid 参数，返回 null
-  }
-
-  const vid = vidMatch[1];
-  // 构造新的 URL
-  return `https://v.youku.com/v_show/id_${vid}.html`;
-}
-
-async function fetchYouku(inputUrl, segmentTime, tmdbId, season, episode, other_server, vod_servers, bilibili_cookie, source_order, blocked_words, group_minute) {
-  log("info", "开始从本地请求优酷弹幕...", inputUrl);
-
-  if (!inputUrl) {
-    return [];
-  }
-
-  // 弹幕和视频信息 API 基础地址
-  const api_video_info = "https://openapi.youku.com/v2/videos/show.json";
-  const api_danmaku = "https://acs.youku.com/h5/mopen.youku.danmu.list/1.0/";
-
-  // 手动解析 URL（没有 URL 对象的情况下）
-  const regex = /^(https?:\/\/[^\/]+)(\/[^?#]*)/;
-  const match = inputUrl.match(regex);
-
-  let path;
-  if (match) {
-    path = match[2].split('/').filter(Boolean);  // 分割路径并去掉空字符串
-    path.unshift("");
-    log("info", path);
-  } else {
-    log("error", 'Invalid URL');
-    return [];
-  }
-  const video_id = path[path.length - 1].split(".")[0].slice(3);
-
-  log("info", "video_id:", video_id);
-
-  // 获取页面标题和视频时长
-  let res;
-  try {
-    const videoInfoUrl = `${api_video_info}?client_id=53e6cc67237fc59a&video_id=${video_id}&package=com.huawei.hwvplayer.youku&ext=show`;
-    res = await Widget.http.get(videoInfoUrl, {
-      headers: {
-        "Content-Type": "application/json",
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/79.0.3945.88 Safari/537.36",
-      },
-      allow_redirects: false
-    });
-  } catch (error) {
-    log("error", "请求视频信息失败:", error);
-    return [];
-  }
-
-  const data = typeof res.data === "string" ? JSON.parse(res.data) : res.data;
-  const title = data.title;
-  const duration = data.duration;
-  log("info", "标题:", title, "时长:", duration);
-
-  // 获取 cna 和 tk_enc
-  let cna, _m_h5_tk_enc, _m_h5_tk;
-  try {
-    const cnaUrl = "https://log.mmstat.com/eg.js";
-    const tkEncUrl = "https://acs.youku.com/h5/mtop.com.youku.aplatform.weakget/1.0/?jsv=2.5.1&appKey=24679788";
-    const cnaRes = await Widget.http.get(cnaUrl, {
-      headers: {
-        "Content-Type": "application/json",
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/79.0.3945.88 Safari/537.36",
-      },
-      allow_redirects: false
-    });
-    log("info", "cnaRes: ", cnaRes);
-    log("info", "cnaRes.headers: ", cnaRes.headers);
-    const etag = cnaRes.headers["etag"] || cnaRes.headers["Etag"];
-    log("info", "etag: ", etag);
-    // const match = cnaRes.headers["set-cookie"].match(/cna=([^;]+)/);
-    // cna = match ? match[1] : null;
-    cna = etag.replace(/^"|"$/g, '');
-    log("info", "cna: ", cna);
-
-    let tkEncRes;
-    while (!tkEncRes) {
-      tkEncRes = await Widget.http.get(tkEncUrl, {
-        headers: {
-          "Content-Type": "application/json",
-          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/79.0.3945.88 Safari/537.36",
-        },
-        allow_redirects: false
-      });
-    }
-    log("info", "tkEncRes: ", tkEncRes);
-    log("info", "tkEncRes.headers: ", tkEncRes.headers);
-    const tkEncSetCookie = tkEncRes.headers["set-cookie"] || tkEncRes.headers["Set-Cookie"];
-    log("info", "tkEncSetCookie: ", tkEncSetCookie);
-
-    // 获取 _m_h5_tk_enc
-    const tkEncMatch = tkEncSetCookie.match(/_m_h5_tk_enc=([^;]+)/);
-    _m_h5_tk_enc = tkEncMatch ? tkEncMatch[1] : null;
-
-    // 获取 _m_h5_tkh
-    const tkH5Match = tkEncSetCookie.match(/_m_h5_tk=([^;]+)/);
-    _m_h5_tk = tkH5Match ? tkH5Match[1] : null;
-
-    log("info", "_m_h5_tk_enc:", _m_h5_tk_enc);
-    log("info", "_m_h5_tk:", _m_h5_tk);
-  } catch (error) {
-    log("error", "获取 cna 或 tk_enc 失败:", error);
-    return [];
-  }
-
-  // 计算弹幕分段请求
-  const step = 60; // 每60秒一个分段
-  const max_mat = Math.floor(duration / step) + 1;
-
-  let segmentList = [];
-  for (let mat = 0; mat < max_mat; mat++) {
-    const msg = {
-      ctime: Date.now(),
-      ctype: 10004,
-      cver: "v1.0",
-      guid: cna,
-      mat: mat,
-      mcount: 1,
-      pid: 0,
-      sver: "3.1.0",
-      type: 1,
-      vid: video_id,
-    };
-
-    const str = JSON.stringify(msg);
-
-    function base64Encode(input) {
-      const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
-      let output = '';
-      let buffer = 0;
-      let bufferLength = 0;
-      for (let i = 0; i < input.length; i++) {
-        buffer = (buffer << 8) | input.charCodeAt(i);
-        bufferLength += 8;
-        while (bufferLength >= 6) {
-          output += chars[(buffer >> (bufferLength - 6)) & 0x3F];
-          bufferLength -= 6;
-        }
-      }
-      if (bufferLength > 0) {
-        output += chars[(buffer << (6 - bufferLength)) & 0x3F];
-      }
-      while (output.length % 4 !== 0) {
-        output += '=';
-      }
-      return output;
-    }
-
-    function utf8ToLatin1(str) {
-      let result = '';
-      for (let i = 0; i < str.length; i++) {
-        const charCode = str.charCodeAt(i);
-        if (charCode > 255) {
-          result += encodeURIComponent(str[i]);
-        } else {
-          result += str[i];
-        }
-      }
-      return result;
-    }
-
-    // 3. 转为 Base64 编码
-    const msg_b64encode = base64Encode(utf8ToLatin1(str));
-
-    // 4. 将 Base64 编码存入 msg.msg
-    msg.msg = msg_b64encode;
-    msg.sign = md5(`${msg_b64encode}MkmC9SoIw6xCkSKHhJ7b5D2r51kBiREr`).toString().toLowerCase();
-
-    const data = JSON.stringify(msg);
-    const t = Date.now();
-    const params = {
-      jsv: "2.5.6",
-      appKey: "24679788",
-      t: t,
-      sign: md5([_m_h5_tk.slice(0, 32), t, "24679788", data].join("&")).toString().toLowerCase(),
-      api: "mopen.youku.danmu.list",
-      v: "1.0",
-      type: "originaljson",
-      dataType: "jsonp",
-      timeout: "20000",
-      jsonpIncPrefix: "utility",
-    };
-
-    let queryString = buildQueryString(params);
-    const url = `${api_danmaku}?${queryString}`;
-    log("info", "piece_url: ", url);
-
-    segmentList.push({
-      "segment_start": mat * 60 * 1000,
-      "segment_end": (mat + 1) * 60 * 1000,
-      "url": url,
-      "data": buildQueryString({ data: data }),
-      "_m_h5_tk": _m_h5_tk,
-      "_m_h5_tk_enc": _m_h5_tk_enc,
-    });
-  }
-
-  const domain = ".youku.com";
-  const mediaInfo = {
-      segmentList,
-      domain,
-  };
-  const storeKey = season && episode ? `${tmdbId}.${season}.${episode}` : `${tmdbId}`;
-  Widget.storage.set(storeKey, mediaInfo);
-
-  return await getDanmuWithSegmentTime({ segmentTime, tmdbId, season, episode, other_server, vod_servers, bilibili_cookie, source_order, blocked_words, group_minute });
-}
-
-async function fetchYoukuDanmaku(segment) {
-  log("info", "开始从本地请求优酷弹幕...", segment);
-
-  // 解析弹幕数据
-  let contents = [];
-  try {
-    const response = await Widget.http.post(segment.url, segment.data, {
-      headers: {
-          "Cookie": `_m_h5_tk=${segment._m_h5_tk};_m_h5_tk_enc=${segment._m_h5_tk_enc};`,
-          "Referer": "https://v.youku.com",
-          "Content-Type": "application/x-www-form-urlencoded",
-          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/79.0.3945.88 Safari/537.36",
-      },
-      allow_redirects: false
-    });
-
-    if (response.data.data && response.data.data.result) {
-      const result = JSON.parse(response.data.data.result);
-      if (result.code === "-1") return null;
-      const danmus = result.data.result;
-      for (const danmu of danmus) {
-        const content = {
-            timepoint: 0,	// 弹幕发送时间（秒）
-            ct: 1,	// 弹幕类型，1-3 为滚动弹幕、4 为底部、5 为顶端、6 为逆向、7 为精确、8 为高级
-            size: 25,	//字体大小，25 为中，18 为小
-            color: 16777215,	//弹幕颜色，RGB 颜色转为十进制后的值，16777215 为白色
-            unixtime: Math.floor(Date.now() / 1000),	//Unix 时间戳格式
-            uid: 0,		//发送人的 id
-            content: "",
-        };
-        content.timepoint = danmu.playat / 1000;
-        const prop = JSON.parse(danmu.propertis)
-        if (prop?.color) {
-          content.color = prop.color;
-        }
-        if (prop?.pos) {
-          const pos = prop.pos;
-          if (pos === 1) content.ct = 5;
-          else if (pos === 2) content.ct = 4;
-        }
-        content.content = danmu.content;
-        contents.push(content);
-      }
-    }
-  } catch (error) {
-      log("error", "解析弹幕数据失败:", error);
-  }
-
-  printFirst200Chars(contents);
-
-  // 返回结果
-  return convertToDanmakuJson(contents, "youku");
-}
-
-// =====================
-// 获取第三方弹幕服务器弹幕
-// =====================
-
-async function fetchOtherServer(inputUrl) {
-  try {
-    const response = await Widget.http.get(
-      `${otherServer}/?url=${inputUrl}&ac=dm`,
-      {
-        headers: {
-            "Content-Type": "application/json",
-            "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
-        },
-      }
-    );
-
-    log("info", `danmu response from ${otherServer}: ↓↓↓`);
-    printFirst200Chars(response.data);
-
-    return convertToDanmakuJson(response.data, "other_server");
-  } catch (error) {
-    log("error", `请求 ${otherServer} 失败:`, error);
-    return [];
-  }
-}
-
-// =====================
-// 人人视频 配置 & 工具
-// =====================
-// ---------------------
-// 通用工具
-// ---------------------
-function sortedQueryString(params = {}) {
-  const normalized = {};
-  for (const [k, v] of Object.entries(params)) {
-    if (typeof v === "boolean") normalized[k] = v ? "true" : "false";
-    else if (v == null) normalized[k] = "";
-    else normalized[k] = String(v);
-  }
-
-  // 获取对象的所有键并排序
-  const keys = [];
-  for (const key in normalized) {
-    if (Object.prototype.hasOwnProperty.call(normalized, key)) {
-      keys.push(key);
-    }
-  }
-  keys.sort();
-
-  // 构建键值对数组
-  const pairs = [];
-  for (const key of keys) {
-    // 对键和值进行 URL 编码
-    const encodedKey = encodeURIComponent(key);
-    const encodedValue = encodeURIComponent(normalized[key]);
-    pairs.push(`${encodedKey}=${encodedValue}`);
-  }
-
-  // 用 & 连接所有键值对
-  return pairs.join('&');
-}
-
-function updateQueryString(url, params) {
-  // 解析 URL
-  let baseUrl = url;
-  let queryString = '';
-  const hashIndex = url.indexOf('#');
-  let hash = '';
-  if (hashIndex !== -1) {
-    baseUrl = url.substring(0, hashIndex);
-    hash = url.substring(hashIndex);
-  }
-  const queryIndex = baseUrl.indexOf('?');
-  if (queryIndex !== -1) {
-    queryString = baseUrl.substring(queryIndex + 1);
-    baseUrl = baseUrl.substring(0, queryIndex);
-  }
-
-  // 解析现有查询字符串为对象
-  const queryParams = {};
-  if (queryString) {
-    const pairs = queryString.split('&');
-    for (const pair of pairs) {
-      if (pair) {
-        const [key, value = ''] = pair.split('=').map(decodeURIComponent);
-        queryParams[key] = value;
-      }
-    }
-  }
-
-  // 更新参数
-  for (const key in params) {
-    if (Object.prototype.hasOwnProperty.call(params, key)) {
-      queryParams[key] = params[key];
-    }
-  }
-
-  // 构建新的查询字符串
-  const newQuery = [];
-  for (const key in queryParams) {
-    if (Object.prototype.hasOwnProperty.call(queryParams, key)) {
-      newQuery.push(
-        `${encodeURIComponent(key)}=${encodeURIComponent(queryParams[key])}`
-      );
-    }
-  }
-
-  // 拼接最终 URL
-  return baseUrl + (newQuery.length ? '?' + newQuery.join('&') : '') + hash;
-}
-
-function getPathname(url) {
-  // 查找路径的起始位置（跳过协议和主机部分）
-  let pathnameStart = url.indexOf('//') + 2;
-  if (pathnameStart === 1) pathnameStart = 0; // 如果没有协议部分
-  const pathStart = url.indexOf('/', pathnameStart);
-  if (pathStart === -1) return '/'; // 如果没有路径，返回默认根路径
-  const queryStart = url.indexOf('?', pathStart);
-  const hashStart = url.indexOf('#', pathStart);
-  // 确定路径的结束位置（查询字符串或片段之前）
-  let pathEnd = queryStart !== -1 ? queryStart : (hashStart !== -1 ? hashStart : url.length);
-  const pathname = url.substring(pathStart, pathEnd);
-  return pathname || '/';
-}
-
-function generateSignature(method, aliId, ct, cv, timestamp, path, sortedQuery, secret) {
-  const signStr = `${method.toUpperCase()}\naliId:${aliId}\nct:${ct}\ncv:${cv}\nt:${timestamp}\n${path}?${sortedQuery}`;
-  return createHmacSha256(secret, signStr);
-}
-
-function buildSignedHeaders({ method, url, params = {}, deviceId, token }) {
-  const ClientProfile = {
-    client_type: "web_pc",
-    client_version: "1.0.0",
-    user_agent: "Mozilla/5.0",
-    origin: "https://rrsp.com.cn",
-    referer: "https://rrsp.com.cn/",
-  };
-  const pathname = getPathname(url);
-  const qs = sortedQueryString(params);
-  const nowMs = Date.now();
-  const SIGN_SECRET = "ES513W0B1CsdUrR13Qk5EgDAKPeeKZY";
-  const xCaSign = generateSignature(
-    method, deviceId, ClientProfile.client_type, ClientProfile.client_version,
-    nowMs, pathname, qs, SIGN_SECRET
-  );
-  return {
-    clientVersion: ClientProfile.client_version,
-    deviceId,
-    clientType: ClientProfile.client_type,
-    t: String(nowMs),
-    aliId: deviceId,
-    umid: deviceId,
-    token: token || "",
-    cv: ClientProfile.client_version,
-    ct: ClientProfile.client_type,
-    uet: "9",
-    "x-ca-sign": xCaSign,
-    Accept: "application/json",
-    "User-Agent": ClientProfile.user_agent,
-    Origin: ClientProfile.origin,
-    Referer: ClientProfile.referer,
-  };
-}
-
-// ====================== AES-128-ECB 完整实现 ======================
-
-// S盒
-const SBOX = [
-  0x63, 0x7c, 0x77, 0x7b, 0xf2, 0x6b, 0x6f, 0xc5, 0x30, 0x01, 0x67, 0x2b, 0xfe, 0xd7, 0xab, 0x76,
-  0xca, 0x82, 0xc9, 0x7d, 0xfa, 0x59, 0x47, 0xf0, 0xad, 0xd4, 0xa2, 0xaf, 0x9c, 0xa4, 0x72, 0xc0,
-  0xb7, 0xfd, 0x93, 0x26, 0x36, 0x3f, 0xf7, 0xcc, 0x34, 0xa5, 0xe5, 0xf1, 0x71, 0xd8, 0x31, 0x15,
-  0x04, 0xc7, 0x23, 0xc3, 0x18, 0x96, 0x05, 0x9a, 0x07, 0x12, 0x80, 0xe2, 0xeb, 0x27, 0xb2, 0x75,
-  0x09, 0x83, 0x2c, 0x1a, 0x1b, 0x6e, 0x5a, 0xa0, 0x52, 0x3b, 0xd6, 0xb3, 0x29, 0xe3, 0x2f, 0x84,
-  0x53, 0xd1, 0x00, 0xed, 0x20, 0xfc, 0xb1, 0x5b, 0x6a, 0xcb, 0xbe, 0x39, 0x4a, 0x4c, 0x58, 0xcf,
-  0xd0, 0xef, 0xaa, 0xfb, 0x43, 0x4d, 0x33, 0x85, 0x45, 0xf9, 0x02, 0x7f, 0x50, 0x3c, 0x9f, 0xa8,
-  0x51, 0xa3, 0x40, 0x8f, 0x92, 0x9d, 0x38, 0xf5, 0xbc, 0xb6, 0xda, 0x21, 0x10, 0xff, 0xf3, 0xd2,
-  0xcd, 0x0c, 0x13, 0xec, 0x5f, 0x97, 0x44, 0x17, 0xc4, 0xa7, 0x7e, 0x3d, 0x64, 0x5d, 0x19, 0x73,
-  0x60, 0x81, 0x4f, 0xdc, 0x22, 0x2a, 0x90, 0x88, 0x46, 0xee, 0xb8, 0x14, 0xde, 0x5e, 0x0b, 0xdb,
-  0xe0, 0x32, 0x3a, 0x0a, 0x49, 0x06, 0x24, 0x5c, 0xc2, 0xd3, 0xac, 0x62, 0x91, 0x95, 0xe4, 0x79,
-  0xe7, 0xc8, 0x37, 0x6d, 0x8d, 0xd5, 0x4e, 0xa9, 0x6c, 0x56, 0xf4, 0xea, 0x65, 0x7a, 0xae, 0x08,
-  0xba, 0x78, 0x25, 0x2e, 0x1c, 0xa6, 0xb4, 0xc6, 0xe8, 0xdd, 0x74, 0x1f, 0x4b, 0xbd, 0x8b, 0x8a,
-  0x70, 0x3e, 0xb5, 0x66, 0x48, 0x03, 0xf6, 0x0e, 0x61, 0x35, 0x57, 0xb9, 0x86, 0xc1, 0x1d, 0x9e,
-  0xe1, 0xf8, 0x98, 0x11, 0x69, 0xd9, 0x8e, 0x94, 0x9b, 0x1e, 0x87, 0xe9, 0xce, 0x55, 0x28, 0xdf,
-  0x8c, 0xa1, 0x89, 0x0d, 0xbf, 0xe6, 0x42, 0x68, 0x41, 0x99, 0x2d, 0x0f, 0xb0, 0x54, 0xbb, 0x16
-];
-
-// 轮常量
-const RCON = [
-  0x00,0x01,0x02,0x04,0x08,0x10,0x20,0x40,0x80,0x1b,0x36
-];
-
-// 字节异或
-function xor(a,b) {
-  const out = new Uint8Array(a.length);
-  for(let i=0;i<a.length;i++) out[i]=a[i]^b[i];
-  return out;
-}
-
-// 字循环左移
-function rotWord(word){
-  return Uint8Array.from([word[1],word[2],word[3],word[0]]);
-}
-
-// 字节代换
-function subWord(word){
-  return Uint8Array.from(word.map(b=>SBOX[b]));
-}
-
-// 扩展密钥 16 字节 -> 176 字节
-function keyExpansion(key) {
-  const Nk = 4, Nb=4, Nr=10;
-  const w = new Array(Nb*(Nr+1));
-  for(let i=0;i<Nk;i++){
-    w[i] = key.slice(4*i,4*i+4);
-  }
-  for(let i=Nk;i<Nb*(Nr+1);i++){
-    let temp = w[i-1];
-    if(i%Nk===0) temp = xor(subWord(rotWord(temp)), Uint8Array.from([RCON[i/Nk],0,0,0]));
-    w[i]=xor(w[i-Nk],temp);
-  }
-  return w;
-}
-
-// AES-128 解密单块 (16 字节)
-function aesDecryptBlock(input, w) {
-  const Nb=4, Nr=10;
-  let state = new Uint8Array(input);
-  state = addRoundKey(state, w.slice(Nr*Nb,(Nr+1)*Nb));
-  for(let round=Nr-1;round>=1;round--){
-    state = invShiftRows(state);
-    state = invSubBytes(state);
-    state = addRoundKey(state, w.slice(round*Nb,(round+1)*Nb));
-    state = invMixColumns(state);
-  }
-  state = invShiftRows(state);
-  state = invSubBytes(state);
-  state = addRoundKey(state, w.slice(0,Nb));
-  return state;
-}
-
-// AES 辅助函数
-function addRoundKey(state, w){
-  const out = new Uint8Array(16);
-  for(let c=0;c<4;c++)
-    for(let r=0;r<4;r++)
-      out[r+4*c]=state[r+4*c]^w[c][r];
-  return out;
-}
-
-function invSubBytes(state){
-  const INV_SBOX = new Array(256);
-  for(let i=0;i<256;i++) INV_SBOX[SBOX[i]]=i;
-  return Uint8Array.from(state.map(b=>INV_SBOX[b]));
-}
-
-function invShiftRows(state){
-  const out = new Uint8Array(16);
-  for(let r=0;r<4;r++)
-    for(let c=0;c<4;c++)
-      out[r+4*c]=state[r+4*((c-r+4)%4)];
-  return out;
-}
-
-function invMixColumns(state){
-  function mul(a,b){
-    let p=0;
-    for(let i=0;i<8;i++){
-      if(b&1) p^=a;
-      let hi=(a&0x80);
-      a=(a<<1)&0xFF;
-      if(hi) a^=0x1b;
-      b>>=1;
-    }
-    return p;
-  }
-  const out = new Uint8Array(16);
-  for(let c=0;c<4;c++){
-    const col = state.slice(4*c,4*c+4);
-    out[4*c+0]=mul(col[0],0x0e)^mul(col[1],0x0b)^mul(col[2],0x0d)^mul(col[3],0x09);
-    out[4*c+1]=mul(col[0],0x09)^mul(col[1],0x0e)^mul(col[2],0x0b)^mul(col[3],0x0d);
-    out[4*c+2]=mul(col[0],0x0d)^mul(col[1],0x09)^mul(col[2],0x0e)^mul(col[3],0x0b);
-    out[4*c+3]=mul(col[0],0x0b)^mul(col[1],0x0d)^mul(col[2],0x09)^mul(col[3],0x0e);
-  }
-  return out;
-}
-
-// ====================== ECB 模式解密 ======================
-function aesDecryptECB(cipherBytes, keyBytes){
-  const w = keyExpansion(keyBytes);
-  const blockSize = 16;
-  const result = new Uint8Array(cipherBytes.length);
-  for(let i=0;i<cipherBytes.length;i+=blockSize){
-    const block = cipherBytes.slice(i,i+blockSize);
-    const decrypted = aesDecryptBlock(block,w);
-    result.set(decrypted,i);
-  }
-  return result;
-}
-
-// ====================== PKCS#7 去填充 ======================
-function pkcs7Unpad(data){
-  const pad = data[data.length-1];
-  return data.slice(0,data.length-pad);
-}
-
-// ====================== Base64 解码 ======================
-function base64ToBytes(b64) {
-  // 先把 Base64 字符串转换成普通字符
-  const binaryString = (typeof atob === 'function')
-    ? atob(b64) // 浏览器环境
-    : BufferBase64Decode(b64); // Node / React Native 自定义
-
-  const len = binaryString.length;
-  const bytes = new Uint8Array(len);
-  for (let i = 0; i < len; i++) {
-    bytes[i] = binaryString.charCodeAt(i);
-  }
-  return bytes;
-}
-
-// 自定义 Base64 解码函数
-function BufferBase64Decode(b64) {
-  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=';
-  let str = '';
-  let buffer = 0, bits = 0;
-  for (let i = 0; i < b64.length; i++) {
-    const c = b64.charAt(i);
-    if (c === '=') break;
-    const val = chars.indexOf(c);
-    buffer = (buffer << 6) | val;
-    bits += 6;
-    if (bits >= 8) {
-      bits -= 8;
-      str += String.fromCharCode((buffer >> bits) & 0xFF);
-    }
-  }
-  return str;
-}
-
-// ====================== 主函数 ======================
-// Uint8Array UTF-8 解码成字符串，替代 TextDecoder
-function utf8BytesToString(bytes) {
-  let str = "";
-  let i = 0;
-  while (i < bytes.length) {
-    const b1 = bytes[i++];
-    if (b1 < 0x80) {
-      str += String.fromCharCode(b1);
-    } else if (b1 >= 0xc0 && b1 < 0xe0) {
-      const b2 = bytes[i++];
-      str += String.fromCharCode(((b1 & 0x1f) << 6) | (b2 & 0x3f));
-    } else if (b1 >= 0xe0 && b1 < 0xf0) {
-      const b2 = bytes[i++];
-      const b3 = bytes[i++];
-      str += String.fromCharCode(((b1 & 0x0f) << 12) | ((b2 & 0x3f) << 6) | (b3 & 0x3f));
-    } else if (b1 >= 0xf0) {
-      // surrogate pair
-      const b2 = bytes[i++];
-      const b3 = bytes[i++];
-      const b4 = bytes[i++];
-      const codepoint = ((b1 & 0x07) << 18) |
-                        ((b2 & 0x3f) << 12) |
-                        ((b3 & 0x3f) << 6) |
-                        (b4 & 0x3f);
-      const cp = codepoint - 0x10000;
-      str += String.fromCharCode(0xD800 + (cp >> 10), 0xDC00 + (cp & 0x3FF));
-    }
-  }
-  return str;
-}
-
-// 同时替换 TextEncoder
-function stringToUtf8Bytes(str) {
-  const bytes = [];
-  for (let i = 0; i < str.length; i++) {
-    let code = str.charCodeAt(i);
-    if (code < 0x80) {
-      bytes.push(code);
-    } else if (code < 0x800) {
-      bytes.push(0xc0 | (code >> 6));
-      bytes.push(0x80 | (code & 0x3f));
-    } else if (code < 0xd800 || code >= 0xe000) {
-      bytes.push(0xe0 | (code >> 12));
-      bytes.push(0x80 | ((code >> 6) & 0x3f));
-      bytes.push(0x80 | (code & 0x3f));
-    } else {
-      // surrogate pair
-      i++;
-      const code2 = str.charCodeAt(i);
-      const codePoint = 0x10000 + (((code & 0x3ff) << 10) | (code2 & 0x3ff));
-      bytes.push(0xf0 | (codePoint >> 18));
-      bytes.push(0x80 | ((codePoint >> 12) & 0x3f));
-      bytes.push(0x80 | ((codePoint >> 6) & 0x3f));
-      bytes.push(0x80 | (codePoint & 0x3f));
-    }
-  }
-  return new Uint8Array(bytes);
-}
-
-// 修改后的 aesDecryptBase64
-function aesDecryptBase64(cipherB64, keyStr) {
-  try {
-    const cipherBytes = base64ToBytes(cipherB64);
-    const keyBytes = stringToUtf8Bytes(keyStr);
-    const decryptedBytes = aesDecryptECB(cipherBytes, keyBytes);
-    const unpadded = pkcs7Unpad(decryptedBytes);
-    return utf8BytesToString(unpadded);
-  } catch (e) {
-    log("error", e);
-    return null;
-  }
-}
-
-function autoDecode(anything) {
-  const text = typeof anything === "string" ? anything.trim() : JSON.stringify(anything ?? "");
-  try {
-    return JSON.parse(text);
-  } catch {}
-
-  const AES_KEY = "3b744389882a4067"; // 直接传字符串
-  const dec = aesDecryptBase64(text, AES_KEY); // aesDecryptBase64 内会 TextEncoder.encode
-  if (dec != null) {
-    try {
-      return JSON.parse(dec);
-    } catch {
-      return dec;
-    }
-  }
-  return text;
-}
-
-function str2bytes(str) {
-    const bytes = [];
-    for (let i = 0; i < str.length; i++) {
-        let code = str.charCodeAt(i);
-        if (code < 0x80) {
-            bytes.push(code);
-        } else if (code < 0x800) {
-            bytes.push(0xc0 | (code >> 6));
-            bytes.push(0x80 | (code & 0x3f));
-        } else if (code < 0x10000) {
-            bytes.push(0xe0 | (code >> 12));
-            bytes.push(0x80 | ((code >> 6) & 0x3f));
-            bytes.push(0x80 | (code & 0x3f));
-        }
-    }
-    return bytes;
-}
-
-// ===================== Base64 编码 =====================
-function bytesToBase64(bytes) {
-    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
-    let result = '';
-    let i;
-    for (i = 0; i + 2 < bytes.length; i += 3) {
-        result += chars[bytes[i] >> 2];
-        result += chars[((bytes[i] & 3) << 4) | (bytes[i + 1] >> 4)];
-        result += chars[((bytes[i + 1] & 15) << 2) | (bytes[i + 2] >> 6)];
-        result += chars[bytes[i + 2] & 63];
-    }
-    if (i < bytes.length) {
-        result += chars[bytes[i] >> 2];
-        if (i + 1 < bytes.length) {
-            result += chars[((bytes[i] & 3) << 4) | (bytes[i + 1] >> 4)];
-            result += chars[(bytes[i + 1] & 15) << 2];
-            result += '=';
-        } else {
-            result += chars[(bytes[i] & 3) << 4];
-            result += '==';
-        }
-    }
-    return result;
-}
-
-// ===================== SHA256 算法 =====================
-// 纯 JS SHA256，返回字节数组
-function sha256(ascii) {
-    function rightRotate(n, x) { return (x >>> n) | (x << (32 - n)); }
-
-    let maxWord = Math.pow(2, 32);
-    let words = [], asciiBitLength = ascii.length * 8;
-
-    for (let i = 0; i < ascii.length; i++) {
-        words[i >> 2] |= ascii.charCodeAt(i) << ((3 - i) % 4 * 8);
-    }
-
-    words[ascii.length >> 2] |= 0x80 << ((3 - ascii.length % 4) * 8);
-    words[((ascii.length + 8) >> 6) * 16 + 15] = asciiBitLength;
-
-    let w = new Array(64), hash = [
-        0x6a09e667, 0xbb67ae85, 0x3c6ef372, 0xa54ff53a,
-        0x510e527f, 0x9b05688c, 0x1f83d9ab, 0x5be0cd19
-    ];
-
-    const k = [
-        0x428a2f98,0x71374491,0xb5c0fbcf,0xe9b5dba5,0x3956c25b,0x59f111f1,0x923f82a4,0xab1c5ed5,
-        0xd807aa98,0x12835b01,0x243185be,0x550c7dc3,0x72be5d74,0x80deb1fe,0x9bdc06a7,0xc19bf174,
-        0xe49b69c1,0xefbe4786,0x0fc19dc6,0x240ca1cc,0x2de92c6f,0x4a7484aa,0x5cb0a9dc,0x76f988da,
-        0x983e5152,0xa831c66d,0xb00327c8,0xbf597fc7,0xc6e00bf3,0xd5a79147,0x06ca6351,0x14292967,
-        0x27b70a85,0x2e1b2138,0x4d2c6dfc,0x53380d13,0x650a7354,0x766a0abb,0x81c2c92e,0x92722c85,
-        0xa2bfe8a1,0xa81a664b,0xc24b8b70,0xc76c51a3,0xd192e819,0xd6990624,0xf40e3585,0x106aa070,
-        0x19a4c116,0x1e376c08,0x2748774c,0x34b0bcb5,0x391c0cb3,0x4ed8aa4a,0x5b9cca4f,0x682e6ff3,
-        0x748f82ee,0x78a5636f,0x84c87814,0x8cc70208,0x90befffa,0xa4506ceb,0xbef9a3f7,0xc67178f2
-    ];
-
-    for (let j = 0; j < words.length; j += 16) {
-        let a = hash[0], b = hash[1], c = hash[2], d = hash[3],
-            e = hash[4], f = hash[5], g = hash[6], h = hash[7];
-
-        for (let i = 0; i < 64; i++) {
-            if (i < 16) w[i] = words[j + i] | 0;
-            else {
-                const s0 = rightRotate(7, w[i-15]) ^ rightRotate(18, w[i-15]) ^ (w[i-15]>>>3);
-                const s1 = rightRotate(17, w[i-2]) ^ rightRotate(19, w[i-2]) ^ (w[i-2]>>>10);
-                w[i] = (w[i-16] + s0 + w[i-7] + s1) | 0;
-            }
-            const S1 = rightRotate(6, e) ^ rightRotate(11, e) ^ rightRotate(25, e);
-            const ch = (e & f) ^ (~e & g);
-            const temp1 = (h + S1 + ch + k[i] + w[i]) | 0;
-            const S0 = rightRotate(2, a) ^ rightRotate(13, a) ^ rightRotate(22, a);
-            const maj = (a & b) ^ (a & c) ^ (b & c);
-            const temp2 = (S0 + maj) | 0;
-
-            h = g; g = f; f = e; e = (d + temp1) | 0;
-            d = c; c = b; b = a; a = (temp1 + temp2) | 0;
-        }
-
-        hash[0] = (hash[0] + a) | 0;
-        hash[1] = (hash[1] + b) | 0;
-        hash[2] = (hash[2] + c) | 0;
-        hash[3] = (hash[3] + d) | 0;
-        hash[4] = (hash[4] + e) | 0;
-        hash[5] = (hash[5] + f) | 0;
-        hash[6] = (hash[6] + g) | 0;
-        hash[7] = (hash[7] + h) | 0;
-    }
-
-    // 转为字节数组
-    const bytes = [];
-    for (let h of hash) {
-        bytes.push((h >> 24) & 0xFF);
-        bytes.push((h >> 16) & 0xFF);
-        bytes.push((h >> 8) & 0xFF);
-        bytes.push(h & 0xFF);
-    }
-    return bytes;
-}
-
-// ===================== HMAC-SHA256 =====================
-function createHmacSha256(key, message) {
-    const blockSize = 64; // 512 bit
-    let keyBytes = str2bytes(key);
-    if (keyBytes.length > blockSize) keyBytes = sha256(key);
-    if (keyBytes.length < blockSize) keyBytes = keyBytes.concat(Array(blockSize - keyBytes.length).fill(0));
-
-    const oKeyPad = keyBytes.map(b => b ^ 0x5c);
-    const iKeyPad = keyBytes.map(b => b ^ 0x36);
-
-    const innerHash = sha256(String.fromCharCode(...iKeyPad) + message);
-    const hmacBytes = sha256(String.fromCharCode(...oKeyPad) + String.fromCharCode(...innerHash));
-
-    return bytesToBase64(hmacBytes);
-}
-
-async function renrenHttpGet(url, { params = {}, headers = {} } = {}) {
-  const u = updateQueryString(url, params)
-  const resp = await Widget.http.get(u, {
-      headers: headers,
-  });
-  return resp;
-}
-
-function generateDeviceId() {
-  return (Math.random().toString(36).slice(2)).toUpperCase();
-}
-
-async function renrenRequest(method, url, params = {}) {
-  const deviceId = generateDeviceId();
-  const headers = buildSignedHeaders({ method, url, params, deviceId });
-  const resp = await Widget.http.get(url + "?" + sortedQueryString(params), {
-      headers: headers,
-  });
-  return resp;
-}
-
-// ---------------------
-// 人人视频搜索
-// ---------------------
-async function renrenSearch(keyword, episodeInfo = null) {
-  const parsedKeyword = { title: keyword, season: null }; // 简化 parse_search_keyword
-  const searchTitle = parsedKeyword.title;
-  const searchSeason = parsedKeyword.season;
-
-  const lock = { value: false };
-  const lastRequestTime = { value: 0 };
-  let allResults = await performNetworkSearch(searchTitle, episodeInfo, { lockRef: lock, lastRequestTimeRef: lastRequestTime, minInterval: 400 });
-
-  if (searchSeason == null) return allResults;
-
-  // 按 season 过滤
-  return allResults.filter(r => r.season === searchSeason);
-}
-
-async function performNetworkSearch(
-  keyword,
-  episodeInfo = null,
-  {
-    lockRef = null,
-    lastRequestTimeRef = { value: 0 },  // 调用方传引用
-    minInterval = 500                   // 默认节流间隔（毫秒）
-  } = {}
-) {
-  try {
-    const url = `https://api.rrmj.plus/m-station/search/drama`;
-    const params = { keywords: keyword, size: 20, order: "match", search_after: "", isExecuteVipActivity: true };
-
-    // 🔒 锁逻辑（可选）
-    if (lockRef) {
-      while (lockRef.value) await new Promise(r => setTimeout(r, 50));
-      lockRef.value = true;
-    }
-
-    // ⏱️ 节流逻辑（依赖 lastRequestTimeRef）
-    const now = Date.now();
-    const dt = now - lastRequestTimeRef.value;
-    if (dt < minInterval) await new Promise(r => setTimeout(r, minInterval - dt));
-
-    const resp = await renrenRequest("GET", url, params);
-    lastRequestTimeRef.value = Date.now(); // 更新引用
-
-    if (lockRef) lockRef.value = false;
-
-    if (!resp.data) return [];
-
-    const decoded = autoDecode(resp.data);
-    const list = decoded?.data?.searchDramaList || [];
-    return list.map((item, idx) => ({
-      provider: "renren",
-      mediaId: String(item.id),
-      title: String(item.title || "").replace(/<[^>]+>/g, "").replace(/:/g, "："),
-      type: "tv_series",
-      season: null,
-      year: item.year,
-      imageUrl: item.cover,
-      episodeCount: item.episodeTotal,
-      currentEpisodeIndex: episodeInfo?.episode ?? null,
-    }));
-  } catch (error) {
-    log("error", "getRenrenAnimes error:", {
-      message: error.message,
-      name: error.name,
-      stack: error.stack,
-    });
-    return [];
-  }
-}
-
-// ---------------------
-// 人人视频URL信息提取
-// ---------------------
-async function fetchDramaDetail(dramaId) {
-  const url = `https://api.rrmj.plus/m-station/drama/page`;
-  const params = { hsdrOpen:0,isAgeLimit:0,dramaId:String(dramaId),hevcOpen:1 };
-  const resp = await renrenRequest("GET", url, params);
-  if (!resp.data) return null;
-  const decoded = autoDecode(resp.data);
-  return decoded?.data || null;
-}
-
-async function getEpisodes(mediaId, targetEpisodeIndex=null, dbMediaType=null) {
-  const detail = await fetchDramaDetail(mediaId);
-  if (!detail || !detail.episodeList) return [];
-
-  let episodes = [];
-  detail.episodeList.forEach((ep, idx)=>{
-    const sid = String(ep.sid || "").trim();
-    if(!sid) return;
-    const title = String(ep.title || `第${idx+1}`.padStart(2,"0")+"集");
-    episodes.push({ sid, order: idx+1, title });
-  });
-
-  if(targetEpisodeIndex) episodes = episodes.filter(e=>e.order===targetEpisodeIndex);
-
-  return episodes.map(e=>({
-    provider: "renren",
-    episodeId: e.sid,
-    title: e.title,
-    episodeIndex: e.order,
-    url: null
-  }));
-}
-
-// ---------------------
-// 人人视频弹幕
-// ---------------------
-async function fetchEpisodeDanmu(sid) {
-  const ClientProfile = {
-    user_agent: "Mozilla/5.0",
-    origin: "https://rrsp.com.cn",
-    referer: "https://rrsp.com.cn/",
-  };
-  const url = `https://static-dm.rrmj.plus/v1/produce/danmu/EPISODE/${sid}`;
-  const headers = {
-    "Accept": "application/json",
-    "User-Agent": ClientProfile.user_agent,
-    "Origin": ClientProfile.origin,
-    "Referer": ClientProfile.referer,
-  };
-  const resp = await renrenHttpGet(url, { headers });
-  if (!resp.data) return null;
-  const data = autoDecode(resp.data);
-  if (Array.isArray(data)) return data;
-  if (data?.data && Array.isArray(data.data)) return data.data;
-  return null;
-}
-
-function parseRRSPPFields(pField) {
-  const parts = String(pField).split(",");
-  const num = (i, cast, dft) => { try { return cast(parts[i]); } catch { return dft; } };
-  const timestamp = num(0, parseFloat, 0);
-  const mode = num(1, x=>parseInt(x,10),1);
-  const size = num(2, x=>parseInt(x,10),25);
-  const color = num(3, x=>parseInt(x,10),16777215);
-  const userId = parts[6] || "";
-  const contentId = parts[7] || `${timestamp}:${userId}`;
-  return { timestamp, mode, size, color, userId, contentId };
-}
-
-function formatRenrenComments(items) {
-  return items.map(item => {
-    const text = String(item.d || "");
-    const meta = parseRRSPPFields(item.p);
-    return {
-      cid: Number(meta.contentId),
-      p: `${meta.timestamp.toFixed(2)},${meta.mode},${meta.color},[renren]`,
-      m: text,
-      t: meta.timestamp
-    };
-  });
-}
-
-async function getRenRenComments(episodeId, progressCallback=null){
-  if(progressCallback) await progressCallback(5,"开始获取弹幕人人弹幕");
-  log("info", "开始获取弹幕人人弹幕");
-  const raw = await fetchEpisodeDanmu(episodeId);
-  if(progressCallback) await progressCallback(85,`原始弹幕 ${raw.length} 条，正在规范化`);
-  log("info", `原始弹幕 ${raw.length} 条，正在规范化`);
-  const formatted = formatRenrenComments(raw);
-  if(progressCallback) await progressCallback(100,`弹幕处理完成，共 ${formatted.length} 条`);
-  log("info", `弹幕处理完成，共 ${formatted.length} 条`);
-  return convertToDanmakuJson(formatted, "renren");
-}
-
-// ---------------------
-// hanjutv视频弹幕
-// ---------------------
-async function hanjutvSearch(keyword) {
-  try {
-    const resp = await Widget.http.get(`https://hxqapi.hiyun.tv/wapi/search/aggregate/search?keyword=${keyword}&scope=101&page=1`, {
-      headers: {
-        "Content-Type": "application/json",
-        "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
-      },
-    });
-
-    // 判断 resp 和 resp.data 是否存在
-    if (!resp || !resp.data) {
-      log("info", "hanjutvSearchresp: 请求失败或无数据返回");
-      return [];
-    }
-
-    // 判断 seriesData 是否存在
-    if (!resp.data.seriesData || !resp.data.seriesData.seriesList) {
-      log("info", "hanjutvSearchresp: seriesData 或 seriesList 不存在");
-      return [];
-    }
-
-    // 正常情况下输出 JSON 字符串
-    log("info", `hanjutvSearchresp: ${JSON.stringify(resp.data.seriesData.seriesList)}`);
-
-    let resList = [];
-    for (const anime of resp.data.seriesData.seriesList) {
-      const animeId = convertToAsciiSum(anime.sid);
-      resList.push({ ...anime, animeId });
-    }
-    return resList;
-  } catch (error) {
-    // 捕获请求中的错误
-    log("error", "getHanjutvAnimes error:", {
-      message: error.message,
-      name: error.name,
-      stack: error.stack,
-    });
-    return [];
-  }
-}
-
-async function getHanjutvDetail(sid) {
-  try {
-    const resp = await Widget.http.get(`https://hxqapi.hiyun.tv/wapi/series/series/detail?sid=${sid}`, {
-      headers: {
-        "Content-Type": "application/json",
-        "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
-      },
-    });
-
-    // 判断 resp 和 resp.data 是否存在
-    if (!resp || !resp.data) {
-      log("info", "getHanjutvDetail: 请求失败或无数据返回");
-      return [];
-    }
-
-    // 判断 seriesData 是否存在
-    if (!resp.data.series) {
-      log("info", "getHanjutvDetail: series 不存在");
-      return [];
-    }
-
-    // 正常情况下输出 JSON 字符串
-    log("info", `getHanjutvDetail: ${JSON.stringify(resp.data.series)}`);
-
-    return resp.data.series;
-  } catch (error) {
-    // 捕获请求中的错误
-    log("error", "getHanjutvDetail error:", {
-      message: error.message,
-      name: error.name,
-      stack: error.stack,
-    });
-    return [];
-  }
-}
-
-async function getHanjutvEpisodes(sid) {
-  try {
-    const resp = await Widget.http.get(`https://hxqapi.hiyun.tv/wapi/series/series/detail?sid=${sid}`, {
-      headers: {
-        "Content-Type": "application/json",
-        "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
-      },
-    });
-
-    // 判断 resp 和 resp.data 是否存在
-    if (!resp || !resp.data) {
-      log("info", "getHanjutvEposides: 请求失败或无数据返回");
-      return [];
-    }
-
-    // 判断 seriesData 是否存在
-    if (!resp.data.episodes) {
-      log("info", "getHanjutvEposides: episodes 不存在");
-      return [];
-    }
-
-    const sortedEpisodes = resp.data.episodes.sort((a, b) => a.serialNo - b.serialNo);
-
-    // 正常情况下输出 JSON 字符串
-    log("info", `getHanjutvEposides: ${JSON.stringify(sortedEpisodes)}`);
-
-    return sortedEpisodes;
-  } catch (error) {
-    // 捕获请求中的错误
-    log("error", "getHanjutvEposides error:", {
-      message: error.message,
-      name: error.name,
-      stack: error.stack,
-    });
-    return [];
-  }
-}
-
-async function fetchHanjutvEpisodeDanmu(sid) {
-  let allDanmus = [];
-  let fromAxis = 0;
-  const maxAxis = 100000000;
-
-  try {
-    while (fromAxis < maxAxis) {
-      const resp = await Widget.http.get(`https://hxqapi.zmdcq.com/api/danmu/playItem/list?fromAxis=${fromAxis}&pid=${sid}&toAxis=${maxAxis}`, {
-        headers: {
-          "Content-Type": "application/json",
-          "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
-        },
-      });
-
-      // 将当前请求的 episodes 拼接到总数组
-      if (resp.data && resp.data.danmus) {
-        allDanmus = allDanmus.concat(resp.data.danmus);
-      }
-
-      // 获取 nextAxis，更新 fromAxis
-      const nextAxis = resp.data.nextAxis || maxAxis;
-      if (nextAxis >= maxAxis) {
-        break; // 如果 nextAxis 达到或超过最大值，退出循环
-      }
-      fromAxis = nextAxis;
-    }
-
-    return allDanmus;
-  } catch (error) {
-    // 捕获请求中的错误
-    log("error", "fetchHanjutvEpisodeDanmu error:", {
-      message: error.message,
-      name: error.name,
-      stack: error.stack,
-    });
-    return allDanmus; // 返回已收集的 episodes
-  }
-}
-
-function formatHanjutvComments(items) {
-  return items.map(c => ({
-    cid: Number(c.did),
-    p: `${(c.t / 1000).toFixed(2)},${c.tp === 2 ? 5 : c.tp},${Number(c.sc)},[hanjutv]`,
-    m: c.con,
-    t: Math.round(c.t / 1000)
-  }));
-}
-
-async function getHanjutvComments(pid, progressCallback=null){
-  if(progressCallback) await progressCallback(5,"开始获取弹幕韩剧TV弹幕");
-  log("info", "开始获取弹幕韩剧TV弹幕");
-  const raw = await fetchHanjutvEpisodeDanmu(pid);
-  if(progressCallback) await progressCallback(85,`原始弹幕 ${raw.length} 条，正在规范化`);
-  log("info", `原始弹幕 ${raw.length} 条，正在规范化`);
-  const formatted = formatHanjutvComments(raw);
-  if(progressCallback) await progressCallback(100,`弹幕处理完成，共 ${formatted.length} 条`);
-  log("info", `弹幕处理完成，共 ${formatted.length} 条`);
-  return convertToDanmakuJson(formatted, "hanjutv");
-}
-
-// ---------------------
-// bahamut视频弹幕
-// ---------------------
-async function bahamutSearch(keyword) {
-  try {
-    const url = `https://api.gamer.com.tw/mobile_app/anime/v1/search.php?kw=${keyword}`;
-    const resp = await Widget.http.get(url, {
-      headers: {
-        "Content-Type": "application/json",
-        "User-Agent": "Anime/2.29.2 (7N5749MM3F.tw.com.gamer.anime; build:972; iOS 26.0.0) Alamofire/5.6.4",
-      },
-    });
-
-    // 判断 resp 和 resp.data 是否存在
-    if (!resp || !resp.data) {
-      log("info", "bahamutSearchresp: 请求失败或无数据返回");
-      return [];
-    }
-
-    // 判断 anime 是否存在
-    if (!resp.data.anime) {
-      log("info", "bahamutSearchresp: anime 不存在");
-      return [];
-    }
-
-    // 正常情况下输出 JSON 字符串
-    log("info", `bahamutSearchresp: ${JSON.stringify(resp.data.anime)}`);
-
-    return resp.data.anime;
-  } catch (error) {
-    // 捕获请求中的错误
-    log("error", "getBahamutAnimes error:", {
-      message: error.message,
-      name: error.name,
-      stack: error.stack,
-    });
-    return [];
-  }
-}
-
-async function getBahamutEpisodes(videoSn) {
-  try {
-    const url = `https://api.gamer.com.tw/anime/v1/video.php?videoSn=${videoSn}`;
-    const resp = await Widget.http.get(url, {
-      headers: {
-        "Content-Type": "application/json",
-        "User-Agent": "Anime/2.29.2 (7N5749MM3F.tw.com.gamer.anime; build:972; iOS 26.0.0) Alamofire/5.6.4",
-      },
-    });
-
-    // 判断 resp 和 resp.data 是否存在
-    if (!resp || !resp.data) {
-      log("info", "getBahamutEposides: 请求失败或无数据返回");
-      return [];
-    }
-
-    // 判断 seriesData 是否存在
-    if (!resp.data.data || !resp.data.data.video || !resp.data.data.anime) {
-      log("info", "getBahamutEposides: video 或 anime 不存在");
-      return [];
-    }
-
-    // 正常情况下输出 JSON 字符串
-    log("info", `getBahamutEposides: ${JSON.stringify(resp.data.data)}`);
-
-    return resp.data.data;
-  } catch (error) {
-    // 捕获请求中的错误
-    log("error", "getBahamutEposides error:", {
-      message: error.message,
-      name: error.name,
-      stack: error.stack,
-    });
-    return [];
-  }
-}
-
-async function fetchBahamutEpisodeDanmu(videoSn) {
-  let danmus = [];
-
-  try {
-    const url = `https://api.gamer.com.tw/anime/v1/danmu.php?geo=TW%2CHK&videoSn=${videoSn}`;
-    const resp = await Widget.http.get(url, {
-      headers: {
-        "Content-Type": "application/json",
-        "User-Agent": "Anime/2.29.2 (7N5749MM3F.tw.com.gamer.anime; build:972; iOS 26.0.0) Alamofire/5.6.4",
-      },
-    });
-
-    // 将当前请求的 episodes 拼接到总数组
-    if (resp.data && resp.data.data && resp.data.data.danmu) {
-      danmus = resp.data.data.danmu;
-    }
-
-    return danmus;
-  } catch (error) {
-    // 捕获请求中的错误
-    log("error", "fetchBahamutEpisodeDanmu error:", {
-      message: error.message,
-      name: error.name,
-      stack: error.stack,
-    });
-    return danmus; // 返回已收集的 episodes
-  }
-}
-
-function formatBahamutComments(items) {
-  const positionToMode = { 0: 1, 1: 5, 2: 4 };
-  return items.map(c => ({
-    cid: Number(c.sn),
-    p: `${Math.round(c.time / 10).toFixed(2)},${positionToMode[c.position] || c.tp},${parseInt(c.color.slice(1), 16)},[bahamut]`,
-    m: simplized(c.text),
-    t: Math.round(c.time / 10)
-  }));
-}
-
-async function getBahamutComments(pid, progressCallback=null){
-  if(progressCallback) await progressCallback(5,"开始获取弹幕巴哈姆特弹幕");
-  log("info", "开始获取弹幕巴哈姆特弹幕");
-  const raw = await fetchBahamutEpisodeDanmu(pid);
-  if(progressCallback) await progressCallback(85,`原始弹幕 ${raw.length} 条，正在规范化`);
-  log("info", `原始弹幕 ${raw.length} 条，正在规范化`);
-  const formatted = formatBahamutComments(raw);
-  if(progressCallback) await progressCallback(100,`弹幕处理完成，共 ${formatted.length} 条`);
-  log("info", `弹幕处理完成，共 ${formatted.length} 条`);
-  // 输出前五条弹幕
-  log("info", "Top 5 danmus:", JSON.stringify(formatted.slice(0, 5), null, 2));
-  return convertToDanmakuJson(formatted, "bahamut");
-}
-
-// =====================
-// 路由请求相关
-// =====================
-
-function log(level, ...args) {
-  const message = args
-    .map((arg) => (typeof arg === "object" ? JSON.stringify(arg) : arg))
-    .join(" ");
-  const timestamp = new Date().toISOString();
-  logBuffer.push({ timestamp, level, message });
-  if (logBuffer.length > MAX_LOGS) logBuffer.shift();
-  console[level](...args);
-}
-
-function jsonResponse(data, status = 200) {
-  return new Response(JSON.stringify(data), {
-    status,
-    headers: { "Content-Type": "application/json" },
-  });
-}
-
-function convertChineseNumber(chineseNumber) {
-  // 如果是阿拉伯数字，直接转换
-  if (/^\d+$/.test(chineseNumber)) {
-    return Number(chineseNumber);
-  }
-
-  // 中文数字映射（简体+繁体）
-  const digits = {
-    // 简体
-    '零': 0, '一': 1, '二': 2, '三': 3, '四': 4, '五': 5,
-    '六': 6, '七': 7, '八': 8, '九': 9,
-    // 繁体
-    '壹': 1, '貳': 2, '參': 3, '肆': 4, '伍': 5,
-    '陸': 6, '柒': 7, '捌': 8, '玖': 9
-  };
-
-  // 单位映射（简体+繁体）
-  const units = {
-    // 简体
-    '十': 10, '百': 100, '千': 1000,
-    // 繁体
-    '拾': 10, '佰': 100, '仟': 1000
-  };
-
-  let result = 0;
-  let current = 0;
-  let lastUnit = 1;
-
-  for (let i = 0; i < chineseNumber.length; i++) {
-    const char = chineseNumber[i];
-
-    if (digits[char] !== undefined) {
-      // 数字
-      current = digits[char];
-    } else if (units[char] !== undefined) {
-      // 单位
-      const unit = units[char];
-
-      if (current === 0) current = 1;
-
-      if (unit >= lastUnit) {
-        // 更大的单位，重置结果
-        result = current * unit;
-      } else {
-        // 更小的单位，累加到结果
-        result += current * unit;
-      }
-
-      lastUnit = unit;
-      current = 0;
-    }
-  }
-
-  // 处理最后的个位数
-  if (current > 0) {
-    result += current;
-  }
-
-  return result;
-}
-
-function matchSeason(anime, queryTitle, season) {
-  log("info", "start matchSeason: ", anime.animeTitle, queryTitle, season);
-  let res = false;
-  if (anime.animeTitle.includes(queryTitle)) {
-    const title = anime.animeTitle.split("(")[0].trim();
-    if (title.startsWith(queryTitle)) {
-      const afterTitle = title.substring(queryTitle.length).trim();
-      log("info", "start matchSeason afterTitle: ", afterTitle);
-      if (afterTitle === '' && season.toString() === "1") {
-        res = true;
-      }
-      // match number from afterTitle
-      const seasonIndex = afterTitle.match(/\d+/);
-      if (seasonIndex && seasonIndex[0].toString() === season.toString()) {
-        res = true;
-      }
-      // match chinese number
-      const chineseNumber = afterTitle.match(/[一二三四五六七八九十壹贰叁肆伍陆柒捌玖拾]+/);
-      if (chineseNumber && convertChineseNumber(chineseNumber[0]).toString() === season.toString()) {
-        res = true;
-      }
-    }
-  }
-  log("info", "start matchSeason res: ", res);
-  return res;
-}
-
-// 提取年份的辅助函数
-function extractYear(animeTitle) {
-  const match = animeTitle.match(/\((\d{4})\)/);
-  return match ? parseInt(match[1]) : null;
-}
-
-// 正则表达式：提取anime标题中的内容
-const extractAnimeTitle = (str) => str.split('(')[0].trim();
-
-// 按年份降序排序并添加到curAnimes
-function sortAndPushAnimesByYear(processedAnimes, curAnimes) {
-  processedAnimes
-    .filter(anime => anime !== null)
-    .sort((a, b) => {
-      const yearA = extractYear(a.animeTitle);
-      const yearB = extractYear(b.animeTitle);
-
-      // 如果都有年份，按年份降序排列
-      if (yearA !== null && yearA !== undefined && yearB !== null && yearB !== undefined) {
-        if (yearB !== yearA) {
-          return yearB - yearA;
-        }
-        // 年份相同时，按 title 字数升序排列（字数少的在前）
-        const titleA = extractAnimeTitle(a.animeTitle);
-        const titleB = extractAnimeTitle(b.animeTitle);
-        return titleA.length - titleB.length;
-      }
-      // 如果只有a有年份，a排在前面
-      if ((yearA !== null && yearA !== undefined) && (yearB === null || yearB === undefined)) {
-        return -1;
-      }
-      // 如果只有b有年份，b排在前面
-      if ((yearA === null || yearA === undefined) && (yearB !== null && yearB !== undefined)) {
-        return 1;
-      }
-      // 如果都没有年份，保持原顺序
-      return 0;
-    })
-    .forEach(anime => {
-      curAnimes.push(anime);
-    });
-}
-
-async function handleVodAnimes(animesVod, curAnimes, key) {
-  const tmpAnimes = [];
-
-  const processVodAnimes = await Promise.all(animesVod.map(async (anime) => {
-    let vodPlayFromList = anime.vod_play_from.split("$$$");
-    vodPlayFromList = vodPlayFromList.map(item => {
-      if (item === "mgtv") return "imgo";
-      if (item === "bilibili") return "bilibili1";
-      return item;
-    });
-
-    const vodPlayUrlList = anime.vod_play_url.split("$$$");
-    const validIndices = vodPlayFromList
-        .map((item, index) => vodAllowedPlatforms.includes(item) ? index : -1)
-        .filter(index => index !== -1);
-
-    let links = [];
-    let count = 0;
-    for (const num of validIndices) {
-      const platform = vodPlayFromList[num];
-      const eps = vodPlayUrlList[num].split("#");
-      for (const ep of eps) {
-        const epInfo = ep.split("$");
-        count++;
-        links.push({
-          "name": count,
-          "url": epInfo[1],
-          "title": `【${platform}】 ${epInfo[0]}`
+        const cleanedTitle = (item.title || "").replace(/<[^>]+>/g, "").replace(/&[^;]+;/g, (match) => {
+          const entities = { "&lt;": "<", "&gt;": ">", "&amp;": "&", "&quot;": '"', "&#39;": "'" };
+          return entities[match] || match;
+        }).replace(/:/g, "\uFF1A").trim();
+        results.push({
+          provider: "bilibili",
+          mediaId,
+          title: cleanedTitle,
+          type: mediaType,
+          year,
+          imageUrl: item.cover || null,
+          episodeCount
         });
       }
+      log("info", `[Bilibili] \u7C7B\u578B '${searchType}' \u627E\u5230 ${results.length} \u4E2A\u7ED3\u679C`);
+      return results;
+    } catch (error) {
+      log("error", `[Bilibili] \u641C\u7D22\u7C7B\u578B '${searchType}' \u5931\u8D25:`, error.message);
+      return [];
     }
-
-    if (links.length > 0) {
-      let transformedAnime = {
-        animeId: Number(anime.vod_id),
-        bangumiId: String(anime.vod_id),
-        animeTitle: `${anime.vod_name}(${anime.vod_year})【${anime.type_name}】from ${key}`,
-        type: anime.type_name,
-        typeDescription: anime.type_name,
-        imageUrl: anime.vod_pic,
-        startDate: `${anime.vod_year}-01-01T00:00:00`,
-        episodeCount: links.length,
-        rating: 0,
-        isFavorited: true,
-      };
-
-      tmpAnimes.push(transformedAnime);
-      addAnime({...transformedAnime, links: links});
-      if (animes.length > MAX_ANIMES) removeEarliestAnime();
+  }
+  /**
+   * 从 season_type_name 提取媒体类型
+   * B站 API 返回的类型包括：电影、番剧、国创、纪录片、综艺、电视剧等
+   * @param {string} seasonTypeName - API 返回的 season_type_name
+   * @returns {string} 标准化的媒体类型
+   */
+  _extractMediaType(seasonTypeName) {
+    const typeName = (seasonTypeName || "").toLowerCase();
+    if (typeName.includes("\u7535\u5F71") || typeName.includes("movie")) {
+      return "\u7535\u5F71";
     }
-  }));
-
-  sortAndPushAnimesByYear(tmpAnimes, curAnimes);
-
-  return processVodAnimes;
-}
-
-async function handle360Animes(animes360, curAnimes) {
-  const tmpAnimes = [];
-
-  const process360Animes = await Promise.all(animes360.map(async (anime) => {
-    let links = [];
-    if (anime.cat_name === "电影") {
-      for (const key of Object.keys(anime.playlinks)) {
-        if (vodAllowedPlatforms.includes(key)) {
-          links.push({
-            "name": key,
-            "url": anime.playlinks[key],
-            "title": `【${key}】${anime.titleTxt}(${anime.year})`
-          });
+    if (typeName.includes("\u756A\u5267") || typeName.includes("\u56FD\u521B") || typeName.includes("\u52A8\u6F2B") || typeName.includes("anime")) {
+      return "\u52A8\u6F2B";
+    }
+    if (typeName.includes("\u7EAA\u5F55\u7247") || typeName.includes("documentary")) {
+      return "\u7EAA\u5F55\u7247";
+    }
+    if (typeName.includes("\u7EFC\u827A") || typeName.includes("variety")) {
+      return "\u7EFC\u827A";
+    }
+    if (typeName.includes("\u7535\u89C6\u5267") || typeName.includes("\u5267\u96C6") || typeName.includes("drama") || typeName.includes("tv")) {
+      return "\u7535\u89C6\u5267";
+    }
+    return "\u7535\u89C6\u5267";
+  }
+  async search(keyword) {
+    try {
+      log("info", `[Bilibili] \u5F00\u59CB\u641C\u7D22: ${keyword}`);
+      const mixinKey = await this._getWbiMixinKey();
+      const searchTypes = ["media_bangumi", "media_ft"];
+      const searchPromises = searchTypes.map((type) => this._searchByType(keyword, type, mixinKey));
+      const results = await Promise.all(searchPromises);
+      const allResults = results.flat();
+      const uniqueResults = [];
+      const seenIds = /* @__PURE__ */ new Set();
+      for (const item of allResults) {
+        if (!seenIds.has(item.mediaId)) {
+          seenIds.add(item.mediaId);
+          uniqueResults.push(item);
         }
       }
-    } else if (anime.cat_name === "电视剧" || anime.cat_name === "动漫") {
-      if (vodAllowedPlatforms.includes(anime.seriesSite)) {
-        for (let i = 0; i < anime.seriesPlaylinks.length; i++) {
-          const item = anime.seriesPlaylinks[i];
-          links.push({
-            "name": i + 1,
-            "url": item.url,
-            "title": `【${anime.seriesSite}】 ${i + 1}`
-          });
+      log("info", `[Bilibili] \u641C\u7D22\u5B8C\u6210\uFF0C\u627E\u5230 ${uniqueResults.length} \u4E2A\u6709\u6548\u7ED3\u679C`);
+      return uniqueResults;
+    } catch (error) {
+      log("error", "[Bilibili] \u641C\u7D22\u51FA\u9519:", error.message);
+      return [];
+    }
+  }
+  /**
+   * 获取番剧分集列表
+   */
+  async _getPgcEpisodes(seasonId) {
+    try {
+      const url = `https://api.bilibili.com/pgc/view/web/season?season_id=${seasonId}`;
+      const response = await Widget.http.get(url, {
+        headers: {
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+          "Referer": "https://www.bilibili.com/",
+          "Cookie": globals.bilibliCookie || ""
         }
+      });
+      const data = typeof response.data === "string" ? JSON.parse(response.data) : response.data;
+      if (data.code !== 0 || !data.result) {
+        log("error", `[Bilibili] \u83B7\u53D6\u756A\u5267\u5206\u96C6\u5931\u8D25 (season_id=${seasonId}):`, data.message);
+        return [];
       }
-    } else if (anime.cat_name === "综艺") {
-      const zongyiLinks = await Promise.all(
-          Object.keys(anime.playlinks_year).map(async (site) => {
-            if (vodAllowedPlatforms.includes(site)) {
-              const yearLinks = await Promise.all(
-                  anime.playlinks_year[site].map(async (year) => {
-                    return await get360Zongyi(anime.titleTxt, anime.id, site, year);
-                  })
-              );
-              return yearLinks.flat(); // 将每个年份的子链接合并到一个数组
-            }
-            return [];
-          })
-      );
-      links = zongyiLinks.flat(); // 扁平化所有返回的子链接
-    }
-
-    if (links.length > 0) {
-      let transformedAnime = {
-        animeId: Number(anime.id),
-        bangumiId: String(anime.id),
-        animeTitle: `${anime.titleTxt}(${anime.year})【${anime.cat_name}】from 360`,
-        type: anime.cat_name,
-        typeDescription: anime.cat_name,
-        imageUrl: anime.cover,
-        startDate: `${anime.year}-01-01T00:00:00`,
-        episodeCount: links.length,
-        rating: 0,
-        isFavorited: true,
-      };
-
-      tmpAnimes.push(transformedAnime);
-      addAnime({...transformedAnime, links: links});
-      if (animes.length > MAX_ANIMES) removeEarliestAnime();
-    }
-  }));
-
-  sortAndPushAnimesByYear(tmpAnimes, curAnimes);
-
-  return process360Animes;
-}
-
-async function handleRenrenAnimes(animesRenren, queryTitle, curAnimes) {
-  const tmpAnimes = [];
-
-  // 使用 map 和 async 时需要返回 Promise 数组，并等待所有 Promise 完成
-  const processRenrenAnimes = await Promise.all(animesRenren
-    .filter(s => s.title.includes(queryTitle))
-    .map(async (anime) => {
-      const eps = await getEpisodes(anime.mediaId);
-      let links = [];
-      for (const ep of eps) {
-        links.push({
-          "name": ep.episodeIndex,
-          "url": ep.episodeId,
-          "title": `【${ep.provider}】 ${ep.title}`
-        });
+      const rawEpisodes = data.result.main_section?.episodes || data.result.episodes || [];
+      if (rawEpisodes.length === 0) {
+        log("info", `[Bilibili] \u756A\u5267 season_id=${seasonId} \u65E0\u5206\u96C6\u6570\u636E`);
+        return [];
       }
-
-      if (links.length > 0) {
-        let transformedAnime = {
-          animeId: Number(anime.mediaId),
-          bangumiId: String(anime.mediaId),
-          animeTitle: `${anime.title}(${anime.year})【${anime.type}】from renren`,
+      const episodes = rawEpisodes.map((ep, index) => ({
+        vid: `${ep.aid},${ep.cid}`,
+        id: ep.id,
+        title: (ep.show_title || ep.long_title || ep.title || `\u7B2C${index + 1}\u96C6`).trim(),
+        link: `https://www.bilibili.com/bangumi/play/ep${ep.id}`
+      }));
+      log("info", `[Bilibili] \u83B7\u53D6\u5230 ${episodes.length} \u4E2A\u756A\u5267\u5206\u96C6`);
+      return episodes;
+    } catch (error) {
+      log("error", `[Bilibili] \u83B7\u53D6\u756A\u5267\u5206\u96C6\u51FA\u9519 (season_id=${seasonId}):`, error.message);
+      return [];
+    }
+  }
+  /**
+   * 获取普通视频分集列表
+   */
+  async _getUgcEpisodes(bvid) {
+    try {
+      const url = `https://api.bilibili.com/x/web-interface/view?bvid=${bvid}`;
+      const response = await Widget.http.get(url, {
+        headers: {
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+          "Referer": "https://www.bilibili.com/",
+          "Cookie": globals.bilibliCookie || ""
+        }
+      });
+      const data = typeof response.data === "string" ? JSON.parse(response.data) : response.data;
+      if (data.code !== 0 || !data.data) {
+        log("error", `[Bilibili] \u83B7\u53D6\u89C6\u9891\u5206\u96C6\u5931\u8D25 (bvid=${bvid}):`, data.message);
+        return [];
+      }
+      const pages = data.data.pages || [];
+      if (pages.length === 0) {
+        log("info", `[Bilibili] \u89C6\u9891 bvid=${bvid} \u65E0\u5206\u96C6\u6570\u636E`);
+        return [];
+      }
+      const episodes = pages.map((page, index) => ({
+        vid: `${data.data.aid},${page.cid}`,
+        id: page.cid,
+        title: (page.part || `P${page.page}`).trim(),
+        link: `https://www.bilibili.com/video/${bvid}?p=${page.page}`
+      }));
+      log("info", `[Bilibili] \u83B7\u53D6\u5230 ${episodes.length} \u4E2A\u89C6\u9891\u5206\u96C6`);
+      return episodes;
+    } catch (error) {
+      log("error", `[Bilibili] \u83B7\u53D6\u89C6\u9891\u5206\u96C6\u51FA\u9519 (bvid=${bvid}):`, error.message);
+      return [];
+    }
+  }
+  async getEpisodes(id) {
+    if (id.startsWith("ss")) {
+      const seasonId = id.substring(2);
+      return await this._getPgcEpisodes(seasonId);
+    } else if (id.startsWith("bv")) {
+      const bvid = id.substring(2);
+      return await this._getUgcEpisodes(bvid);
+    }
+    log("error", `[Bilibili] \u4E0D\u652F\u6301\u7684 ID \u683C\u5F0F: ${id}`);
+    return [];
+  }
+  async handleAnimes(sourceAnimes, queryTitle, curAnimes) {
+    const tmpAnimes = [];
+    if (!sourceAnimes || !Array.isArray(sourceAnimes)) {
+      log("error", "[Bilibili] sourceAnimes is not a valid array");
+      return [];
+    }
+    const processPromises = sourceAnimes.filter((anime) => titleMatches(anime.title, queryTitle)).map(async (anime) => {
+      try {
+        const eps = await this.getEpisodes(anime.mediaId);
+        if (eps.length === 0) {
+          log("info", `[Bilibili] ${anime.title} \u65E0\u5206\u96C6\uFF0C\u8DF3\u8FC7`);
+          return;
+        }
+        const links = eps.map((ep, index) => ({
+          name: `${index + 1}`,
+          url: ep.link,
+          title: `\u3010bilibili1\u3011 ${ep.title}`
+        }));
+        const numericAnimeId = convertToAsciiSum(anime.mediaId);
+        const transformedAnime = {
+          animeId: numericAnimeId,
+          bangumiId: anime.mediaId,
+          animeTitle: `${anime.title}(${anime.year || "N/A"})\u3010${anime.type}\u3011from bilibili`,
           type: anime.type,
           typeDescription: anime.type,
           imageUrl: anime.imageUrl,
-          startDate: `${anime.year}-01-01T00:00:00`,
+          startDate: generateValidStartDate(anime.year),
           episodeCount: links.length,
           rating: 0,
           isFavorited: true,
+          source: "bilibili"
         };
-
         tmpAnimes.push(transformedAnime);
-
-        addAnime({...transformedAnime, links: links});
-
-        if (animes.length > MAX_ANIMES) removeEarliestAnime();
+        addAnime({ ...transformedAnime, links });
+        if (globals.animes.length > globals.MAX_ANIMES) {
+          removeEarliestAnime();
+        }
+      } catch (error) {
+        log("error", `[Bilibili] \u5904\u7406 ${anime.title} \u5931\u8D25:`, error.message);
       }
-    })
-  );
-
-  sortAndPushAnimesByYear(tmpAnimes, curAnimes);
-
-  return processRenrenAnimes;
-}
-
-async function handleHanjutvAnimes(animesHanjutv, queryTitle, curAnimes) {
-  const cateMap = {1: "韩剧", 2: "综艺", 3: "电影", 4: "日剧", 5: "美剧", 6: "泰剧", 7: "国产剧"}
-
-  function getCategory(key) {
-    return cateMap[key] || "其他";
+    });
+    await Promise.all(processPromises);
+    this.sortAndPushAnimesByYear(tmpAnimes, curAnimes);
+    return tmpAnimes;
   }
+  // 提取视频信息的公共方法
+  async _extractVideoInfo(id) {
+    log("info", "\u63D0\u53D6B\u7AD9\u89C6\u9891\u4FE1\u606F...", id);
+    const api_video_info = "https://api.bilibili.com/x/web-interface/view";
+    const api_epid_cid = "https://api.bilibili.com/pgc/view/web/season";
+    const regex = /^(https?:\/\/[^\/]+)(\/[^?#]*)/;
+    const match = id.match(regex);
+    let path2;
+    if (match) {
+      path2 = match[2].split("/").filter(Boolean);
+      path2.unshift("");
+      log("info", path2);
+    } else {
+      log("error", "Invalid URL");
+      return null;
+    }
+    let cid, aid, duration, title;
+    if (id.includes("video/")) {
+      try {
+        const queryString = id.split("?")[1];
+        let p = 1;
+        if (queryString) {
+          const params = queryString.split("&");
+          for (let param of params) {
+            const [key, value] = param.split("=");
+            if (key === "p") {
+              p = value || 1;
+            }
+          }
+        }
+        log("info", `p: ${p}`);
+        let videoInfoUrl;
+        if (id.includes("BV")) {
+          videoInfoUrl = `${api_video_info}?bvid=${path2[2]}`;
+        } else {
+          aid = path2[2].substring(2);
+          videoInfoUrl = `${api_video_info}?aid=${path2[2].substring(2)}`;
+        }
+        const res = await Widget.http.get(videoInfoUrl, {
+          headers: {
+            "Content-Type": "application/json",
+            "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
+          }
+        });
+        const data = typeof res.data === "string" ? JSON.parse(res.data) : res.data;
+        if (data.code !== 0) {
+          log("error", "\u83B7\u53D6\u666E\u901A\u6295\u7A3F\u89C6\u9891\u4FE1\u606F\u5931\u8D25:", data.message);
+          return null;
+        }
+        duration = data.data.duration;
+        cid = data.data.pages[p - 1].cid;
+      } catch (error) {
+        log("error", "\u8BF7\u6C42\u666E\u901A\u6295\u7A3F\u89C6\u9891\u4FE1\u606F\u5931\u8D25:", error);
+        return null;
+      }
+    } else if (id.includes("bangumi/") && id.includes("ep")) {
+      try {
+        const epid = path2.slice(-1)[0].slice(2);
+        const epInfoUrl = `${api_epid_cid}?ep_id=${epid}`;
+        const res = await Widget.http.get(epInfoUrl, {
+          headers: {
+            "Content-Type": "application/json",
+            "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
+          }
+        });
+        const data = typeof res.data === "string" ? JSON.parse(res.data) : res.data;
+        if (data.code !== 0) {
+          log("error", "\u83B7\u53D6\u756A\u5267\u89C6\u9891\u4FE1\u606F\u5931\u8D25:", data.message);
+          return null;
+        }
+        for (const episode of data.result.episodes) {
+          if (episode.id == epid) {
+            title = episode.share_copy;
+            cid = episode.cid;
+            duration = episode.duration / 1e3;
+            break;
+          }
+        }
+        if (!cid || !duration) {
+          log("error", "\u672A\u627E\u5230\u5339\u914D\u7684\u756A\u5267\u96C6\u4FE1\u606F");
+          return null;
+        }
+      } catch (error) {
+        log("error", "\u8BF7\u6C42\u756A\u5267\u89C6\u9891\u4FE1\u606F\u5931\u8D25:", error);
+        return null;
+      }
+    } else if (id.includes("bangumi/") && id.includes("ss")) {
+      try {
+        const ssid = path2.slice(-1)[0].slice(2).split("?")[0];
+        const ssInfoUrl = `${api_epid_cid}?season_id=${ssid}`;
+        log("info", `\u83B7\u53D6\u756A\u5267\u4FE1\u606F: season_id=${ssid}`);
+        const res = await Widget.http.get(ssInfoUrl, {
+          headers: {
+            "Content-Type": "application/json",
+            "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
+          }
+        });
+        const data = typeof res.data === "string" ? JSON.parse(res.data) : res.data;
+        if (data.code !== 0) {
+          log("error", "\u83B7\u53D6\u756A\u5267\u89C6\u9891\u4FE1\u606F\u5931\u8D25:", data.message);
+          return null;
+        }
+        if (!data.result.episodes || data.result.episodes.length === 0) {
+          log("error", "\u756A\u5267\u6CA1\u6709\u53EF\u7528\u7684\u96C6\u6570");
+          return null;
+        }
+        const firstEpisode = data.result.episodes[0];
+        cid = firstEpisode.cid;
+        duration = firstEpisode.duration / 1e3;
+        title = firstEpisode.share_copy;
+        log("info", `\u4F7F\u7528\u7B2C\u4E00\u96C6: ${title}, cid=${cid}`);
+      } catch (error) {
+        log("error", "\u8BF7\u6C42\u756A\u5267\u89C6\u9891\u4FE1\u606F\u5931\u8D25:", error);
+        return null;
+      }
+    } else {
+      log("error", "\u4E0D\u652F\u6301\u7684B\u7AD9\u89C6\u9891\u7F51\u5740\uFF0C\u4EC5\u652F\u6301\u666E\u901A\u89C6\u9891(av,bv)\u3001\u5267\u96C6\u89C6\u9891(ep,ss)");
+      return null;
+    }
+    log("info", `\u63D0\u53D6\u89C6\u9891\u4FE1\u606F\u5B8C\u6210: cid=${cid}, aid=${aid}, duration=${duration}`);
+    return { cid, aid, duration, title };
+  }
+  async getEpisodeDanmu(id) {
+    log("info", "\u5F00\u59CB\u4ECE\u672C\u5730\u8BF7\u6C42B\u7AD9\u5F39\u5E55...", id);
+    const segmentResult = await this.getEpisodeDanmuSegments(id);
+    if (!segmentResult || !segmentResult.segmentList || segmentResult.segmentList.length === 0) {
+      return [];
+    }
+    const segmentList = segmentResult.segmentList;
+    log("info", `\u5F39\u5E55\u5206\u6BB5\u6570\u91CF: ${segmentList.length}`);
+    const promises = [];
+    for (const segment of segmentList) {
+      promises.push(
+        this.getEpisodeSegmentDanmu(segment)
+      );
+    }
+    let contents = [];
+    try {
+      const results = await Promise.allSettled(promises);
+      const datas = results.filter((result) => result.status === "fulfilled").map((result) => result.value).filter((data) => data !== null);
+      datas.forEach((data) => {
+        contents.push(...data);
+      });
+    } catch (error) {
+      log("error", "\u89E3\u6790\u5F39\u5E55\u6570\u636E\u5931\u8D25:", error);
+      return [];
+    }
+    return contents;
+  }
+  async getEpisodeDanmuSegments(id) {
+    log("info", "\u83B7\u53D6B\u7AD9\u5F39\u5E55\u5206\u6BB5\u5217\u8868...", id);
+    const videoInfo = await this._extractVideoInfo(id);
+    if (!videoInfo) {
+      return new SegmentListResponse({
+        "type": "bilibili1",
+        "segmentList": []
+      });
+    }
+    const { cid, aid, duration } = videoInfo;
+    log("info", `\u89C6\u9891\u4FE1\u606F: cid=${cid}, aid=${aid}, duration=${duration}`);
+    const maxLen = Math.floor(duration / 360) + 1;
+    log("info", `maxLen: ${maxLen}`);
+    const segmentList = [];
+    for (let i = 0; i < maxLen; i += 1) {
+      let danmakuUrl;
+      if (aid) {
+        danmakuUrl = `https://api.bilibili.com/x/v2/dm/web/seg.so?type=1&oid=${cid}&pid=${aid}&segment_index=${i + 1}`;
+      } else {
+        danmakuUrl = `https://api.bilibili.com/x/v2/dm/web/seg.so?type=1&oid=${cid}&segment_index=${i + 1}`;
+      }
+      segmentList.push({
+        "type": "bilibili1",
+        "segment_start": i * 360,
+        "segment_end": (i + 1) * 360,
+        "url": danmakuUrl
+      });
+    }
+    return new SegmentListResponse({
+      "type": "bilibili1",
+      "segmentList": segmentList
+    });
+  }
+  async getEpisodeSegmentDanmu(segment) {
+    try {
+      const response = await Widget.http.get(segment.url, {
+        headers: {
+          "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
+          "Cookie": globals.bilibliCookie
+        },
+        base64Data: true,
+        retries: 1
+      });
+      let contents = [];
+      if (response && response.data) {
+        contents = parseDanmakuBase64(response.data);
+      }
+      return contents;
+    } catch (error) {
+      log("error", "\u8BF7\u6C42\u5206\u7247\u5F39\u5E55\u5931\u8D25:", error);
+      return [];
+    }
+  }
+  formatComments(comments) {
+    return comments;
+  }
+};
+// WBI 签名相关常量
+__publicField(_BilibiliSource, "WBI_MIXIN_KEY_CACHE", { key: null, timestamp: 0 });
+__publicField(_BilibiliSource, "WBI_MIXIN_KEY_CACHE_TTL", 3600);
+// 缓存1小时
+__publicField(_BilibiliSource, "WBI_MIXIN_KEY_TABLE", [
+  46,
+  47,
+  18,
+  2,
+  53,
+  8,
+  23,
+  32,
+  15,
+  50,
+  10,
+  31,
+  58,
+  3,
+  45,
+  35,
+  27,
+  43,
+  5,
+  49,
+  33,
+  9,
+  42,
+  19,
+  29,
+  28,
+  14,
+  39,
+  12,
+  38,
+  41,
+  13,
+  37,
+  48,
+  7,
+  16,
+  24,
+  55,
+  40,
+  61,
+  26,
+  17,
+  0,
+  1,
+  60,
+  51,
+  30,
+  4,
+  22,
+  25,
+  54,
+  21,
+  56,
+  59,
+  6,
+  63,
+  57,
+  62,
+  11,
+  36,
+  20,
+  34,
+  44,
+  52
+]);
+var BilibiliSource = _BilibiliSource;
 
-  const tmpAnimes = [];
-
-  // 使用 map 和 async 时需要返回 Promise 数组，并等待所有 Promise 完成
-  const processHanjutvAnimes = await Promise.all(animesHanjutv
-    .filter(s => s.name.includes(queryTitle))
-    .map(async (anime) => {
-      const detail = await getHanjutvDetail(anime.sid);
-      const eps = await getHanjutvEpisodes(anime.sid);
-      let links = [];
-      for (const ep of eps) {
-        const epTitle = ep.title && ep.title.trim() !== "" ? `第${ep.serialNo}集：${ep.title}` : `第${ep.serialNo}集`;
-        links.push({
-          "name": ep.title,
-          "url": ep.pid,
-          "title": `【hanjutv】 ${epTitle}`
+// danmu_api/sources/youku.js
+var YoukuSource = class extends BaseSource {
+  convertYoukuUrl(url) {
+    const vidMatch = url.match(/vid=([^&]+)/);
+    if (!vidMatch || !vidMatch[1]) {
+      return null;
+    }
+    const vid = vidMatch[1];
+    return `https://v.youku.com/v_show/id_${vid}.html`;
+  }
+  /**
+   * 过滤优酷搜索项
+   * @param {Object} component - 搜索组件
+   * @param {string} keyword - 搜索关键词
+   * @returns {Object|null} 过滤后的结果
+   */
+  filterYoukuSearchItem(component, keyword) {
+    const commonData = component.commonData;
+    if (!commonData || !commonData.titleDTO) {
+      return null;
+    }
+    if (commonData.isYouku !== 1 && commonData.hasYouku !== 1) {
+      return null;
+    }
+    const title = commonData.titleDTO.displayName;
+    const skipKeywords = ["\u4E2D\u914D\u7248", "\u62A2\u5148\u770B", "\u975E\u6B63\u7247", "\u89E3\u8BFB", "\u63ED\u79D8", "\u8D4F\u6790", "\u300A"];
+    if (skipKeywords.some((kw) => title.includes(kw))) {
+      return null;
+    }
+    const yearMatch = commonData.feature.match(/[12][890][0-9][0-9]/);
+    const year = yearMatch ? parseInt(yearMatch[0]) : null;
+    let cleanedTitle = title.replace(/<[^>]+>/g, "").replace(/【.+?】/g, "").trim().replace(/:/g, "\uFF1A");
+    let mediaType = "\u7535\u89C6\u5267";
+    const cats = (commonData.cats || "").toLowerCase();
+    const feature = (commonData.feature || "").toLowerCase();
+    if (cats.includes("\u52A8\u6F2B") || cats.includes("anime")) {
+      mediaType = "\u52A8\u6F2B";
+    } else if (cats.includes("\u7535\u5F71") || cats.includes("movie")) {
+      mediaType = "\u7535\u5F71";
+    } else if (cats.includes("\u7535\u89C6\u5267") || cats.includes("drama")) {
+      mediaType = "\u7535\u89C6\u5267";
+    } else if (cats.includes("\u7EFC\u827A") || cats.includes("variety")) {
+      mediaType = "\u7EFC\u827A";
+    } else if (feature.includes("\u52A8\u6F2B")) {
+      mediaType = "\u52A8\u6F2B";
+    } else if (feature.includes("\u7535\u5F71")) {
+      mediaType = "\u7535\u5F71";
+    } else if (feature.includes("\u7535\u89C6\u5267")) {
+      mediaType = "\u7535\u89C6\u5267";
+    } else if (feature.includes("\u7EFC\u827A")) {
+      mediaType = "\u7EFC\u827A";
+    }
+    return {
+      provider: "youku",
+      mediaId: commonData.showId,
+      title: cleanedTitle,
+      type: mediaType,
+      year,
+      imageUrl: commonData.posterDTO ? commonData.posterDTO.vThumbUrl : null,
+      episodeCount: commonData.episodeTotal,
+      cats: commonData.cats
+      // 保存分类信息用于后续判断
+    };
+  }
+  async search(keyword) {
+    try {
+      log("info", `[Youku] \u5F00\u59CB\u641C\u7D22: ${keyword}`);
+      const encodedKeyword = encodeURIComponent(keyword);
+      const encodedUA = encodeURIComponent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36");
+      const searchUrl = `https://search.youku.com/api/search?keyword=${encodedKeyword}&userAgent=${encodedUA}&site=1&categories=0&ftype=0&ob=0&pg=1`;
+      const response = await Widget.http.get(searchUrl, {
+        headers: {
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
+          "Accept": "application/json",
+          "Referer": "https://www.youku.com/"
+        }
+      });
+      if (!response || !response.data) {
+        log("info", "[Youku] \u641C\u7D22\u54CD\u5E94\u4E3A\u7A7A");
+        return [];
+      }
+      const data = typeof response.data === "string" ? JSON.parse(response.data) : response.data;
+      if (!data.pageComponentList) {
+        log("info", "[Youku] \u641C\u7D22\u65E0\u7ED3\u679C");
+        return [];
+      }
+      const results = [];
+      for (const component of data.pageComponentList) {
+        const filtered = this.filterYoukuSearchItem(component, keyword);
+        if (filtered) {
+          results.push(filtered);
+        }
+      }
+      log("info", `[Youku] \u641C\u7D22\u627E\u5230 ${results.length} \u4E2A\u6709\u6548\u7ED3\u679C`);
+      return results;
+    } catch (error) {
+      log("error", "[Youku] \u641C\u7D22\u51FA\u9519:", error.message);
+      return [];
+    }
+  }
+  async getEpisodes(id) {
+    try {
+      log("info", `[Youku] \u83B7\u53D6\u5206\u96C6\u5217\u8868: show_id=${id}`);
+      const pageSize = 100;
+      const firstPage = await this._getEpisodesPage(id, 1, pageSize);
+      if (!firstPage || !firstPage.videos || firstPage.videos.length === 0) {
+        log("info", "[Youku] \u672A\u627E\u5230\u5206\u96C6\u4FE1\u606F");
+        return [];
+      }
+      let allEpisodes = [...firstPage.videos];
+      const totalCount = firstPage.total;
+      if (totalCount > pageSize) {
+        const totalPages = Math.ceil(totalCount / pageSize);
+        log("info", `[Youku] \u68C0\u6D4B\u5230 ${totalCount} \u4E2A\u5206\u96C6\uFF0C\u5C06\u5E76\u53D1\u8BF7\u6C42 ${totalPages} \u9875`);
+        const pagePromises = [];
+        for (let page = 2; page <= totalPages; page++) {
+          pagePromises.push(this._getEpisodesPage(id, page, pageSize));
+        }
+        const results = await Promise.allSettled(pagePromises);
+        for (let i = 0; i < results.length; i++) {
+          const result = results[i];
+          if (result.status === "fulfilled" && result.value && result.value.videos) {
+            allEpisodes.push(...result.value.videos);
+          } else if (result.status === "rejected") {
+            log("error", `[Youku] \u83B7\u53D6\u5206\u96C6\u9875\u9762 ${i + 2} \u5931\u8D25:`, result.reason);
+          }
+        }
+        log("info", `[Youku] \u5E76\u53D1\u83B7\u53D6\u5B8C\u6210\uFF0C\u5171\u83B7\u53D6 ${allEpisodes.length} \u4E2A\u5206\u96C6`);
+      }
+      log("info", `[Youku] \u5171\u83B7\u53D6 ${allEpisodes.length} \u96C6`);
+      return allEpisodes;
+    } catch (error) {
+      log("error", "[Youku] \u83B7\u53D6\u5206\u96C6\u51FA\u9519:", error.message);
+      return [];
+    }
+  }
+  async _getEpisodesPage(showId, page, pageSize) {
+    const url = `https://openapi.youku.com/v2/shows/videos.json?client_id=53e6cc67237fc59a&package=com.huawei.hwvplayer.youku&ext=show&show_id=${showId}&page=${page}&count=${pageSize}`;
+    const response = await Widget.http.get(url, {
+      headers: {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
+      }
+    });
+    if (!response || !response.data) {
+      return null;
+    }
+    const data = typeof response.data === "string" ? JSON.parse(response.data) : response.data;
+    return data;
+  }
+  async handleAnimes(sourceAnimes, queryTitle, curAnimes) {
+    const tmpAnimes = [];
+    if (!sourceAnimes || !Array.isArray(sourceAnimes)) {
+      log("error", "[Youku] sourceAnimes is not a valid array");
+      return [];
+    }
+    const processYoukuAnimes = await Promise.all(
+      sourceAnimes.filter((s) => titleMatches(s.title, queryTitle)).map(async (anime) => {
+        try {
+          const eps = await this.getEpisodes(anime.mediaId);
+          const mediaType = this._extractMediaType(anime.cats, anime.type);
+          const formattedEps = this._processAndFormatEpisodes(eps, mediaType);
+          let links = [];
+          for (const ep of formattedEps) {
+            const fullUrl = ep.link || `https://v.youku.com/v_show/id_${ep.vid}.html`;
+            links.push({
+              "name": ep.episodeIndex.toString(),
+              "url": fullUrl,
+              "title": `\u3010youku\u3011 ${ep.title}`
+            });
+          }
+          if (links.length > 0) {
+            const numericAnimeId = convertToAsciiSum(anime.mediaId);
+            let transformedAnime = {
+              animeId: numericAnimeId,
+              bangumiId: anime.mediaId,
+              animeTitle: `${anime.title}(${anime.year || "N/A"})\u3010${anime.type}\u3011from youku`,
+              type: anime.type,
+              typeDescription: anime.type,
+              imageUrl: anime.imageUrl,
+              startDate: generateValidStartDate(anime.year),
+              episodeCount: links.length,
+              rating: 0,
+              isFavorited: true,
+              source: "youku"
+            };
+            tmpAnimes.push(transformedAnime);
+            addAnime({ ...transformedAnime, links });
+            if (globals.animes.length > globals.MAX_ANIMES) removeEarliestAnime();
+          }
+        } catch (error) {
+          log("error", `[Youku] Error processing anime: ${error.message}`);
+        }
+      })
+    );
+    this.sortAndPushAnimesByYear(tmpAnimes, curAnimes);
+    return processYoukuAnimes;
+  }
+  /**
+   * 处理和格式化分集列表
+   * @param {Array} rawEpisodes - 原始分集数据
+   * @param {string} mediaType - 媒体类型 (variety/movie/drama/anime)
+   * @returns {Array} 格式化后的分集列表
+   */
+  _processAndFormatEpisodes(rawEpisodes, mediaType = "variety") {
+    let filteredEpisodes = [...rawEpisodes];
+    const formattedEpisodes = filteredEpisodes.map((ep, index) => {
+      const episodeIndex = index + 1;
+      const title = this._formatEpisodeTitle(ep, episodeIndex, mediaType);
+      return {
+        vid: ep.id,
+        title,
+        episodeIndex,
+        link: ep.link
+      };
+    });
+    return formattedEpisodes;
+  }
+  /**
+   * 根据媒体类型格式化分集标题
+   * @param {Object} ep - 分集对象
+   * @param {number} episodeIndex - 分集索引
+   * @param {string} mediaType - 媒体类型
+   * @returns {string} 格式化后的标题
+   */
+  _formatEpisodeTitle(ep, episodeIndex, mediaType) {
+    let cleanDisplayName = ep.displayName || ep.title;
+    const datePattern = /^(?:\d{2,4}-\d{2}-\d{2}|\d{2}-\d{2})\s*(?=(?:第\d+期))|^(?:\d{2,4}-\d{2}-\d{2}|\d{2}-\d{2})\s*:\s*/;
+    cleanDisplayName = cleanDisplayName.replace(datePattern, "").trim();
+    if (mediaType === "movie") {
+      return cleanDisplayName;
+    }
+    if (mediaType === "variety") {
+      const periodMatch = cleanDisplayName.match(/第(\d+)期/);
+      if (periodMatch) {
+        return `\u7B2C${periodMatch[1]}\u671F ${ep.published?.split(" ")[0] ?? ""} ${cleanDisplayName}`;
+      } else {
+        return `\u7B2C${episodeIndex}\u671F ${ep.published?.split(" ")[0] ?? ""} ${cleanDisplayName}`;
+      }
+    }
+    if (/^第\d+集/.test(cleanDisplayName)) {
+      return cleanDisplayName;
+    } else {
+      return `\u7B2C${episodeIndex}\u96C6 ${cleanDisplayName}`;
+    }
+  }
+  /**
+   * 从分类信息中提取媒体类型（参考 Python 版本的 _extract_media_type_from_response）
+   * @param {string} cats - 分类字符串
+   * @param {string} feature - 特征字符串
+   * @returns {string} 媒体类型 (variety/movie/anime/drama)
+   */
+  _extractMediaType(cats, feature) {
+    const catsLower = (cats || "").toLowerCase();
+    const featureLower = (feature || "").toLowerCase();
+    if (catsLower.includes("\u7EFC\u827A") || catsLower.includes("variety")) {
+      return "variety";
+    } else if (catsLower.includes("\u7535\u5F71") || catsLower.includes("movie")) {
+      return "movie";
+    } else if (catsLower.includes("\u52A8\u6F2B") || catsLower.includes("anime")) {
+      return "anime";
+    } else if (catsLower.includes("\u7535\u89C6\u5267") || catsLower.includes("drama")) {
+      return "drama";
+    }
+    if (featureLower.includes("\u7EFC\u827A")) {
+      return "variety";
+    } else if (featureLower.includes("\u7535\u5F71")) {
+      return "movie";
+    } else if (featureLower.includes("\u52A8\u6F2B")) {
+      return "anime";
+    } else if (featureLower.includes("\u7535\u89C6\u5267")) {
+      return "drama";
+    }
+    return "drama";
+  }
+  async getEpisodeDanmu(id) {
+    log("info", "\u5F00\u59CB\u4ECE\u672C\u5730\u8BF7\u6C42\u4F18\u9177\u5F39\u5E55...", id);
+    if (!id) {
+      return [];
+    }
+    const segmentListResponse = await this.getEpisodeDanmuSegments(id);
+    const segmentList = segmentListResponse.segmentList;
+    let contents = [];
+    const concurrency = globals.youkuConcurrency;
+    const segments = [...segmentList];
+    for (let i = 0; i < segments.length; i += concurrency) {
+      const batch = segments.slice(i, i + concurrency).map(async (segment) => {
+        const response = await Widget.http.post(segment.url, buildQueryString({ data: segment.data }), {
+          headers: {
+            "Cookie": `_m_h5_tk=${segment._m_h5_tk};_m_h5_tk_enc=${segment._m_h5_tk_enc};`,
+            "Referer": "https://v.youku.com",
+            "Content-Type": "application/x-www-form-urlencoded",
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/79.0.3945.88 Safari/537.36"
+          },
+          allow_redirects: false,
+          retries: 1
+        });
+        const results = [];
+        if (response.data?.data && response.data.data.result) {
+          const result = JSON.parse(response.data.data.result);
+          if (result.code !== "-1") {
+            results.push(...result.data.result);
+          }
+        }
+        return results;
+      });
+      try {
+        const settled = await Promise.allSettled(batch);
+        for (const s of settled) {
+          if (s.status === "fulfilled" && Array.isArray(s.value)) {
+            contents = contents.concat(s.value);
+          }
+        }
+      } catch (e) {
+        log("error", "\u4F18\u9177\u5206\u6BB5\u6279\u91CF\u8BF7\u6C42\u5931\u8D25:", e.message);
+      }
+    }
+    printFirst200Chars(contents);
+    return contents;
+  }
+  async getEpisodeDanmuSegments(id) {
+    log("info", "\u83B7\u53D6\u4F18\u9177\u5F39\u5E55\u5206\u6BB5\u5217\u8868...", id);
+    if (!id) {
+      return new SegmentListResponse({
+        "type": "youku",
+        "segmentList": []
+      });
+    }
+    if (id.includes("youku.com/video?vid")) {
+      id = this.convertYoukuUrl(id);
+    }
+    const api_video_info = "https://openapi.youku.com/v2/videos/show.json";
+    const api_danmaku = "https://acs.youku.com/h5/mopen.youku.danmu.list/1.0/";
+    const regex = /^(https?:\/\/[^\/]+)(\/[^?#]*)/;
+    const match = id.match(regex);
+    let path2;
+    if (match) {
+      path2 = match[2].split("/").filter(Boolean);
+      path2.unshift("");
+      log("info", path2);
+    } else {
+      log("error", "Invalid URL");
+      return [];
+    }
+    const video_id = path2[path2.length - 1].split(".")[0].slice(3);
+    log("info", `video_id: ${video_id}`);
+    let res;
+    try {
+      const videoInfoUrl = `${api_video_info}?client_id=53e6cc67237fc59a&video_id=${video_id}&package=com.huawei.hwvplayer.youku&ext=show`;
+      res = await Widget.http.get(videoInfoUrl, {
+        headers: {
+          "Content-Type": "application/json",
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/79.0.3945.88 Safari/537.36"
+        },
+        allow_redirects: false
+      });
+    } catch (error) {
+      log("error", "\u8BF7\u6C42\u89C6\u9891\u4FE1\u606F\u5931\u8D25:", error);
+      return [];
+    }
+    const data = typeof res.data === "string" ? JSON.parse(res.data) : res.data;
+    const title = data.title;
+    const duration = data.duration;
+    log("info", `\u6807\u9898: ${title}, \u65F6\u957F: ${duration}`);
+    let cna, _m_h5_tk_enc, _m_h5_tk;
+    try {
+      const cnaUrl = "https://log.mmstat.com/eg.js";
+      const tkEncUrl = "https://acs.youku.com/h5/mtop.com.youku.aplatform.weakget/1.0/?jsv=2.5.1&appKey=24679788";
+      const cnaRes = await Widget.http.get(cnaUrl, {
+        headers: {
+          "Content-Type": "application/json",
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/79.0.3945.88 Safari/537.36"
+        },
+        allow_redirects: false
+      });
+      log("info", `cnaRes: ${JSON.stringify(cnaRes)}`);
+      log("info", `cnaRes.headers: ${JSON.stringify(cnaRes.headers)}`);
+      const etag = cnaRes.headers["etag"] || cnaRes.headers["Etag"];
+      log("info", `etag: ${etag}`);
+      cna = etag.replace(/^"|"$/g, "");
+      log("info", `cna: ${cna}`);
+      let tkEncRes;
+      while (!tkEncRes) {
+        tkEncRes = await Widget.http.get(tkEncUrl, {
+          headers: {
+            "Content-Type": "application/json",
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/79.0.3945.88 Safari/537.36"
+          },
+          allow_redirects: false
         });
       }
-
-      if (links.length > 0) {
-        let transformedAnime = {
-          animeId: anime.animeId,
-          bangumiId: String(anime.animeId),
-          animeTitle: `${anime.name}(${new Date(anime.updateTime).getFullYear()})【${getCategory(detail.category)}】from hanjutv`,
-          type: getCategory(detail.category),
-          typeDescription: getCategory(detail.category),
-          imageUrl: anime.image.thumb,
-          startDate: `${new Date(anime.updateTime).getFullYear()}-01-01T00:00:00`,
-          episodeCount: links.length,
-          rating: detail.rank,
-          isFavorited: true,
-        };
-
-        tmpAnimes.push(transformedAnime);
-
-        addAnime({...transformedAnime, links: links});
-
-        if (animes.length > MAX_ANIMES) removeEarliestAnime();
+      log("info", `tkEncRes: ${JSON.stringify(tkEncRes)}`);
+      log("info", `tkEncRes.headers: ${JSON.stringify(tkEncRes.headers)}`);
+      const tkEncSetCookie = tkEncRes.headers["set-cookie"] || tkEncRes.headers["Set-Cookie"];
+      log("info", `tkEncSetCookie: ${tkEncSetCookie}`);
+      const tkEncMatch = tkEncSetCookie.match(/_m_h5_tk_enc=([^;]+)/);
+      _m_h5_tk_enc = tkEncMatch ? tkEncMatch[1] : null;
+      const tkH5Match = tkEncSetCookie.match(/_m_h5_tk=([^;]+)/);
+      _m_h5_tk = tkH5Match ? tkH5Match[1] : null;
+      log("info", `_m_h5_tk_enc: ${_m_h5_tk_enc}`);
+      log("info", `_m_h5_tk: ${_m_h5_tk}`);
+    } catch (error) {
+      log("error", "\u83B7\u53D6 cna \u6216 tk_enc \u5931\u8D25:", error);
+      return [];
+    }
+    const step = 60;
+    const max_mat = Math.floor(duration / step) + 1;
+    let segmentList = [];
+    const requestOneMat = async (mat) => {
+      const msg = {
+        ctime: Date.now(),
+        ctype: 10004,
+        cver: "v1.0",
+        guid: cna,
+        mat,
+        mcount: 1,
+        pid: 0,
+        sver: "3.1.0",
+        type: 1,
+        vid: video_id
+      };
+      const str = JSON.stringify(msg);
+      function utf8ToLatin1(str2) {
+        let result = "";
+        for (let i = 0; i < str2.length; i++) {
+          const charCode = str2.charCodeAt(i);
+          if (charCode > 255) {
+            result += encodeURIComponent(str2[i]);
+          } else {
+            result += str2[i];
+          }
+        }
+        return result;
       }
-    })
-  );
+      function base64Encode(input) {
+        const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+        let output = "";
+        let buffer = 0;
+        let bufferLength = 0;
+        for (let i = 0; i < input.length; i++) {
+          buffer = buffer << 8 | input.charCodeAt(i);
+          bufferLength += 8;
+          while (bufferLength >= 6) {
+            output += chars[buffer >> bufferLength - 6 & 63];
+            bufferLength -= 6;
+          }
+        }
+        if (bufferLength > 0) {
+          output += chars[buffer << 6 - bufferLength & 63];
+        }
+        while (output.length % 4 !== 0) {
+          output += "=";
+        }
+        return output;
+      }
+      const msg_b64encode = base64Encode(utf8ToLatin1(str));
+      msg.msg = msg_b64encode;
+      msg.sign = md5(`${msg_b64encode}MkmC9SoIw6xCkSKHhJ7b5D2r51kBiREr`).toString().toLowerCase();
+      const data2 = JSON.stringify(msg);
+      const t = Date.now();
+      const params = {
+        jsv: "2.5.6",
+        appKey: "24679788",
+        t,
+        sign: md5([_m_h5_tk.slice(0, 32), t, "24679788", data2].join("&")).toString().toLowerCase(),
+        api: "mopen.youku.danmu.list",
+        v: "1.0",
+        type: "originaljson",
+        dataType: "jsonp",
+        timeout: "20000",
+        jsonpIncPrefix: "utility"
+      };
+      const queryString = buildQueryString(params);
+      const url = `${api_danmaku}?${queryString}`;
+      log("info", `piece_url: ${url}`);
+      return {
+        "type": "youku",
+        "segment_start": mat * step,
+        "segment_end": Math.min((mat + 1) * step, duration),
+        "url": url,
+        "data": data2,
+        "_m_h5_tk": _m_h5_tk,
+        "_m_h5_tk_enc": _m_h5_tk_enc
+      };
+    };
+    const mats = Array.from({ length: max_mat }, (_, i) => i);
+    for (let i = 0; i < mats.length; i++) {
+      const result = await requestOneMat(mats[i]);
+      segmentList.push(result);
+    }
+    return new SegmentListResponse({
+      "type": "youku",
+      "segmentList": segmentList
+    });
+  }
+  async getEpisodeSegmentDanmu(segment) {
+    log("info", "\u5F00\u59CB\u4ECE\u672C\u5730\u8BF7\u6C42\u4F18\u9177\u5206\u6BB5\u5F39\u5E55...", segment.url);
+    const response = await Widget.http.post(segment.url, buildQueryString({ data: segment.data }), {
+      headers: {
+        "Cookie": `_m_h5_tk=${segment._m_h5_tk};_m_h5_tk_enc=${segment._m_h5_tk_enc};`,
+        "Referer": "https://v.youku.com",
+        "Content-Type": "application/x-www-form-urlencoded",
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/79.0.3945.88 Safari/537.36"
+      },
+      allow_redirects: false,
+      retries: 1
+    });
+    const results = [];
+    if (response.data?.data && response.data.data.result) {
+      const result = JSON.parse(response.data.data.result);
+      if (result.code !== "-1") {
+        results.push(...result.data.result);
+      }
+    }
+    return results;
+  }
+  formatComments(comments) {
+    return comments.map((item) => {
+      const content = {
+        timepoint: 0,
+        ct: 1,
+        size: 25,
+        color: 16777215,
+        unixtime: Math.floor(Date.now() / 1e3),
+        uid: 0,
+        content: ""
+      };
+      content.timepoint = item.playat / 1e3;
+      const prop = JSON.parse(item.propertis);
+      if (prop?.color) {
+        content.color = typeof prop.color === "string" ? parseInt(prop.color, 10) : prop.color;
+      }
+      if (prop?.pos) {
+        const pos = prop.pos;
+        if (pos === 1) content.ct = 5;
+        else if (pos === 2) content.ct = 4;
+      }
+      content.content = item.content;
+      return content;
+    });
+  }
+};
 
-  sortAndPushAnimesByYear(tmpAnimes, curAnimes);
+// danmu_api/sources/other.js
+var OtherSource = class extends BaseSource {
+  async search(keyword) {
+  }
+  async getEpisodes(id) {
+  }
+  async handleAnimes(sourceAnimes, queryTitle, curAnimes) {
+  }
+  async getEpisodeDanmu(id) {
+    try {
+      const response = await Widget.http.get(
+        `${globals.otherServer}/?url=${id}&ac=dm`,
+        {
+          headers: {
+            "Content-Type": "application/json",
+            "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
+          }
+        }
+      );
+      log("info", `danmu response from ${globals.otherServer}: \u2193\u2193\u2193`);
+      printFirst200Chars(response.data);
+      return response.data;
+    } catch (error) {
+      log("error", `\u8BF7\u6C42 ${globals.otherServer} \u5931\u8D25:`, error);
+      return [];
+    }
+  }
+  async getEpisodeDanmuSegments(id) {
+    log("info", "\u83B7\u53D6\u7B2C\u4E09\u65B9\u670D\u52A1\u5668\u5F39\u5E55\u5206\u6BB5\u5217\u8868...", id);
+    return new SegmentListResponse({
+      "type": "other_server",
+      "segmentList": [{
+        "type": "other_server",
+        "segment_start": 0,
+        "segment_end": 3e4,
+        "url": id
+      }]
+    });
+  }
+  async getEpisodeSegmentDanmu(segment) {
+    return this.getEpisodeDanmu(segment.url);
+  }
+  formatComments(comments) {
+    return comments;
+  }
+};
 
-  return processHanjutvAnimes;
+// danmu_api/apis/dandan-api.js
+var kan360Source = new Kan360Source();
+var vodSource = new VodSource();
+var renrenSource = new RenrenSource();
+var hanjutvSource = new HanjutvSource();
+var bahamutSource = new BahamutSource();
+var dandanSource = new DandanSource();
+var tencentSource = new TencentSource();
+var youkuSource = new YoukuSource();
+var iqiyiSource = new IqiyiSource();
+var mangoSource = new MangoSource();
+var bilibiliSource = new BilibiliSource();
+var otherSource = new OtherSource();
+var doubanSource = new DoubanSource(tencentSource, iqiyiSource, youkuSource, bilibiliSource);
+var tmdbSource = new TmdbSource(doubanSource);
+function matchSeason(anime, queryTitle, season) {
+  const normalizedAnimeTitle = normalizeSpaces(anime.animeTitle);
+  const normalizedQueryTitle = normalizeSpaces(queryTitle);
+  if (normalizedAnimeTitle.includes(normalizedQueryTitle)) {
+    const title = normalizedAnimeTitle.split("(")[0].trim();
+    if (title.startsWith(normalizedQueryTitle)) {
+      const afterTitle = title.substring(normalizedQueryTitle.length).trim();
+      if (afterTitle === "" && season === 1) {
+        return true;
+      }
+      const seasonIndex = afterTitle.match(/\d+/);
+      if (seasonIndex && seasonIndex[0] === season.toString()) {
+        return true;
+      }
+      const chineseNumber = afterTitle.match(/[一二三四五六七八九十壹贰叁肆伍陆柒捌玖拾]+/);
+      if (chineseNumber && convertChineseNumber(chineseNumber[0]) === season) {
+        return true;
+      }
+    }
+    return false;
+  } else {
+    return false;
+  }
 }
-
-async function handleBahamutAnimes(animesBahamut, queryTitle, curAnimes) {
-  const tmpAnimes = [];
-
-  // 使用 map 和 async 时需要返回 Promise 数组，并等待所有 Promise 完成
-  const processBahamutAnimes = await Promise.all(animesBahamut
-    .filter(s => s.title.includes(queryTitle))
-    .map(async (anime) => {
-      const epData = await getBahamutEpisodes(anime.video_sn);
-      const detail = epData.video;
-      const eps = epData.anime.episodes["0"]
-      let links = [];
-      for (const ep of eps) {
-        const epTitle = `第${ep.episode}集`;
-        links.push({
-          "name": ep.episode,
-          "url": ep.videoSn.toString(),
-          "title": `【bahamut】 ${epTitle}`
-        });
-      }
-
-      if (links.length > 0) {
-        let transformedAnime = {
-          animeId: anime.video_sn,
-          bangumiId: String(anime.video_sn),
-          animeTitle: `${simplized(anime.title)}(${(anime.info.match(/(\d{4})/) || [null])[0]})【动漫】from bahamut`,
-          type: "动漫",
-          typeDescription: "动漫",
-          imageUrl: anime.cover,
-          startDate: `${new Date(epData.anime.seasonStart).getFullYear()}-01-01T00:00:00`,
-          episodeCount: links.length,
-          rating: detail.rating,
-          isFavorited: true,
-        };
-
-        tmpAnimes.push(transformedAnime);
-
-        addAnime({...transformedAnime, links: links});
-
-        if (animes.length > MAX_ANIMES) removeEarliestAnime();
-      }
-    })
-  );
-
-  sortAndPushAnimesByYear(tmpAnimes, curAnimes);
-
-  return processBahamutAnimes;
-}
-
-// Extracted function for GET /api/v2/search/anime
-async function searchAnime(queryTitle) {
+async function searchAnime(url, preferAnimeId = null, preferSource = null) {
+  const queryTitle = url.searchParams.get("keyword");
   log("info", `Search anime with keyword: ${queryTitle}`);
-
+  if (queryTitle === "") {
+    return jsonResponse({
+      errorCode: 0,
+      success: true,
+      errorMessage: "",
+      animes: []
+    });
+  }
+  const cachedResults = getSearchCache(queryTitle);
+  if (cachedResults !== null) {
+    return jsonResponse({
+      errorCode: 0,
+      success: true,
+      errorMessage: "",
+      animes: cachedResults
+    });
+  }
   const curAnimes = [];
-
-  // 链接弹幕解析
   const urlRegex = /^(https?:\/\/)?([a-zA-Z0-9-]+\.)+[a-zA-Z]{2,6}(:\d+)?(\/[^\s]*)?$/;
   if (urlRegex.test(queryTitle)) {
-    const tmpAnime = {
+    const tmpAnime = Anime.fromJson({
       "animeId": 111,
       "bangumiId": "string",
       "animeTitle": queryTitle,
       "type": "type",
       "typeDescription": "string",
       "imageUrl": "string",
-      "startDate": "2025-01-01T00:00:00",
+      "startDate": "2025-08-08T13:25:11.189Z",
       "episodeCount": 1,
       "rating": 0,
       "isFavorited": true
-    };
-
-    let platform = "all";
+    });
+    let platform = "unknown";
     if (queryTitle.includes(".qq.com")) {
       platform = "qq";
     } else if (queryTitle.includes(".iqiyi.com")) {
@@ -3716,142 +8288,226 @@ async function searchAnime(queryTitle) {
     } else if (queryTitle.includes(".bilibili.com")) {
       platform = "bilibili1";
     }
-
+    const pageTitle = await getPageTitle(queryTitle);
     const links = [{
-      "name": "手动解析链接弹幕",
+      "name": "\u624B\u52A8\u89E3\u6790\u94FE\u63A5\u5F39\u5E55",
       "url": queryTitle,
-      "title": `【${platform}】 ${queryTitle}`
+      "title": `\u3010${platform}\u3011 ${pageTitle}`
     }];
     curAnimes.push(tmpAnime);
-    addAnime({...tmpAnime, links: links});
-    if (animes.length > MAX_ANIMES) removeEarliestAnime();
-
-    // 如果有新的anime获取到，则更新
-    if (curAnimes.length !== 0) {
-      await updateCaches();
+    addAnime(Anime.fromJson({ ...tmpAnime, links }));
+    if (globals.animes.length > globals.MAX_ANIMES) removeEarliestAnime();
+    if (globals.localCacheValid && curAnimes.length !== 0) {
+      await updateLocalCaches();
     }
-
-    return curAnimes;
+    if (globals.redisValid && curAnimes.length !== 0) {
+      await updateRedisCaches();
+    }
+    return jsonResponse({
+      errorCode: 0,
+      success: true,
+      errorMessage: "",
+      animes: curAnimes
+    });
   }
-
   try {
-    // 根据 sourceOrderArr 动态构建请求数组
-    log("info", `Search sourceOrderArr: ${sourceOrderArr}`);
-    const requestPromises = sourceOrderArr.map(source => {
-      if (source === "360") return get360Animes(queryTitle);
-      if (source === "vod") return getVodAnimesFromAllServers(queryTitle, vodServers);
-      if (source === "renren") return renrenSearch(queryTitle);
-      if (source === "hanjutv") return hanjutvSearch(queryTitle);
-      if (source === "bahamut") return bahamutSearch(traditionalized(queryTitle));
+    log("info", `Search sourceOrderArr: ${globals.sourceOrderArr}`);
+    const requestPromises = globals.sourceOrderArr.map((source) => {
+      if (source === "360") return kan360Source.search(queryTitle);
+      if (source === "vod") return vodSource.search(queryTitle, preferAnimeId, preferSource);
+      if (source === "tmdb") return tmdbSource.search(queryTitle);
+      if (source === "douban") return doubanSource.search(queryTitle);
+      if (source === "renren") return renrenSource.search(queryTitle);
+      if (source === "hanjutv") return hanjutvSource.search(queryTitle);
+      if (source === "bahamut") return bahamutSource.search(queryTitle);
+      if (source === "dandan") return dandanSource.search(queryTitle);
+      if (source === "tencent") return tencentSource.search(queryTitle);
+      if (source === "youku") return youkuSource.search(queryTitle);
+      if (source === "iqiyi") return iqiyiSource.search(queryTitle);
+      if (source === "imgo") return mangoSource.search(queryTitle);
+      if (source === "bilibili") return bilibiliSource.search(queryTitle);
     });
-
-    // 执行所有请求并等待结果
     const results = await Promise.all(requestPromises);
-
-    // 创建一个对象来存储返回的结果
     const resultData = {};
-
-    // 动态根据 sourceOrderArr 顺序将结果赋值给对应的来源
-    sourceOrderArr.forEach((source, index) => {
-      resultData[source] = results[index];  // 根据顺序赋值
+    globals.sourceOrderArr.forEach((source, index) => {
+      resultData[source] = results[index];
     });
-
-    // 解构出返回的结果
-    const { vod: animesVodResults, 360: animes360, renren: animesRenren, hanjutv: animesHanjutv, bahamut: animesBahamut } = resultData;
-
-    // 按顺序处理每个来源的结果
-    for (const key of sourceOrderArr) {
-      if (key === '360') {
-        // 等待处理360来源
-        await handle360Animes(animes360, curAnimes);
-      } else if (key === 'vod') {
-        // 等待处理Vod来源（遍历所有VOD服务器的结果）
+    const {
+      vod: animesVodResults,
+      360: animes360,
+      tmdb: animesTmdb,
+      douban: animesDouban,
+      renren: animesRenren,
+      hanjutv: animesHanjutv,
+      bahamut: animesBahamut,
+      dandan: animesDandan,
+      tencent: animesTencent,
+      youku: animesYouku,
+      iqiyi: animesIqiyi,
+      imgo: animesImgo,
+      bilibili: animesBilibili
+    } = resultData;
+    for (const key of globals.sourceOrderArr) {
+      if (key === "360") {
+        await kan360Source.handleAnimes(animes360, queryTitle, curAnimes);
+      } else if (key === "vod") {
         if (animesVodResults && Array.isArray(animesVodResults)) {
           for (const vodResult of animesVodResults) {
             if (vodResult && vodResult.list && vodResult.list.length > 0) {
-              await handleVodAnimes(vodResult.list, curAnimes, vodResult.serverName);
+              await vodSource.handleAnimes(vodResult.list, queryTitle, curAnimes, vodResult.serverName);
             }
           }
         }
-      } else if (key === 'renren') {
-        // 等待处理Renren来源
-        await handleRenrenAnimes(animesRenren, queryTitle, curAnimes);
-      } else if (key === 'hanjutv') {
-        // 等待处理Hanjutv来源
-        await handleHanjutvAnimes(animesHanjutv, queryTitle, curAnimes);
-      } else if (key === 'bahamut') {
-        // 等待处理Bahamut来源
-        await handleBahamutAnimes(animesBahamut, traditionalized(queryTitle), curAnimes);
+      } else if (key === "tmdb") {
+        await tmdbSource.handleAnimes(animesTmdb, queryTitle, curAnimes);
+      } else if (key === "douban") {
+        await doubanSource.handleAnimes(animesDouban, queryTitle, curAnimes);
+      } else if (key === "renren") {
+        await renrenSource.handleAnimes(animesRenren, queryTitle, curAnimes);
+      } else if (key === "hanjutv") {
+        await hanjutvSource.handleAnimes(animesHanjutv, queryTitle, curAnimes);
+      } else if (key === "bahamut") {
+        await bahamutSource.handleAnimes(animesBahamut, queryTitle, curAnimes);
+      } else if (key === "dandan") {
+        await dandanSource.handleAnimes(animesDandan, queryTitle, curAnimes);
+      } else if (key === "tencent") {
+        await tencentSource.handleAnimes(animesTencent, queryTitle, curAnimes);
+      } else if (key === "youku") {
+        await youkuSource.handleAnimes(animesYouku, queryTitle, curAnimes);
+      } else if (key === "iqiyi") {
+        await iqiyiSource.handleAnimes(animesIqiyi, queryTitle, curAnimes);
+      } else if (key === "imgo") {
+        await mangoSource.handleAnimes(animesImgo, queryTitle, curAnimes);
+      } else if (key === "bilibili") {
+        await bilibiliSource.handleAnimes(animesBilibili, queryTitle, curAnimes);
       }
     }
   } catch (error) {
-    log("error", "发生错误:", error);
+    log("error", "\u53D1\u751F\u9519\u8BEF:", error);
   }
-
   storeAnimeIdsToMap(curAnimes, queryTitle);
-
-  // 如果有新的anime获取到，则更新
-  if (curAnimes.length !== 0) {
-      await updateCaches();
+  if (globals.enableEpisodeFilter) {
+    const validAnimes = [];
+    for (const anime of curAnimes) {
+      const animeTitle = anime.animeTitle || "";
+      if (globals.episodeTitleFilter.test(animeTitle)) {
+        log("info", `[searchAnime] Anime ${anime.animeId} filtered by name: ${animeTitle}`);
+        continue;
+      }
+      const animeData = globals.animes.find((a) => a.animeId === anime.animeId);
+      if (animeData && animeData.links) {
+        let episodesList = animeData.links.map((link, index) => ({
+          episodeId: link.id,
+          episodeTitle: link.title,
+          episodeNumber: index + 1
+        }));
+        episodesList = episodesList.filter((episode) => {
+          return !globals.episodeTitleFilter.test(episode.episodeTitle);
+        });
+        log("info", `[searchAnime] Anime ${anime.animeId} filtered episodes: ${episodesList.length}/${animeData.links.length}`);
+        if (episodesList.length > 0) {
+          validAnimes.push(anime);
+        }
+      }
+    }
+    curAnimes.length = 0;
+    curAnimes.push(...validAnimes);
   }
-
-  return curAnimes;
-}
-
-// Extracted function for GET /api/v2/bangumi/:animeId
-async function getBangumi(animeId) {
-  const anime = animes.find((a) => a.animeId.toString() === animeId.toString());
-  if (!anime) {
-    log("error", `Anime with ID ${animeId} not found`);
+  if (globals.localCacheValid && curAnimes.length !== 0) {
+    await updateLocalCaches();
   }
-  log("info", `Fetched details for anime ID: ${animeId}`);
-
-  let resData = {
+  if (globals.redisValid && curAnimes.length !== 0) {
+    await updateRedisCaches();
+  }
+  if (curAnimes.length > 0) {
+    setSearchCache(queryTitle, curAnimes);
+  }
+  return jsonResponse({
     errorCode: 0,
     success: true,
     errorMessage: "",
-    bangumi: {
-      animeId: anime.animeId,
-      bangumiId: anime.bangumiId,
-      animeTitle: anime.animeTitle,
-      imageUrl: anime.imageUrl,
-      isOnAir: true,
-      airDay: 1,
-      isFavorited: anime.isFavorited,
-      rating: anime.rating,
-      type: anime.type,
-      typeDescription: anime.typeDescription,
-      seasons: [
-        {
-          id: `season-${anime.animeId}`,
-          airDate: anime.startDate,
-          name: "Season 1",
-          episodeCount: anime.episodeCount,
-        },
-      ],
-      episodes: [],
-    },
-  };
-
+    animes: curAnimes
+  });
+}
+async function getBangumi(path2) {
+  const idParam = path2.split("/").pop();
+  const animeId = parseInt(idParam);
+  let anime;
+  if (!isNaN(animeId)) {
+    anime = globals.animes.find((a) => a.animeId.toString() === animeId.toString());
+  }
+  if (!anime) {
+    anime = globals.animes.find((a) => a.bangumiId === idParam);
+  }
+  if (!anime) {
+    log("error", `Anime with ID ${idParam} not found`);
+    return jsonResponse(
+      { errorCode: 404, success: false, errorMessage: "Anime not found", bangumi: null },
+      404
+    );
+  }
+  log("info", `Fetched details for anime ID: ${idParam}`);
+  let episodesList = [];
   for (let i = 0; i < anime.links.length; i++) {
     const link = anime.links[i];
-    resData["bangumi"]["episodes"].push({
-          seasonId: `season-${anime.animeId}`,
-          episodeId: link.id,
-          episodeTitle: `${link.title}`,
-          episodeNumber: `${i+1}`,
-          airDate: anime.startDate,
-        });
+    episodesList.push({
+      seasonId: `season-${anime.animeId}`,
+      episodeId: link.id,
+      episodeTitle: `${link.title}`,
+      episodeNumber: `${i + 1}`,
+      airDate: anime.startDate
+    });
   }
-
-  return resData;
+  if (globals.enableEpisodeFilter) {
+    episodesList = episodesList.filter((episode) => {
+      return !globals.episodeTitleFilter.test(episode.episodeTitle);
+    });
+    log("info", `[getBangumi] Episode filter enabled. Filtered episodes: ${episodesList.length}/${anime.links.length}`);
+    if (episodesList.length === 0) {
+      log("warn", `[getBangumi] No valid episodes after filtering for anime ID ${idParam}`);
+      return jsonResponse(
+        { errorCode: 404, success: false, errorMessage: "No valid episodes after filtering", bangumi: null },
+        404
+      );
+    }
+    episodesList = episodesList.map((episode, index) => ({
+      ...episode,
+      episodeNumber: `${index + 1}`
+    }));
+  }
+  const bangumi = Bangumi.fromJson({
+    animeId: anime.animeId,
+    bangumiId: anime.bangumiId,
+    animeTitle: anime.animeTitle,
+    imageUrl: anime.imageUrl,
+    isOnAir: true,
+    airDay: 1,
+    isFavorited: anime.isFavorited,
+    rating: anime.rating,
+    type: anime.type,
+    typeDescription: anime.typeDescription,
+    seasons: [
+      {
+        id: `season-${anime.animeId}`,
+        airDate: anime.startDate,
+        name: "Season 1",
+        episodeCount: anime.episodeCount
+      }
+    ],
+    episodes: episodesList
+  });
+  return jsonResponse({
+    errorCode: 0,
+    success: true,
+    errorMessage: "",
+    bangumi
+  });
 }
-
-// Extracted function for GET /api/v2/comment/:commentId
-async function getComment(commentId, segmentTime, tmdbId, season, episode, other_server, vod_servers, bilibili_cookie, source_order, blocked_words, group_minute) {
+async function getComment(path2, queryFormat, segmentFlag) {
+  const commentId = parseInt(path2.split("/").pop());
   let url = findUrlById(commentId);
   let title = findTitleById(commentId);
-  let plat = (title.match(/【(.*?)】/) || [null])[0]?.replace(/[【】]/g, '');
+  let plat = title ? (title.match(/【(.*?)】/) || [null])[0]?.replace(/[【】]/g, "") : null;
   log("info", "comment url...", url);
   log("info", "comment title...", title);
   log("info", "comment platform...", plat);
@@ -3860,219 +8516,885 @@ async function getComment(commentId, segmentTime, tmdbId, season, episode, other
     return jsonResponse({ count: 0, comments: [] }, 404);
   }
   log("info", `Fetched comment ID: ${commentId}`);
-
-  // 处理302场景
-  // https://v.youku.com/video?vid=XNjQ4MTIwOTE2NA==&tpa=dW5pb25faWQ9MTAyMjEzXzEwMDAwNl8wMV8wMQ需要转成https://v.youku.com/v_show/id_XNjQ4MTIwOTE2NA==.html
-  if (url.includes("youku.com/video?vid")) {
-      url = convertYoukuUrl(url);
+  const cachedComments = getCommentCache(url);
+  if (cachedComments !== null) {
+    const responseData2 = { count: cachedComments.length, comments: cachedComments };
+    return formatDanmuResponse(responseData2, queryFormat);
   }
-
-  log("info", "开始从本地请求弹幕...", url);
+  log("info", "\u5F00\u59CB\u4ECE\u672C\u5730\u8BF7\u6C42\u5F39\u5E55...", url);
   let danmus = [];
-  if (url.includes('.qq.com')) {
-    danmus = await fetchTencentVideo(url, segmentTime, tmdbId, season, episode, other_server, vod_servers, bilibili_cookie, source_order, blocked_words, group_minute);
-  } else if (url.includes('.iqiyi.com')) {
-    danmus = await fetchIqiyi(url, segmentTime, tmdbId, season, episode, other_server, vod_servers, bilibili_cookie, source_order, blocked_words, group_minute);
-  } else if (url.includes('.mgtv.com')) {
-    danmus = await fetchMangoTV(url, segmentTime, tmdbId, season, episode, other_server, vod_servers, bilibili_cookie, source_order, blocked_words, group_minute);
-  } else if (url.includes('.bilibili.com')) {
-    danmus = await fetchBilibili(url, segmentTime, tmdbId, season, episode, other_server, vod_servers, bilibili_cookie, source_order, blocked_words, group_minute);
-  } else if (url.includes('.youku.com')) {
-    danmus = await fetchYouku(url, segmentTime, tmdbId, season, episode, other_server, vod_servers, bilibili_cookie, source_order, blocked_words, group_minute);
+  if (url.includes(".qq.com")) {
+    danmus = await tencentSource.getComments(url, plat, segmentFlag);
+  } else if (url.includes(".iqiyi.com")) {
+    danmus = await iqiyiSource.getComments(url, plat, segmentFlag);
+  } else if (url.includes(".mgtv.com")) {
+    danmus = await mangoSource.getComments(url, plat, segmentFlag);
+  } else if (url.includes(".bilibili.com") || url.includes("b23.tv")) {
+    if (url.includes("b23.tv")) {
+      url = await bilibiliSource.resolveB23Link(url);
+    }
+    danmus = await bilibiliSource.getComments(url, plat, segmentFlag);
+  } else if (url.includes(".youku.com")) {
+    danmus = await youkuSource.getComments(url, plat, segmentFlag);
   }
-
-  // 请求其他平台弹幕
   const urlPattern = /^(https?:\/\/)?([\w.-]+)\.([a-z]{2,})(\/.*)?$/i;
   if (!urlPattern.test(url)) {
     if (plat === "renren") {
-      danmus = await getRenRenComments(url);
+      danmus = await renrenSource.getComments(url, plat, segmentFlag);
     } else if (plat === "hanjutv") {
-      danmus = await getHanjutvComments(url);
+      danmus = await hanjutvSource.getComments(url, plat, segmentFlag);
     } else if (plat === "bahamut") {
-      danmus = await getBahamutComments(url);
+      danmus = await bahamutSource.getComments(url, plat, segmentFlag);
+    } else if (plat === "dandan") {
+      danmus = await dandanSource.getComments(url, plat, segmentFlag);
     }
   }
-
-  // 如果弹幕为空，则请求第三方弹幕服务器作为兜底
   if (danmus.length === 0 && urlPattern.test(url)) {
-    danmus = await fetchOtherServer(url);
+    danmus = await otherSource.getComments(url, "other_server", segmentFlag);
   }
-
-  const animeId = findAnimeIdByCommentId(commentId);
-  setPreferByAnimeId(animeId);
-  if (animeId) {
-    await Widget.storage.set('lastSelectMap', lastSelectMap);
+  const [animeId, source] = findAnimeIdByCommentId(commentId);
+  setPreferByAnimeId(animeId, source);
+  if (globals.localCacheValid && animeId) {
+    writeCacheToFile("lastSelectMap", JSON.stringify(Object.fromEntries(globals.lastSelectMap)));
   }
-
-  return { count: danmus.length, comments: danmus };
+  if (globals.redisValid && animeId) {
+    await setRedisKey("lastSelectMap", globals.lastSelectMap);
+  }
+  if (danmus.length > 0) {
+    setCommentCache(url, danmus);
+  }
+  const responseData = { count: danmus.length, comments: danmus };
+  return formatDanmuResponse(responseData, queryFormat);
+}
+async function getSegmentComment(segment, queryFormat) {
+  try {
+    let url = segment.url;
+    let platform = segment.type;
+    if (!url || typeof url !== "string") {
+      log("error", "Missing or invalid url parameter");
+      return jsonResponse(
+        { errorCode: 400, success: false, errorMessage: "Missing or invalid url parameter", count: 0, comments: [] },
+        400
+      );
+    }
+    url = url.trim();
+    log("info", `Processing segment comment request for URL: ${url}`);
+    const cachedComments = getCommentCache(url);
+    if (cachedComments !== null) {
+      const responseData2 = {
+        errorCode: 0,
+        success: true,
+        errorMessage: "",
+        count: cachedComments.length,
+        comments: cachedComments
+      };
+      return formatDanmuResponse(responseData2, queryFormat);
+    }
+    log("info", `\u5F00\u59CB\u4ECE\u672C\u5730\u8BF7\u6C42\u5206\u6BB5\u5F39\u5E55... URL: ${url}`);
+    let danmus = [];
+    if (platform === "qq") {
+      danmus = await tencentSource.getSegmentComments(segment);
+    } else if (platform === "qiyi") {
+      danmus = await iqiyiSource.getSegmentComments(segment);
+    } else if (platform === "imgo") {
+      danmus = await mangoSource.getSegmentComments(segment);
+    } else if (platform === "bilibili1") {
+      danmus = await bilibiliSource.getSegmentComments(segment);
+    } else if (platform === "youku") {
+      danmus = await youkuSource.getSegmentComments(segment);
+    } else if (platform === "hanjutv") {
+      danmus = await hanjutvSource.getSegmentComments(segment);
+    } else if (platform === "bahamut") {
+      danmus = await bahamutSource.getSegmentComments(segment);
+    } else if (platform === "renren") {
+      danmus = await renrenSource.getSegmentComments(segment);
+    } else if (platform === "dandan") {
+      danmus = await dandanSource.getSegmentComments(segment);
+    } else if (platform === "other_server") {
+      danmus = await otherSource.getSegmentComments(segment);
+    }
+    log("info", `Successfully fetched ${danmus.length} segment comments from URL`);
+    if (danmus.length > 0) {
+      setCommentCache(url, danmus);
+    }
+    const responseData = {
+      errorCode: 0,
+      success: true,
+      errorMessage: "",
+      count: danmus.length,
+      comments: danmus
+    };
+    return formatDanmuResponse(responseData, queryFormat);
+  } catch (error) {
+    log("error", `Failed to process segment comment request: ${error.message}`);
+    return jsonResponse(
+      { errorCode: 500, success: false, errorMessage: "Internal server error", count: 0, comments: [] },
+      500
+    );
+  }
 }
 
-async function initEnv(other_server, vod_servers, bilibili_cookie, source_order, blocked_words, group_minute) {
-  otherServer = resolveOtherServer(other_server);
-  envs["otherServer"] = otherServer;
-  vodServers = resolveVodServers(vod_servers);
-  envs["vodServers"] = vodServers.map(s => `${s.name}@${s.url}`).join(',');
-  bilibliCookie = resolveBilibiliCookie(bilibili_cookie);
-  envs["bilibliCookie"] = encryptStr(bilibliCookie);
-  sourceOrderArr = resolveSourceOrder(source_order);
-  envs["sourceOrderArr"] = sourceOrderArr;
-  blockedWords = resolveBlockedWords(blocked_words);
-  envs["blockedWords"] = blockedWords;
-  groupMinute = resolveGroupMinute(group_minute);
-  envs["groupMinute"] = groupMinute;
-
-  log("info", "envs: ", envs);
-
+// forward/forward-widget.js
+var wv = true ? "1.10.0" : Globals.VERSION;
+WidgetMetadata = {
+  id: "forward.auto.danmu2",
+  title: "\u81EA\u52A8\u94FE\u63A5\u5F39\u5E55v2",
+  version: wv,
+  requiredVersion: "0.0.2",
+  description: "\u81EA\u52A8\u83B7\u53D6\u64AD\u653E\u94FE\u63A5\u5E76\u4ECE\u670D\u52A1\u5668\u83B7\u53D6\u5F39\u5E55\u3010\u4E94\u6298\u7801\uFF1ACHEAP.5;\u4E03\u6298\u7801\uFF1ACHEAP\u3011",
+  author: "huangxd",
+  site: "https://github.com/huangxd-/ForwardWidgets",
+  globalParams: [
+    // 源配置
+    {
+      name: "sourceOrder",
+      title: "\u6E90\u6392\u5E8F\u914D\u7F6E\uFF0C\u9ED8\u8BA4'360,vod,renren,hanjutv'\uFF0C\u53EF\u9009['360', 'vod', 'tmdb', 'douban', 'tencent', 'youku', 'iqiyi', 'imgo', 'bilibili', 'renren', 'hanjutv', 'bahamut', 'dandan']",
+      type: "input",
+      placeholders: [
+        {
+          title: "\u914D\u7F6E1",
+          value: "tencent,iqiyi,imgo,bilibili,youku,renren,hanjutv"
+        },
+        {
+          title: "\u914D\u7F6E2",
+          value: "douban,360,vod,renren,hanjutv"
+        },
+        {
+          title: "\u914D\u7F6E3",
+          value: "360,vod,renren,hanjutv"
+        },
+        {
+          title: "\u914D\u7F6E4",
+          value: "vod,360,renren,hanjutv,bahamut,dandan"
+        }
+      ]
+    },
+    {
+      name: "otherServer",
+      title: "\u7B2C\u4E09\u65B9\u5F39\u5E55\u670D\u52A1\u5668\uFF0C\u9ED8\u8BA4https://api.danmu.icu",
+      type: "input",
+      placeholders: [
+        {
+          title: "icu",
+          value: "https://api.danmu.icu"
+        },
+        {
+          title: "lyz05",
+          value: "https://fc.lyz05.cn"
+        },
+        {
+          title: "hls",
+          value: "https://dmku.hls.one"
+        },
+        {
+          title: "678",
+          value: "https://se.678.ooo"
+        },
+        {
+          title: "56uxi",
+          value: "https://danmu.56uxi.com"
+        },
+        {
+          title: "lxlad",
+          value: "https://dm.lxlad.com"
+        }
+      ]
+    },
+    {
+      name: "vodServers",
+      title: "VOD\u7AD9\u70B9\u914D\u7F6E\uFF0C\u683C\u5F0F\uFF1A\u540D\u79F0@URL,\u540D\u79F0@URL\uFF0C\u9ED8\u8BA4\u91D1\u8749'https://zy.jinchancaiji.com,789@https://www.caiji.cyou,\u542C\u98CE@https://gctf.tfdh.top'",
+      type: "input",
+      placeholders: [
+        {
+          title: "\u914D\u7F6E1",
+          value: "\u91D1\u8749@https://zy.jinchancaiji.com,789@https://www.caiji.cyou,\u542C\u98CE@https://gctf.tfdh.top"
+        },
+        {
+          title: "\u914D\u7F6E2",
+          value: "\u91D1\u8749@https://zy.jinchancaiji.com"
+        },
+        {
+          title: "\u914D\u7F6E3",
+          value: "\u91D1\u8749@https://zy.jinchancaiji.com,789@https://www.caiji.cyou"
+        },
+        {
+          title: "\u914D\u7F6E4",
+          value: "\u91D1\u8749@https://zy.jinchancaiji.com,\u542C\u98CE@https://gctf.tfdh.top"
+        }
+      ]
+    },
+    {
+      name: "vodReturnMode",
+      title: "VOD\u8FD4\u56DE\u6A21\u5F0F\uFF1Aall\uFF08\u6240\u6709\u7AD9\u70B9\uFF09\u6216 fastest\uFF08\u6700\u5FEB\u7684\u7AD9\u70B9\uFF09\uFF0C\u9ED8\u8BA4fastest",
+      type: "input",
+      placeholders: [
+        {
+          title: "fastest",
+          value: "fastest"
+        },
+        {
+          title: "all",
+          value: "all"
+        }
+      ]
+    },
+    {
+      name: "vodRequestTimeout",
+      title: "VOD\u8BF7\u6C42\u8D85\u65F6\u65F6\u95F4\uFF0C\u9ED8\u8BA410000",
+      type: "input",
+      placeholders: [
+        {
+          title: "10s",
+          value: "10000"
+        },
+        {
+          title: "15s",
+          value: "15000"
+        },
+        {
+          title: "20s",
+          value: "20000"
+        }
+      ]
+    },
+    {
+      name: "bilibiliCookie",
+      title: "B\u7AD9Cookie\uFF08\u586B\u5165\u540E\u80FD\u6293\u53D6b\u7AD9\u5B8C\u6574\u5F39\u5E55\uFF09",
+      type: "input",
+      placeholders: [
+        {
+          title: "\u793A\u4F8B",
+          value: "SESSDATA=xxxx"
+        }
+      ]
+    },
+    // 匹配配置
+    {
+      name: "platformOrder",
+      title: "\u5E73\u53F0\u4F18\u9009\u914D\u7F6E\uFF0C\u53EF\u9009['qiyi', 'bilibili1', 'imgo', 'youku', 'qq', 'renren', 'hanjutv', 'bahamut', 'dandan']",
+      type: "input",
+      placeholders: [
+        {
+          title: "\u914D\u7F6E1",
+          value: "qq,qiyi,imgo,bilibili1,youku,renren,hanjutv,bahamut,dandan"
+        },
+        {
+          title: "\u914D\u7F6E2",
+          value: "bilibili1,qq,qiyi,imgo"
+        },
+        {
+          title: "\u914D\u7F6E3",
+          value: "dandan,bilibili1,bahamut"
+        },
+        {
+          title: "\u914D\u7F6E4",
+          value: "imgo,qiyi,qq,youku,bilibili1"
+        }
+      ]
+    },
+    {
+      name: "episodeTitleFilter",
+      title: "\u5267\u96C6\u6807\u9898\u8FC7\u6EE4\u89C4\u5219",
+      type: "input",
+      placeholders: [
+        {
+          title: "\u793A\u4F8B",
+          value: "(\u7279\u522B|\u60CA\u559C|\u7EB3\u51C9)?\u4F01\u5212|\u5408\u4F19\u4EBA\u624B\u8BB0|\u8D85\u524D(\u8425\u4E1A|vlog)?|\u901F\u89C8|vlog|reaction|\u7EAF\u4EAB|\u52A0\u66F4(\u7248|\u7BC7)?|\u62A2\u5148(\u770B|\u7248|\u96C6|\u7BC7)?|\u62A2\u9C9C|\u9884\u544A|\u82B1\u7D6E(\u72EC\u5BB6)?|\u7279\u8F91|\u5F69\u86CB|\u4E13\u8BBF|\u5E55\u540E(\u6545\u4E8B|\u82B1\u7D6E|\u72EC\u5BB6)?|\u76F4\u64AD(\u966A\u770B|\u56DE\u987E)?|\u672A\u64AD(\u7247\u6BB5)?|\u884D\u751F|\u756A\u5916|\u4F1A\u5458(\u4E13\u4EAB|\u52A0\u957F|\u5C0A\u4EAB|\u4E13\u5C5E|\u7248)?|\u7247\u82B1|\u7CBE\u534E|\u770B\u70B9|\u901F\u770B|\u89E3\u8BFB|\u5F71\u8BC4|\u89E3\u8BF4|\u5410\u69FD|\u76D8\u70B9|\u62CD\u6444\u82B1\u7D6E|\u5236\u4F5C\u82B1\u7D6E|\u5E55\u540E\u82B1\u7D6E|\u672A\u64AD\u82B1\u7D6E|\u72EC\u5BB6\u82B1\u7D6E|\u82B1\u7D6E\u7279\u8F91|\u5148\u5BFC\u9884\u544A|\u7EC8\u6781\u9884\u544A|\u6B63\u5F0F\u9884\u544A|\u5B98\u65B9\u9884\u544A|\u5F69\u86CB\u7247\u6BB5|\u5220\u51CF\u7247\u6BB5|\u672A\u64AD\u7247\u6BB5|\u756A\u5916\u5F69\u86CB|\u7CBE\u5F69\u7247\u6BB5|\u7CBE\u5F69\u770B\u70B9|\u7CBE\u5F69\u56DE\u987E|\u7CBE\u5F69\u96C6\u9526|\u770B\u70B9\u89E3\u6790|\u770B\u70B9\u9884\u544A|NG\u955C\u5934|NG\u82B1\u7D6E|\u756A\u5916\u7BC7|\u756A\u5916\u7279\u8F91|\u5236\u4F5C\u7279\u8F91|\u62CD\u6444\u7279\u8F91|\u5E55\u540E\u7279\u8F91|\u5BFC\u6F14\u7279\u8F91|\u6F14\u5458\u7279\u8F91|\u7247\u5C3E\u66F2|\u63D2\u66F2|\u9AD8\u5149\u56DE\u987E|\u80CC\u666F\u97F3\u4E50|OST|\u97F3\u4E50MV|\u6B4C\u66F2MV|\u524D\u5B63\u56DE\u987E|\u5267\u60C5\u56DE\u987E|\u5F80\u671F\u56DE\u987E|\u5185\u5BB9\u603B\u7ED3|\u5267\u60C5\u76D8\u70B9|\u7CBE\u9009\u5408\u96C6|\u526A\u8F91\u5408\u96C6|\u6DF7\u526A\u89C6\u9891|\u72EC\u5BB6\u4E13\u8BBF|\u6F14\u5458\u8BBF\u8C08|\u5BFC\u6F14\u8BBF\u8C08|\u4E3B\u521B\u8BBF\u8C08|\u5A92\u4F53\u91C7\u8BBF|\u53D1\u5E03\u4F1A\u91C7\u8BBF|\u91C7\u8BBF|\u966A\u770B(\u8BB0)?|\u8BD5\u770B\u7248|\u77ED\u5267|\u7CBE\u7F16|Plus|\u72EC\u5BB6\u7248|\u7279\u522B\u7248|\u77ED\u7247|\u53D1\u5E03\u4F1A|\u89E3\u5FE7\u5C40|\u8D70\u5FC3\u5C40|\u706B\u9505\u5C40|\u5DC5\u5CF0\u65F6\u523B|\u575E\u91CC\u90FD\u77E5\u9053|\u798F\u6301\u76EE\u6807\u575E\u6C11|.{3,}\u7BC7|(?!.*(\u5165\u5C40|\u7834\u51B0\u5C40|\u505A\u5C40)).{2,}\u5C40|\u89C2\u5BDF\u5BA4|\u4E0A\u73ED\u90A3\u70B9\u4E8B\u513F|\u5468top|\u8D5B\u6BB5|\u76F4\u62CD|REACTION|VLOG|\u5168\u7EAA\u5F55|\u5F00\u64AD|\u5148\u5BFC|\u603B\u5BA3|\u5C55\u6F14|\u96C6\u9526|\u65C5\u884C\u65E5\u8BB0|\u7CBE\u5F69\u5206\u4EAB|\u5267\u60C5\u63ED\u79D8"
+        }
+      ]
+    },
+    {
+      name: "enableEpisodeFilter",
+      title: "\u96C6\u6807\u9898\u8FC7\u6EE4\u5F00\u5173\uFF0C\u662F\u5426\u5728\u624B\u52A8\u9009\u62E9\u63A5\u53E3\u4E2D\u542F\u7528\u96C6\u6807\u9898\u8FC7\u6EE4\uFF0C\u9ED8\u8BA4false",
+      type: "input",
+      placeholders: [
+        {
+          title: "false",
+          value: "false"
+        },
+        {
+          title: "true",
+          value: "true"
+        }
+      ]
+    },
+    {
+      name: "strictTitleMatch",
+      title: "\u4E25\u683C\u6807\u9898\u5339\u914D\u6A21\u5F0F\uFF0C\u9ED8\u8BA4false",
+      type: "input",
+      placeholders: [
+        {
+          title: "false",
+          value: "false"
+        },
+        {
+          title: "true",
+          value: "true"
+        }
+      ]
+    },
+    // 弹幕配置
+    {
+      name: "blockedWords",
+      title: "\u5C4F\u853D\u8BCD\u5217\u8868",
+      type: "input",
+      placeholders: [
+        {
+          title: "\u793A\u4F8B",
+          value: "/.{20,}/,/^\\d{2,4}[-/.]\\d{1,2}[-/.]\\d{1,2}([\u65E5\u53F7.]*)?$/,/^(?!\u54C8+$)([a-zA-Z\u4E00-\u9FA5])\\1{2,}/,/[0-9]+\\.*[0-9]*\\s*(w|\u4E07)+\\s*(\\+|\u4E2A|\u4EBA|\u5728\u770B)+/,/^[a-z]{6,}$/,/^(?:qwertyuiop|asdfghjkl|zxcvbnm)$/,/^\\d{5,}$/,/^(\\d)\\1{2,}$/,/\\d{1,4}/,/(20[0-3][0-9])/,/(0?[1-9]|1[0-2])\u6708/,/\\d{1,2}[.-]\\d{1,2}/,/[@#&$%^*+\\|/\\-_=<>\xB0\u25C6\u25C7\u25A0\u25A1\u25CF\u25CB\u2605\u2606\u25BC\u25B2\u2665\u2666\u2660\u2663\u2460\u2461\u2462\u2463\u2464\u2465\u2466\u2467\u2468\u2469]/,/[\u4E00\u4E8C\u4E09\u56DB\u4E94\u516D\u4E03\u516B\u4E5D\u5341\u767E\\d]+\u5237/,/\u7B2C[\u4E00\u4E8C\u4E09\u56DB\u4E94\u516D\u4E03\u516B\u4E5D\u5341\u767E\\d]+/,/(\u5168\u4F53\u6210\u5458|\u62A5\u5230|\u62A5\u9053|\u6765\u5566|\u7B7E\u5230|\u5237|\u6253\u5361|\u6211\u5728|\u6765\u4E86|\u8003\u53E4|\u7231\u4E86|\u6316\u575F|\u7559\u5FF5|\u4F60\u597D|\u56DE\u6765|\u54E6\u54E6|\u91CD\u6E29|\u590D\u4E60|\u91CD\u5237|\u518D\u770B|\u5728\u770B|\u524D\u6392|\u6C99\u53D1|\u6709\u4EBA\u770B|\u677F\u51F3|\u672B\u6392|\u6211\u8001\u5A46|\u6211\u8001\u516C|\u6485\u4E86|\u540E\u6392|\u5468\u76EE|\u91CD\u770B|\u5305\u517B|DVD|\u540C\u4E0A|\u540C\u6837|\u6211\u4E5F\u662F|\u4FFA\u4E5F|\u7B97\u6211|\u7231\u8C46|\u6211\u5BB6\u7231\u8C46|\u6211\u5BB6\u54E5\u54E5|\u52A0\u6211|\u4E09\u8FDE|\u5E01|\u65B0\u4EBA|\u5165\u5751|\u8865\u5267|\u51B2\u4E86|\u786C\u4E86|\u770B\u5B8C|\u8214\u5C4F|\u4E07\u4EBA|\u725B\u903C|\u715E\u7B14|\u50BB\u903C|\u5367\u69FD|tm|\u554A\u8FD9|\u54C7\u54E6)/"
+        }
+      ]
+    },
+    {
+      name: "groupMinute",
+      title: "\u5408\u5E76\u53BB\u91CD\u5206\u949F\u6570\uFF0C\u8868\u793A\u6309n\u5206\u949F\u5206\u7EC4\u540E\u5BF9\u5F39\u5E55\u5408\u5E76\u53BB\u91CD",
+      type: "input",
+      placeholders: [
+        {
+          title: "1\u5206\u949F",
+          value: "1"
+        },
+        {
+          title: "2\u5206\u949F",
+          value: "2"
+        },
+        {
+          title: "5\u5206\u949F",
+          value: "5"
+        },
+        {
+          title: "10\u5206\u949F",
+          value: "10"
+        },
+        {
+          title: "20\u5206\u949F",
+          value: "20"
+        },
+        {
+          title: "30\u5206\u949F",
+          value: "30"
+        }
+      ]
+    },
+    {
+      name: "danmuLimit",
+      title: "\u5F39\u5E55\u6570\u91CF\u9650\u5236\uFF0C\u5355\u4F4D\u4E3Ak\uFF0C\u5373\u5343\uFF1A\u9ED8\u8BA40\uFF0C\u8868\u793A\u4E0D\u9650\u5236\u5F39\u5E55\u6570",
+      type: "input",
+      placeholders: [
+        {
+          title: "\u4E0D\u9650\u5236",
+          value: "0"
+        },
+        {
+          title: "10k",
+          value: "10"
+        },
+        {
+          title: "8k",
+          value: "8"
+        },
+        {
+          title: "6k",
+          value: "6"
+        },
+        {
+          title: "4k",
+          value: "4"
+        },
+        {
+          title: "2k",
+          value: "2"
+        }
+      ]
+    },
+    {
+      name: "danmuSimplified",
+      title: "\u5F39\u5E55\u7E41\u4F53\u8F6C\u7B80\u4F53\u5F00\u5173\uFF0C\u76EE\u524D\u53EA\u5BF9\u5DF4\u54C8\u59C6\u7279\u751F\u6548\uFF0C\u9ED8\u8BA4true",
+      type: "input",
+      placeholders: [
+        {
+          title: "true",
+          value: "true"
+        },
+        {
+          title: "false",
+          value: "false"
+        }
+      ]
+    },
+    {
+      name: "convertTopBottomToScroll",
+      title: "\u9876\u90E8/\u5E95\u90E8\u5F39\u5E55\u8F6C\u6362\u4E3A\u6D6E\u52A8\u5F39\u5E55\uFF0C\u9ED8\u8BA4false",
+      type: "input",
+      placeholders: [
+        {
+          title: "false",
+          value: "false"
+        },
+        {
+          title: "true",
+          value: "true"
+        }
+      ]
+    },
+    {
+      name: "convertColor",
+      title: "\u5F39\u5E55\u8F6C\u6362\u989C\u8272\u914D\u7F6E\uFF0C\u9ED8\u8BA4default\uFF08\u4E0D\u8F6C\u6362\uFF09",
+      type: "input",
+      placeholders: [
+        {
+          title: "\u4E0D\u8F6C\u6362",
+          value: "default"
+        },
+        {
+          title: "\u767D\u8272",
+          value: "white"
+        },
+        {
+          title: "\u968F\u673A\u989C\u8272(\u5305\u62EC\u767D\u8272)",
+          value: "color"
+        }
+      ]
+    },
+    // 系统配置
+    {
+      name: "proxyUrl",
+      title: "\u4EE3\u7406/\u53CD\u4EE3\u5730\u5740\uFF0C\u76EE\u524D\u53EA\u5BF9\u5DF4\u54C8\u59C6\u7279\u548CTMDB API\u751F\u6548",
+      type: "input",
+      placeholders: [
+        {
+          title: "\u5982\u679C\u6DFB\u52A0\u4E86\u5DF4\u54C8\u6E90\u4E14\u8BBF\u95EE\u4E0D\u4E86\uFF0C\u8BF7\u586B\u5199",
+          value: ""
+        },
+        {
+          title: "\u6B63\u5E38\u4EE3\u7406\u793A\u4F8B",
+          value: "http://127.0.0.1:7890"
+        },
+        {
+          title: "\u4E07\u80FD\u53CD\u4EE3\u793A\u4F8B",
+          value: "@http://127.0.0.1"
+        },
+        {
+          title: "\u7279\u5B9A\u53CD\u4EE3\u793A\u4F8B1",
+          value: "bahamut@http://127.0.0.1"
+        },
+        {
+          title: "\u7279\u5B9A\u53CD\u4EE3\u793A\u4F8B2",
+          value: "tmdb@http://127.0.0.1"
+        }
+      ]
+    },
+    {
+      name: "tmdbApiKey",
+      title: "TMDB API\u5BC6\u94A5\uFF0C\u76EE\u524D\u53EA\u5BF9\u5DF4\u54C8\u59C6\u7279\u751F\u6548\uFF0C\u914D\u7F6E\u540E\u5E76\u884C\u4ECETMDB\u83B7\u53D6\u65E5\u8BED\u539F\u540D\u641C\u7D22\u5DF4\u54C8",
+      type: "input",
+      placeholders: [
+        {
+          title: "\u5982\u679C\u6DFB\u52A0\u4E86\u5DF4\u54C8\u6E90\uFF0C\u60F3\u81EA\u52A8\u83B7\u53D6\u65E5\u8BED\u539F\u540D\u641C\u7D22\u5DF4\u54C8\uFF0C\u8BF7\u586B\u5199",
+          value: ""
+        },
+        {
+          title: "\u793A\u4F8B",
+          value: "a1b2xxxxxxxxxxxxxxxxxxx"
+        }
+      ]
+    }
+  ],
+  modules: [
+    {
+      id: "searchDanmu",
+      title: "\u641C\u7D22\u5F39\u5E55",
+      functionName: "searchDanmu",
+      type: "danmu",
+      params: []
+    },
+    {
+      id: "getDetail",
+      title: "\u83B7\u53D6\u8BE6\u60C5",
+      functionName: "getDetailById",
+      type: "danmu",
+      params: []
+    },
+    {
+      id: "getComments",
+      title: "\u83B7\u53D6\u5F39\u5E55",
+      functionName: "getCommentsById",
+      type: "danmu",
+      params: []
+    },
+    {
+      id: "getDanmuWithSegmentTime",
+      title: "\u83B7\u53D6\u6307\u5B9A\u65F6\u523B\u5F39\u5E55",
+      functionName: "getDanmuWithSegmentTime",
+      type: "danmu",
+      params: []
+    }
+  ]
+};
+if (typeof window !== "undefined") {
+  window.WidgetMetadata = WidgetMetadata;
+}
+var globals2;
+async function initGlobals(sourceOrder, otherServer, vodServers, vodReturnMode, vodRequestTimeout, bilibiliCookie, platformOrder, episodeTitleFilter, enableEpisodeFilter, strictTitleMatch2, blockedWords, groupMinute, danmuLimit, danmuSimplified, convertTopBottomToScroll, convertColor, proxyUrl, tmdbApiKey) {
+  const env = {};
+  if (sourceOrder !== void 0) env.SOURCE_ORDER = sourceOrder;
+  if (otherServer !== void 0) env.OTHER_SERVER = otherServer;
+  if (vodServers !== void 0) env.VOD_SERVERS = vodServers;
+  if (vodReturnMode !== void 0) env.VOD_RETURN_MODE = vodReturnMode;
+  if (vodRequestTimeout !== void 0) env.VOD_REQUEST_TIMEOUT = vodRequestTimeout;
+  if (bilibiliCookie !== void 0) env.BILIBILI_COOKIE = bilibiliCookie;
+  if (platformOrder !== void 0) env.PLATFORM_ORDER = platformOrder;
+  if (episodeTitleFilter !== void 0) env.EPISODE_TITLE_FILTER = episodeTitleFilter;
+  if (enableEpisodeFilter !== void 0) env.ENABLE_EPISODE_FILTER = enableEpisodeFilter;
+  if (strictTitleMatch2 !== void 0) env.STRICT_TITLE_MATCH = strictTitleMatch2;
+  if (blockedWords !== void 0) env.BLOCKED_WORDS = blockedWords;
+  if (groupMinute !== void 0) env.GROUP_MINUTE = groupMinute;
+  if (danmuLimit !== void 0) env.DANMU_LIMIT = danmuLimit;
+  if (danmuSimplified !== void 0) env.DANMU_SIMPLIFIED = danmuSimplified;
+  if (convertTopBottomToScroll !== void 0) env.CONVERT_TOP_BOTTOM_TO_SCROLL = convertTopBottomToScroll;
+  if (convertColor !== void 0) env.CONVERT_COLOR = convertColor;
+  if (proxyUrl !== void 0) env.PROXY_URL = proxyUrl;
+  if (tmdbApiKey !== void 0) env.TMDB_API_KEY = tmdbApiKey;
+  if (!globals2) {
+    globals2 = Globals.init(env);
+  }
   await getCaches();
+  return globals2;
 }
-
+async function getCaches() {
+  if (globals2.animes.length === 0) {
+    log("info", "getCaches start.");
+    const [kv_animes, kv_episodeIds, kv_episodeNum, kv_logBuffer, kv_lastSelectMap] = await Promise.all([
+      Widget.storage.get("animes"),
+      Widget.storage.get("episodeIds"),
+      Widget.storage.get("episodeNum"),
+      Widget.storage.get("logBuffer"),
+      Widget.storage.get("lastSelectMap")
+    ]);
+    globals2.animes = kv_animes ? typeof kv_animes === "string" ? JSON.parse(kv_animes) : kv_animes : globals2.animes;
+    globals2.episodeIds = kv_episodeIds ? typeof kv_episodeIds === "string" ? JSON.parse(kv_episodeIds) : kv_episodeIds : globals2.episodeIds;
+    globals2.episodeNum = kv_episodeNum ? typeof kv_episodeNum === "string" ? JSON.parse(kv_episodeNum) : kv_episodeNum : globals2.episodeNum;
+    globals2.logBuffer = kv_logBuffer ? typeof kv_logBuffer === "string" ? JSON.parse(kv_logBuffer) : kv_logBuffer : globals2.logBuffer;
+    if (kv_lastSelectMap) {
+      const parsed = typeof kv_lastSelectMap === "string" ? JSON.parse(kv_lastSelectMap) : kv_lastSelectMap;
+      globals2.lastSelectMap = new Map(
+        Array.isArray(parsed) ? parsed : Object.entries(parsed)
+      );
+    }
+  }
+}
+async function updateCaches() {
+  log("info", "updateCaches start.");
+  await Promise.all([
+    Widget.storage.set("animes", globals2.animes),
+    Widget.storage.set("episodeIds", globals2.episodeIds),
+    Widget.storage.set("episodeNum", globals2.episodeNum),
+    Widget.storage.set("logBuffer", globals2.logBuffer),
+    Widget.storage.set("lastSelectMap", JSON.stringify(Object.fromEntries(globals2.lastSelectMap)))
+  ]);
+}
+var PREFIX_URL = "http://localhost:9321";
 async function searchDanmu(params) {
-  const { tmdbId, type, title, season, link, videoUrl, other_server, vod_servers, bilibili_cookie, source_order, blocked_words, group_minute } = params;
-
-  await removeCaches();
-  await initEnv(other_server, vod_servers, bilibili_cookie, source_order, blocked_words, group_minute);
-
-  let queryTitle = title;
-
-  // 调用弹弹play搜索API - 使用Widget.http.get
-  const curAnimes = await searchAnime(queryTitle);
-
-  // 开始排序数据，将匹配到季的数据挪到前面
+  const {
+    tmdbId,
+    type,
+    title,
+    season,
+    link,
+    videoUrl,
+    sourceOrder,
+    otherServer,
+    vodServers,
+    vodReturnMode,
+    vodRequestTimeout,
+    bilibiliCookie,
+    platformOrder,
+    episodeTitleFilter,
+    enableEpisodeFilter,
+    strictTitleMatch: strictTitleMatch2,
+    blockedWords,
+    groupMinute,
+    danmuLimit,
+    danmuSimplified,
+    convertTopBottomToScroll,
+    convertColor,
+    proxyUrl,
+    tmdbApiKey
+  } = params;
+  await initGlobals(
+    sourceOrder,
+    otherServer,
+    vodServers,
+    vodReturnMode,
+    vodRequestTimeout,
+    bilibiliCookie,
+    platformOrder,
+    episodeTitleFilter,
+    enableEpisodeFilter,
+    strictTitleMatch2,
+    blockedWords,
+    groupMinute,
+    danmuLimit,
+    danmuSimplified,
+    convertTopBottomToScroll,
+    convertColor,
+    proxyUrl,
+    tmdbApiKey
+  );
+  const response = await searchAnime(new URL(`${PREFIX_URL}/api/v2/search/anime?keyword=${title}`));
+  const resJson = await response.json();
+  const curAnimes = resJson.animes;
   let animes = [];
   if (curAnimes && curAnimes.length > 0) {
     animes = curAnimes;
     if (season) {
-      // order by season
       const matchedAnimes = [];
       const nonMatchedAnimes = [];
-
       animes.forEach((anime) => {
-        if (matchSeason(anime, queryTitle, season) && !(queryTitle.includes("电影") || queryTitle.includes("movie"))) {
-            matchedAnimes.push(anime);
+        if (matchSeason(anime, title, season) && !(anime.animeTitle.includes("\u7535\u5F71") || anime.animeTitle.includes("movie"))) {
+          matchedAnimes.push(anime);
         } else {
-            nonMatchedAnimes.push(anime);
+          nonMatchedAnimes.push(anime);
         }
       });
-
-      // Sort matched animes by title length (before first parenthesis)
       matchedAnimes.sort((a, b) => {
-        const aLength = a.animeTitle.split('(')[0].length;
-        const bLength = b.animeTitle.split('(')[0].length;
+        const aLength = a.animeTitle.split("(")[0].length;
+        const bLength = b.animeTitle.split("(")[0].length;
         return aLength - bLength;
       });
-
-      // Combine matched and non-matched animes, with matched ones at the front
       animes = [...matchedAnimes, ...nonMatchedAnimes];
     } else {
-      // order by type
       const matchedAnimes = [];
       const nonMatchedAnimes = [];
-
       animes.forEach((anime) => {
-        if (queryTitle.includes("电影") || queryTitle.includes("movie")) {
-            matchedAnimes.push(anime);
+        if (anime.animeTitle.includes("\u7535\u5F71") || anime.animeTitle.includes("movie")) {
+          matchedAnimes.push(anime);
         } else {
-            nonMatchedAnimes.push(anime);
+          nonMatchedAnimes.push(anime);
         }
       });
-
-      // Sort matched animes by title length (before first parenthesis)
       matchedAnimes.sort((a, b) => {
-        const aLength = a.animeTitle.split('(')[0].length;
-        const bLength = b.animeTitle.split('(')[0].length;
+        const aLength = a.animeTitle.split("(")[0].length;
+        const bLength = b.animeTitle.split("(")[0].length;
         return aLength - bLength;
       });
-
-      // Combine matched and non-matched animes, with matched ones at the front
       animes = [...matchedAnimes, ...nonMatchedAnimes];
     }
   }
-
-  log("info", animes);
-
+  log("info", "animes: ", animes);
+  await updateCaches();
   return {
-    animes: animes,
+    animes
   };
 }
-
 async function getDetailById(params) {
-  const { animeId, other_server, vod_servers, bilibili_cookie, source_order, blocked_words, group_minute } = params;
-
-  await initEnv(other_server, vod_servers, bilibili_cookie, source_order, blocked_words, group_minute);
-
-  const data = await getBangumi(animeId);
-
-  log("info", data);
-
-  return data.bangumi.episodes;
+  const {
+    animeId,
+    sourceOrder,
+    otherServer,
+    vodServers,
+    vodReturnMode,
+    vodRequestTimeout,
+    bilibiliCookie,
+    platformOrder,
+    episodeTitleFilter,
+    enableEpisodeFilter,
+    strictTitleMatch: strictTitleMatch2,
+    blockedWords,
+    groupMinute,
+    danmuLimit,
+    danmuSimplified,
+    convertTopBottomToScroll,
+    convertColor,
+    proxyUrl,
+    tmdbApiKey
+  } = params;
+  await initGlobals(
+    sourceOrder,
+    otherServer,
+    vodServers,
+    vodReturnMode,
+    vodRequestTimeout,
+    bilibiliCookie,
+    platformOrder,
+    episodeTitleFilter,
+    enableEpisodeFilter,
+    strictTitleMatch2,
+    blockedWords,
+    groupMinute,
+    danmuLimit,
+    danmuSimplified,
+    convertTopBottomToScroll,
+    convertColor,
+    proxyUrl,
+    tmdbApiKey
+  );
+  const response = await getBangumi(`${PREFIX_URL}/api/v2/bangumi/${animeId}`);
+  const resJson = await response.json();
+  log("info", "bangumi", resJson);
+  await updateCaches();
+  return resJson.bangumi.episodes;
 }
-
 async function getCommentsById(params) {
-  const { commentId, link, videoUrl, season, episode, tmdbId, type, title, segmentTime, other_server, vod_servers, bilibili_cookie, source_order, blocked_words, group_minute } = params;
-
-  await initEnv(other_server, vod_servers, bilibili_cookie, source_order, blocked_words, group_minute);
-
+  const {
+    commentId,
+    link,
+    videoUrl,
+    season,
+    episode,
+    tmdbId,
+    type,
+    title,
+    segmentTime,
+    sourceOrder,
+    otherServer,
+    vodServers,
+    vodReturnMode,
+    vodRequestTimeout,
+    bilibiliCookie,
+    platformOrder,
+    episodeTitleFilter,
+    enableEpisodeFilter,
+    strictTitleMatch: strictTitleMatch2,
+    blockedWords,
+    groupMinute,
+    danmuLimit,
+    danmuSimplified,
+    convertTopBottomToScroll,
+    convertColor,
+    proxyUrl,
+    tmdbApiKey
+  } = params;
+  await initGlobals(
+    sourceOrder,
+    otherServer,
+    vodServers,
+    vodReturnMode,
+    vodRequestTimeout,
+    bilibiliCookie,
+    platformOrder,
+    episodeTitleFilter,
+    enableEpisodeFilter,
+    strictTitleMatch2,
+    blockedWords,
+    groupMinute,
+    danmuLimit,
+    danmuSimplified,
+    convertTopBottomToScroll,
+    convertColor,
+    proxyUrl,
+    tmdbApiKey
+  );
   if (commentId) {
     const storeKey = season && episode ? `${tmdbId}.${season}.${episode}` : `${tmdbId}`;
-    const mediaInfo = Widget.storage.get(storeKey)
-    log("info", "tmdbId:", tmdbId);
-    log("info", "mediaInfo:", mediaInfo);
-    if (mediaInfo && mediaInfo.domain && mediaInfo.segmentList) {
-        return await getDanmuWithSegmentTime({ segmentTime, tmdbId, season, episode, other_server, vod_servers, bilibili_cookie, source_order, blocked_words, group_minute })
+    const commentIdKey = `${storeKey}.${commentId}`;
+    const segmentList = Widget.storage.get(storeKey);
+    const lastCommentId = Widget.storage.get(commentIdKey);
+    log("info", "storeKey:", storeKey);
+    log("info", "commentIdKey:", commentIdKey);
+    log("info", "commentId:", commentId);
+    log("info", "lastCommentId:", lastCommentId);
+    log("info", "segmentList:", segmentList);
+    if (lastCommentId === commentId && segmentList) {
+      return await getDanmuWithSegmentTime({
+        segmentTime,
+        tmdbId,
+        season,
+        episode,
+        otherServer,
+        vodServers,
+        bilibiliCookie,
+        sourceOrder,
+        blockedWords,
+        groupMinute,
+        vodReturnMode,
+        vodRequestTimeout,
+        platformOrder,
+        episodeTitleFilter,
+        enableEpisodeFilter,
+        strictTitleMatch: strictTitleMatch2,
+        danmuLimit,
+        danmuSimplified,
+        convertTopBottomToScroll,
+        convertColor,
+        proxyUrl,
+        tmdbApiKey
+      });
+    } else {
+      Widget.storage.remove(storeKey);
+      Widget.storage.remove(commentIdKey);
     }
-
-    const data = await getComment(commentId, segmentTime, tmdbId, season, episode, other_server, vod_servers, bilibili_cookie, source_order, blocked_words, group_minute);
-
-    return data;
+    const response = await getComment(`${PREFIX_URL}/api/v2/comment/${commentId}`, "json", true);
+    const resJson = await response.json();
+    log("info", "segmentList:", resJson.comments.segmentList);
+    Widget.storage.set(storeKey, resJson.comments.segmentList);
+    Widget.storage.set(commentIdKey, commentId);
+    console.log("segmentList", resJson.comments.segmentList);
+    await updateCaches();
+    return resJson.comments.segmentList;
   }
   return null;
 }
-
 async function getDanmuWithSegmentTime(params) {
-  const { segmentTime, tmdbId, season, episode, other_server, vod_servers, bilibili_cookie, source_order, blocked_words, group_minute } = params;
-
-  await initEnv(other_server, vod_servers, bilibili_cookie, source_order, blocked_words, group_minute);
-
-  const time = segmentTime * 1000;
+  const {
+    segmentTime,
+    tmdbId,
+    season,
+    episode,
+    sourceOrder,
+    otherServer,
+    vodServers,
+    vodReturnMode,
+    vodRequestTimeout,
+    bilibiliCookie,
+    platformOrder,
+    episodeTitleFilter,
+    enableEpisodeFilter,
+    strictTitleMatch: strictTitleMatch2,
+    blockedWords,
+    groupMinute,
+    danmuLimit,
+    danmuSimplified,
+    convertTopBottomToScroll,
+    convertColor,
+    proxyUrl,
+    tmdbApiKey
+  } = params;
+  await initGlobals(
+    sourceOrder,
+    otherServer,
+    vodServers,
+    vodReturnMode,
+    vodRequestTimeout,
+    bilibiliCookie,
+    platformOrder,
+    episodeTitleFilter,
+    enableEpisodeFilter,
+    strictTitleMatch2,
+    blockedWords,
+    groupMinute,
+    danmuLimit,
+    danmuSimplified,
+    convertTopBottomToScroll,
+    convertColor,
+    proxyUrl,
+    tmdbApiKey
+  );
   const storeKey = season && episode ? `${tmdbId}.${season}.${episode}` : `${tmdbId}`;
-  const mediaInfo = Widget.storage.get(storeKey);
-  if (mediaInfo) {
-    const domain = mediaInfo.domain;
-    const segmentList = mediaInfo.segmentList;
-    if (domain && segmentList) {
-      let segment;
-      if (domain === ".qq.com") {
-        segment = segmentList.find((item) => {
-          //t/v1/30000/60000
-          const segmentName = item.segment_name.split("/");
-          const start = Number(segmentName[2]);
-          const end = Number(segmentName[3]);
-          log("info", "start:", start, "end:", end, "time:", time);
-          return time >= start && time < end;
-        });
-      } else {
-        segment = segmentList.find((item) => {
-            const start = Number(item.segment_start);
-            const end = Number(item.segment_end);
-            log("info", "start:", start, "end:", end, "time:", time);
-            return time >= start && time < end;
-        });
-      }
-      log("info", "segment:", segment);
-      if (segment) {
-        if (domain === ".qq.com") {
-          return await fetchTencentVideoDanmaku(mediaInfo.vid, segment);
-        } else if (domain === ".iqiyi.com") {
-          return await fetchIqiyiDanmaku(segment)
-        } else if (domain === ".mgtv.com") {
-          return await fetchMangoDanmaku(segment)
-        } else if (domain === ".youku.com") {
-          return await fetchYoukuDanmaku(segment)
-        } else if (domain === ".bilibili.com") {
-          return await fetchBilibiliDanmaku(segment)
-        }
-      }
-    }
+  const segmentList = Widget.storage.get(storeKey);
+  if (segmentList) {
+    const segment = segmentList.find((item) => {
+      const start = Number(item.segment_start);
+      const end = Number(item.segment_end);
+      const time = Number(segmentTime);
+      return time >= start && time < end;
+    });
+    log("info", "segment:", segment);
+    const response = await getSegmentComment(segment);
+    const resJson = await response.json();
+    await updateCaches();
+    return resJson;
   }
   return null;
 }
+
