@@ -42,10 +42,6 @@ WidgetMetadata = {
                             value: "https://letterboxd.com/alexanderh/list/letterboxd-one-million-watched-club/"
                         },
                         {
-                            title: "250部最佳纪录片",
-                            value: "https://letterboxd.com/jack/list/official-top-250-documentary-films/"
-                        },
-                        {
                             title: "女性导演250部最佳电影",
                             value: "https://letterboxd.com/jack/list/women-directors-the-official-top-250-narrative/"
                         },

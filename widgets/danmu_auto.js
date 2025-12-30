@@ -515,6 +515,7 @@ var Envs = class {
       // 源配置
       "SOURCE_ORDER": { category: "source", type: "multi-select", options: this.ALLOWED_SOURCES, description: "\u6E90\u6392\u5E8F\u914D\u7F6E\uFF0C\u9ED8\u8BA4360,vod,renren,hanjutv" },
       "OTHER_SERVER": { category: "source", type: "text", description: "\u7B2C\u4E09\u65B9\u5F39\u5E55\u670D\u52A1\u5668\uFF0C\u9ED8\u8BA4https://api.danmu.icu" },
+      "CUSTOM_SOURCE_API_URL": { category: "source", type: "text", description: "\u81EA\u5B9A\u4E49\u5F39\u5E55\u6E90API\u5730\u5740\uFF0C\u9ED8\u8BA4\u4E3A\u7A7A\uFF0C\u914D\u7F6E\u540E\u8FD8\u9700\u5728SOURCE_ORDER\u6DFB\u52A0custom\u6E90" },
       "VOD_SERVERS": { category: "source", type: "text", description: "VOD\u7AD9\u70B9\u914D\u7F6E\uFF0C\u683C\u5F0F\uFF1A\u540D\u79F0@URL,\u540D\u79F0@URL\uFF0C\u9ED8\u8BA4\u91D1\u8749@https://zy.jinchancaiji.com,789@https://www.caiji.cyou,\u542C\u98CE@https://gctf.tfdh.top" },
       "VOD_RETURN_MODE": { category: "source", type: "select", options: ["all", "fastest"], description: "VOD\u8FD4\u56DE\u6A21\u5F0F\uFF1Aall\uFF08\u6240\u6709\u7AD9\u70B9\uFF09\u6216 fastest\uFF08\u6700\u5FEB\u7684\u7AD9\u70B9\uFF09\uFF0C\u9ED8\u8BA4fastest" },
       "VOD_REQUEST_TIMEOUT": { category: "source", type: "number", description: "VOD\u8BF7\u6C42\u8D85\u65F6\u65F6\u95F4\uFF0C\u9ED8\u8BA410000", min: 5e3, max: 3e4 },
@@ -562,6 +563,8 @@ var Envs = class {
       // 源排序
       otherServer: this.get("OTHER_SERVER", "https://api.danmu.icu", "string"),
       // 第三方弹幕服务器
+      customSourceApiUrl: this.get("CUSTOM_SOURCE_API_URL", "", "string", true),
+      // 自定义弹幕源API地址，默认为空，配置后还需在SOURCE_ORDER添加custom源
       vodServers: this.resolveVodServers(),
       // vod站点配置，格式：名称@URL,名称@URL
       vodReturnMode: this.get("VOD_RETURN_MODE", "fastest", "string").toLowerCase(),
@@ -637,9 +640,9 @@ __publicField(Envs, "originalEnvVars", /* @__PURE__ */ new Map());
 __publicField(Envs, "accessedEnvVars", /* @__PURE__ */ new Map());
 __publicField(Envs, "VOD_ALLOWED_PLATFORMS", ["qiyi", "bilibili1", "imgo", "youku", "qq"]);
 // vod允许的播放平台
-__publicField(Envs, "ALLOWED_PLATFORMS", ["qiyi", "bilibili1", "imgo", "youku", "qq", "renren", "hanjutv", "bahamut", "dandan"]);
+__publicField(Envs, "ALLOWED_PLATFORMS", ["qiyi", "bilibili1", "imgo", "youku", "qq", "renren", "hanjutv", "bahamut", "dandan", "custom"]);
 // 全部源允许的播放平台
-__publicField(Envs, "ALLOWED_SOURCES", ["360", "vod", "tmdb", "douban", "tencent", "youku", "iqiyi", "imgo", "bilibili", "renren", "hanjutv", "bahamut", "dandan"]);
+__publicField(Envs, "ALLOWED_SOURCES", ["360", "vod", "tmdb", "douban", "tencent", "youku", "iqiyi", "imgo", "bilibili", "renren", "hanjutv", "bahamut", "dandan", "custom"]);
 
 // danmu_api/configs/globals.js
 var Globals = {
@@ -649,7 +652,7 @@ var Globals = {
   originalEnvVars: {},
   accessedEnvVars: {},
   // 静态常量
-  VERSION: "1.10.0",
+  VERSION: "1.10.2",
   MAX_LOGS: 500,
   // 日志存储，最多保存 500 行
   MAX_ANIMES: 100,
@@ -2074,6 +2077,22 @@ x-ca-method:1
 ${path2}`;
   if (queryString) signStr += `?${queryString}`;
   return createHmacSha256(secretKey, signStr);
+}
+function fromCodePoint(codePoint) {
+  if (codePoint <= 65535) {
+    return String.fromCharCode(codePoint);
+  }
+  codePoint -= 65536;
+  const highSurrogate = (codePoint >> 10) + 55296;
+  const lowSurrogate = (codePoint & 1023) + 56320;
+  return String.fromCharCode(highSurrogate, lowSurrogate);
+}
+function decodeHtmlEntities(str) {
+  return str.replace(/&#(\d+);/g, (match, num) => {
+    return fromCodePoint(parseInt(num, 10));
+  }).replace(/&#x([0-9a-fA-F]+);/g, (match, hex) => {
+    return fromCodePoint(parseInt(hex, 16));
+  });
 }
 
 // danmu_api/utils/redis-util.js
@@ -5104,7 +5123,7 @@ var DandanSource = class extends BaseSource {
       const resp = await Widget.http.get(`https://api.danmaku.weeblify.app/ddp/v1?path=/v2/search/anime?keyword=${keyword}`, {
         headers: {
           "Content-Type": "application/json",
-          "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
+          "User-Agent": `LogVar Danmu API/${globals.version}`
         }
       });
       if (!resp || !resp.data) {
@@ -5131,7 +5150,7 @@ var DandanSource = class extends BaseSource {
       const resp = await Widget.http.get(`https://api.danmaku.weeblify.app/ddp/v1?path=/v2/bangumi/${id}`, {
         headers: {
           "Content-Type": "application/json",
-          "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
+          "User-Agent": `LogVar Danmu API/${globals.version}`
         }
       });
       if (!resp || !resp.data) {
@@ -5227,6 +5246,161 @@ var DandanSource = class extends BaseSource {
       "type": "dandan",
       "segmentList": [{
         "type": "dandan",
+        "segment_start": 0,
+        "segment_end": 3e4,
+        "url": id
+      }]
+    });
+  }
+  async getEpisodeSegmentDanmu(segment) {
+    return this.getEpisodeDanmu(segment.url);
+  }
+  formatComments(comments) {
+    return comments.map((c) => ({
+      cid: c.cid,
+      p: `${c.p.replace(/([A-Za-z]+)([0-9a-fA-F]{6})/, (_, platform, hexColor) => {
+        const r = parseInt(hexColor.substring(0, 2), 16);
+        const g = parseInt(hexColor.substring(2, 4), 16);
+        const b = parseInt(hexColor.substring(4, 6), 16);
+        const decimalColor = r * 256 * 256 + g * 256 + b;
+        return `${platform}${decimalColor}`;
+      })}`,
+      // 根据 globals.danmuSimplified 控制是否繁转简
+      m: globals.danmuSimplified ? simplized(c.m) : c.m
+    }));
+  }
+};
+
+// danmu_api/sources/custom.js
+var CustomSource = class extends BaseSource {
+  async search(keyword) {
+    try {
+      const resp = await Widget.http.get(`${globals.customSourceApiUrl}/api/v2/search/anime?keyword=${keyword}`, {
+        headers: {
+          "Content-Type": "application/json",
+          "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
+        }
+      });
+      if (!resp || !resp.data) {
+        log("info", "customSourceSearchresp: \u8BF7\u6C42\u5931\u8D25\u6216\u65E0\u6570\u636E\u8FD4\u56DE");
+        return [];
+      }
+      if (!resp.data.animes) {
+        log("info", "customSourceSearchresp: seriesData \u6216 seriesList \u4E0D\u5B58\u5728");
+        return [];
+      }
+      log("info", `customnSourceSearchresp: ${JSON.stringify(resp.data.animes)}`);
+      return resp.data.animes;
+    } catch (error) {
+      log("error", "getCustomSourceAnimes error:", {
+        message: error.message,
+        name: error.name,
+        stack: error.stack
+      });
+      return [];
+    }
+  }
+  async getEpisodes(id) {
+    try {
+      const resp = await Widget.http.get(`${globals.customSourceApiUrl}/api/v2/bangumi/${id}`, {
+        headers: {
+          "Content-Type": "application/json",
+          "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
+        }
+      });
+      if (!resp || !resp.data) {
+        log("info", "getCustomSourceEposides: \u8BF7\u6C42\u5931\u8D25\u6216\u65E0\u6570\u636E\u8FD4\u56DE");
+        return [];
+      }
+      if (!resp.data.bangumi || !resp.data.bangumi.episodes) {
+        log("info", `getCustomSourceEposides: episodes \u4E0D\u5B58\u5728. Response: ${JSON.stringify(resp.data)}`);
+        return [];
+      }
+      log("info", `getCustomSourceEposides: ${JSON.stringify(resp.data.bangumi.episodes)}`);
+      return resp.data.bangumi.episodes;
+    } catch (error) {
+      log("error", "getCustomSourceEposides error:", {
+        message: error.message,
+        name: error.name,
+        stack: error.stack
+      });
+      return [];
+    }
+  }
+  async handleAnimes(sourceAnimes, queryTitle, curAnimes) {
+    const tmpAnimes = [];
+    if (!sourceAnimes || !Array.isArray(sourceAnimes)) {
+      log("error", "[Custom Source] sourceAnimes is not a valid array");
+      return [];
+    }
+    const processCustomSourceAnimes = await Promise.all(
+      sourceAnimes.map(async (anime) => {
+        try {
+          const eps = await this.getEpisodes(anime.bangumiId);
+          let links = [];
+          for (const ep of eps) {
+            const epTitle = ep.episodeTitle && ep.episodeTitle.trim() !== "" ? `${ep.episodeTitle}` : `\u7B2C${ep.episodeNumber}\u96C6`;
+            links.push({
+              "name": epTitle,
+              "url": ep.episodeId.toString(),
+              "title": `\u3010custom\u3011 ${epTitle}`
+            });
+          }
+          if (links.length > 0) {
+            let transformedAnime = {
+              animeId: anime.animeId,
+              bangumiId: String(anime.bangumiId),
+              animeTitle: `${anime.animeTitle}(${new Date(anime.startDate).getFullYear()})\u3010${anime.typeDescription}\u3011from custom`,
+              type: anime.type,
+              typeDescription: anime.typeDescription,
+              imageUrl: anime.imageUrl,
+              startDate: anime.startDate,
+              episodeCount: links.length,
+              rating: anime.rating,
+              isFavorited: true,
+              source: "custom"
+            };
+            tmpAnimes.push(transformedAnime);
+            addAnime({ ...transformedAnime, links });
+            if (globals.animes.length > globals.MAX_ANIMES) removeEarliestAnime();
+          }
+        } catch (error) {
+          log("error", `[Custom Source] Error processing anime: ${error.message}`);
+        }
+      })
+    );
+    this.sortAndPushAnimesByYear(tmpAnimes, curAnimes);
+    return processCustomSourceAnimes;
+  }
+  async getEpisodeDanmu(id) {
+    let allDanmus = [];
+    try {
+      const resp = await Widget.http.get(`${globals.customSourceApiUrl}/api/v2/comment/${id}`, {
+        headers: {
+          "Content-Type": "application/json",
+          "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
+        },
+        retries: 1
+      });
+      if (resp.data && resp.data.comments) {
+        allDanmus = resp.data.comments;
+      }
+      return allDanmus;
+    } catch (error) {
+      log("error", "fetchCustomSourceEpisodeDanmu error:", {
+        message: error.message,
+        name: error.name,
+        stack: error.stack
+      });
+      return allDanmus;
+    }
+  }
+  async getEpisodeDanmuSegments(id) {
+    log("info", "\u83B7\u53D6Custom Source\u5F39\u5E55\u5206\u6BB5\u5217\u8868...", id);
+    return new SegmentListResponse({
+      "type": "custom",
+      "segmentList": [{
+        "type": "custom",
         "segment_start": 0,
         "segment_end": 3e4,
         "url": id
@@ -6456,7 +6630,7 @@ var _IqiyiSource = class _IqiyiSource extends BaseSource {
       };
       content.timepoint = parseFloat(item["showTime"]);
       content.color = parseInt(item["color"], 16);
-      content.content = item["content"];
+      content.content = decodeHtmlEntities(item["content"]);
       content.size = 25;
       return content;
     });
@@ -8209,6 +8383,7 @@ var renrenSource = new RenrenSource();
 var hanjutvSource = new HanjutvSource();
 var bahamutSource = new BahamutSource();
 var dandanSource = new DandanSource();
+var customSource = new CustomSource();
 var tencentSource = new TencentSource();
 var youkuSource = new YoukuSource();
 var iqiyiSource = new IqiyiSource();
@@ -8321,6 +8496,7 @@ async function searchAnime(url, preferAnimeId = null, preferSource = null) {
       if (source === "hanjutv") return hanjutvSource.search(queryTitle);
       if (source === "bahamut") return bahamutSource.search(queryTitle);
       if (source === "dandan") return dandanSource.search(queryTitle);
+      if (source === "custom") return customSource.search(queryTitle);
       if (source === "tencent") return tencentSource.search(queryTitle);
       if (source === "youku") return youkuSource.search(queryTitle);
       if (source === "iqiyi") return iqiyiSource.search(queryTitle);
@@ -8341,6 +8517,7 @@ async function searchAnime(url, preferAnimeId = null, preferSource = null) {
       hanjutv: animesHanjutv,
       bahamut: animesBahamut,
       dandan: animesDandan,
+      custom: animesCustom,
       tencent: animesTencent,
       youku: animesYouku,
       iqiyi: animesIqiyi,
@@ -8370,6 +8547,8 @@ async function searchAnime(url, preferAnimeId = null, preferSource = null) {
         await bahamutSource.handleAnimes(animesBahamut, queryTitle, curAnimes);
       } else if (key === "dandan") {
         await dandanSource.handleAnimes(animesDandan, queryTitle, curAnimes);
+      } else if (key === "custom") {
+        await customSource.handleAnimes(animesCustom, queryTitle, curAnimes);
       } else if (key === "tencent") {
         await tencentSource.handleAnimes(animesTencent, queryTitle, curAnimes);
       } else if (key === "youku") {
@@ -8547,6 +8726,8 @@ async function getComment(path2, queryFormat, segmentFlag) {
       danmus = await bahamutSource.getComments(url, plat, segmentFlag);
     } else if (plat === "dandan") {
       danmus = await dandanSource.getComments(url, plat, segmentFlag);
+    } else if (plat === "custom") {
+      danmus = await customSource.getComments(url, plat, segmentFlag);
     }
   }
   if (danmus.length === 0 && urlPattern.test(url)) {
@@ -8610,6 +8791,8 @@ async function getSegmentComment(segment, queryFormat) {
       danmus = await renrenSource.getSegmentComments(segment);
     } else if (platform === "dandan") {
       danmus = await dandanSource.getSegmentComments(segment);
+    } else if (platform === "custom") {
+      danmus = await customSource.getSegmentComments(segment);
     } else if (platform === "other_server") {
       danmus = await otherSource.getSegmentComments(segment);
     }
@@ -8635,7 +8818,7 @@ async function getSegmentComment(segment, queryFormat) {
 }
 
 // forward/forward-widget.js
-var wv = true ? "1.10.0" : Globals.VERSION;
+var wv = true ? "1.10.2" : Globals.VERSION;
 WidgetMetadata = {
   id: "forward.auto.danmu2",
   title: "\u81EA\u52A8\u94FE\u63A5\u5F39\u5E55v2",
@@ -8648,7 +8831,7 @@ WidgetMetadata = {
     // 源配置
     {
       name: "sourceOrder",
-      title: "\u6E90\u6392\u5E8F\u914D\u7F6E\uFF0C\u9ED8\u8BA4'360,vod,renren,hanjutv'\uFF0C\u53EF\u9009['360', 'vod', 'tmdb', 'douban', 'tencent', 'youku', 'iqiyi', 'imgo', 'bilibili', 'renren', 'hanjutv', 'bahamut', 'dandan']",
+      title: "\u6E90\u6392\u5E8F\u914D\u7F6E\uFF0C\u9ED8\u8BA4'360,vod,renren,hanjutv'\uFF0C\u53EF\u9009['360', 'vod', 'tmdb', 'douban', 'tencent', 'youku', 'iqiyi', 'imgo', 'bilibili', 'renren', 'hanjutv', 'bahamut', 'dandan', 'custom']",
       type: "input",
       placeholders: [
         {
@@ -8697,6 +8880,17 @@ WidgetMetadata = {
         {
           title: "lxlad",
           value: "https://dm.lxlad.com"
+        }
+      ]
+    },
+    {
+      name: "customSourceApiUrl",
+      title: "\u81EA\u5B9A\u4E49\u5F39\u5E55\u6E90API\u5730\u5740\uFF0C\u9ED8\u8BA4\u4E3A\u7A7A\uFF0C\u914D\u7F6E\u540E\u8FD8\u9700\u5728SOURCE_ORDER\u6DFB\u52A0custom\u6E90",
+      type: "input",
+      placeholders: [
+        {
+          title: "\u81EA\u5B9A\u4E49",
+          value: ""
         }
       ]
     },
@@ -8771,12 +8965,12 @@ WidgetMetadata = {
     // 匹配配置
     {
       name: "platformOrder",
-      title: "\u5E73\u53F0\u4F18\u9009\u914D\u7F6E\uFF0C\u53EF\u9009['qiyi', 'bilibili1', 'imgo', 'youku', 'qq', 'renren', 'hanjutv', 'bahamut', 'dandan']",
+      title: "\u5E73\u53F0\u4F18\u9009\u914D\u7F6E\uFF0C\u53EF\u9009['qiyi', 'bilibili1', 'imgo', 'youku', 'qq', 'renren', 'hanjutv', 'bahamut', 'dandan', 'custom']",
       type: "input",
       placeholders: [
         {
           title: "\u914D\u7F6E1",
-          value: "qq,qiyi,imgo,bilibili1,youku,renren,hanjutv,bahamut,dandan"
+          value: "qq,qiyi,imgo,bilibili1,youku,renren,hanjutv,bahamut,dandan,custom"
         },
         {
           title: "\u914D\u7F6E2",
@@ -9035,10 +9229,11 @@ if (typeof window !== "undefined") {
   window.WidgetMetadata = WidgetMetadata;
 }
 var globals2;
-async function initGlobals(sourceOrder, otherServer, vodServers, vodReturnMode, vodRequestTimeout, bilibiliCookie, platformOrder, episodeTitleFilter, enableEpisodeFilter, strictTitleMatch2, blockedWords, groupMinute, danmuLimit, danmuSimplified, convertTopBottomToScroll, convertColor, proxyUrl, tmdbApiKey) {
+async function initGlobals(sourceOrder, otherServer, customSourceApiUrl, vodServers, vodReturnMode, vodRequestTimeout, bilibiliCookie, platformOrder, episodeTitleFilter, enableEpisodeFilter, strictTitleMatch2, blockedWords, groupMinute, danmuLimit, danmuSimplified, convertTopBottomToScroll, convertColor, proxyUrl, tmdbApiKey) {
   const env = {};
   if (sourceOrder !== void 0) env.SOURCE_ORDER = sourceOrder;
   if (otherServer !== void 0) env.OTHER_SERVER = otherServer;
+  if (customSourceApiUrl !== void 0) env.CUSTOM_SOURCE_API_URL = customSourceApiUrl;
   if (vodServers !== void 0) env.VOD_SERVERS = vodServers;
   if (vodReturnMode !== void 0) env.VOD_RETURN_MODE = vodReturnMode;
   if (vodRequestTimeout !== void 0) env.VOD_REQUEST_TIMEOUT = vodRequestTimeout;
@@ -9104,6 +9299,7 @@ async function searchDanmu(params) {
     videoUrl,
     sourceOrder,
     otherServer,
+    customSourceApiUrl,
     vodServers,
     vodReturnMode,
     vodRequestTimeout,
@@ -9124,6 +9320,7 @@ async function searchDanmu(params) {
   await initGlobals(
     sourceOrder,
     otherServer,
+    customSourceApiUrl,
     vodServers,
     vodReturnMode,
     vodRequestTimeout,
@@ -9192,6 +9389,7 @@ async function getDetailById(params) {
     animeId,
     sourceOrder,
     otherServer,
+    customSourceApiUrl,
     vodServers,
     vodReturnMode,
     vodRequestTimeout,
@@ -9212,6 +9410,7 @@ async function getDetailById(params) {
   await initGlobals(
     sourceOrder,
     otherServer,
+    customSourceApiUrl,
     vodServers,
     vodReturnMode,
     vodRequestTimeout,
@@ -9248,6 +9447,7 @@ async function getCommentsById(params) {
     segmentTime,
     sourceOrder,
     otherServer,
+    customSourceApiUrl,
     vodServers,
     vodReturnMode,
     vodRequestTimeout,
@@ -9268,6 +9468,7 @@ async function getCommentsById(params) {
   await initGlobals(
     sourceOrder,
     otherServer,
+    customSourceApiUrl,
     vodServers,
     vodReturnMode,
     vodRequestTimeout,
@@ -9302,6 +9503,7 @@ async function getCommentsById(params) {
         season,
         episode,
         otherServer,
+        customSourceApiUrl,
         vodServers,
         bilibiliCookie,
         sourceOrder,
@@ -9343,6 +9545,7 @@ async function getDanmuWithSegmentTime(params) {
     episode,
     sourceOrder,
     otherServer,
+    customSourceApiUrl,
     vodServers,
     vodReturnMode,
     vodRequestTimeout,
@@ -9363,6 +9566,7 @@ async function getDanmuWithSegmentTime(params) {
   await initGlobals(
     sourceOrder,
     otherServer,
+    customSourceApiUrl,
     vodServers,
     vodReturnMode,
     vodRequestTimeout,
