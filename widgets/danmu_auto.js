@@ -493,6 +493,27 @@ var Envs = class {
     return this.get("CONVERT_COLOR", convertColorToWhite ? "white" : "default", "string");
   }
   /**
+   * 解析剧名映射表
+   * @returns {Map} 剧名映射表
+   */
+  static resolveTitleMappingTable() {
+    const mappingStr = this.get("TITLE_MAPPING_TABLE", "", "string").trim();
+    const mappingTable = /* @__PURE__ */ new Map();
+    if (!mappingStr) {
+      return mappingTable;
+    }
+    const pairs = mappingStr.split(";");
+    for (const pair of pairs) {
+      if (pair.includes("->")) {
+        const [original, mapped] = pair.split("->").map((s) => s.trim());
+        if (original && mapped) {
+          mappingTable.set(original, mapped);
+        }
+      }
+    }
+    return mappingTable;
+  }
+  /**
    * 获取记录的环境变量 JSON
    * @returns {Map<any, any>} JSON 字符串
    */
@@ -527,6 +548,7 @@ var Envs = class {
       "ENABLE_EPISODE_FILTER": { category: "match", type: "boolean", description: "\u96C6\u6807\u9898\u8FC7\u6EE4\u5F00\u5173" },
       "STRICT_TITLE_MATCH": { category: "match", type: "boolean", description: "\u4E25\u683C\u6807\u9898\u5339\u914D\u6A21\u5F0F" },
       "TITLE_TO_CHINESE": { category: "match", type: "boolean", description: "\u5916\u8BED\u6807\u9898\u8F6C\u6362\u4E2D\u6587\u5F00\u5173" },
+      "TITLE_MAPPING_TABLE": { category: "match", type: "map", description: '\u5267\u540D\u6620\u5C04\u8868\uFF0C\u7528\u4E8E\u81EA\u52A8\u5339\u914D\u65F6\u66FF\u6362\u6807\u9898\u8FDB\u884C\u641C\u7D22\uFF0C\u683C\u5F0F\uFF1A\u539F\u59CB\u6807\u9898->\u6620\u5C04\u6807\u9898;\u539F\u59CB\u6807\u9898->\u6620\u5C04\u6807\u9898;... \uFF0C\u4F8B\u5982\uFF1A"\u5510\u671D\u8BE1\u4E8B\u5F55->\u5510\u671D\u8BE1\u4E8B\u5F55\u4E4B\u897F\u884C;\u56FD\u8272\u82B3\u534E->\u9526\u7EE3\u82B3\u534E"' },
       // 弹幕配置
       "BLOCKED_WORDS": { category: "danmu", type: "text", description: "\u5C4F\u853D\u8BCD\u5217\u8868" },
       "GROUP_MINUTE": { category: "danmu", type: "number", description: "\u5206\u949F\u5185\u5408\u5E76\u53BB\u91CD\uFF080\u8868\u793A\u4E0D\u53BB\u91CD\uFF09\uFF0C\u9ED8\u8BA41", min: 0, max: 30 },
@@ -617,6 +639,8 @@ var Envs = class {
       // 严格标题匹配模式配置（默认 false，宽松模糊匹配）
       titleToChinese: this.get("TITLE_TO_CHINESE", false, "boolean"),
       // 外语标题转换中文开关
+      titleMappingTable: this.resolveTitleMappingTable(),
+      // 剧名映射表，用于自动匹配时替换标题进行搜索
       rememberLastSelect: this.get("REMEMBER_LAST_SELECT", true, "boolean"),
       // 是否记住手动选择结果，用于match自动匹配时优选上次的选择（默认 true，记住）
       MAX_LAST_SELECT_MAP: this.get("MAX_LAST_SELECT_MAP", 100, "number"),
@@ -638,11 +662,11 @@ __publicField(Envs, "env");
 // 记录获取过的环境变量
 __publicField(Envs, "originalEnvVars", /* @__PURE__ */ new Map());
 __publicField(Envs, "accessedEnvVars", /* @__PURE__ */ new Map());
-__publicField(Envs, "VOD_ALLOWED_PLATFORMS", ["qiyi", "bilibili1", "imgo", "youku", "qq"]);
+__publicField(Envs, "VOD_ALLOWED_PLATFORMS", ["qiyi", "bilibili1", "imgo", "youku", "qq", "sohu"]);
 // vod允许的播放平台
-__publicField(Envs, "ALLOWED_PLATFORMS", ["qiyi", "bilibili1", "imgo", "youku", "qq", "renren", "hanjutv", "bahamut", "dandan", "custom"]);
+__publicField(Envs, "ALLOWED_PLATFORMS", ["qiyi", "bilibili1", "imgo", "youku", "qq", "renren", "hanjutv", "bahamut", "dandan", "custom", "sohu"]);
 // 全部源允许的播放平台
-__publicField(Envs, "ALLOWED_SOURCES", ["360", "vod", "tmdb", "douban", "tencent", "youku", "iqiyi", "imgo", "bilibili", "renren", "hanjutv", "bahamut", "dandan", "custom"]);
+__publicField(Envs, "ALLOWED_SOURCES", ["360", "vod", "tmdb", "douban", "tencent", "youku", "iqiyi", "imgo", "bilibili", "renren", "hanjutv", "bahamut", "dandan", "custom", "sohu"]);
 
 // danmu_api/configs/globals.js
 var Globals = {
@@ -652,7 +676,7 @@ var Globals = {
   originalEnvVars: {},
   accessedEnvVars: {},
   // 静态常量
-  VERSION: "1.10.2",
+  VERSION: "1.11.1",
   MAX_LOGS: 500,
   // 日志存储，最多保存 500 行
   MAX_ANIMES: 100,
@@ -1389,10 +1413,10 @@ function readVarint(bytes, offset) {
 }
 function readLengthDelimited(bytes, offset) {
   const [length, newOffset] = readVarint(bytes, offset);
-  const start = newOffset;
-  const end = start + length;
-  const slice = bytes.slice(start, end);
-  return [slice, end];
+  const start2 = newOffset;
+  const end2 = start2 + length;
+  const slice = bytes.slice(start2, end2);
+  return [slice, end2];
 }
 function convertToAsciiSum(sid) {
   let hash = 5381;
@@ -2736,12 +2760,13 @@ function storeAnimeIdsToMap(curAnimes, key) {
   }
   const oldValue = globals.lastSelectMap.get(key);
   const oldPrefer = oldValue?.prefer;
+  const oldSource = oldValue?.source;
   if (globals.lastSelectMap.has(key)) {
     globals.lastSelectMap.delete(key);
   }
   globals.lastSelectMap.set(key, {
     animeIds: [...uniqueAnimeIds],
-    ...oldPrefer !== void 0 && { prefer: oldPrefer }
+    ...oldPrefer !== void 0 && { prefer: oldPrefer, source: oldSource }
   });
   if (globals.lastSelectMap.size > globals.MAX_LAST_SELECT_MAP) {
     const firstKey = globals.lastSelectMap.keys().next().value;
@@ -5740,23 +5765,23 @@ var TencentSource = class extends BaseSource {
   }
   // 提取vid的公共函数
   extractVid(id) {
-    let vid = id;
+    let vid2 = id;
     if (typeof id === "string" && (id.startsWith("http") || id.includes("vid="))) {
       const queryMatch = id.match(/[?&]vid=([^&]+)/);
       if (queryMatch) {
-        vid = queryMatch[1];
+        vid2 = queryMatch[1];
       } else {
         const pathParts = id.split("/");
         const lastPart = pathParts[pathParts.length - 1];
-        vid = lastPart.split(".")[0];
+        vid2 = lastPart.split(".")[0];
       }
     }
-    return vid;
+    return vid2;
   }
   async getEpisodeDanmu(id) {
     log("info", "\u5F00\u59CB\u4ECE\u672C\u5730\u8BF7\u6C42\u817E\u8BAF\u89C6\u9891\u5F39\u5E55...", id);
-    let vid = this.extractVid(id);
-    log("info", `vid: ${vid}`);
+    let vid2 = this.extractVid(id);
+    log("info", `vid: ${vid2}`);
     let res;
     try {
       res = await Widget.http.get(id, {
@@ -5814,11 +5839,11 @@ var TencentSource = class extends BaseSource {
     log("info", "\u83B7\u53D6\u817E\u8BAF\u89C6\u9891\u5F39\u5E55\u5206\u6BB5\u5217\u8868...", id);
     const api_danmaku_base = "https://dm.video.qq.com/barrage/base/";
     const api_danmaku_segment = "https://dm.video.qq.com/barrage/segment/";
-    let vid = this.extractVid(id);
-    log("info", `\u83B7\u53D6\u5F39\u5E55\u5206\u6BB5\u5217\u8868 - vid: ${vid}`);
+    let vid2 = this.extractVid(id);
+    log("info", `\u83B7\u53D6\u5F39\u5E55\u5206\u6BB5\u5217\u8868 - vid: ${vid2}`);
     let res;
     try {
-      res = await Widget.http.get(api_danmaku_base + vid, {
+      res = await Widget.http.get(api_danmaku_base + vid2, {
         headers: {
           "Content-Type": "application/json",
           "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
@@ -5844,14 +5869,14 @@ var TencentSource = class extends BaseSource {
       segmentList.push({
         "type": "qq",
         "segment_start": (() => {
-          const start = Number(item.segment_start) || 0;
-          return start / 1e3;
+          const start2 = Number(item.segment_start) || 0;
+          return start2 / 1e3;
         })(),
         "segment_end": (() => {
-          const end = Number(item.segment_name.split("/").pop()) || 0;
-          return end / 1e3;
+          const end2 = Number(item.segment_name.split("/").pop()) || 0;
+          return end2 / 1e3;
         })(),
-        "url": `${api_danmaku_segment}${vid}/${item.segment_name}`
+        "url": `${api_danmaku_segment}${vid2}/${item.segment_name}`
       });
     }
     return new SegmentListResponse({
@@ -7048,6 +7073,7 @@ var MangoSource = class extends BaseSource {
     log("info", "\u83B7\u53D6\u8292\u679CTV\u5F39\u5E55\u5206\u6BB5\u5217\u8868...", id);
     const api_video_info = "https://pcweb.api.mgtv.com/video/info";
     const api_ctl_barrage = "https://galaxy.bz.mgtv.com/getctlbarrage";
+    const api_rd_barrage = "https://galaxy.bz.mgtv.com/rdbarrage";
     const regex = /^(https?:\/\/[^\/]+)(\/[^?#]*)/;
     const match = id.match(regex);
     let path2;
@@ -7061,11 +7087,11 @@ var MangoSource = class extends BaseSource {
       });
     }
     const cid = path2[path2.length - 2];
-    const vid = path2[path2.length - 1].split(".")[0];
-    log("info", `\u83B7\u53D6\u5F39\u5E55\u5206\u6BB5\u5217\u8868 - cid: ${cid}, vid: ${vid}`);
+    const vid2 = path2[path2.length - 1].split(".")[0];
+    log("info", `\u83B7\u53D6\u5F39\u5E55\u5206\u6BB5\u5217\u8868 - cid: ${cid}, vid: ${vid2}`);
     let res;
     try {
-      const videoInfoUrl = `${api_video_info}?cid=${cid}&vid=${vid}`;
+      const videoInfoUrl = `${api_video_info}?cid=${cid}&vid=${vid2}`;
       res = await Widget.http.get(videoInfoUrl, {
         headers: {
           "Content-Type": "application/json",
@@ -7087,8 +7113,9 @@ var MangoSource = class extends BaseSource {
     }
     const data = typeof res.data === "string" ? JSON.parse(res.data) : res.data;
     const time = data.data.info.time;
+    let useNewApi = true;
     try {
-      const ctlBarrageUrl = `${api_ctl_barrage}?version=8.1.39&abroad=0&uuid=&os=10.15.7&platform=0&mac=&vid=${vid}&pid=&cid=${cid}&ticket=`;
+      const ctlBarrageUrl = `${api_ctl_barrage}?version=8.1.39&abroad=0&uuid=&os=10.15.7&platform=0&mac=&vid=${vid2}&pid=&cid=${cid}&ticket=`;
       const res2 = await Widget.http.get(ctlBarrageUrl, {
         headers: {
           "Content-Type": "application/json",
@@ -7098,25 +7125,38 @@ var MangoSource = class extends BaseSource {
       const ctlBarrage = typeof res2.data === "string" ? JSON.parse(res2.data) : res2.data;
       if (!ctlBarrage.data || !ctlBarrage.data.cdn_list || !ctlBarrage.data.cdn_version) {
         log("warn", `\u65B0API\u7F3A\u5C11\u5FC5\u8981\u5B57\u6BB5\uFF0C\u8FD4\u56DE\u7A7A\u5206\u6BB5\u5217\u8868`);
-        return new SegmentListResponse({
-          "type": "imgo",
-          "segmentList": []
-        });
+        useNewApi = false;
       }
       const segmentList = [];
-      const totalSegments = Math.ceil(time_to_second(time) / 60);
-      const cdnList = ctlBarrage.data.cdn_list.split(",")[0];
-      const cdnVersion = ctlBarrage.data.cdn_version;
-      for (let i = 0; i < totalSegments; i++) {
-        segmentList.push({
-          "type": "imgo",
-          "segment_start": i * 60,
-          // 每段开始时间（秒）
-          "segment_end": Math.min((i + 1) * 60, time_to_second(time)),
-          // 每段结束时间（秒）
-          "url": `https://${cdnList}/${cdnVersion}/${i}.json`
-          // 每段弹幕URL
-        });
+      if (!useNewApi) {
+        const step = 60;
+        const end_time = time_to_second(time);
+        for (let i = 0; i < end_time; i += step) {
+          segmentList.push({
+            "type": "imgo",
+            "segment_start": i,
+            // 每段开始时间（秒）
+            "segment_end": Math.min(i + step, time_to_second(time)),
+            // 每段结束时间（秒）
+            "url": `${api_rd_barrage}?vid=${vid2}&cid=${cid}&time=${i * 1e3}`
+            // 每段弹幕URL
+          });
+        }
+      } else {
+        const totalSegments = Math.ceil(time_to_second(time) / 60);
+        const cdnList = ctlBarrage.data.cdn_list.split(",")[0];
+        const cdnVersion = ctlBarrage.data.cdn_version;
+        for (let i = 0; i < totalSegments; i++) {
+          segmentList.push({
+            "type": "imgo",
+            "segment_start": i * 60,
+            // 每段开始时间（秒）
+            "segment_end": Math.min((i + 1) * 60, time_to_second(time)),
+            // 每段结束时间（秒）
+            "url": `https://${cdnList}/${cdnVersion}/${i}.json`
+            // 每段弹幕URL
+          });
+        }
       }
       return new SegmentListResponse({
         "type": "imgo",
@@ -7794,8 +7834,8 @@ var YoukuSource = class extends BaseSource {
     if (!vidMatch || !vidMatch[1]) {
       return null;
     }
-    const vid = vidMatch[1];
-    return `https://v.youku.com/v_show/id_${vid}.html`;
+    const vid2 = vidMatch[1];
+    return `https://v.youku.com/v_show/id_${vid2}.html`;
   }
   /**
    * 过滤优酷搜索项
@@ -8329,6 +8369,379 @@ var YoukuSource = class extends BaseSource {
   }
 };
 
+// danmu_api/sources/sohu.js
+var SohuSource = class extends BaseSource {
+  constructor() {
+    super();
+    this.positionMap = {
+      1: 1,
+      // 滚动弹幕
+      4: 5,
+      // 顶部弹幕
+      5: 4
+      // 底部弹幕
+    };
+  }
+  /**
+   * 过滤搜狐视频搜索项
+   * @param {Object} item - 搜索项
+   * @param {string} keyword - 搜索关键词
+   * @returns {Object|null} 过滤后的结果
+   */
+  filterSohuSearchItem(item, keyword) {
+    if (!item.aid || !item.album_name) {
+      return null;
+    }
+    let title = item.album_name.replace("<<<", "").replace(">>>", "");
+    let categoryName = null;
+    if (item.meta && item.meta.length >= 2) {
+      const metaText = item.meta[0].txt;
+      const parts = metaText.split("|");
+      if (parts.length > 0) {
+        categoryName = parts[0].trim();
+      }
+    }
+    return {
+      mediaId: String(item.aid),
+      title,
+      type: categoryName,
+      year: item.year || null,
+      imageUrl: item.ver_big_pic || null,
+      episodeCount: item.total_video_count || 0
+    };
+  }
+  async search(keyword) {
+    try {
+      log("info", `[Sohu] \u5F00\u59CB\u641C\u7D22: ${keyword}`);
+      const params = {
+        "key": keyword,
+        "type": "1",
+        "page": "1",
+        "page_size": "20",
+        "user_id": "",
+        "tabsChosen": "0",
+        "poster": "4",
+        "tuple": "6",
+        "extSource": "1",
+        "show_star_detail": "3",
+        "pay": "1",
+        "hl": "3",
+        "uid": String(Math.floor(Date.now() * 1e3)),
+        "passport": "",
+        "plat": "-1",
+        "ssl": "0"
+      };
+      const headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36",
+        "Accept": "application/json, text/plain, */*",
+        "Accept-Language": "zh-CN,zh;q=0.9,en;q=0.8",
+        "Referer": "https://so.tv.sohu.com/",
+        "Origin": "https://so.tv.sohu.com"
+      };
+      const searchUrl = `https://m.so.tv.sohu.com/search/pc/keyword?${buildQueryString(params)}`;
+      const response = await Widget.http.get(searchUrl, { headers });
+      if (!response || !response.data) {
+        log("info", "[Sohu] \u641C\u7D22\u54CD\u5E94\u4E3A\u7A7A");
+        return [];
+      }
+      const data = typeof response.data === "string" ? JSON.parse(response.data) : response.data;
+      if (!data.data || !data.data.items) {
+        log("info", "[Sohu] \u641C\u7D22\u54CD\u5E94\u4E2D\u65E0\u6570\u636E");
+        return [];
+      }
+      const results = [];
+      for (const item of data.data.items) {
+        const filtered = this.filterSohuSearchItem(item, keyword);
+        if (filtered) {
+          results.push(filtered);
+        }
+      }
+      log("info", `[Sohu] \u641C\u7D22\u627E\u5230 ${results.length} \u4E2A\u6709\u6548\u7ED3\u679C`);
+      return results;
+    } catch (error) {
+      log("error", "[Sohu] \u641C\u7D22\u51FA\u9519:", error.message);
+      return [];
+    }
+  }
+  async getEpisodes(id) {
+    try {
+      log("info", `[Sohu] \u83B7\u53D6\u5206\u96C6\u5217\u8868: media_id=${id}`);
+      let videosData = null;
+      const params = {
+        "playlistid": id,
+        "api_key": "f351515304020cad28c92f70f002261c"
+      };
+      const headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+        "Referer": "https://tv.sohu.com/"
+      };
+      const playlistUrl = `https://pl.hd.sohu.com/videolist?${buildQueryString(params)}`;
+      const response = await Widget.http.get(playlistUrl, { headers, timeout: 15e3 });
+      if (!response || !response.data) {
+        log("info", "[Sohu] \u5206\u96C6\u54CD\u5E94\u4E3A\u7A7A");
+        return [];
+      }
+      let data = response.data;
+      if (typeof data === "string" && data.startsWith("jsonp")) {
+        const start2 = data.indexOf("(") + 1;
+        const end2 = data.lastIndexOf(")");
+        if (start2 > 0 && end2 > start2) {
+          const jsonStr = data.substring(start2, end2);
+          data = JSON.parse(jsonStr);
+        } else {
+          log("error", "\u641C\u72D0\u89C6\u9891: \u65E0\u6CD5\u89E3\u6790JSONP\u54CD\u5E94");
+          return [];
+        }
+      } else if (typeof data === "string") {
+        data = JSON.parse(data);
+      }
+      videosData = data.videos || [];
+      if (!videosData || videosData.length === 0) {
+        log("warning", `\u641C\u72D0\u89C6\u9891: \u672A\u627E\u5230\u5206\u96C6\u5217\u8868 (media_id=${id})`);
+        return [];
+      }
+      const episodes = [];
+      for (let i = 0; i < videosData.length; i++) {
+        const video = videosData[i];
+        let vid2, title, url;
+        if (typeof video === "object") {
+          vid2 = String(video.vid || "");
+          title = video.video_name || `\u7B2C${i + 1}\u96C6`;
+          url = video.url_html5 || "";
+        } else {
+          vid2 = String(video.vid || video.vid || "");
+          title = video.name || video.video_name || `\u7B2C${i + 1}\u96C6`;
+          url = video.pageUrl || video.url_html5 || "";
+        }
+        if (url && url.startsWith("http://")) {
+          url = url.replace("http://", "https://");
+        }
+        const episode = {
+          vid: vid2,
+          title,
+          url,
+          episodeId: `${vid2}:${id}`
+          // vid:aid
+        };
+        episodes.push(episode);
+      }
+      log("info", `[Sohu] \u6210\u529F\u83B7\u53D6 ${episodes.length} \u4E2A\u5206\u96C6 (media_id=${id})`);
+      return episodes;
+    } catch (error) {
+      log("error", "[Sohu] \u83B7\u53D6\u5206\u96C6\u51FA\u9519:", error.message);
+      return [];
+    }
+  }
+  async handleAnimes(sourceAnimes, queryTitle, curAnimes) {
+    const tmpAnimes = [];
+    if (!sourceAnimes || !Array.isArray(sourceAnimes)) {
+      log("error", "[Sohu] sourceAnimes is not a valid array");
+      return [];
+    }
+    const processSohuAnimes = await Promise.all(
+      sourceAnimes.filter((s) => titleMatches(s.title, queryTitle)).map(async (anime) => {
+        try {
+          const eps = await this.getEpisodes(anime.mediaId);
+          let links = [];
+          for (let i = 0; i < eps.length; i++) {
+            const ep = eps[i];
+            const epTitle = ep.title || `\u7B2C${i + 1}\u96C6`;
+            const fullUrl = `https://tv.sohu.com/item/${anime.mediaId}.html`;
+            links.push({
+              "name": (i + 1).toString(),
+              "url": `${ep.url}`,
+              "title": `\u3010sohu\u3011 ${epTitle}`
+            });
+          }
+          if (links.length > 0) {
+            const numericAnimeId = convertToAsciiSum(anime.mediaId);
+            let transformedAnime = {
+              animeId: numericAnimeId,
+              bangumiId: anime.mediaId,
+              animeTitle: `${anime.title}(${anime.year || (/* @__PURE__ */ new Date()).getFullYear()})\u3010${anime.type}\u3011from sohu`,
+              type: anime.type,
+              typeDescription: anime.type,
+              imageUrl: anime.imageUrl,
+              startDate: generateValidStartDate(anime.year || (/* @__PURE__ */ new Date()).getFullYear()),
+              episodeCount: links.length,
+              rating: 0,
+              isFavorited: true,
+              source: "sohu"
+            };
+            tmpAnimes.push(transformedAnime);
+            addAnime({ ...transformedAnime, links });
+            if (globals.animes.length > globals.MAX_ANIMES) removeEarliestAnime();
+          }
+        } catch (error) {
+          log("error", `[Sohu] Error processing anime: ${error.message}`);
+        }
+      })
+    );
+    this.sortAndPushAnimesByYear(tmpAnimes, curAnimes);
+    return processSohuAnimes;
+  }
+  // 提取vid和aid的公共函数
+  async extractVidAndAid(id) {
+    let vid2;
+    let aid = "0";
+    const resp = await Widget.http.get(id, {
+      headers: {
+        "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
+      }
+    });
+    const match = resp.data.match(/vid="(\d+)"/);
+    if (match) {
+      vid2 = match[1];
+    }
+    aid = resp.data.match(/id="aid"[^>]*value=['"](\d+)['"]/)?.[1];
+    if (!aid) {
+      aid = resp.data.match(/playlistId="(\d+)"/)?.[1];
+    }
+    return { vid: vid2, aid };
+  }
+  async getEpisodeDanmu(id) {
+    log("info", "\u5F00\u59CB\u4ECE\u672C\u5730\u8BF7\u6C42\u641C\u72D0\u89C6\u9891\u5F39\u5E55...", id);
+    const segmentResult = await this.getEpisodeDanmuSegments(id);
+    if (!segmentResult || !segmentResult.segmentList || segmentResult.segmentList.length === 0) {
+      return [];
+    }
+    const segmentList = segmentResult.segmentList;
+    log("info", `\u5F39\u5E55\u5206\u6BB5\u6570\u91CF: ${segmentList.length}`);
+    const MAX_CONCURRENT = 10;
+    const allComments = [];
+    for (let i = 0; i < segmentList.length; i += MAX_CONCURRENT) {
+      const batch = segmentList.slice(i, i + MAX_CONCURRENT);
+      const batchPromises = batch.map((segment) => this.getDanmuSegment(segment));
+      const batchResults = await Promise.allSettled(batchPromises);
+      for (let j = 0; j < batchResults.length; j++) {
+        const result = batchResults[j];
+        const segment = batch[j];
+        const start2 = segment.segment_start;
+        const end2 = segment.segment_end;
+        if (result.status === "fulfilled") {
+          const comments = result.value;
+          if (comments && comments.length > 0) {
+            allComments.push(...comments);
+          } else if (start2 > 600) {
+            break;
+          }
+        } else {
+          log("error", `\u83B7\u53D6\u5F39\u5E55\u6BB5\u5931\u8D25 (${start2}-${end2}s):`, result.reason.message);
+        }
+      }
+      if (i + MAX_CONCURRENT < segmentList.length) {
+        await new Promise((resolve) => setTimeout(resolve, 200));
+      }
+    }
+    if (allComments.length === 0) {
+      log("info", `\u641C\u72D0\u89C6\u9891: \u8BE5\u89C6\u9891\u6682\u65E0\u5F39\u5E55\u6570\u636E (vid=${id})`);
+      return [];
+    }
+    printFirst200Chars(allComments);
+    return allComments;
+  }
+  async getDanmuSegment(segment) {
+    try {
+      const headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36",
+        "Referer": "https://tv.sohu.com/"
+      };
+      const response = await Widget.http.get(segment.url, { headers, timeout: 1e4 });
+      if (!response || !response.data) {
+        log("error", `\u641C\u72D0\u89C6\u9891: \u5F39\u5E55\u6BB5\u54CD\u5E94\u4E3A\u7A7A (${segment.segment_start}-${segment.segment_end}s)`);
+        return [];
+      }
+      try {
+        const data = typeof response.data === "string" ? JSON.parse(response.data) : response.data;
+        const comments = data.info?.comments || [];
+        if (comments && comments.length > 0) {
+          log("info", `\u641C\u72D0\u89C6\u9891: \u83B7\u53D6\u5230 ${comments.length} \u6761\u5F39\u5E55 (${segment.segment_start}-${segment.segment_end}s)`);
+        }
+        return comments || [];
+      } catch (error) {
+        log("error", `\u641C\u72D0\u89C6\u9891: \u89E3\u6790\u5F39\u5E55\u54CD\u5E94\u5931\u8D25: ${error.message}`);
+        return [];
+      }
+    } catch (error) {
+      log("error", `\u641C\u72D0\u89C6\u9891: \u83B7\u53D6\u5F39\u5E55\u6BB5\u5931\u8D25 (vid=${vid}, ${start}-${end}s): ${error.message}`);
+      return [];
+    }
+  }
+  async getEpisodeDanmuSegments(id) {
+    log("info", "\u83B7\u53D6\u641C\u72D0\u89C6\u9891\u5F39\u5E55\u5206\u6BB5\u5217\u8868...", id);
+    const { vid: vid2, aid } = await this.extractVidAndAid(id);
+    const maxTime = 10800;
+    const segmentDuration = 300;
+    const segments = [];
+    for (let start2 = 0; start2 < maxTime; start2 += segmentDuration) {
+      const end2 = start2 + segmentDuration;
+      segments.push({
+        "type": "sohu",
+        "segment_start": start2,
+        "segment_end": end2,
+        "url": `https://api.danmu.tv.sohu.com/dmh5/dmListAll?act=dmlist_v2&vid=${vid2}&aid=${aid}&pct=2&time_begin=${start2}&time_end=${end2}&dct=1&request_from=h5_js`
+      });
+    }
+    return new SegmentListResponse({
+      "type": "sohu",
+      "segmentList": segments
+    });
+  }
+  async getEpisodeSegmentDanmu(segment) {
+    try {
+      const response = await Widget.http.get(segment.url, {
+        headers: {
+          "Content-Type": "application/json",
+          "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
+        },
+        retries: 1
+      });
+      let contents = [];
+      if (response && response.data) {
+        const parsedData = typeof response.data === "string" ? JSON.parse(response.data) : response.data;
+        contents.push(...parsedData.info?.comments || []);
+      }
+      return contents;
+    } catch (error) {
+      log("error", "\u8BF7\u6C42\u5206\u7247\u5F39\u5E55\u5931\u8D25:", error);
+      return [];
+    }
+  }
+  formatComments(comments) {
+    return comments.map((comment) => {
+      try {
+        let color = 16777215;
+        if (comment.t && comment.t.c) {
+          const colorValue = comment.t.c;
+          if (typeof colorValue === "string" && colorValue.startsWith("#")) {
+            color = parseInt(colorValue.substring(1), 16);
+          } else {
+            color = parseInt(String(colorValue), 16);
+          }
+        }
+        const vtime = comment.v || 0;
+        const timestamp = Math.floor(parseFloat(comment.created || Date.now() / 1e3));
+        const uid = comment.uid || "";
+        const danmuId = comment.i || "";
+        let position = 1;
+        if (comment.t && comment.t.p) {
+          position = this.positionMap[comment.t.p] || 1;
+        }
+        const pString = `${vtime},1,25,${color},${timestamp},0,${uid},${danmuId}`;
+        return {
+          cid: String(danmuId),
+          p: pString,
+          m: comment.c || "",
+          t: parseFloat(vtime)
+        };
+      } catch (error) {
+        log("error", `\u683C\u5F0F\u5316\u5F39\u5E55\u5931\u8D25: ${error.message}, \u5F39\u5E55\u6570\u636E:`, comment);
+        return null;
+      }
+    }).filter((comment) => comment !== null);
+  }
+};
+
 // danmu_api/sources/other.js
 var OtherSource = class extends BaseSource {
   async search(keyword) {
@@ -8389,6 +8802,7 @@ var youkuSource = new YoukuSource();
 var iqiyiSource = new IqiyiSource();
 var mangoSource = new MangoSource();
 var bilibiliSource = new BilibiliSource();
+var sohuSource = new SohuSource();
 var otherSource = new OtherSource();
 var doubanSource = new DoubanSource(tencentSource, iqiyiSource, youkuSource, bilibiliSource);
 var tmdbSource = new TmdbSource(doubanSource);
@@ -8502,6 +8916,7 @@ async function searchAnime(url, preferAnimeId = null, preferSource = null) {
       if (source === "iqiyi") return iqiyiSource.search(queryTitle);
       if (source === "imgo") return mangoSource.search(queryTitle);
       if (source === "bilibili") return bilibiliSource.search(queryTitle);
+      if (source === "sohu") return sohuSource.search(queryTitle);
     });
     const results = await Promise.all(requestPromises);
     const resultData = {};
@@ -8522,7 +8937,8 @@ async function searchAnime(url, preferAnimeId = null, preferSource = null) {
       youku: animesYouku,
       iqiyi: animesIqiyi,
       imgo: animesImgo,
-      bilibili: animesBilibili
+      bilibili: animesBilibili,
+      sohu: animesSohu
     } = resultData;
     for (const key of globals.sourceOrderArr) {
       if (key === "360") {
@@ -8559,6 +8975,8 @@ async function searchAnime(url, preferAnimeId = null, preferSource = null) {
         await mangoSource.handleAnimes(animesImgo, queryTitle, curAnimes);
       } else if (key === "bilibili") {
         await bilibiliSource.handleAnimes(animesBilibili, queryTitle, curAnimes);
+      } else if (key === "sohu") {
+        await sohuSource.handleAnimes(animesSohu, queryTitle, curAnimes);
       }
     }
   } catch (error) {
@@ -8715,6 +9133,8 @@ async function getComment(path2, queryFormat, segmentFlag) {
     danmus = await bilibiliSource.getComments(url, plat, segmentFlag);
   } else if (url.includes(".youku.com")) {
     danmus = await youkuSource.getComments(url, plat, segmentFlag);
+  } else if (url.includes(".sohu.com")) {
+    danmus = await sohuSource.getComments(url, plat, segmentFlag);
   }
   const urlPattern = /^(https?:\/\/)?([\w.-]+)\.([a-z]{2,})(\/.*)?$/i;
   if (!urlPattern.test(url)) {
@@ -8783,6 +9203,8 @@ async function getSegmentComment(segment, queryFormat) {
       danmus = await bilibiliSource.getSegmentComments(segment);
     } else if (platform === "youku") {
       danmus = await youkuSource.getSegmentComments(segment);
+    } else if (platform === "sohu") {
+      danmus = await sohuSource.getSegmentComments(segment);
     } else if (platform === "hanjutv") {
       danmus = await hanjutvSource.getSegmentComments(segment);
     } else if (platform === "bahamut") {
@@ -8818,7 +9240,7 @@ async function getSegmentComment(segment, queryFormat) {
 }
 
 // forward/forward-widget.js
-var wv = true ? "1.10.2" : Globals.VERSION;
+var wv = true ? "1.11.1" : Globals.VERSION;
 WidgetMetadata = {
   id: "forward.auto.danmu2",
   title: "\u81EA\u52A8\u94FE\u63A5\u5F39\u5E55v2",
@@ -8831,7 +9253,7 @@ WidgetMetadata = {
     // 源配置
     {
       name: "sourceOrder",
-      title: "\u6E90\u6392\u5E8F\u914D\u7F6E\uFF0C\u9ED8\u8BA4'360,vod,renren,hanjutv'\uFF0C\u53EF\u9009['360', 'vod', 'tmdb', 'douban', 'tencent', 'youku', 'iqiyi', 'imgo', 'bilibili', 'renren', 'hanjutv', 'bahamut', 'dandan', 'custom']",
+      title: "\u6E90\u6392\u5E8F\u914D\u7F6E\uFF0C\u9ED8\u8BA4'360,vod,renren,hanjutv'\uFF0C\u53EF\u9009['360', 'vod', 'tmdb', 'douban', 'tencent', 'youku', 'iqiyi', 'imgo', 'bilibili', 'sohu', 'renren', 'hanjutv', 'bahamut', 'dandan', 'custom']",
       type: "input",
       placeholders: [
         {
@@ -8965,12 +9387,12 @@ WidgetMetadata = {
     // 匹配配置
     {
       name: "platformOrder",
-      title: "\u5E73\u53F0\u4F18\u9009\u914D\u7F6E\uFF0C\u53EF\u9009['qiyi', 'bilibili1', 'imgo', 'youku', 'qq', 'renren', 'hanjutv', 'bahamut', 'dandan', 'custom']",
+      title: "\u5E73\u53F0\u4F18\u9009\u914D\u7F6E\uFF0C\u53EF\u9009['qiyi', 'bilibili1', 'imgo', 'youku', 'qq', 'sohu', 'renren', 'hanjutv', 'bahamut', 'dandan', 'custom']",
       type: "input",
       placeholders: [
         {
           title: "\u914D\u7F6E1",
-          value: "qq,qiyi,imgo,bilibili1,youku,renren,hanjutv,bahamut,dandan,custom"
+          value: "qq,qiyi,imgo,bilibili1,youku,sohu,renren,hanjutv,bahamut,dandan,custom"
         },
         {
           title: "\u914D\u7F6E2",
@@ -9024,6 +9446,17 @@ WidgetMetadata = {
         {
           title: "true",
           value: "true"
+        }
+      ]
+    },
+    {
+      name: "titleMappingTable",
+      title: '\u5267\u540D\u6620\u5C04\u8868\uFF0C\u7528\u4E8E\u81EA\u52A8\u5339\u914D\u65F6\u66FF\u6362\u6807\u9898\u8FDB\u884C\u641C\u7D22\uFF0C\u683C\u5F0F\uFF1A\u539F\u59CB\u6807\u9898->\u6620\u5C04\u6807\u9898;\u539F\u59CB\u6807\u9898->\u6620\u5C04\u6807\u9898;... \uFF0C\u4F8B\u5982\uFF1A"\u5510\u671D\u8BE1\u4E8B\u5F55->\u5510\u671D\u8BE1\u4E8B\u5F55\u4E4B\u897F\u884C;\u56FD\u8272\u82B3\u534E->\u9526\u7EE3\u82B3\u534E"',
+      type: "input",
+      placeholders: [
+        {
+          title: "\u6620\u5C04\u8868\u793A\u4F8B",
+          value: "\u539F\u59CB\u6807\u9898->\u6620\u5C04\u6807\u9898;\u539F\u59CB\u6807\u9898->\u6620\u5C04\u6807\u9898"
         }
       ]
     },
@@ -9229,7 +9662,7 @@ if (typeof window !== "undefined") {
   window.WidgetMetadata = WidgetMetadata;
 }
 var globals2;
-async function initGlobals(sourceOrder, otherServer, customSourceApiUrl, vodServers, vodReturnMode, vodRequestTimeout, bilibiliCookie, platformOrder, episodeTitleFilter, enableEpisodeFilter, strictTitleMatch2, blockedWords, groupMinute, danmuLimit, danmuSimplified, convertTopBottomToScroll, convertColor, proxyUrl, tmdbApiKey) {
+async function initGlobals(sourceOrder, otherServer, customSourceApiUrl, vodServers, vodReturnMode, vodRequestTimeout, bilibiliCookie, platformOrder, episodeTitleFilter, enableEpisodeFilter, strictTitleMatch2, titleMappingTable, blockedWords, groupMinute, danmuLimit, danmuSimplified, convertTopBottomToScroll, convertColor, proxyUrl, tmdbApiKey) {
   const env = {};
   if (sourceOrder !== void 0) env.SOURCE_ORDER = sourceOrder;
   if (otherServer !== void 0) env.OTHER_SERVER = otherServer;
@@ -9242,6 +9675,7 @@ async function initGlobals(sourceOrder, otherServer, customSourceApiUrl, vodServ
   if (episodeTitleFilter !== void 0) env.EPISODE_TITLE_FILTER = episodeTitleFilter;
   if (enableEpisodeFilter !== void 0) env.ENABLE_EPISODE_FILTER = enableEpisodeFilter;
   if (strictTitleMatch2 !== void 0) env.STRICT_TITLE_MATCH = strictTitleMatch2;
+  if (titleMappingTable !== void 0) env.TITLE_MAPPING_TABLE = titleMappingTable;
   if (blockedWords !== void 0) env.BLOCKED_WORDS = blockedWords;
   if (groupMinute !== void 0) env.GROUP_MINUTE = groupMinute;
   if (danmuLimit !== void 0) env.DANMU_LIMIT = danmuLimit;
@@ -9308,6 +9742,7 @@ async function searchDanmu(params) {
     episodeTitleFilter,
     enableEpisodeFilter,
     strictTitleMatch: strictTitleMatch2,
+    titleMappingTable,
     blockedWords,
     groupMinute,
     danmuLimit,
@@ -9329,6 +9764,7 @@ async function searchDanmu(params) {
     episodeTitleFilter,
     enableEpisodeFilter,
     strictTitleMatch2,
+    titleMappingTable,
     blockedWords,
     groupMinute,
     danmuLimit,
@@ -9398,6 +9834,7 @@ async function getDetailById(params) {
     episodeTitleFilter,
     enableEpisodeFilter,
     strictTitleMatch: strictTitleMatch2,
+    titleMappingTable,
     blockedWords,
     groupMinute,
     danmuLimit,
@@ -9419,6 +9856,7 @@ async function getDetailById(params) {
     episodeTitleFilter,
     enableEpisodeFilter,
     strictTitleMatch2,
+    titleMappingTable,
     blockedWords,
     groupMinute,
     danmuLimit,
@@ -9456,6 +9894,7 @@ async function getCommentsById(params) {
     episodeTitleFilter,
     enableEpisodeFilter,
     strictTitleMatch: strictTitleMatch2,
+    titleMappingTable,
     blockedWords,
     groupMinute,
     danmuLimit,
@@ -9477,6 +9916,7 @@ async function getCommentsById(params) {
     episodeTitleFilter,
     enableEpisodeFilter,
     strictTitleMatch2,
+    titleMappingTable,
     blockedWords,
     groupMinute,
     danmuLimit,
@@ -9515,6 +9955,7 @@ async function getCommentsById(params) {
         episodeTitleFilter,
         enableEpisodeFilter,
         strictTitleMatch: strictTitleMatch2,
+        titleMappingTable,
         danmuLimit,
         danmuSimplified,
         convertTopBottomToScroll,
@@ -9554,6 +9995,7 @@ async function getDanmuWithSegmentTime(params) {
     episodeTitleFilter,
     enableEpisodeFilter,
     strictTitleMatch: strictTitleMatch2,
+    titleMappingTable,
     blockedWords,
     groupMinute,
     danmuLimit,
@@ -9575,6 +10017,7 @@ async function getDanmuWithSegmentTime(params) {
     episodeTitleFilter,
     enableEpisodeFilter,
     strictTitleMatch2,
+    titleMappingTable,
     blockedWords,
     groupMinute,
     danmuLimit,
@@ -9588,10 +10031,10 @@ async function getDanmuWithSegmentTime(params) {
   const segmentList = Widget.storage.get(storeKey);
   if (segmentList) {
     const segment = segmentList.find((item) => {
-      const start = Number(item.segment_start);
-      const end = Number(item.segment_end);
+      const start2 = Number(item.segment_start);
+      const end2 = Number(item.segment_end);
       const time = Number(segmentTime);
-      return time >= start && time < end;
+      return time >= start2 && time < end2;
     });
     log("info", "segment:", segment);
     const response = await getSegmentComment(segment);
