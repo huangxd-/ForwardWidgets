@@ -510,13 +510,6 @@ var Envs = class {
   static getOriginalEnvVars() {
     return this.originalEnvVars;
   }
-  /** 解析弹幕转换颜色
-   * @returns {string} 弹幕转换颜色
-   */
-  static resolveConvertColor() {
-    let convertColorToWhite = this.get("CONVERT_COLOR_TO_WHITE", false, "boolean");
-    return this.get("CONVERT_COLOR", convertColorToWhite ? "white" : "default", "string");
-  }
   /**
    * 解析剧名映射表
    * @returns {Map} 剧名映射表
@@ -579,8 +572,7 @@ var Envs = class {
       "BLOCKED_WORDS": { category: "danmu", type: "text", description: "\u5C4F\u853D\u8BCD\u5217\u8868" },
       "GROUP_MINUTE": { category: "danmu", type: "number", description: "\u5206\u949F\u5185\u5408\u5E76\u53BB\u91CD\uFF080\u8868\u793A\u4E0D\u53BB\u91CD\uFF09\uFF0C\u9ED8\u8BA41", min: 0, max: 30 },
       "DANMU_LIMIT": { category: "danmu", type: "number", description: "\u5F39\u5E55\u6570\u91CF\u9650\u5236\uFF0C\u5355\u4F4D\u4E3Ak\uFF0C\u5373\u5343\uFF1A\u9ED8\u8BA4 0\uFF0C\u8868\u793A\u4E0D\u9650\u5236\u5F39\u5E55\u6570", min: 0, max: 100 },
-      "DANMU_SIMPLIFIED": { category: "danmu", type: "boolean", description: "\u5F39\u5E55\u7E41\u4F53\u8F6C\u7B80\u4F53\u5F00\u5173\uFF0C\u4F18\u5148\u7EA7\uFF1ADANMU_SIMPLIFIED < DANMU_TRADITIONAL\uFF0C\u9ED8\u8BA4\u503C\u4E3Atrue" },
-      "DANMU_TRADITIONAL": { category: "danmu", type: "boolean", description: "\u5F39\u5E55\u7B80\u4F53\u8F6C\u7E41\u4F53\u5F00\u5173\uFF0C\u4F18\u5148\u7EA7\uFF1ADANMU_TRADITIONAL > DANMU_SIMPLIFIED\uFF0C\u9ED8\u8BA4\u503C\u4E3Afalse" },
+      "DANMU_SIMPLIFIED_TRADITIONAL": { category: "danmu", type: "select", options: ["default", "simplified", "traditional"], description: "\u5F39\u5E55\u7B80\u7E41\u4F53\u8F6C\u6362\u8BBE\u7F6E\uFF1Adefault\uFF08\u9ED8\u8BA4\u4E0D\u8F6C\u6362\uFF09\u3001simplified\uFF08\u7E41\u8F6C\u7B80\uFF09\u3001traditional\uFF08\u7B80\u8F6C\u7E41\uFF09" },
       "CONVERT_TOP_BOTTOM_TO_SCROLL": { category: "danmu", type: "boolean", description: "\u9876\u90E8/\u5E95\u90E8\u5F39\u5E55\u8F6C\u6362\u4E3A\u6D6E\u52A8\u5F39\u5E55" },
       "CONVERT_COLOR": { category: "danmu", type: "select", options: ["default", "white", "color"], description: "\u5F39\u5E55\u8F6C\u6362\u989C\u8272\u914D\u7F6E" },
       "DANMU_OUTPUT_FORMAT": { category: "danmu", type: "select", options: ["json", "xml"], description: "\u5F39\u5E55\u8F93\u51FA\u683C\u5F0F\uFF0C\u9ED8\u8BA4json" },
@@ -638,10 +630,8 @@ var Envs = class {
       // 等间隔采样限制弹幕总数，单位为k，即千：默认 0，表示不限制弹幕数，若改为5，弹幕总数在超过5000的情况下会将弹幕数控制在5000
       proxyUrl: this.get("PROXY_URL", "", "string", true),
       // 代理/反代地址
-      danmuSimplified: this.get("DANMU_SIMPLIFIED", true, "boolean"),
-      // 弹幕繁体转简体开关，优先级：DANMU_SIMPLIFIED < DANMU_TRADITIONAL，默认值为true
-      danmuTraditional: this.get("DANMU_TRADITIONAL", false, "boolean"),
-      // 弹幕简体转繁体开关，优先级：DANMU_TRADITIONAL > DANMU_SIMPLIFIED，默认值为false
+      danmuSimplifiedTraditional: this.get("DANMU_SIMPLIFIED_TRADITIONAL", "default", "string"),
+      // 弹幕简繁体转换设置：default（默认不转换）、simplified（繁转简）、traditional（简转繁）
       danmuPushUrl: this.get("DANMU_PUSH_URL", "", "string"),
       // 代理/反代地址
       tmdbApiKey: this.get("TMDB_API_KEY", "", "string", true),
@@ -662,7 +652,7 @@ var Envs = class {
       // 弹幕缓存时间配置（分钟，默认 1）
       convertTopBottomToScroll: this.get("CONVERT_TOP_BOTTOM_TO_SCROLL", false, "boolean"),
       // 顶部/底部弹幕转换为浮动弹幕配置（默认 false，禁用转换）
-      convertColor: this.resolveConvertColor(),
+      convertColor: this.get("CONVERT_COLOR", "default", "string"),
       // 弹幕转换颜色配置，支持 default、white、color（默认 default，禁用转换）
       danmuOutputFormat: this.get("DANMU_OUTPUT_FORMAT", "json", "string"),
       // 弹幕输出格式配置（默认 json，可选值：json, xml）
@@ -709,7 +699,7 @@ var Globals = {
   originalEnvVars: {},
   accessedEnvVars: {},
   // 静态常量
-  VERSION: "1.13.1",
+  VERSION: "1.13.2",
   MAX_LOGS: 500,
   // 日志存储，最多保存 500 行
   MAX_ANIMES: 100,
@@ -3279,7 +3269,7 @@ function convertToDanmakuJson(contents, platform) {
       log("info", `[danmu convert] \u8F6C\u6362\u4E86 ${colorCount} \u6761\u5F39\u5E55\u989C\u8272`);
     }
   }
-  if (globals.danmuTraditional) {
+  if (globals.danmuSimplifiedTraditional === "traditional") {
     convertedDanmus = convertedDanmus.map((danmu) => ({
       ...danmu,
       m: traditionalized(danmu.m)
@@ -5959,8 +5949,8 @@ var BahamutSource = class extends BaseSource {
     return comments.map((c) => ({
       cid: Number(c.sn),
       p: `${Math.round(c.time / 10).toFixed(2)},${positionToMode[c.position] || c.tp},${parseInt(c.color.slice(1), 16)},[bahamut]`,
-      // 根据 globals.danmuSimplified 控制是否繁转简
-      m: globals.danmuSimplified ? simplized(c.text) : c.text,
+      // 根据 globals.danmuSimplifiedTraditional 控制是否繁转简
+      m: globals.danmuSimplifiedTraditional === "simplified" ? simplized(c.text) : c.text,
       t: Math.round(c.time / 10)
     }));
   }
@@ -6115,8 +6105,8 @@ var DandanSource = class extends BaseSource {
         const decimalColor = r * 256 * 256 + g * 256 + b;
         return `${platform}${decimalColor}`;
       })}`,
-      // 根据 globals.danmuSimplified 控制是否繁转简
-      m: globals.danmuSimplified ? simplized(c.m) : c.m
+      // 根据 globals.danmuSimplifiedTraditional 控制是否繁转简
+      m: globals.danmuSimplifiedTraditional === "simplified" ? simplized(c.m) : c.m
     }));
   }
 };
@@ -6270,8 +6260,8 @@ var CustomSource = class extends BaseSource {
         const decimalColor = r * 256 * 256 + g * 256 + b;
         return `${platform}${decimalColor}`;
       })}`,
-      // 根据 globals.danmuSimplified 控制是否繁转简
-      m: globals.danmuSimplified ? simplized(c.m) : c.m
+      // 根据 globals.danmuSimplifiedTraditional 控制是否繁转简
+      m: globals.danmuSimplifiedTraditional === "simplified" ? simplized(c.m) : c.m
     }));
   }
 };
@@ -8667,7 +8657,7 @@ var _BilibiliSource = class _BilibiliSource extends BaseSource {
     }
   }
   formatComments(comments) {
-    if (globals.danmuSimplified) {
+    if (globals.danmuSimplifiedTraditional === "simplified") {
       return comments.map((c) => {
         if (c.m) c.m = simplized(c.m);
         return c;
@@ -11101,7 +11091,7 @@ var AnimekoSource = class extends BaseSource {
       const time = (Number(info.playTime) / 1e3).toFixed(2);
       const mode = locationMap[info.location] || 1;
       const color = info.color === -1 ? 16777215 : info.color;
-      const text = globals.danmuSimplified ? simplized(info.text) : info.text;
+      const text = globals.danmuSimplifiedTraditional === "simplified" ? simplized(info.text) : info.text;
       return {
         cid: item.id,
         p: `${time},${mode},${color},[animeko]`,
@@ -11722,7 +11712,7 @@ async function getSegmentComment(segment, queryFormat) {
 }
 
 // forward/forward-widget.js
-var wv = true ? "1.13.1" : Globals.VERSION;
+var wv = true ? "1.13.2" : Globals.VERSION;
 WidgetMetadata = {
   id: "forward.auto.danmu2",
   title: "\u81EA\u52A8\u94FE\u63A5\u5F39\u5E55v2",
@@ -12017,32 +12007,21 @@ WidgetMetadata = {
       ]
     },
     {
-      name: "danmuSimplified",
-      title: "\u5F39\u5E55\u7E41\u4F53\u8F6C\u7B80\u4F53\u5F00\u5173\uFF0C\u76EE\u524D\u53EA\u5BF9\u5DF4\u54C8\u59C6\u7279\u751F\u6548\uFF0C\u9ED8\u8BA4true\uFF0C\u4F18\u5148\u7EA7\uFF1ADANMU_SIMPLIFIED < DANMU_TRADITIONAL",
+      name: "danmuSimplifiedTraditional",
+      title: "\u5F39\u5E55\u7B80\u7E41\u4F53\u8F6C\u6362\u8BBE\u7F6E\uFF1Adefault\uFF08\u9ED8\u8BA4\u4E0D\u8F6C\u6362\uFF09\u3001simplified\uFF08\u7E41\u8F6C\u7B80\uFF09\u3001traditional\uFF08\u7B80\u8F6C\u7E41\uFF09",
       type: "input",
       placeholders: [
         {
-          title: "true",
-          value: "true"
+          title: "\u4E0D\u8F6C\u6362",
+          value: "default"
         },
         {
-          title: "false",
-          value: "false"
-        }
-      ]
-    },
-    {
-      name: "danmuTraditional",
-      title: "\u5F39\u5E55\u7B80\u4F53\u8F6C\u7E41\u4F53\u5F00\u5173\uFF0C\u5BF9\u6240\u6709\u6E90\u751F\u6548\uFF0C\u9ED8\u8BA4false\uFF0C\u4F18\u5148\u7EA7\uFF1ADANMU_TRADITIONAL > DANMU_SIMPLIFIED",
-      type: "input",
-      placeholders: [
-        {
-          title: "false",
-          value: "false"
+          title: "\u7E41\u8F6C\u7B80",
+          value: "simplified"
         },
         {
-          title: "true",
-          value: "true"
+          title: "\u7B80\u8F6C\u7E41",
+          value: "traditional"
         }
       ]
     },
@@ -12159,7 +12138,7 @@ if (typeof window !== "undefined") {
   window.WidgetMetadata = WidgetMetadata;
 }
 var globals2;
-async function initGlobals(sourceOrder, otherServer, customSourceApiUrl, vodServers, vodReturnMode, vodRequestTimeout, bilibiliCookie, platformOrder, episodeTitleFilter, enableEpisodeFilter, strictTitleMatch2, titleMappingTable, blockedWords, groupMinute, danmuLimit, danmuSimplified, danmuTraditional, convertTopBottomToScroll, convertColor, proxyUrl, tmdbApiKey) {
+async function initGlobals(sourceOrder, otherServer, customSourceApiUrl, vodServers, vodReturnMode, vodRequestTimeout, bilibiliCookie, platformOrder, episodeTitleFilter, enableEpisodeFilter, strictTitleMatch2, titleMappingTable, blockedWords, groupMinute, danmuLimit, danmuSimplifiedTraditional, convertTopBottomToScroll, convertColor, proxyUrl, tmdbApiKey) {
   const env = {};
   if (sourceOrder !== void 0) env.SOURCE_ORDER = sourceOrder;
   if (otherServer !== void 0) env.OTHER_SERVER = otherServer;
@@ -12176,8 +12155,7 @@ async function initGlobals(sourceOrder, otherServer, customSourceApiUrl, vodServ
   if (blockedWords !== void 0) env.BLOCKED_WORDS = blockedWords;
   if (groupMinute !== void 0) env.GROUP_MINUTE = groupMinute;
   if (danmuLimit !== void 0) env.DANMU_LIMIT = danmuLimit;
-  if (danmuSimplified !== void 0) env.DANMU_SIMPLIFIED = danmuSimplified;
-  if (danmuTraditional !== void 0) env.DANMU_TRADITIONAL = danmuTraditional;
+  if (danmuSimplifiedTraditional !== void 0) env.DANMU_SIMPLIFIED_TRADITIONAL = danmuSimplifiedTraditional;
   if (convertTopBottomToScroll !== void 0) env.CONVERT_TOP_BOTTOM_TO_SCROLL = convertTopBottomToScroll;
   if (convertColor !== void 0) env.CONVERT_COLOR = convertColor;
   if (proxyUrl !== void 0) env.PROXY_URL = proxyUrl;
@@ -12244,8 +12222,7 @@ async function searchDanmu(params) {
     blockedWords,
     groupMinute,
     danmuLimit,
-    danmuSimplified,
-    danmuTraditional,
+    danmuSimplifiedTraditional,
     convertTopBottomToScroll,
     convertColor,
     proxyUrl,
@@ -12267,8 +12244,7 @@ async function searchDanmu(params) {
     blockedWords,
     groupMinute,
     danmuLimit,
-    danmuSimplified,
-    danmuTraditional,
+    danmuSimplifiedTraditional,
     convertTopBottomToScroll,
     convertColor,
     proxyUrl,
@@ -12338,8 +12314,7 @@ async function getDetailById(params) {
     blockedWords,
     groupMinute,
     danmuLimit,
-    danmuSimplified,
-    danmuTraditional,
+    danmuSimplifiedTraditional,
     convertTopBottomToScroll,
     convertColor,
     proxyUrl,
@@ -12361,8 +12336,7 @@ async function getDetailById(params) {
     blockedWords,
     groupMinute,
     danmuLimit,
-    danmuSimplified,
-    danmuTraditional,
+    danmuSimplifiedTraditional,
     convertTopBottomToScroll,
     convertColor,
     proxyUrl,
@@ -12400,8 +12374,7 @@ async function getCommentsById(params) {
     blockedWords,
     groupMinute,
     danmuLimit,
-    danmuSimplified,
-    danmuTraditional,
+    danmuSimplifiedTraditional,
     convertTopBottomToScroll,
     convertColor,
     proxyUrl,
@@ -12423,8 +12396,7 @@ async function getCommentsById(params) {
     blockedWords,
     groupMinute,
     danmuLimit,
-    danmuSimplified,
-    danmuTraditional,
+    danmuSimplifiedTraditional,
     convertTopBottomToScroll,
     convertColor,
     proxyUrl,
@@ -12461,8 +12433,7 @@ async function getCommentsById(params) {
         strictTitleMatch: strictTitleMatch2,
         titleMappingTable,
         danmuLimit,
-        danmuSimplified,
-        danmuTraditional,
+        danmuSimplifiedTraditional,
         convertTopBottomToScroll,
         convertColor,
         proxyUrl,
@@ -12504,8 +12475,7 @@ async function getDanmuWithSegmentTime(params) {
     blockedWords,
     groupMinute,
     danmuLimit,
-    danmuSimplified,
-    danmuTraditional,
+    danmuSimplifiedTraditional,
     convertTopBottomToScroll,
     convertColor,
     proxyUrl,
@@ -12527,8 +12497,7 @@ async function getDanmuWithSegmentTime(params) {
     blockedWords,
     groupMinute,
     danmuLimit,
-    danmuSimplified,
-    danmuTraditional,
+    danmuSimplifiedTraditional,
     convertTopBottomToScroll,
     convertColor,
     proxyUrl,
