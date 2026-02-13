@@ -597,7 +597,7 @@ var Envs = class {
       "PLATFORM_ORDER": { category: "match", type: "multi-select", options: this.ALLOWED_PLATFORMS, description: '\u5E73\u53F0\u6392\u5E8F\u914D\u7F6E\uFF0C\u53EF\u4EE5\u914D\u7F6E\u81EA\u52A8\u5339\u914D\u65F6\u7684\u4F18\u9009\u5E73\u53F0\u3002\n\u5F53\u914D\u7F6E\u5408\u5E76\u5E73\u53F0\u7684\u65F6\u5019\uFF0C\u53EF\u4EE5\u6307\u5B9A\u671F\u671B\u7684\u5408\u5E76\u6E90\uFF0C\n\u793A\u4F8B\uFF1A\u4E00\u4E2A\u7ED3\u679C\u8FD4\u56DE\u4E86"dandan&bilibili1&animeko"\u548C"youku"\u65F6\uFF0C\n\u5F53\u914D\u7F6E"youku"\u65F6\u8FD4\u56DE"youku" \n\u5F53\u914D\u7F6E"dandan&animeko"\u65F6\u8FD4\u56DE"dandan&bilibili1&animeko"' },
       "ANIME_TITLE_FILTER": { category: "match", type: "text", description: "\u5267\u540D\u8FC7\u6EE4\u89C4\u5219" },
       "EPISODE_TITLE_FILTER": { category: "match", type: "text", description: "\u5267\u96C6\u6807\u9898\u8FC7\u6EE4\u89C4\u5219" },
-      "ENABLE_EPISODE_FILTER": { category: "match", type: "boolean", description: "\u96C6\u6807\u9898\u8FC7\u6EE4\u5F00\u5173" },
+      "ENABLE_ANIME_EPISODE_FILTER": { category: "match", type: "boolean", description: "\u63A7\u5236\u624B\u52A8\u641C\u7D22\u7684\u65F6\u5019\u662F\u5426\u6839\u636EANIME_TITLE_FILTER\u8FDB\u884C\u5267\u540D\u8FC7\u6EE4\u4EE5\u53CA\u6839\u636EEPISODE_TITLE_FILTER\u8FDB\u884C\u96C6\u6807\u9898\u8FC7\u6EE4" },
       "STRICT_TITLE_MATCH": { category: "match", type: "boolean", description: "\u4E25\u683C\u6807\u9898\u5339\u914D\u6A21\u5F0F" },
       "TITLE_TO_CHINESE": { category: "match", type: "boolean", description: "\u5916\u8BED\u6807\u9898\u8F6C\u6362\u4E2D\u6587\u5F00\u5173" },
       "ANIME_TITLE_SIMPLIFIED": { category: "match", type: "boolean", description: "\u641C\u7D22\u7684\u5267\u540D\u6807\u9898\u81EA\u52A8\u7E41\u8F6C\u7B80" },
@@ -678,8 +678,8 @@ var Envs = class {
       // upstash redis url
       rateLimitMaxRequests: this.get("RATE_LIMIT_MAX_REQUESTS", 3, "number"),
       // 限流配置：时间窗口内最大请求次数（默认 3，0表示不限流）
-      enableEpisodeFilter: this.get("ENABLE_EPISODE_FILTER", false, "boolean"),
-      // 集标题过滤开关配置（默认 false，禁用过滤）
+      enableAnimeEpisodeFilter: this.get("ENABLE_ANIME_EPISODE_FILTER", false, "boolean"),
+      // 控制手动搜索的时候是否根据ANIME_TITLE_FILTER进行剧名过滤以及根据EPISODE_TITLE_FILTER进行集标题过滤（默认 false，禁用过滤）
       logLevel: this.get("LOG_LEVEL", "info", "string"),
       // 日志级别配置（默认 info，可选值：error, warn, info）
       searchCacheMinutes: this.get("SEARCH_CACHE_MINUTES", 1, "number"),
@@ -737,7 +737,7 @@ var Globals = {
   originalEnvVars: {},
   accessedEnvVars: {},
   // 静态常量
-  VERSION: "1.14.2",
+  VERSION: "1.14.3",
   MAX_LOGS: 1e3,
   // 日志存储，最多保存 1000 行
   MAX_ANIMES: 100,
@@ -14143,11 +14143,11 @@ async function searchAnime(url, preferAnimeId = null, preferSource = null) {
     await applyMergeLogic(curAnimes);
   }
   storeAnimeIdsToMap(curAnimes, queryTitle);
-  if (globals.enableEpisodeFilter) {
+  if (globals.enableAnimeEpisodeFilter) {
     const validAnimes = [];
     for (const anime of curAnimes) {
       const animeTitle = anime.animeTitle || "";
-      if (globals.animeTitleFilter.test(animeTitle)) {
+      if (globals.animeTitleFilter && globals.animeTitleFilter.test(animeTitle)) {
         log("info", `[searchAnime] Anime ${anime.animeId} filtered by name: ${animeTitle}`);
         continue;
       }
@@ -14215,7 +14215,7 @@ async function getBangumi(path2) {
       airDate: anime.startDate
     });
   }
-  if (globals.enableEpisodeFilter) {
+  if (globals.enableAnimeEpisodeFilter) {
     episodesList = episodesList.filter((episode) => {
       return !globals.episodeTitleFilter.test(episode.episodeTitle);
     });
@@ -14499,7 +14499,7 @@ async function getSegmentComment(segment, queryFormat) {
 }
 
 // forward/forward-widget.js
-var wv = true ? "1.14.2" : Globals.VERSION;
+var wv = true ? "1.14.3" : Globals.VERSION;
 WidgetMetadata = {
   id: "forward.auto.danmu2",
   title: "\u81EA\u52A8\u94FE\u63A5\u5F39\u5E55v2",
@@ -14669,7 +14669,7 @@ WidgetMetadata = {
     },
     {
       name: "animeTitleFilter",
-      title: "\u5267\u540D\u8FC7\u6EE4\u89C4\u5219\uFF0C\u7528\u4E8E\u63A7\u5236\u5267\u540D\u8FC7\u6EE4\u89C4\u5219\uFF0C\u9700\u5F00\u542F\u96C6\u6807\u9898\u8FC7\u6EE4\u5F00\u5173ENABLE_EPISODE_FILTER",
+      title: "\u5267\u540D\u8FC7\u6EE4\u89C4\u5219\uFF0C\u7528\u4E8E\u63A7\u5236\u5267\u540D\u8FC7\u6EE4\u89C4\u5219\uFF0C\u9700\u5F00\u542F\u8FC7\u6EE4\u5F00\u5173ENABLE_ANIME_EPISODE_FILTER",
       type: "input",
       placeholders: [
         {
@@ -14690,8 +14690,8 @@ WidgetMetadata = {
       ]
     },
     {
-      name: "enableEpisodeFilter",
-      title: "\u96C6\u6807\u9898\u8FC7\u6EE4\u5F00\u5173\uFF0C\u662F\u5426\u5728\u624B\u52A8\u9009\u62E9\u63A5\u53E3\u4E2D\u542F\u7528\u96C6\u6807\u9898\u8FC7\u6EE4\uFF0C\u9ED8\u8BA4false",
+      name: "enableAnimeEpisodeFilter",
+      title: "\u63A7\u5236\u624B\u52A8\u641C\u7D22\u7684\u65F6\u5019\u662F\u5426\u6839\u636EANIME_TITLE_FILTER\u8FDB\u884C\u5267\u540D\u8FC7\u6EE4\u4EE5\u53CA\u6839\u636EEPISODE_TITLE_FILTER\u8FDB\u884C\u96C6\u6807\u9898\u8FC7\u6EE4\uFF0C\u9ED8\u8BA4false",
       type: "input",
       placeholders: [
         {
@@ -14951,7 +14951,7 @@ if (typeof window !== "undefined") {
   window.WidgetMetadata = WidgetMetadata;
 }
 var globals2;
-async function initGlobals(sourceOrder, otherServer, customSourceApiUrl, vodServers, vodReturnMode, vodRequestTimeout, bilibiliCookie, platformOrder, episodeTitleFilter, enableEpisodeFilter, strictTitleMatch2, titleMappingTable, animeTitleFilter, animeTitleSimplified, blockedWords, groupMinute, danmuLimit, danmuSimplifiedTraditional, convertTopBottomToScroll, convertColor, proxyUrl, tmdbApiKey) {
+async function initGlobals(sourceOrder, otherServer, customSourceApiUrl, vodServers, vodReturnMode, vodRequestTimeout, bilibiliCookie, platformOrder, episodeTitleFilter, enableAnimeEpisodeFilter, strictTitleMatch2, titleMappingTable, animeTitleFilter, animeTitleSimplified, blockedWords, groupMinute, danmuLimit, danmuSimplifiedTraditional, convertTopBottomToScroll, convertColor, proxyUrl, tmdbApiKey) {
   const env = {};
   if (sourceOrder !== void 0) env.SOURCE_ORDER = sourceOrder;
   if (otherServer !== void 0) env.OTHER_SERVER = otherServer;
@@ -14962,7 +14962,7 @@ async function initGlobals(sourceOrder, otherServer, customSourceApiUrl, vodServ
   if (bilibiliCookie !== void 0) env.BILIBILI_COOKIE = bilibiliCookie;
   if (platformOrder !== void 0) env.PLATFORM_ORDER = platformOrder;
   if (episodeTitleFilter !== void 0) env.EPISODE_TITLE_FILTER = episodeTitleFilter;
-  if (enableEpisodeFilter !== void 0) env.ENABLE_EPISODE_FILTER = enableEpisodeFilter;
+  if (enableAnimeEpisodeFilter !== void 0) env.ENABLE_ANIME_EPISODE_FILTER = enableAnimeEpisodeFilter;
   if (strictTitleMatch2 !== void 0) env.STRICT_TITLE_MATCH = strictTitleMatch2;
   if (titleMappingTable !== void 0) env.TITLE_MAPPING_TABLE = titleMappingTable;
   if (animeTitleFilter !== void 0) env.ANIME_TITLE_FILTER = animeTitleFilter;
@@ -15031,7 +15031,7 @@ async function searchDanmu(params) {
     bilibiliCookie,
     platformOrder,
     episodeTitleFilter,
-    enableEpisodeFilter,
+    enableAnimeEpisodeFilter,
     strictTitleMatch: strictTitleMatch2,
     titleMappingTable,
     animeTitleFilter,
@@ -15055,7 +15055,7 @@ async function searchDanmu(params) {
     bilibiliCookie,
     platformOrder,
     episodeTitleFilter,
-    enableEpisodeFilter,
+    enableAnimeEpisodeFilter,
     strictTitleMatch2,
     titleMappingTable,
     animeTitleFilter,
@@ -15132,7 +15132,7 @@ async function getDetailById(params) {
     bilibiliCookie,
     platformOrder,
     episodeTitleFilter,
-    enableEpisodeFilter,
+    enableAnimeEpisodeFilter,
     strictTitleMatch: strictTitleMatch2,
     titleMappingTable,
     animeTitleFilter,
@@ -15156,7 +15156,7 @@ async function getDetailById(params) {
     bilibiliCookie,
     platformOrder,
     episodeTitleFilter,
-    enableEpisodeFilter,
+    enableAnimeEpisodeFilter,
     strictTitleMatch2,
     titleMappingTable,
     animeTitleFilter,
@@ -15196,7 +15196,7 @@ async function getCommentsById(params) {
     bilibiliCookie,
     platformOrder,
     episodeTitleFilter,
-    enableEpisodeFilter,
+    enableAnimeEpisodeFilter,
     strictTitleMatch: strictTitleMatch2,
     titleMappingTable,
     animeTitleFilter,
@@ -15220,7 +15220,7 @@ async function getCommentsById(params) {
     bilibiliCookie,
     platformOrder,
     episodeTitleFilter,
-    enableEpisodeFilter,
+    enableAnimeEpisodeFilter,
     strictTitleMatch2,
     titleMappingTable,
     animeTitleFilter,
@@ -15259,7 +15259,7 @@ async function getCommentsById(params) {
         bilibiliCookie,
         platformOrder,
         episodeTitleFilter,
-        enableEpisodeFilter,
+        enableAnimeEpisodeFilter,
         strictTitleMatch: strictTitleMatch2,
         titleMappingTable,
         animeTitleFilter,
@@ -15303,7 +15303,7 @@ async function getDanmuWithSegmentTime(params) {
     bilibiliCookie,
     platformOrder,
     episodeTitleFilter,
-    enableEpisodeFilter,
+    enableAnimeEpisodeFilter,
     strictTitleMatch: strictTitleMatch2,
     titleMappingTable,
     animeTitleFilter,
@@ -15327,7 +15327,7 @@ async function getDanmuWithSegmentTime(params) {
     bilibiliCookie,
     platformOrder,
     episodeTitleFilter,
-    enableEpisodeFilter,
+    enableAnimeEpisodeFilter,
     strictTitleMatch2,
     titleMappingTable,
     animeTitleFilter,
