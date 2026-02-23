@@ -366,7 +366,6 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
 
 // danmu_api/configs/envs.js
 var Envs = class {
-  // 允许的源合并
   /**
    * 获取环境变量
    * @param {string} key 环境变量的键
@@ -602,6 +601,10 @@ var Envs = class {
       "TITLE_TO_CHINESE": { category: "match", type: "boolean", description: "\u5916\u8BED\u6807\u9898\u8F6C\u6362\u4E2D\u6587\u5F00\u5173" },
       "ANIME_TITLE_SIMPLIFIED": { category: "match", type: "boolean", description: "\u641C\u7D22\u7684\u5267\u540D\u6807\u9898\u81EA\u52A8\u7E41\u8F6C\u7B80" },
       "TITLE_MAPPING_TABLE": { category: "match", type: "map", description: '\u5267\u540D\u6620\u5C04\u8868\uFF0C\u7528\u4E8E\u81EA\u52A8\u5339\u914D\u65F6\u66FF\u6362\u6807\u9898\u8FDB\u884C\u641C\u7D22\uFF0C\u683C\u5F0F\uFF1A\u539F\u59CB\u6807\u9898->\u6620\u5C04\u6807\u9898;\u539F\u59CB\u6807\u9898->\u6620\u5C04\u6807\u9898;... \uFF0C\u4F8B\u5982\uFF1A"\u5510\u671D\u8BE1\u4E8B\u5F55->\u5510\u671D\u8BE1\u4E8B\u5F55\u4E4B\u897F\u884C;\u56FD\u8272\u82B3\u534E->\u9526\u7EE3\u82B3\u534E"' },
+      "AI_BASE_URL": { category: "match", type: "text", description: "AI\u670D\u52A1\u57FA\u7840URL\uFF0C\u4E0D\u586B\u9ED8\u8BA4\u4E3Ahttps://api.openai.com/v1" },
+      "AI_MODEL": { category: "match", type: "text", description: "AI\u6A21\u578B\u540D\u79F0\uFF0C\u4E0D\u586B\u9ED8\u8BA4\u4E3Agpt-4o" },
+      "AI_API_KEY": { category: "match", type: "text", description: "AI\u670D\u52A1API\u5BC6\u94A5\uFF0C\u9ED8\u8BA4\u4E3A\u7A7A\uFF0C\u9700\u624B\u52A8\u586B\u5199" },
+      "AI_MATCH_PROMPT": { category: "match", type: "text", description: "AI\u81EA\u52A8\u5339\u914D\u63D0\u793A\u8BCD\u6A21\u677F\uFF0C\u4E0D\u586B\u63D0\u4F9B\u9ED8\u8BA4\u63D0\u793A\u8BCD\uFF0C\u9ED8\u8BA4\u63D0\u793A\u8BCD\u8BF7\u67E5\u770BREADME" },
       // 弹幕配置
       "BLOCKED_WORDS": { category: "danmu", type: "text", description: "\u5C4F\u853D\u8BCD\u5217\u8868" },
       "GROUP_MINUTE": { category: "danmu", type: "number", description: "\u5206\u949F\u5185\u5408\u5E76\u53BB\u91CD\uFF080\u8868\u793A\u4E0D\u53BB\u91CD\uFF09\uFF0C\u9ED8\u8BA41", min: 0, max: 30 },
@@ -700,6 +703,14 @@ var Envs = class {
       // 搜索的剧名标题自动繁转简
       titleMappingTable: this.resolveTitleMappingTable(),
       // 剧名映射表，用于自动匹配时替换标题进行搜索
+      aiBaseUrl: this.get("AI_BASE_URL", "https://api.openai.com/v1", "string"),
+      // AI服务基础URL
+      aiModel: this.get("AI_MODEL", "gpt-4o", "string"),
+      // AI模型名称
+      aiApiKey: this.get("AI_API_KEY", "", "string", true),
+      // AI服务API密钥
+      aiMatchPrompt: this.get("AI_MATCH_PROMPT", this.DEFAULT_AI_MATCH_PROMPT, "string"),
+      // AI自动匹配提示词模板
       rememberLastSelect: this.get("REMEMBER_LAST_SELECT", true, "boolean"),
       // 是否记住手动选择结果，用于match自动匹配时优选上次的选择（默认 true，记住）
       MAX_LAST_SELECT_MAP: this.get("MAX_LAST_SELECT_MAP", 100, "number"),
@@ -721,13 +732,50 @@ __publicField(Envs, "env");
 // 记录获取过的环境变量
 __publicField(Envs, "originalEnvVars", /* @__PURE__ */ new Map());
 __publicField(Envs, "accessedEnvVars", /* @__PURE__ */ new Map());
-__publicField(Envs, "VOD_ALLOWED_PLATFORMS", ["qiyi", "bilibili1", "imgo", "youku", "qq", "migu", "sohu", "leshi", "xigua"]);
+__publicField(Envs, "VOD_ALLOWED_PLATFORMS", ["qiyi", "bilibili1", "imgo", "youku", "qq", "migu", "sohu", "leshi", "xigua", "maiduidui"]);
 // vod允许的播放平台
-__publicField(Envs, "ALLOWED_PLATFORMS", ["qiyi", "bilibili1", "imgo", "youku", "qq", "migu", "renren", "hanjutv", "bahamut", "dandan", "sohu", "leshi", "xigua", "animeko", "custom"]);
+__publicField(Envs, "ALLOWED_PLATFORMS", ["qiyi", "bilibili1", "imgo", "youku", "qq", "migu", "renren", "hanjutv", "bahamut", "dandan", "sohu", "leshi", "xigua", "maiduidui", "animeko", "custom"]);
 // 全部源允许的播放平台
-__publicField(Envs, "ALLOWED_SOURCES", ["360", "vod", "tmdb", "douban", "tencent", "youku", "iqiyi", "imgo", "bilibili", "migu", "renren", "hanjutv", "bahamut", "dandan", "sohu", "leshi", "xigua", "animeko", "custom"]);
+__publicField(Envs, "ALLOWED_SOURCES", ["360", "vod", "tmdb", "douban", "tencent", "youku", "iqiyi", "imgo", "bilibili", "migu", "renren", "hanjutv", "bahamut", "dandan", "sohu", "leshi", "xigua", "maiduidui", "animeko", "custom"]);
 // 允许的源
-__publicField(Envs, "MERGE_ALLOWED_SOURCES", ["tencent", "youku", "iqiyi", "imgo", "bilibili", "migu", "renren", "hanjutv", "bahamut", "dandan", "sohu", "leshi", "xigua", "animeko"]);
+__publicField(Envs, "MERGE_ALLOWED_SOURCES", ["tencent", "youku", "iqiyi", "imgo", "bilibili", "migu", "renren", "hanjutv", "bahamut", "dandan", "sohu", "leshi", "xigua", "maiduidui", "animeko"]);
+// 允许的源合并
+__publicField(Envs, "DEFAULT_AI_MATCH_PROMPT", `\u4F60\u662F\u4E00\u4E2A\u4E13\u4E1A\u7684\u5F71\u89C6\u5339\u914D\u4E13\u5BB6\uFF0C\u4F60\u7684\u7684\u4EFB\u52A1\u662F\u6839\u636E\u7528\u6237\u63D0\u4F9B\u7684 JSON \u6570\u636E\uFF0C\u4ECE\u5019\u9009\u52A8\u6F2B\u5217\u8868\u4E2D\u5339\u914D\u6700\u7B26\u5408\u6761\u4EF6\u7684\u52A8\u6F2B\u53CA\u96C6\u6570\u3002
+
+\u8F93\u5165\u5B57\u6BB5\u8BF4\u660E\uFF1A
+- title: \u67E5\u8BE2\u6807\u9898
+- season: \u5B63\u6570\uFF08\u53EF\u4E3A null\uFF09
+- episode: \u96C6\u6570\uFF08\u53EF\u4E3A null\uFF09
+- year: \u5E74\u4EFD\uFF08\u53EF\u4E3A null\uFF09
+- dynamicPlatformOrder: \u5E73\u53F0\u504F\u597D\u5217\u8868\uFF08\u53EF\u4E3A null\uFF09
+- preferAnimeId: \u504F\u597D\u52A8\u6F2B ID\uFF08\u53EF\u4E3A null\uFF09
+- animes: \u5019\u9009\u52A8\u6F2B\u5217\u8868
+  - animeId: \u52A8\u6F2Bid
+    animeTitle: \u52A8\u6F2B\u6807\u9898\uFF0C(\u5E74\u4EFD)\u524D\u9762\u624D\u662F\u771F\u5B9E\u7684\u6807\u9898
+    type: \u7C7B\u578B
+    startDate: \u53D1\u5E03\u65E5\u671F\uFF0C\u6709\u5E74\u4EFD
+    episodeCount: \u603B\u96C6\u6570
+    source: \u5F39\u5E55\u6765\u6E90
+
+\u5339\u914D\u89C4\u5219 (\u6309\u4F18\u5148\u7EA7\u6392\u5E8F):
+1. \u5982\u679CpreferAnimeId\u975E\u7A7A\uFF0C\u4E14animes\u5B58\u5728\u8BE5animeId\uFF0C\u5219\u8FD4\u56DE\u8BE5id\u5BF9\u5E94\u7684anime\u548Cepisode
+2. \u6807\u9898\u76F8\u4F3C\u5EA6: \u4F18\u5148\u5339\u914D\u6807\u9898\u76F8\u4F3C\u5EA6\u6700\u9AD8\u7684\u6761\u76EE
+3. \u5B63\u5EA6\u4E25\u683C\u5339\u914D: \u5982\u679C\u6307\u5B9A\u4E86\u5B63\u5EA6,\u5FC5\u987B\u4E25\u683C\u5339\u914D
+4. \u7C7B\u578B\u5339\u914D: episode\u4E3A\u7A7A\u5219\u4F18\u5148\u5339\u914D\u7535\u5F71\uFF0C\u975E\u7A7A\u5219\u5339\u914D\u7535\u89C6\u5267\u7B49
+5. \u5E74\u4EFD\u63A5\u8FD1: \u4F18\u5148\u9009\u62E9\u5E74\u4EFD\u63A5\u8FD1\u7684
+6. \u5E73\u53F0\u5339\u914D\uFF1A\u5982\u679C\u6709\u591A\u4E2A\u9AD8\u5EA6\u76F8\u4F3C\u7684\u7ED3\u679C\u4E14dynamicPlatformOrder\u975E\u7A7A\uFF0C\u5219\u4ECE\u524D\u5F80\u540E\u9009\u62E9\u76F8\u5BF9\u5E94\u7684\u5E73\u53F0
+7. \u96C6\u6570\u5B8C\u6574: \u5982\u679C\u6709\u591A\u4E2A\u9AD8\u5EA6\u76F8\u4F3C\u7684\u7ED3\u679C,\u9009\u62E9\u96C6\u6570\u6700\u5B8C\u6574\u7684
+
+\u8BF7\u5206\u6790\u54EA\u4E2A\u52A8\u6F2B\u6700\u7B26\u5408\u67E5\u8BE2\u6761\u4EF6\uFF0C\u5982\u679C\u6307\u5B9A\u4E86\u5B63\u6570\u548C\u96C6\u6570\uFF0C\u8BF7\u4E5F\u8FD4\u56DE\u5BF9\u5E94\u7684\u96C6\u4FE1\u606F\u3002
+\u8BF7\u4E25\u683C\u6309\u7167\u4EE5\u4E0B JSON \u683C\u5F0F\u8FD4\u56DE\u7ED3\u679C\uFF0C\u4E0D\u8981\u5305\u542B\u4EFB\u4F55\u5176\u4ED6\u5185\u5BB9\uFF1A
+{
+  "animeIndex": \u5339\u914D\u7684\u52A8\u6F2B\u5728\u5217\u8868\u4E2D\u7684\u7D22\u5F15(\u4ECE0\u5F00\u59CB) \u6216 null
+}
+
+\u5982\u679C\u6CA1\u6709\u627E\u5230\u5408\u9002\u7684\u5339\u914D\uFF0C\u8FD4\u56DE\uFF1A
+{
+  "animeIndex": null
+}`);
 
 // danmu_api/configs/globals.js
 var Globals = {
@@ -737,7 +785,7 @@ var Globals = {
   originalEnvVars: {},
   accessedEnvVars: {},
   // 静态常量
-  VERSION: "1.14.3",
+  VERSION: "1.15.0",
   MAX_LOGS: 1e3,
   // 日志存储，最多保存 1000 行
   MAX_ANIMES: 100,
@@ -757,6 +805,8 @@ var Globals = {
   // 本地缓存是否已初始化
   redisValid: false,
   // redis是否生效
+  aiValid: false,
+  // AI配置是否生效
   redisCacheInitialized: false,
   // redis 缓存是否已初始化
   lastSelectMap: /* @__PURE__ */ new Map(),
@@ -1091,7 +1141,7 @@ async function httpPost(url, body, options = {}) {
     } else {
       log("info", `[\u8BF7\u6C42\u6A21\u62DF] HTTP POST: ${url}`);
     }
-    const timeout = parseInt(globals.vodRequestTimeout || "5000", 10) || 5e3;
+    const timeout = parseInt(options.timeout || globals.vodRequestTimeout || "5000", 10) || 5e3;
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), timeout);
     linkSignal(options.signal, controller);
@@ -1202,14 +1252,15 @@ function xmlResponse(data, status = 200) {
     }
   });
 }
-function buildQueryString(params) {
+function buildQueryString(params, encode = true) {
+  const encodeFn = encode ? encodeURIComponent : (v) => v;
   let queryString = "";
   for (let key in params) {
     if (params.hasOwnProperty(key)) {
       if (queryString.length > 0) {
         queryString += "&";
       }
-      queryString += encodeURIComponent(key) + "=" + encodeURIComponent(params[key]);
+      queryString += encodeFn(key) + "=" + encodeFn(params[key]);
     }
   }
   return queryString;
@@ -7264,7 +7315,7 @@ var HanjutvSource = class extends BaseSource {
     return comments.map((c) => ({
       cid: Number(c.did),
       p: `${(c.t / 1e3).toFixed(2)},${c.tp === 2 ? 5 : c.tp},${Number(c.sc)},[hanjutv]`,
-      m: c.con,
+      m: c.lc ? `${c.con} \u{1F44D}${c.lc}` : c.con,
       t: Math.round(c.t / 1e3)
     }));
   }
@@ -13346,6 +13397,304 @@ var XiguaSource = class extends BaseSource {
 };
 var xigua_default = XiguaSource;
 
+// danmu_api/sources/maiduidui.js
+var MaiduiduiSource = class extends BaseSource {
+  constructor() {
+    super();
+    this.domain = "https://mob.mddcloud.com.cn";
+    this.headers = {
+      "user-agent": "Mdd/5.8.00 (Android+32+)",
+      "Content-Type": "application/json",
+      "version": "5.8.00",
+      "Referer": "mdd"
+    };
+  }
+  getPlayload(urlSuffix, dataBody) {
+    const time = Date.now();
+    const queryStr = buildQueryString(dataBody, false);
+    const rawInput = `os:Android|version:5.8.00|action:${urlSuffix}|time:${time}|appToken:|privateKey:e1be6b4cf4021b3d181170d1879a530a9e4130b69032144d5568abfd6cd6c1c2|data:${queryStr}&`;
+    return {
+      "channel": "1000",
+      "data": dataBody,
+      "deviceNum": "853BDD7A1DC011F1C341455071C03AEB",
+      "deviceType": 0,
+      "jsonSign": 0,
+      "os": "Android",
+      "sign": md5(rawInput),
+      "sourceVersion": 0,
+      "terminalType": "APP",
+      "thirdStatus": 0,
+      "time": time,
+      "version": "5.8.00",
+      "visitorStatus": 0
+    };
+  }
+  extractByRegex(url) {
+    const vodUuidMatch = url.match(/\/video\/([a-f0-9]+)\.html/i);
+    const uuidMatch = url.match(/[?&]uuid=([a-f0-9]+)/i);
+    return {
+      vodUuid: vodUuidMatch ? vodUuidMatch[1] : null,
+      uuid: uuidMatch ? uuidMatch[1] : null,
+      success: !!(vodUuidMatch && uuidMatch)
+    };
+  }
+  async search(keyword) {
+    try {
+      const urlSuffix = "/searchApi/search/getAllSearchResult4820.action";
+      const searchUrl = `${this.domain}${urlSuffix}`;
+      const dataBody = {
+        "keyWord": keyword
+      };
+      const response = await Widget.http.post(searchUrl, JSON.stringify(this.getPlayload(urlSuffix, dataBody)), {
+        headers: this.headers
+      });
+      if (!response || !response.data) {
+        log("info", "[Maiduidui] \u641C\u7D22\u54CD\u5E94\u4E3A\u7A7A");
+        return [];
+      }
+      const data = typeof response.data === "string" ? JSON.parse(response.data) : response.data;
+      const animes = [];
+      const typeList = data?.data;
+      for (const typeItem of typeList) {
+        if (typeItem?.typeName === "\u5267\u96C6" || typeItem?.typeName === "\u7535\u5F71" || typeItem?.typeName === "\u7EFC\u827A") {
+          for (const vodItem of typeItem?.vodList) {
+            animes.push({
+              name: vodItem.name,
+              type: typeItem.typeName,
+              year: vodItem.yearName,
+              img: vodItem.downImage,
+              url: vodItem.uuid
+            });
+          }
+        }
+      }
+      log("info", `[Maiduidui] \u641C\u7D22\u627E\u5230 ${animes.length} \u4E2A\u6709\u6548\u7ED3\u679C`);
+      return animes;
+    } catch (error) {
+      log("error", "getMaiduiduiAnimes error:", {
+        message: error.message,
+        name: error.name,
+        stack: error.stack
+      });
+      return [];
+    }
+  }
+  async getDetail(id) {
+    try {
+      const idInfo = this.extractByRegex(id);
+      const uuid = idInfo.uuid;
+      const vodUuid = idInfo.vodUuid;
+      const urlSuffix = "/api/vod/listVodSactions.action";
+      const searchUrl = `${this.domain}${urlSuffix}`;
+      const dataBody = {
+        "hasIntroduction": 0,
+        "vodUuid": vodUuid
+      };
+      const response = await Widget.http.post(searchUrl, JSON.stringify(this.getPlayload(urlSuffix, dataBody)), {
+        headers: this.headers
+      });
+      if (!response || !response.data) {
+        log("info", "[Maiduidui] \u83B7\u53D6\u8BE6\u60C5\u4FE1\u606F\u54CD\u5E94\u4E3A\u7A7A");
+        return [];
+      }
+      const data = typeof response.data === "string" ? JSON.parse(response.data) : response.data;
+      for (const epInfo of data?.data) {
+        if (epInfo.uuid === uuid) {
+          return epInfo.duration;
+        }
+      }
+      return 0;
+    } catch (error) {
+      log("error", "getMaiduiduiDetail error:", {
+        message: error.message,
+        name: error.name,
+        stack: error.stack
+      });
+      return 0;
+    }
+  }
+  async getEpisodes(id) {
+    try {
+      const urlSuffix = "/api/vod/listVodSactions.action";
+      const searchUrl = `${this.domain}${urlSuffix}`;
+      const dataBody = {
+        "hasIntroduction": 0,
+        "vodUuid": id
+      };
+      const response = await Widget.http.post(searchUrl, JSON.stringify(this.getPlayload(urlSuffix, dataBody)), {
+        headers: this.headers
+      });
+      if (!response || !response.data) {
+        log("info", "[Maiduidui] \u83B7\u53D6\u96C6\u4FE1\u606F\u54CD\u5E94\u4E3A\u7A7A");
+        return [];
+      }
+      const eps = [];
+      const data = typeof response.data === "string" ? JSON.parse(response.data) : response.data;
+      data?.data.forEach((epInfo) => {
+        eps.push({
+          title: epInfo.name,
+          episodeId: epInfo.uuid
+        });
+      });
+      return eps;
+    } catch (error) {
+      log("error", "getMaiduiduiEposides error:", {
+        message: error.message,
+        name: error.name,
+        stack: error.stack
+      });
+      return [];
+    }
+  }
+  async handleAnimes(sourceAnimes, queryTitle, curAnimes) {
+    const tmpAnimes = [];
+    if (!sourceAnimes || !Array.isArray(sourceAnimes)) {
+      log("error", "[Maiduidui] sourceAnimes is not a valid array");
+      return [];
+    }
+    const processMaiduiduiAnimes = await Promise.all(
+      sourceAnimes.filter((s) => titleMatches(s.name, queryTitle)).map(async (anime) => {
+        try {
+          const eps = await this.getEpisodes(anime.url);
+          let links = [];
+          for (const ep of eps) {
+            const epTitle = ep.title;
+            links.push({
+              "name": epTitle,
+              "url": `https://www.mddcloud.com.cn/video/${anime.url}.html?uuid=${ep.episodeId}`,
+              "title": `\u3010maiduidui\u3011 ${epTitle}`
+            });
+          }
+          if (links.length > 0) {
+            let transformedAnime = {
+              animeId: convertToAsciiSum(anime.url),
+              bangumiId: anime.url,
+              animeTitle: `${anime.name}(${anime.year})\u3010${anime.type}\u3011from maiduidui`,
+              type: anime.type,
+              typeDescription: anime.type,
+              imageUrl: anime.img,
+              startDate: generateValidStartDate(anime.year),
+              episodeCount: links.length,
+              rating: 0,
+              isFavorited: true,
+              source: "maiduidui"
+            };
+            tmpAnimes.push(transformedAnime);
+            addAnime({ ...transformedAnime, links });
+            if (globals.animes.length > globals.MAX_ANIMES) removeEarliestAnime();
+          }
+        } catch (error) {
+          log("error", `[Maiduidui] Error processing anime: ${error.message}`);
+        }
+      })
+    );
+    this.sortAndPushAnimesByYear(tmpAnimes, curAnimes);
+    return processMaiduiduiAnimes;
+  }
+  async getEpisodeDanmu(id) {
+    log("info", "\u5F00\u59CB\u4ECE\u672C\u5730\u8BF7\u6C42\u57CB\u5806\u5806\u5F39\u5E55...", id);
+    const segmentResult = await this.getEpisodeDanmuSegments(id);
+    if (!segmentResult || !segmentResult.segmentList || segmentResult.segmentList.length === 0) {
+      return [];
+    }
+    const segmentList = segmentResult.segmentList;
+    log("info", `\u5F39\u5E55\u5206\u6BB5\u6570\u91CF: ${segmentList.length}`);
+    const MAX_CONCURRENT = 20;
+    const allComments = [];
+    for (let i = 0; i < segmentList.length; i += MAX_CONCURRENT) {
+      const batch = segmentList.slice(i, i + MAX_CONCURRENT);
+      const batchPromises = batch.map((segment) => this.getEpisodeSegmentDanmu(segment));
+      const batchResults = await Promise.allSettled(batchPromises);
+      for (let j = 0; j < batchResults.length; j++) {
+        const result = batchResults[j];
+        const segment = batch[j];
+        const start2 = segment.segment_start;
+        const end2 = segment.segment_end;
+        if (result.status === "fulfilled") {
+          const comments = result.value;
+          if (comments && comments.length > 0) {
+            allComments.push(...comments);
+          }
+        } else {
+          log("error", `\u83B7\u53D6\u5F39\u5E55\u6BB5\u5931\u8D25 (${start2}-${end2}s):`, result.reason.message);
+        }
+      }
+      if (i + MAX_CONCURRENT < segmentList.length) {
+        await new Promise((resolve) => setTimeout(resolve, 200));
+      }
+    }
+    if (allComments.length === 0) {
+      log("info", `\u57CB\u5806\u5806: \u8BE5\u89C6\u9891\u6682\u65E0\u5F39\u5E55\u6570\u636E (vid=${id})`);
+      return [];
+    }
+    printFirst200Chars(allComments);
+    return allComments;
+  }
+  async getEpisodeDanmuSegments(id) {
+    log("info", "\u83B7\u53D6\u57CB\u5806\u5806\u5F39\u5E55\u5206\u6BB5\u5217\u8868...", id);
+    const idInfo = this.extractByRegex(id);
+    const uuid = idInfo.uuid;
+    const duration = await this.getDetail(id);
+    log("info", "uuid:", uuid);
+    log("info", "duration:", duration);
+    const segmentDuration = 60;
+    const segmentList = [];
+    for (let i = 0; i < duration; i += segmentDuration) {
+      const segmentStart = i;
+      const segmentEnd = Math.min(i + segmentDuration, duration);
+      segmentList.push({
+        "type": "maiduidui",
+        "segment_start": segmentStart,
+        "segment_end": segmentEnd,
+        "url": id
+      });
+    }
+    return new SegmentListResponse({
+      "type": "maiduidui",
+      "segmentList": segmentList
+    });
+  }
+  async getEpisodeSegmentDanmu(segment) {
+    try {
+      const idInfo = this.extractByRegex(segment.url);
+      const uuid = idInfo.uuid;
+      const vodUuid = idInfo.vodUuid;
+      const urlSuffix = "/api/barrage/vodBarrage396.action";
+      const searchUrl = `${this.domain}${urlSuffix}`;
+      const dataBody = {
+        "sactionUuid": uuid,
+        "times": segment.segment_start,
+        "vodUuid": vodUuid
+      };
+      const response = await Widget.http.post(searchUrl, JSON.stringify(this.getPlayload(urlSuffix, dataBody)), {
+        headers: this.headers,
+        retries: 1
+      });
+      let contents = [];
+      if (response && response.data) {
+        const parsedData = typeof response.data === "string" ? JSON.parse(response.data) : response.data;
+        const danmakuList = parsedData.data ?? [];
+        danmakuList.forEach((danmakuItem) => {
+          contents.push(...danmakuItem.barrageList);
+        });
+      }
+      return contents;
+    } catch (error) {
+      log("error", "\u8BF7\u6C42\u5206\u7247\u5F39\u5E55\u5931\u8D25:", error);
+      return [];
+    }
+  }
+  formatComments(comments) {
+    return comments.map((c) => ({
+      cid: Number(c.uuid),
+      p: `${c.times.toFixed(2)},1,${hexToInt(c.color.replace("#", ""))},[maiduidui]`,
+      m: c.content,
+      t: c.times
+    }));
+  }
+};
+var maiduidui_default = MaiduiduiSource;
+
 // danmu_api/sources/animeko.js
 var AnimekoSource = class extends BaseSource {
   /**
@@ -13928,6 +14277,7 @@ var miguSource = new migu_default();
 var sohuSource = new SohuSource();
 var leshiSource = new LeshiSource();
 var xiguaSource = new xigua_default();
+var maiduiduiSource = new maiduidui_default();
 var animekoSource = new AnimekoSource();
 var otherSource = new OtherSource();
 var doubanSource = new DoubanSource(tencentSource, iqiyiSource, youkuSource, bilibiliSource, miguSource);
@@ -14017,6 +14367,8 @@ async function searchAnime(url, preferAnimeId = null, preferSource = null) {
       platform = "leshi";
     } else if (queryTitle.includes(".douyin.com") || queryTitle.includes(".ixigua.com")) {
       platform = "xigua";
+    } else if (queryTitle.includes(".mddcloud.com.cn")) {
+      platform = "maiduidui";
     }
     const pageTitle = await getPageTitle(queryTitle);
     const links = [{
@@ -14061,6 +14413,7 @@ async function searchAnime(url, preferAnimeId = null, preferSource = null) {
       if (source === "sohu") return sohuSource.search(queryTitle);
       if (source === "leshi") return leshiSource.search(queryTitle);
       if (source === "xigua") return xiguaSource.search(queryTitle);
+      if (source === "maiduidui") return maiduiduiSource.search(queryTitle);
       if (source === "animeko") return animekoSource.search(queryTitle);
     });
     const results = await Promise.all(requestPromises);
@@ -14087,6 +14440,7 @@ async function searchAnime(url, preferAnimeId = null, preferSource = null) {
       sohu: animesSohu,
       leshi: animesLeshi,
       xigua: animesXigua,
+      maiduidui: animesMaiduidui,
       animeko: animesAnimeko
     } = resultData;
     for (const key of globals.sourceOrderArr) {
@@ -14132,6 +14486,8 @@ async function searchAnime(url, preferAnimeId = null, preferSource = null) {
         await leshiSource.handleAnimes(animesLeshi, queryTitle, curAnimes);
       } else if (key === "xigua") {
         await xiguaSource.handleAnimes(animesXigua, queryTitle, curAnimes);
+      } else if (key === "maiduidui") {
+        await maiduiduiSource.handleAnimes(animesMaiduidui, queryTitle, curAnimes);
       } else if (key === "animeko") {
         await animekoSource.handleAnimes(animesAnimeko, queryTitle, curAnimes);
       }
@@ -14302,6 +14658,7 @@ async function fetchMergedComments(url) {
       else if (sourceName === "sohu") sourceInstance = sohuSource;
       else if (sourceName === "leshi") sourceInstance = leshiSource;
       else if (sourceName === "xigua") sourceInstance = xiguaSource;
+      else if (sourceName === "maiduidui") sourceInstance = maiduiduiSource;
       else if (sourceName === "animeko") sourceInstance = animekoSource;
       if (sourceInstance) {
         try {
@@ -14377,6 +14734,8 @@ async function getComment(path2, queryFormat, segmentFlag) {
       danmus = await leshiSource.getComments(url, plat, segmentFlag);
     } else if (url.includes(".douyin.com") || url.includes(".ixigua.com")) {
       danmus = await xiguaSource.getComments(url, plat, segmentFlag);
+    } else if (url.includes(".mddcloud.com.cn")) {
+      danmus = await maiduiduiSource.getComments(url, plat, segmentFlag);
     }
     const urlPattern = /^(https?:\/\/)?([\w.-]+)\.([a-z]{2,})(\/.*)?$/i;
     if (!urlPattern.test(url)) {
@@ -14462,6 +14821,8 @@ async function getSegmentComment(segment, queryFormat) {
       danmus = await leshiSource.getSegmentComments(segment);
     } else if (platform === "xigua") {
       danmus = await xiguaSource.getSegmentComments(segment);
+    } else if (platform === "maiduidui") {
+      danmus = await maiduiduiSource.getSegmentComments(segment);
     } else if (platform === "hanjutv") {
       danmus = await hanjutvSource.getSegmentComments(segment);
     } else if (platform === "bahamut") {
@@ -14499,7 +14860,7 @@ async function getSegmentComment(segment, queryFormat) {
 }
 
 // forward/forward-widget.js
-var wv = true ? "1.14.3" : Globals.VERSION;
+var wv = true ? "1.15.0" : Globals.VERSION;
 WidgetMetadata = {
   id: "forward.auto.danmu2",
   title: "\u81EA\u52A8\u94FE\u63A5\u5F39\u5E55v2",
@@ -14512,7 +14873,7 @@ WidgetMetadata = {
     // 源配置
     {
       name: "sourceOrder",
-      title: "\u6E90\u6392\u5E8F\u914D\u7F6E\uFF0C\u9ED8\u8BA4'360,vod,renren,hanjutv'\uFF0C\u53EF\u9009['360', 'vod', 'tmdb', 'douban', 'tencent', 'youku', 'iqiyi', 'imgo', 'bilibili', 'migu', 'sohu', 'leshi', 'xigua', 'renren', 'hanjutv', 'bahamut', 'dandan', 'custom']",
+      title: "\u6E90\u6392\u5E8F\u914D\u7F6E\uFF0C\u9ED8\u8BA4'360,vod,renren,hanjutv'\uFF0C\u53EF\u9009['360', 'vod', 'tmdb', 'douban', 'tencent', 'youku', 'iqiyi', 'imgo', 'bilibili', 'migu', 'sohu', 'leshi', 'xigua', 'maiduidui', 'renren', 'hanjutv', 'bahamut', 'dandan', 'custom']",
       type: "input",
       placeholders: [
         {
@@ -14646,12 +15007,12 @@ WidgetMetadata = {
     // 匹配配置
     {
       name: "platformOrder",
-      title: "\u5E73\u53F0\u4F18\u9009\u914D\u7F6E\uFF0C\u53EF\u9009['qiyi', 'bilibili1', 'imgo', 'youku', 'qq', 'migu', 'sohu', 'leshi, 'xigua', 'renren', 'hanjutv', 'bahamut', 'dandan', 'custom']",
+      title: "\u5E73\u53F0\u4F18\u9009\u914D\u7F6E\uFF0C\u53EF\u9009['qiyi', 'bilibili1', 'imgo', 'youku', 'qq', 'migu', 'sohu', 'leshi, 'xigua', 'maiduidui', 'renren', 'hanjutv', 'bahamut', 'dandan', 'custom']",
       type: "input",
       placeholders: [
         {
           title: "\u914D\u7F6E1",
-          value: "qq,qiyi,imgo,bilibili1,youku,migu,sohu,leshi,xigua,renren,hanjutv,bahamut,dandan,custom"
+          value: "qq,qiyi,imgo,bilibili1,youku,migu,sohu,leshi,xigua,maiduidui,renren,hanjutv,bahamut,dandan,custom"
         },
         {
           title: "\u914D\u7F6E2",
@@ -14753,7 +15114,7 @@ WidgetMetadata = {
       placeholders: [
         {
           title: "\u793A\u4F8B",
-          value: "/.{20,}/,/^\\d{2,4}[-/.]\\d{1,2}[-/.]\\d{1,2}([\u65E5\u53F7.]*)?$/,/^(?!\u54C8+$)([a-zA-Z\u4E00-\u9FA5])\\1{2,}/,/[0-9]+\\.*[0-9]*\\s*(w|\u4E07)+\\s*(\\+|\u4E2A|\u4EBA|\u5728\u770B)+/,/^[a-z]{6,}$/,/^(?:qwertyuiop|asdfghjkl|zxcvbnm)$/,/^\\d{5,}$/,/^(\\d)\\1{2,}$/,/\\d{1,4}/,/(20[0-3][0-9])/,/(0?[1-9]|1[0-2])\u6708/,/\\d{1,2}[.-]\\d{1,2}/,/[@#&$%^*+\\|/\\-_=<>\xB0\u25C6\u25C7\u25A0\u25A1\u25CF\u25CB\u2605\u2606\u25BC\u25B2\u2665\u2666\u2660\u2663\u2460\u2461\u2462\u2463\u2464\u2465\u2466\u2467\u2468\u2469]/,/[\u4E00\u4E8C\u4E09\u56DB\u4E94\u516D\u4E03\u516B\u4E5D\u5341\u767E\\d]+\u5237/,/\u7B2C[\u4E00\u4E8C\u4E09\u56DB\u4E94\u516D\u4E03\u516B\u4E5D\u5341\u767E\\d]+/,/(\u5168\u4F53\u6210\u5458|\u62A5\u5230|\u62A5\u9053|\u6765\u5566|\u7B7E\u5230|\u5237|\u6253\u5361|\u6211\u5728|\u6765\u4E86|\u8003\u53E4|\u7231\u4E86|\u6316\u575F|\u7559\u5FF5|\u4F60\u597D|\u56DE\u6765|\u54E6\u54E6|\u91CD\u6E29|\u590D\u4E60|\u91CD\u5237|\u518D\u770B|\u5728\u770B|\u524D\u6392|\u6C99\u53D1|\u6709\u4EBA\u770B|\u677F\u51F3|\u672B\u6392|\u6211\u8001\u5A46|\u6211\u8001\u516C|\u6485\u4E86|\u540E\u6392|\u5468\u76EE|\u91CD\u770B|\u5305\u517B|DVD|\u540C\u4E0A|\u540C\u6837|\u6211\u4E5F\u662F|\u4FFA\u4E5F|\u7B97\u6211|\u7231\u8C46|\u6211\u5BB6\u7231\u8C46|\u6211\u5BB6\u54E5\u54E5|\u52A0\u6211|\u4E09\u8FDE|\u5E01|\u65B0\u4EBA|\u5165\u5751|\u8865\u5267|\u51B2\u4E86|\u786C\u4E86|\u770B\u5B8C|\u8214\u5C4F|\u4E07\u4EBA|\u725B\u903C|\u715E\u7B14|\u50BB\u903C|\u5367\u69FD|tm|\u554A\u8FD9|\u54C7\u54E6)/"
+          value: "/.{20,}/,/^\\d{2,4}[-/.]\\d{1,2}[-/.]\\d{1,2}([\u65E5\u53F7.]*)?$/,/^(?!\u54C8+$)([a-zA-Z\u4E00-\u9FA5])\\1{2,}/,/[0-9]+\\.*[0-9]*\\s*(w|\u4E07)+\\s*(\\+|\u4E2A|\u4EBA|\u5728\u770B)+/,/^[a-z]{6,}$/,/^(?:qwertyuiop|asdfghjkl|zxcvbnm)$/,/^\\d{5,}$/,/^(\\d)\\1{2,}$/,/^\\d{1,4}$/,/(20[0-3][0-9])/,/(0?[1-9]|1[0-2])\u6708/,/\\d{1,2}[.-]\\d{1,2}/,/[@#&$%^*+\\|/\\-_=<>\xB0\u25C6\u25C7\u25A0\u25A1\u25CF\u25CB\u2605\u2606\u25BC\u25B2\u2665\u2666\u2660\u2663\u2460\u2461\u2462\u2463\u2464\u2465\u2466\u2467\u2468\u2469]/,/[\u4E00\u4E8C\u4E09\u56DB\u4E94\u516D\u4E03\u516B\u4E5D\u5341\u767E\\d]+\u5237/,/\u7B2C[\u4E00\u4E8C\u4E09\u56DB\u4E94\u516D\u4E03\u516B\u4E5D\u5341\u767E\\d]+/,/(\u5168\u4F53\u6210\u5458|\u62A5\u5230|\u62A5\u9053|\u6765\u5566|\u7B7E\u5230|\u5237|\u6253\u5361|\u6211\u5728|\u6765\u4E86|\u8003\u53E4|\u7231\u4E86|\u6316\u575F|\u7559\u5FF5|\u4F60\u597D|\u56DE\u6765|\u54E6\u54E6|\u91CD\u6E29|\u590D\u4E60|\u91CD\u5237|\u518D\u770B|\u5728\u770B|\u524D\u6392|\u6C99\u53D1|\u6709\u4EBA\u770B|\u677F\u51F3|\u672B\u6392|\u6211\u8001\u5A46|\u6211\u8001\u516C|\u6485\u4E86|\u540E\u6392|\u5468\u76EE|\u91CD\u770B|\u5305\u517B|DVD|\u540C\u4E0A|\u540C\u6837|\u6211\u4E5F\u662F|\u4FFA\u4E5F|\u7B97\u6211|\u7231\u8C46|\u6211\u5BB6\u7231\u8C46|\u6211\u5BB6\u54E5\u54E5|\u52A0\u6211|\u4E09\u8FDE|\u5E01|\u65B0\u4EBA|\u5165\u5751|\u8865\u5267|\u51B2\u4E86|\u786C\u4E86|\u770B\u5B8C|\u8214\u5C4F|\u4E07\u4EBA|\u725B\u903C|\u715E\u7B14|\u50BB\u903C|\u5367\u69FD|tm|\u554A\u8FD9|\u54C7\u54E6)/"
         }
       ]
     },
