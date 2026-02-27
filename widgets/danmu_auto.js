@@ -7442,19 +7442,6 @@ function utf8Decode(bytes) {
   if (typeof TextDecoder !== "undefined") return new TextDecoder().decode(bytes);
   return utf8BytesToString(bytes);
 }
-function bytesToBase642(bytes) {
-  if (typeof Buffer !== "undefined") return Buffer.from(bytes).toString("base64");
-  let binary = "";
-  for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);
-  return btoa(binary);
-}
-function base64ToBytes2(base64) {
-  if (typeof Buffer !== "undefined") return new Uint8Array(Buffer.from(base64, "base64"));
-  const binary = atob(base64);
-  const bytes = new Uint8Array(binary.length);
-  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
-  return bytes;
-}
 function xorBytes(a, b) {
   const out = new Uint8Array(a.length);
   for (let i = 0; i < a.length; i++) out[i] = a[i] ^ b[i];
@@ -7624,12 +7611,12 @@ async function aesCbcEncryptToBase64(plainText, key, iv) {
   const ivBytes = utf8Encode(iv);
   const plainBytes = utf8Encode(plainText);
   const cipherBytes = aesCbcEncryptPure(plainBytes, keyBytes, ivBytes);
-  return bytesToBase642(cipherBytes);
+  return bytesToBase64(cipherBytes);
 }
 async function aesCbcDecryptBase64NoPadding(cipherBase64, key, iv) {
   const keyBytes = utf8Encode(key);
   const ivBytes = utf8Encode(iv);
-  const cipherBytes = base64ToBytes2(cipherBase64);
+  const cipherBytes = base64ToBytes(cipherBase64);
   const plainBytes = aesCbcDecryptPureNoUnpad(cipherBytes, keyBytes, ivBytes);
   return utf8Decode(plainBytes);
 }
