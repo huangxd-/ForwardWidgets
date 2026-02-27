@@ -785,7 +785,7 @@ var Globals = {
   originalEnvVars: {},
   accessedEnvVars: {},
   // 静态常量
-  VERSION: "1.15.0",
+  VERSION: "1.15.2",
   MAX_LOGS: 1e3,
   // 日志存储，最多保存 1000 行
   MAX_ANIMES: 100,
@@ -2069,9 +2069,9 @@ function addRoundKey(state, w) {
   return out;
 }
 function invSubBytes(state) {
-  const INV_SBOX = new Array(256);
-  for (let i = 0; i < 256; i++) INV_SBOX[SBOX[i]] = i;
-  return Uint8Array.from(state.map((b) => INV_SBOX[b]));
+  const INV_SBOX2 = new Array(256);
+  for (let i = 0; i < 256; i++) INV_SBOX2[SBOX[i]] = i;
+  return Uint8Array.from(state.map((b) => INV_SBOX2[b]));
 }
 function invShiftRows(state) {
   const out = new Uint8Array(16);
@@ -2643,7 +2643,7 @@ function titleMatches(title, query) {
   const qSet = new Set(q);
   const tSet = new Set(t);
   const matchCount = [...qSet].reduce((acc, char) => acc + (tSet.has(char) ? 1 : 0), 0);
-  return matchCount / qSet.size >= 0.8;
+  return matchCount / qSet.size > 0.8;
 }
 function validateType(value, expectedType) {
   const fieldName = value?.constructor?.name;
@@ -3042,7 +3042,12 @@ function addAnime(anime) {
       }
     }
     log("info", `animes: ${JSON.stringify(
-      globals.animes,
+      globals.animes.map((anime2) => ({
+        links: anime2.links,
+        animeId: anime2.animeId,
+        bangumiId: anime2.bangumiId,
+        animeTitle: anime2.animeTitle
+      })),
       (key, value) => key === "links" ? value.length : value
     )}`);
     return true;
@@ -3190,11 +3195,14 @@ function groupDanmusByMinute(filteredDanmus, n) {
           count: 0,
           earliestT: danmu.t,
           cid: danmu.cid,
-          p: danmu.p
+          p: danmu.p,
+          like: 0
+          // 初始化like字段
         };
       }
       acc[message].count += 1;
       acc[message].earliestT = Math.min(acc[message].earliestT, danmu.t);
+      acc[message].like += danmu.like !== void 0 ? danmu.like : 0;
       return acc;
     }, {});
     return Object.keys(groupedByMessage).map((message) => {
@@ -3206,11 +3214,39 @@ function groupDanmusByMinute(filteredDanmus, n) {
         p: data.p,
         // 仅当计算后的逻辑计数大于1时才显示 "x N"
         m: displayCount > 1 ? `${message} x ${displayCount}` : message,
-        t: data.earliestT
+        t: data.earliestT,
+        like: data.like
+        // 包含合并后的like字段
       };
     });
   });
   return result.flat().sort((a, b) => a.t - b.t);
+}
+function handleDanmusLike(groupedDanmus) {
+  return groupedDanmus.map((item) => {
+    if (!item.like || item.like < 5) {
+      return item;
+    }
+    const lowThresholdSources = ["[hanjutv]", "[sohu]", "[bilibili1]", "[migu]"];
+    const isLowThresholdSource = lowThresholdSources.some((source) => item.p.includes(source));
+    const threshold = isLowThresholdSource ? 100 : 1e3;
+    const icon = item.like >= threshold ? "\u{1F525}" : "\u2764\uFE0F";
+    let formattedLike;
+    if (item.like >= 1e4) {
+      formattedLike = (item.like / 1e4).toFixed(1) + "w";
+    } else if (item.like >= 1e3) {
+      formattedLike = (item.like / 1e3).toFixed(1) + "k";
+    } else {
+      formattedLike = item.like.toString();
+    }
+    const likeText = ` ${icon} ${formattedLike}`;
+    const newM = item.m + likeText;
+    const { like, ...rest } = item;
+    return {
+      ...rest,
+      m: newM
+    };
+  });
 }
 function limitDanmusByCount(filteredDanmus, danmuLimit) {
   if (danmuLimit === 0) {
@@ -3288,7 +3324,7 @@ function convertToDanmakuJson(contents, platform) {
       color,
       `[${platform}]`
     ].join(",");
-    danmus.push({ p: attributes, m, cid: cidCounter++ });
+    danmus.push({ p: attributes, m, cid: cidCounter++, like: item?.like });
   }
   const regexArray = globals.blockedWords.split(/(?<=\/),(?=\/)/).map((str) => {
     const pattern = str.trim();
@@ -3310,7 +3346,8 @@ function convertToDanmakuJson(contents, platform) {
   });
   log("info", `\u53BB\u91CD\u5206\u949F\u6570: ${globals.groupMinute}`);
   const groupedDanmus = groupDanmusByMinute(filteredDanmus, globals.groupMinute);
-  let convertedDanmus = limitDanmusByCount(groupedDanmus, globals.danmuLimit);
+  const likeDanmus = handleDanmusLike(groupedDanmus);
+  let convertedDanmus = limitDanmusByCount(likeDanmus, globals.danmuLimit);
   if (globals.convertTopBottomToScroll || globals.convertColor === "white" || globals.convertColor === "color") {
     let topBottomCount = 0;
     let colorCount = 0;
@@ -7125,31 +7162,753 @@ ${path2}?${sortedQuery}`;
   }
 };
 
+// danmu_api/utils/hanjutv-util.js
+var HANJUTV_VERSION = "6.5.3";
+var HANJUTV_VC = "a_7980";
+var HANJUTV_UA = "HanjuTV/6.5.3 (Pixel 2 XL; Android 11; Scale/2.00)";
+var HANJUTV_UK_KEY = "f349wghhe784tqwh";
+var HANJUTV_UK_IV = "d3w8hf94fidk38lk";
+var HANJUTV_RESPONSE_SECRET = "34F9Q53w/HJW8E6Q";
+var UID_CHARSET = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
+var SBOX2 = [
+  99,
+  124,
+  119,
+  123,
+  242,
+  107,
+  111,
+  197,
+  48,
+  1,
+  103,
+  43,
+  254,
+  215,
+  171,
+  118,
+  202,
+  130,
+  201,
+  125,
+  250,
+  89,
+  71,
+  240,
+  173,
+  212,
+  162,
+  175,
+  156,
+  164,
+  114,
+  192,
+  183,
+  253,
+  147,
+  38,
+  54,
+  63,
+  247,
+  204,
+  52,
+  165,
+  229,
+  241,
+  113,
+  216,
+  49,
+  21,
+  4,
+  199,
+  35,
+  195,
+  24,
+  150,
+  5,
+  154,
+  7,
+  18,
+  128,
+  226,
+  235,
+  39,
+  178,
+  117,
+  9,
+  131,
+  44,
+  26,
+  27,
+  110,
+  90,
+  160,
+  82,
+  59,
+  214,
+  179,
+  41,
+  227,
+  47,
+  132,
+  83,
+  209,
+  0,
+  237,
+  32,
+  252,
+  177,
+  91,
+  106,
+  203,
+  190,
+  57,
+  74,
+  76,
+  88,
+  207,
+  208,
+  239,
+  170,
+  251,
+  67,
+  77,
+  51,
+  133,
+  69,
+  249,
+  2,
+  127,
+  80,
+  60,
+  159,
+  168,
+  81,
+  163,
+  64,
+  143,
+  146,
+  157,
+  56,
+  245,
+  188,
+  182,
+  218,
+  33,
+  16,
+  255,
+  243,
+  210,
+  205,
+  12,
+  19,
+  236,
+  95,
+  151,
+  68,
+  23,
+  196,
+  167,
+  126,
+  61,
+  100,
+  93,
+  25,
+  115,
+  96,
+  129,
+  79,
+  220,
+  34,
+  42,
+  144,
+  136,
+  70,
+  238,
+  184,
+  20,
+  222,
+  94,
+  11,
+  219,
+  224,
+  50,
+  58,
+  10,
+  73,
+  6,
+  36,
+  92,
+  194,
+  211,
+  172,
+  98,
+  145,
+  149,
+  228,
+  121,
+  231,
+  200,
+  55,
+  109,
+  141,
+  213,
+  78,
+  169,
+  108,
+  86,
+  244,
+  234,
+  101,
+  122,
+  174,
+  8,
+  186,
+  120,
+  37,
+  46,
+  28,
+  166,
+  180,
+  198,
+  232,
+  221,
+  116,
+  31,
+  75,
+  189,
+  139,
+  138,
+  112,
+  62,
+  181,
+  102,
+  72,
+  3,
+  246,
+  14,
+  97,
+  53,
+  87,
+  185,
+  134,
+  193,
+  29,
+  158,
+  225,
+  248,
+  152,
+  17,
+  105,
+  217,
+  142,
+  148,
+  155,
+  30,
+  135,
+  233,
+  206,
+  85,
+  40,
+  223,
+  140,
+  161,
+  137,
+  13,
+  191,
+  230,
+  66,
+  104,
+  65,
+  153,
+  45,
+  15,
+  176,
+  84,
+  187,
+  22
+];
+var INV_SBOX = (() => {
+  const table = new Uint8Array(256);
+  for (let i = 0; i < 256; i++) table[SBOX2[i]] = i;
+  return table;
+})();
+var RCON2 = [0, 1, 2, 4, 8, 16, 32, 64, 128, 27, 54];
+function utf8Encode(text) {
+  if (typeof TextEncoder !== "undefined") return new TextEncoder().encode(text);
+  return stringToUtf8Bytes(text);
+}
+function utf8Decode(bytes) {
+  if (typeof TextDecoder !== "undefined") return new TextDecoder().decode(bytes);
+  return utf8BytesToString(bytes);
+}
+function bytesToBase642(bytes) {
+  if (typeof Buffer !== "undefined") return Buffer.from(bytes).toString("base64");
+  let binary = "";
+  for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);
+  return btoa(binary);
+}
+function base64ToBytes2(base64) {
+  if (typeof Buffer !== "undefined") return new Uint8Array(Buffer.from(base64, "base64"));
+  const binary = atob(base64);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+  return bytes;
+}
+function xorBytes(a, b) {
+  const out = new Uint8Array(a.length);
+  for (let i = 0; i < a.length; i++) out[i] = a[i] ^ b[i];
+  return out;
+}
+function pkcs7Pad(bytes, blockSize = 16) {
+  const remain = bytes.length % blockSize;
+  const padSize = remain === 0 ? blockSize : blockSize - remain;
+  const result = new Uint8Array(bytes.length + padSize);
+  result.set(bytes, 0);
+  result.fill(padSize, bytes.length);
+  return result;
+}
+function stripControlChars(text) {
+  return text.replace(/[\u0000-\u001f\u007f-\u009f]/g, "");
+}
+function rotWord2(word) {
+  return Uint8Array.from([word[1], word[2], word[3], word[0]]);
+}
+function subWord2(word) {
+  return Uint8Array.from(word.map((b) => SBOX2[b]));
+}
+function keyExpansion2(key) {
+  const Nk = 4;
+  const Nb = 4;
+  const Nr = 10;
+  const w = new Array(Nb * (Nr + 1));
+  for (let i = 0; i < Nk; i++) {
+    w[i] = key.slice(4 * i, 4 * i + 4);
+  }
+  for (let i = Nk; i < Nb * (Nr + 1); i++) {
+    let temp = w[i - 1];
+    if (i % Nk === 0) {
+      temp = xorBytes(subWord2(rotWord2(temp)), Uint8Array.from([RCON2[i / Nk], 0, 0, 0]));
+    }
+    w[i] = xorBytes(w[i - Nk], temp);
+  }
+  return w;
+}
+function addRoundKey2(state, w, round) {
+  const out = new Uint8Array(16);
+  for (let c = 0; c < 4; c++) {
+    for (let r = 0; r < 4; r++) {
+      out[r + 4 * c] = state[r + 4 * c] ^ w[round * 4 + c][r];
+    }
+  }
+  return out;
+}
+function subBytes(state) {
+  return Uint8Array.from(state.map((b) => SBOX2[b]));
+}
+function invSubBytes2(state) {
+  return Uint8Array.from(state.map((b) => INV_SBOX[b]));
+}
+function shiftRows(state) {
+  const out = new Uint8Array(16);
+  for (let r = 0; r < 4; r++) {
+    for (let c = 0; c < 4; c++) {
+      out[r + 4 * c] = state[r + 4 * ((c + r) % 4)];
+    }
+  }
+  return out;
+}
+function invShiftRows2(state) {
+  const out = new Uint8Array(16);
+  for (let r = 0; r < 4; r++) {
+    for (let c = 0; c < 4; c++) {
+      out[r + 4 * c] = state[r + 4 * ((c - r + 4) % 4)];
+    }
+  }
+  return out;
+}
+function gfMul(a, b) {
+  let p = 0;
+  let aa = a;
+  let bb = b;
+  for (let i = 0; i < 8; i++) {
+    if (bb & 1) p ^= aa;
+    const hi = aa & 128;
+    aa = aa << 1 & 255;
+    if (hi) aa ^= 27;
+    bb >>= 1;
+  }
+  return p;
+}
+function mixColumns(state) {
+  const out = new Uint8Array(16);
+  for (let c = 0; c < 4; c++) {
+    const col = state.slice(4 * c, 4 * c + 4);
+    out[4 * c + 0] = gfMul(col[0], 2) ^ gfMul(col[1], 3) ^ col[2] ^ col[3];
+    out[4 * c + 1] = col[0] ^ gfMul(col[1], 2) ^ gfMul(col[2], 3) ^ col[3];
+    out[4 * c + 2] = col[0] ^ col[1] ^ gfMul(col[2], 2) ^ gfMul(col[3], 3);
+    out[4 * c + 3] = gfMul(col[0], 3) ^ col[1] ^ col[2] ^ gfMul(col[3], 2);
+  }
+  return out;
+}
+function invMixColumns2(state) {
+  const out = new Uint8Array(16);
+  for (let c = 0; c < 4; c++) {
+    const col = state.slice(4 * c, 4 * c + 4);
+    out[4 * c + 0] = gfMul(col[0], 14) ^ gfMul(col[1], 11) ^ gfMul(col[2], 13) ^ gfMul(col[3], 9);
+    out[4 * c + 1] = gfMul(col[0], 9) ^ gfMul(col[1], 14) ^ gfMul(col[2], 11) ^ gfMul(col[3], 13);
+    out[4 * c + 2] = gfMul(col[0], 13) ^ gfMul(col[1], 9) ^ gfMul(col[2], 14) ^ gfMul(col[3], 11);
+    out[4 * c + 3] = gfMul(col[0], 11) ^ gfMul(col[1], 13) ^ gfMul(col[2], 9) ^ gfMul(col[3], 14);
+  }
+  return out;
+}
+function aesEncryptBlock(input, w) {
+  let state = new Uint8Array(input);
+  state = addRoundKey2(state, w, 0);
+  for (let round = 1; round <= 9; round++) {
+    state = subBytes(state);
+    state = shiftRows(state);
+    state = mixColumns(state);
+    state = addRoundKey2(state, w, round);
+  }
+  state = subBytes(state);
+  state = shiftRows(state);
+  state = addRoundKey2(state, w, 10);
+  return state;
+}
+function aesDecryptBlock2(input, w) {
+  let state = new Uint8Array(input);
+  state = addRoundKey2(state, w, 10);
+  for (let round = 9; round >= 1; round--) {
+    state = invShiftRows2(state);
+    state = invSubBytes2(state);
+    state = addRoundKey2(state, w, round);
+    state = invMixColumns2(state);
+  }
+  state = invShiftRows2(state);
+  state = invSubBytes2(state);
+  state = addRoundKey2(state, w, 0);
+  return state;
+}
+function aesCbcEncryptPure(plainBytes, keyBytes, ivBytes) {
+  const padded = pkcs7Pad(plainBytes, 16);
+  const w = keyExpansion2(keyBytes);
+  const out = new Uint8Array(padded.length);
+  let prev = new Uint8Array(ivBytes);
+  for (let i = 0; i < padded.length; i += 16) {
+    const block = padded.slice(i, i + 16);
+    const mixed = xorBytes(block, prev);
+    const cipherBlock = aesEncryptBlock(mixed, w);
+    out.set(cipherBlock, i);
+    prev = cipherBlock;
+  }
+  return out;
+}
+function aesCbcDecryptPureNoUnpad(cipherBytes, keyBytes, ivBytes) {
+  if (cipherBytes.length % 16 !== 0) {
+    throw new Error(`\u5BC6\u6587\u957F\u5EA6\u4E0D\u662F16\u7684\u500D\u6570: ${cipherBytes.length}`);
+  }
+  const w = keyExpansion2(keyBytes);
+  const out = new Uint8Array(cipherBytes.length);
+  let prev = new Uint8Array(ivBytes);
+  for (let i = 0; i < cipherBytes.length; i += 16) {
+    const block = cipherBytes.slice(i, i + 16);
+    const plainBlock = xorBytes(aesDecryptBlock2(block, w), prev);
+    out.set(plainBlock, i);
+    prev = block;
+  }
+  return out;
+}
+async function aesCbcEncryptToBase64(plainText, key, iv) {
+  const keyBytes = utf8Encode(key);
+  const ivBytes = utf8Encode(iv);
+  const plainBytes = utf8Encode(plainText);
+  const cipherBytes = aesCbcEncryptPure(plainBytes, keyBytes, ivBytes);
+  return bytesToBase642(cipherBytes);
+}
+async function aesCbcDecryptBase64NoPadding(cipherBase64, key, iv) {
+  const keyBytes = utf8Encode(key);
+  const ivBytes = utf8Encode(iv);
+  const cipherBytes = base64ToBytes2(cipherBase64);
+  const plainBytes = aesCbcDecryptPureNoUnpad(cipherBytes, keyBytes, ivBytes);
+  return utf8Decode(plainBytes);
+}
+function randomInt(max) {
+  if (globalThis.crypto?.getRandomValues) {
+    const bytes = new Uint8Array(1);
+    globalThis.crypto.getRandomValues(bytes);
+    return bytes[0] % max;
+  }
+  return Math.floor(Math.random() * max);
+}
+function buildSearchSignPayload(uid, timestamp) {
+  return JSON.stringify({
+    emu: 0,
+    ou: 0,
+    it: timestamp,
+    iit: timestamp,
+    bs: 0,
+    uid,
+    pc: 0,
+    tm: 0,
+    d8m: "0,0,0,0,0,0,0,0",
+    md: "Pixel 2 XL",
+    maker: "Google",
+    osv: "11",
+    br: 100,
+    rpc: 0,
+    scc: 0,
+    plc: 0,
+    toc: 1,
+    tsc: 0,
+    ts: timestamp,
+    pa: 1,
+    nw: 2,
+    px: "0",
+    isp: "",
+    ai: "ccffc2520864efdb",
+    oa: "",
+    dpc: 0,
+    dsc: 0,
+    qpc: 0,
+    apad: 0,
+    pk: "com.babycloud.hanju"
+  });
+}
+function createHanjutvUid(length = 20) {
+  let uid = "";
+  for (let i = 0; i < length; i++) uid += UID_CHARSET[randomInt(UID_CHARSET.length)];
+  return uid;
+}
+async function createHanjutvSearchHeaders(uid, timestamp = Date.now()) {
+  const ts = Number(timestamp);
+  const uidMd5 = md5(uid);
+  const signPayload = buildSearchSignPayload(uid, ts);
+  const sign = await aesCbcEncryptToBase64(signPayload, uidMd5.slice(0, 16), uidMd5.slice(16, 32));
+  const uk = await aesCbcEncryptToBase64(uid, HANJUTV_UK_KEY, HANJUTV_UK_IV);
+  return {
+    app: "hj",
+    ch: "qq",
+    uk,
+    "auth-uid": "",
+    vn: HANJUTV_VERSION,
+    sign,
+    "User-Agent": HANJUTV_UA,
+    vc: HANJUTV_VC,
+    "auth-token": "",
+    "Accept-Encoding": "gzip",
+    Connection: "Keep-Alive"
+  };
+}
+async function decodeHanjutvEncryptedPayload(payload, uid = "") {
+  if (!payload || typeof payload !== "object" || Array.isArray(payload)) return payload;
+  if (typeof payload.data !== "string" || payload.data.length === 0) return payload;
+  const ts = payload.ts ?? "";
+  let key = typeof payload.key === "string" && payload.key ? payload.key : "";
+  if (!key && uid && ts !== "") key = md5(`${uid}${ts}`);
+  if (!key) throw new Error("\u7F3A\u5C11\u89E3\u5BC6 key\uFF0C\u4E14\u65E0\u6CD5\u901A\u8FC7 uid+ts \u63A8\u5BFC");
+  const mix = md5(`${key}${HANJUTV_RESPONSE_SECRET}`);
+  const aesKey = mix.slice(0, 16);
+  const iv = mix.slice(16, 32);
+  const plainText = await aesCbcDecryptBase64NoPadding(payload.data, aesKey, iv);
+  const cleanedText = stripControlChars(plainText).trim();
+  return JSON.parse(cleanedText);
+}
+
 // danmu_api/sources/hanjutv.js
 var HanjutvSource = class extends BaseSource {
+  constructor() {
+    super();
+    this.webHost = "https://hxqapi.hiyun.tv";
+    this.appHost = "https://hxqapi.hiyun.tv";
+    this.oldDanmuHost = "https://hxqapi.zmdcq.com";
+    this.defaultRefer = "2JGztvGjRVpkxcr0T4ZWG2k+tOlnHmDGUNMwAGSeq548YV2FMbs0h0bXNi6DJ00L";
+    this.webUserAgent = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36";
+    this.appUserAgent = "HanjuTV/6.8 (23127PN0CC; Android 16; Scale/2.00)";
+  }
+  getWebHeaders() {
+    return {
+      "Content-Type": "application/json",
+      "User-Agent": this.webUserAgent
+    };
+  }
+  getAppHeaders() {
+    return {
+      vc: "a_8260",
+      vn: "6.8",
+      ch: "xiaomi",
+      app: "hj",
+      "User-Agent": this.appUserAgent,
+      "Accept-Encoding": "gzip"
+    };
+  }
+  normalizeSearchItems(items = []) {
+    if (!Array.isArray(items)) return [];
+    return items.map((item) => {
+      if (!item || typeof item !== "object") return null;
+      const sid = item.sid || item.seriesId || item.id || item.series_id;
+      const name = item.name || item.title || item.seriesName || item.showName;
+      if (!sid || !name) return null;
+      const imageObj = typeof item.image === "object" && item.image !== null ? item.image : {};
+      const thumb = imageObj.thumb || imageObj.poster || imageObj.url || item.thumb || item.poster || "";
+      return {
+        ...item,
+        sid: String(sid),
+        name: String(name),
+        image: {
+          ...imageObj,
+          thumb
+        }
+      };
+    }).filter(Boolean);
+  }
+  normalizeEpisodes(items = []) {
+    if (!Array.isArray(items)) return [];
+    return items.map((item, index) => {
+      if (!item || typeof item !== "object") return null;
+      const pid = item.pid || item.id || item.programId || item.episodeId;
+      if (!pid) return null;
+      const serialCandidate = item.serialNo ?? item.serial_no ?? item.sort ?? item.sortNo ?? item.num ?? item.episodeNo ?? index + 1;
+      const serialNo = Number(serialCandidate);
+      return {
+        ...item,
+        pid: String(pid),
+        serialNo: Number.isFinite(serialNo) && serialNo > 0 ? serialNo : index + 1,
+        title: item.title || item.name || item.programName || item.episodeTitle || ""
+      };
+    }).filter(Boolean).sort((a, b) => a.serialNo - b.serialNo);
+  }
+  extractSearchItems(data) {
+    const list = data?.seriesData?.seriesList || data?.seriesList || [];
+    return this.normalizeSearchItems(list);
+  }
+  dedupeBySid(items = []) {
+    const map = /* @__PURE__ */ new Map();
+    for (const item of items) {
+      if (!item?.sid) continue;
+      const sid = String(item.sid);
+      if (!map.has(sid)) map.set(sid, item);
+    }
+    return Array.from(map.values());
+  }
+  countMatchedItems(items = [], keyword = "") {
+    if (!Array.isArray(items) || !keyword) return 0;
+    return items.reduce((count, item) => {
+      const name = item?.name ? String(item.name) : "";
+      return count + (titleMatches(name, keyword) ? 1 : 0);
+    }, 0);
+  }
+  mergeSearchCandidates(keyword, s5List = [], webList = []) {
+    const s5Candidates = this.dedupeBySid(s5List);
+    const webCandidates = this.dedupeBySid(webList);
+    const s5Matched = [];
+    const s5Unmatched = [];
+    for (const item of s5Candidates) {
+      if (titleMatches(item?.name || "", keyword)) s5Matched.push(item);
+      else s5Unmatched.push(item);
+    }
+    const webMatched = [];
+    const webUnmatched = [];
+    for (const item of webCandidates) {
+      if (titleMatches(item?.name || "", keyword)) webMatched.push(item);
+      else webUnmatched.push(item);
+    }
+    const hasMatched = s5Matched.length + webMatched.length > 0;
+    const orderedCandidates = hasMatched ? [...s5Matched, ...webMatched, ...s5Unmatched, ...webUnmatched] : [...s5Candidates, ...webCandidates];
+    const resultList = [];
+    const sidSet = /* @__PURE__ */ new Set();
+    for (const item of orderedCandidates) {
+      const sid = item?.sid ? String(item.sid) : "";
+      if (!sid || sidSet.has(sid)) continue;
+      sidSet.add(sid);
+      resultList.push(item);
+    }
+    return {
+      resultList,
+      stats: {
+        s5Total: s5Candidates.length,
+        s5Matched: s5Matched.length,
+        webTotal: webCandidates.length,
+        webMatched: webMatched.length
+      }
+    };
+  }
+  async searchWithS5Api(keyword) {
+    const uid = createHanjutvUid();
+    const headers = await createHanjutvSearchHeaders(uid);
+    const q = encodeURIComponent(keyword);
+    const resp = await Widget.http.get(`https://hxqapi.hiyun.tv/api/search/s5?k=${q}&srefer=search_input&type=0&page=1`, {
+      headers,
+      timeout: 1e4,
+      retries: 1
+    });
+    const payload = resp?.data;
+    if (!payload || typeof payload !== "object") {
+      throw new Error("s5 \u54CD\u5E94\u4E3A\u7A7A");
+    }
+    if (typeof payload.data === "string" && payload.data.length > 0) {
+      let decoded;
+      try {
+        decoded = await decodeHanjutvEncryptedPayload(payload, uid);
+      } catch (error) {
+        throw new Error(`s5 \u54CD\u5E94\u89E3\u5BC6\u5931\u8D25: ${error.message}`);
+      }
+      const items = this.extractSearchItems(decoded);
+      if (items.length === 0) throw new Error("s5 \u89E3\u5BC6\u540E\u65E0\u6709\u6548\u7ED3\u679C");
+      return items;
+    }
+    const plainItems = this.extractSearchItems(payload);
+    if (plainItems.length === 0) throw new Error("s5 \u65E0\u6709\u6548\u7ED3\u679C");
+    return plainItems;
+  }
+  async searchWithLegacyApi(keyword) {
+    const q = encodeURIComponent(keyword);
+    const resp = await Widget.http.get(`https://hxqapi.hiyun.tv/wapi/search/aggregate/search?keyword=${q}&scope=101&page=1`, {
+      headers: {
+        "Content-Type": "application/json",
+        "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
+      },
+      timeout: 1e4,
+      retries: 1
+    });
+    return this.extractSearchItems(resp?.data);
+  }
   async search(keyword) {
     try {
-      const resp = await Widget.http.get(`https://hxqapi.hiyun.tv/wapi/search/aggregate/search?keyword=${keyword}&scope=101&page=1`, {
-        headers: {
-          "Content-Type": "application/json",
-          "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
+      const key = String(keyword || "").trim();
+      if (!key) return [];
+      let s5List = [];
+      let webList = [];
+      let s5Error = null;
+      try {
+        s5List = await this.searchWithS5Api(key);
+      } catch (error) {
+        s5Error = error;
+        log("warn", `[Hanjutv] s5 \u641C\u7D22\u5931\u8D25\uFF0C\u964D\u7EA7\u65E7\u63A5\u53E3: ${error.message}`);
+      }
+      const s5MatchedCount = this.countMatchedItems(s5List, key);
+      const needLegacySearch = s5List.length === 0 || s5MatchedCount === 0;
+      if (needLegacySearch) {
+        if (!s5Error && s5List.length > 0 && s5MatchedCount === 0) {
+          log("warn", `[Hanjutv] s5 \u8FD4\u56DE ${s5List.length} \u6761\u4F46\u6807\u9898\u96F6\u547D\u4E2D\uFF0C\u89E6\u53D1 legacy \u8865\u507F\u68C0\u7D22`);
         }
-      });
-      if (!resp || !resp.data) {
-        log("info", "hanjutvSearchresp: \u8BF7\u6C42\u5931\u8D25\u6216\u65E0\u6570\u636E\u8FD4\u56DE");
+        try {
+          webList = await this.searchWithLegacyApi(key);
+        } catch (error) {
+          log("warn", `[Hanjutv] \u65E7\u641C\u7D22\u63A5\u53E3\u5931\u8D25: ${error.message}`);
+        }
+      }
+      const { resultList, stats } = this.mergeSearchCandidates(key, s5List, webList);
+      if (resultList.length === 0) {
+        log("info", "hanjutvSearchresp: s5 \u4E0E\u65E7\u63A5\u53E3\u5747\u65E0\u6709\u6548\u7ED3\u679C");
         return [];
       }
-      if (!resp.data.seriesData || !resp.data.seriesData.seriesList) {
-        log("info", "hanjutvSearchresp: seriesData \u6216 seriesList \u4E0D\u5B58\u5728");
-        return [];
-      }
-      log("info", `[Hanjutv] \u641C\u7D22\u627E\u5230 ${resp.data.seriesData.seriesList.length} \u4E2A\u6709\u6548\u7ED3\u679C`);
-      let resList = [];
-      for (const anime of resp.data.seriesData.seriesList) {
+      log("info", `[Hanjutv] \u641C\u7D22\u5019\u9009\u7EDF\u8BA1 s5=${stats.s5Total}(\u547D\u4E2D${stats.s5Matched}), web=${stats.webTotal}(\u547D\u4E2D${stats.webMatched})`);
+      log("info", `[Hanjutv] \u641C\u7D22\u627E\u5230 ${resultList.length} \u4E2A\u6709\u6548\u7ED3\u679C`);
+      return resultList.map((anime) => {
         const animeId = convertToAsciiSum(anime.sid);
-        resList.push({ ...anime, animeId });
-      }
-      return resList;
+        return { ...anime, animeId };
+      });
     } catch (error) {
       log("error", "getHanjutvAnimes error:", {
         message: error.message,
@@ -7161,22 +7920,34 @@ var HanjutvSource = class extends BaseSource {
   }
   async getDetail(id) {
     try {
-      const resp = await Widget.http.get(`https://hxqapi.hiyun.tv/wapi/series/series/detail?sid=${id}`, {
-        headers: {
-          "Content-Type": "application/json",
-          "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
-        }
-      });
-      if (!resp || !resp.data) {
-        log("info", "getHanjutvDetail: \u8BF7\u6C42\u5931\u8D25\u6216\u65E0\u6570\u636E\u8FD4\u56DE");
-        return [];
+      const sid = String(id || "").trim();
+      if (!sid) return [];
+      let detail = null;
+      try {
+        const appResp = await Widget.http.get(`${this.appHost}/api/series/detail?sid=${sid}`, {
+          headers: this.getAppHeaders(),
+          timeout: 1e4,
+          retries: 1
+        });
+        detail = appResp?.data?.series || null;
+      } catch {
       }
-      if (!resp.data.series) {
+      if (!detail) {
+        try {
+          const webResp = await Widget.http.get(`${this.webHost}/wapi/series/series/detail?sid=${sid}`, {
+            headers: this.getWebHeaders(),
+            timeout: 1e4,
+            retries: 1
+          });
+          detail = webResp?.data?.series || null;
+        } catch {
+        }
+      }
+      if (!detail) {
         log("info", "getHanjutvDetail: series \u4E0D\u5B58\u5728");
         return [];
       }
-      log("info", `getHanjutvDetail: ${JSON.stringify(resp.data.series)}`);
-      return resp.data.series;
+      return detail;
     } catch (error) {
       log("error", "getHanjutvDetail error:", {
         message: error.message,
@@ -7188,23 +7959,64 @@ var HanjutvSource = class extends BaseSource {
   }
   async getEpisodes(id) {
     try {
-      const resp = await Widget.http.get(`https://hxqapi.hiyun.tv/wapi/series/series/detail?sid=${id}`, {
-        headers: {
-          "Content-Type": "application/json",
-          "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
-        }
-      });
-      if (!resp || !resp.data) {
-        log("info", "getHanjutvEposides: \u8BF7\u6C42\u5931\u8D25\u6216\u65E0\u6570\u636E\u8FD4\u56DE");
-        return [];
+      const sid = String(id || "").trim();
+      if (!sid) return [];
+      let episodes = [];
+      try {
+        const detailResp = await Widget.http.get(`${this.appHost}/api/series/detail?sid=${sid}`, {
+          headers: this.getAppHeaders(),
+          timeout: 1e4,
+          retries: 1
+        });
+        const detailData = detailResp?.data;
+        const playItems = Array.isArray(detailData?.playItems) ? detailData.playItems : [];
+        episodes = this.normalizeEpisodes(playItems);
+      } catch {
       }
-      if (!resp.data.episodes) {
+      if (episodes.length === 0) {
+        try {
+          const epResp = await Widget.http.get(`${this.appHost}/api/series2/episodes?sid=${sid}&refer=${encodeURIComponent(this.defaultRefer)}`, {
+            headers: this.getAppHeaders(),
+            timeout: 1e4,
+            retries: 1
+          });
+          const epData = epResp?.data;
+          episodes = this.normalizeEpisodes(epData?.programs || epData?.episodes || epData?.qxkPrograms || []);
+        } catch {
+        }
+      }
+      if (episodes.length === 0) {
+        try {
+          const pResp = await Widget.http.get(`${this.appHost}/api/series/programs_v2?sid=${sid}`, {
+            headers: this.getAppHeaders(),
+            timeout: 1e4,
+            retries: 1
+          });
+          const pData = pResp?.data;
+          const programs = [
+            ...Array.isArray(pData?.programs) ? pData.programs : [],
+            ...Array.isArray(pData?.qxkPrograms) ? pData.qxkPrograms : []
+          ];
+          episodes = this.normalizeEpisodes(programs);
+        } catch {
+        }
+      }
+      if (episodes.length === 0) {
+        try {
+          const webResp = await Widget.http.get(`${this.webHost}/wapi/series/series/detail?sid=${sid}`, {
+            headers: this.getWebHeaders(),
+            timeout: 1e4,
+            retries: 1
+          });
+          episodes = this.normalizeEpisodes(webResp?.data?.episodes || []);
+        } catch {
+        }
+      }
+      if (episodes.length === 0) {
         log("info", "getHanjutvEposides: episodes \u4E0D\u5B58\u5728");
         return [];
       }
-      const sortedEpisodes = resp.data.episodes.sort((a, b) => a.serialNo - b.serialNo);
-      log("info", `getHanjutvEposides: ${JSON.stringify(sortedEpisodes)}`);
-      return sortedEpisodes;
+      return episodes.sort((a, b) => a.serialNo - b.serialNo);
     } catch (error) {
       log("error", "getHanjutvEposides error:", {
         message: error.message,
@@ -7315,8 +8127,9 @@ var HanjutvSource = class extends BaseSource {
     return comments.map((c) => ({
       cid: Number(c.did),
       p: `${(c.t / 1e3).toFixed(2)},${c.tp === 2 ? 5 : c.tp},${Number(c.sc)},[hanjutv]`,
-      m: c.lc ? `${c.con} \u{1F44D}${c.lc}` : c.con,
-      t: Math.round(c.t / 1e3)
+      m: c.con,
+      t: Math.round(c.t / 1e3),
+      like: c.lc
     }));
   }
 };
@@ -7617,22 +8430,87 @@ var BahamutSource = class extends BaseSource {
 var DandanSource = class extends BaseSource {
   async search(keyword) {
     try {
-      const resp = await Widget.http.get(`https://api.danmaku.weeblify.app/ddp/v1?path=/v2/search/anime?keyword=${keyword}`, {
-        headers: {
-          "Content-Type": "application/json",
-          "User-Agent": `LogVar Danmu API/${globals.version}`
+      log("info", `[Dandan] \u539F\u59CB\u641C\u7D22\u8BCD: ${keyword}`);
+      const tmdbAbortController = new AbortController();
+      const originalSearchPromise = (async () => {
+        try {
+          const resp = await Widget.http.get(`https://api.danmaku.weeblify.app/ddp/v1?path=/v2/search/anime?keyword=${keyword}`, {
+            headers: {
+              "Content-Type": "application/json",
+              "User-Agent": `LogVar Danmu API/${globals.version}`
+            }
+          });
+          if (!resp || !resp.data) {
+            log("info", "[Dandan] \u539F\u59CB\u641C\u7D22\u8BF7\u6C42\u5931\u8D25\u6216\u65E0\u6570\u636E\u8FD4\u56DE (source: original)");
+            return { success: false, source: "original" };
+          }
+          if (!resp.data.animes || resp.data.animes.length === 0) {
+            log("info", "[Dandan] \u539F\u59CB\u641C\u7D22\u6210\u529F\uFF0C\u4F46\u672A\u8FD4\u56DE\u4EFB\u4F55\u7ED3\u679C (source: original)");
+            return { success: false, source: "original" };
+          }
+          tmdbAbortController.abort();
+          const animes = resp.data.animes;
+          log("info", `dandanSearchresp (original): ${JSON.stringify(animes)}`);
+          log("info", `[Dandan] \u8FD4\u56DE ${animes.length} \u6761\u7ED3\u679C (source: original)`);
+          return { success: true, data: animes, source: "original" };
+        } catch (error) {
+          log("error", "getDandanAnimes error:", {
+            message: error.message,
+            name: error.name,
+            stack: error.stack
+          });
+          return { success: false, source: "original" };
         }
-      });
-      if (!resp || !resp.data) {
-        log("info", "dandanSearchresp: \u8BF7\u6C42\u5931\u8D25\u6216\u65E0\u6570\u636E\u8FD4\u56DE");
-        return [];
+      })();
+      const tmdbSearchPromise = (async () => {
+        try {
+          await new Promise((resolve) => setTimeout(resolve, 100));
+          const tmdbResult2 = await getTmdbJaOriginalTitle(keyword, tmdbAbortController.signal, "Dandan");
+          if (!tmdbResult2 || !tmdbResult2.title) {
+            log("info", "[Dandan] TMDB\u8F6C\u6362\u672A\u8FD4\u56DE\u7ED3\u679C\uFF0C\u53D6\u6D88\u65E5\u8BED\u539F\u540D\u641C\u7D22");
+            return { success: false, source: "tmdb" };
+          }
+          const { title: tmdbTitle } = tmdbResult2;
+          log("info", `[Dandan] \u4F7F\u7528\u65E5\u8BED\u539F\u540D\u901A\u8FC7 episodes \u63A5\u53E3\u8FDB\u884C\u641C\u7D22: ${tmdbTitle}`);
+          const resp = await Widget.http.get(`https://api.danmaku.weeblify.app/ddp/v1?path=/v2/search/episodes?anime=${encodeURIComponent(tmdbTitle)}`, {
+            headers: {
+              "Content-Type": "application/json",
+              "User-Agent": `LogVar Danmu API/${globals.version}`
+            },
+            signal: tmdbAbortController.signal
+          });
+          if (!resp || !resp.data) {
+            log("info", "[Dandan] \u65E5\u8BED\u539F\u540D\u641C\u7D22\u8BF7\u6C42\u5931\u8D25\u6216\u65E0\u6570\u636E\u8FD4\u56DE (source: tmdb)");
+            return { success: false, source: "tmdb" };
+          }
+          if (!resp.data.animes || resp.data.animes.length === 0) {
+            log("info", "[Dandan] \u65E5\u8BED\u539F\u540D\u641C\u7D22\u6210\u529F\uFF0C\u4F46\u672A\u8FD4\u56DE\u4EFB\u4F55\u7ED3\u679C (source: tmdb)");
+            return { success: false, source: "tmdb" };
+          }
+          const animes = resp.data.animes;
+          log("info", `dandanSearchresp (tmdb): ${JSON.stringify(animes)}`);
+          log("info", `[Dandan] \u8FD4\u56DE ${animes.length} \u6761\u7ED3\u679C (source: tmdb)`);
+          return { success: true, data: animes, source: "tmdb" };
+        } catch (error) {
+          if (error.name === "AbortError") {
+            log("info", "[Dandan] \u539F\u59CB\u641C\u7D22\u6210\u529F\uFF0C\u4E2D\u65AD\u65E5\u8BED\u539F\u540D\u641C\u7D22");
+            return { success: false, source: "tmdb", aborted: true };
+          }
+          throw error;
+        }
+      })();
+      const [originalResult, tmdbResult] = await Promise.all([
+        originalSearchPromise,
+        tmdbSearchPromise
+      ]);
+      if (originalResult.success) {
+        return originalResult.data;
       }
-      if (!resp.data.animes) {
-        log("info", "dandanSearchresp: seriesData \u6216 seriesList \u4E0D\u5B58\u5728");
-        return [];
+      if (tmdbResult.success) {
+        return tmdbResult.data;
       }
-      log("info", `[Dandan] \u641C\u7D22\u627E\u5230 ${resp.data.animes.length} \u4E2A\u6709\u6548\u7ED3\u679C`);
-      return resp.data.animes;
+      log("info", "[Dandan] \u539F\u59CB\u641C\u7D22\u548C\u57FA\u4E8ETMDB\u7684\u641C\u7D22\u5747\u672A\u8FD4\u56DE\u4EFB\u4F55\u7ED3\u679C");
+      return [];
     } catch (error) {
       log("error", "getDandanAnimes error:", {
         message: error.message,
@@ -7653,25 +8531,42 @@ var DandanSource = class extends BaseSource {
       });
       if (!resp || !resp.data) {
         log("info", "getDandanEposides: \u8BF7\u6C42\u5931\u8D25\u6216\u65E0\u6570\u636E\u8FD4\u56DE");
-        return { episodes: [], titles: [] };
+        return { episodes: [], titles: [], relateds: [], type: null, typeDescription: null };
       }
       if (!resp.data.bangumi) {
         log("info", "getDandanEposides: bangumi \u6570\u636E\u4E0D\u5B58\u5728");
-        return { episodes: [], titles: [] };
+        return { episodes: [], titles: [], relateds: [], type: null, typeDescription: null };
       }
       const bangumiData = resp.data.bangumi;
       const episodes = Array.isArray(bangumiData.episodes) ? bangumiData.episodes : [];
       const titles = Array.isArray(bangumiData.titles) ? bangumiData.titles.map((t) => t.title) : [];
+      const relateds = Array.isArray(bangumiData.relateds) ? bangumiData.relateds : [];
+      const type = bangumiData.type || null;
+      const typeDescription = bangumiData.typeDescription || null;
+      const imageUrl = bangumiData.imageUrl || null;
       log("info", `getDandanEposides: ${JSON.stringify(resp.data.bangumi.episodes)}`);
-      return { episodes, titles };
+      return { episodes, titles, relateds, type, typeDescription, imageUrl };
     } catch (error) {
       log("error", "getDandanEposides error:", {
         message: error.message,
         name: error.name,
         stack: error.stack
       });
-      return { episodes: [], titles: [] };
+      return { episodes: [], titles: [], relateds: [], type: null, typeDescription: null, imageUrl: null };
     }
+  }
+  // 检测标题中是否包含明确的季度或部分特征，用于相关作品开关
+  hasSeasonInfo(title) {
+    return /(?:^|\s)(?:第[0-9一二三四五六七八九十百千万]+季|S(?:eason)?\s*\d+)(?:\s+|_)/gi.test(title) || /^(?:(?:第|S(?:eason)?)\s*\d+(?:季|期|部)?|(?:Part|P|第)\s*\d+(?:部分)?)$/i.test(title) || /(第[0-9一二三四五六七八九十百千万\d]+(?:季|期|部)|S(?:eason)?\s*\d+|Part\s*\d+)/i.test(title);
+  }
+  // 计算两个字符串的文本相似度（字符集交并比算法）
+  calculateSimilarity(str1, str2) {
+    if (!str1 || !str2) return 0;
+    const s1 = new Set(str1.toLowerCase());
+    const s2 = new Set(str2.toLowerCase());
+    const intersection = [...s1].filter((char) => s2.has(char)).length;
+    const union = (/* @__PURE__ */ new Set([...s1, ...s2])).size;
+    return intersection / union;
   }
   // 处理并转换番剧信息
   async handleAnimes(sourceAnimes, queryTitle, curAnimes) {
@@ -7680,12 +8575,34 @@ var DandanSource = class extends BaseSource {
       log("error", "[Dandan] sourceAnimes is not a valid array");
       return [];
     }
-    const processDandanAnimes = await Promise.all(
-      sourceAnimes.map(async (anime) => {
+    const initialCount = sourceAnimes.length;
+    const existingIds = /* @__PURE__ */ new Set();
+    const queue = [];
+    for (const anime of sourceAnimes) {
+      existingIds.add(anime.animeId);
+      queue.push(anime);
+    }
+    while (queue.length > 0) {
+      const currentBatch = queue.splice(0, queue.length);
+      await Promise.all(currentBatch.map(async (anime) => {
         try {
           const details = await this.getEpisodes(anime.animeId);
           const eps = details.episodes;
           const aliases = details.titles;
+          const similarity = this.calculateSimilarity(queryTitle, anime.animeTitle);
+          if (similarity >= 0.1 && details.relateds && Array.isArray(details.relateds)) {
+            for (const rel of details.relateds) {
+              if (!existingIds.has(rel.animeId) && (this.hasSeasonInfo(rel.animeTitle) || initialCount >= 25)) {
+                existingIds.add(rel.animeId);
+                queue.push({
+                  animeId: rel.animeId,
+                  animeTitle: rel.animeTitle,
+                  imageUrl: rel.imageUrl,
+                  rating: rel.rating || 0
+                });
+              }
+            }
+          }
           let links = [];
           for (const ep of eps) {
             const epTitle = ep.episodeTitle && ep.episodeTitle.trim() !== "" ? `${ep.episodeTitle}` : `\u7B2C${ep.episodeNumber}\u96C6`;
@@ -7696,17 +8613,21 @@ var DandanSource = class extends BaseSource {
             });
           }
           if (links.length > 0) {
+            const resolvedType = details.type || anime.type || "tvseries";
+            const resolvedTypeDescription = details.typeDescription || anime.typeDescription || "TV\u52A8\u753B";
+            const resolvedStartDate = anime.startDate || (eps.length > 0 ? eps[0].airDate : null);
+            const yearStr = resolvedStartDate ? new Date(resolvedStartDate).getFullYear() : "\u672A\u77E5";
             let transformedAnime = {
               animeId: anime.animeId,
               bangumiId: String(anime.animeId),
-              animeTitle: `${anime.animeTitle}(${new Date(anime.startDate).getFullYear()})\u3010${anime.typeDescription}\u3011from dandan`,
+              animeTitle: `${anime.animeTitle}(${yearStr})\u3010${resolvedTypeDescription}\u3011from dandan`,
               aliases,
-              type: anime.type,
-              typeDescription: anime.typeDescription,
-              imageUrl: anime.imageUrl,
-              startDate: anime.startDate,
+              type: resolvedType,
+              typeDescription: resolvedTypeDescription,
+              imageUrl: details.imageUrl || anime.imageUrl,
+              startDate: resolvedStartDate,
               episodeCount: links.length,
-              rating: anime.rating,
+              rating: anime.rating || 0,
               isFavorited: true,
               source: "dandan"
             };
@@ -7717,10 +8638,10 @@ var DandanSource = class extends BaseSource {
         } catch (error) {
           log("error", `[Dandan] Error processing anime: ${error.message}`);
         }
-      })
-    );
+      }));
+    }
     this.sortAndPushAnimesByYear(tmpAnimes, curAnimes);
-    return processDandanAnimes;
+    return tmpAnimes;
   }
   async getEpisodeDanmu(id) {
     let allDanmus = [];
@@ -8411,6 +9332,7 @@ var TencentSource = class extends BaseSource {
         } catch (e) {
         }
       }
+      content.like = parseInt(item.up_count) || 0;
       return content;
     });
   }
@@ -9104,10 +10026,12 @@ var _IqiyiSource = class _IqiyiSource extends BaseSource {
         const danmaku = extract(xml, "content");
         const showTime = extract(xml, "showTime");
         const color = extract(xml, "color");
+        const like = extract(xml, "likeCount");
         contents.push(...danmaku.map((content, i) => ({
           content,
           showTime: showTime[i],
-          color: color[i]
+          color: color[i],
+          like: parseInt(like[i]) || 0
         })));
       }
       return contents;
@@ -9137,6 +10061,7 @@ var _IqiyiSource = class _IqiyiSource extends BaseSource {
       content.color = parseInt(item["color"], 16);
       content.content = decodeHtmlEntities(item["content"]);
       content.size = 25;
+      content.like = item["like"];
       return content;
     });
   }
@@ -9702,6 +10627,7 @@ var MangoSource = class extends BaseSource {
       content.timepoint = item.time / 1e3;
       content.content = item.content;
       content.uid = item.uid;
+      content.like = item.v2_up_count;
       return content;
     });
   }
@@ -10330,13 +11256,13 @@ var _BilibiliSource = class _BilibiliSource extends BaseSource {
     }
   }
   formatComments(comments) {
-    if (globals.danmuSimplifiedTraditional === "simplified") {
-      return comments.map((c) => {
+    return comments.map((c) => {
+      if (globals.danmuSimplifiedTraditional === "simplified") {
         if (c.m) c.m = simplized(c.m);
-        return c;
-      });
-    }
-    return comments;
+      }
+      c.like = c.like_num;
+      return c;
+    });
   }
   // 构建代理URL
   _makeProxyUrl(targetUrl) {
@@ -11640,7 +12566,8 @@ var MiguSource = class extends BaseSource {
       cid: Number(c.cid),
       p: `${c.playtime},1,${hexToInt(c.textcolor)},[migu]`,
       m: c.msg,
-      t: c.playtime
+      t: c.playtime,
+      like: c.praiseCount
     }));
   }
 };
@@ -12183,6 +13110,7 @@ var YoukuSource = class extends BaseSource {
         else if (pos === 2) content.ct = 4;
       }
       content.content = item.content;
+      content.like = item.extFields.voteUp;
       return content;
     });
   }
@@ -12566,7 +13494,8 @@ var SohuSource = class extends BaseSource {
           cid: String(danmuId),
           p: pString,
           m: comment.c || "",
-          t: parseFloat(vtime)
+          t: parseFloat(vtime),
+          like: comment.fcount
         };
       } catch (error) {
         log("error", `\u683C\u5F0F\u5316\u5F39\u5E55\u5931\u8D25: ${error.message}, \u5F39\u5E55\u6570\u636E:`, comment);
@@ -14860,7 +15789,7 @@ async function getSegmentComment(segment, queryFormat) {
 }
 
 // forward/forward-widget.js
-var wv = true ? "1.15.0" : Globals.VERSION;
+var wv = true ? "1.15.2" : Globals.VERSION;
 WidgetMetadata = {
   id: "forward.auto.danmu2",
   title: "\u81EA\u52A8\u94FE\u63A5\u5F39\u5E55v2",
