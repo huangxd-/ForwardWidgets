@@ -614,6 +614,7 @@ var Envs = class {
       "CONVERT_COLOR": { category: "danmu", type: "select", options: ["default", "white", "color"], description: "\u5F39\u5E55\u8F6C\u6362\u989C\u8272\u914D\u7F6E" },
       "DANMU_OUTPUT_FORMAT": { category: "danmu", type: "select", options: ["json", "xml"], description: "\u5F39\u5E55\u8F93\u51FA\u683C\u5F0F\uFF0C\u9ED8\u8BA4json" },
       "DANMU_PUSH_URL": { category: "danmu", type: "text", description: "\u5F39\u5E55\u63A8\u9001\u5730\u5740\uFF0C\u793A\u4F8B http://127.0.0.1:9978/action?do=refresh&type=danmaku&path= " },
+      "LIKE_SWITCH": { category: "danmu", type: "boolean", description: "\u5F39\u5E55\u70B9\u8D5E\u6570\u663E\u793A\u5F00\u5173\uFF0C\u9ED8\u8BA4\u5F00\u542F" },
       // 缓存配置
       "SEARCH_CACHE_MINUTES": { category: "cache", type: "number", description: "\u641C\u7D22\u7ED3\u679C\u7F13\u5B58\u65F6\u95F4(\u5206\u949F)\uFF0C\u9ED8\u8BA41", min: 1, max: 120 },
       "COMMENT_CACHE_MINUTES": { category: "cache", type: "number", description: "\u5F39\u5E55\u7F13\u5B58\u65F6\u95F4(\u5206\u949F)\uFF0C\u9ED8\u8BA41", min: 1, max: 120 },
@@ -621,6 +622,7 @@ var Envs = class {
       "MAX_LAST_SELECT_MAP": { category: "cache", type: "number", description: "\u8BB0\u4F4F\u4E0A\u6B21\u9009\u62E9\u6620\u5C04\u7F13\u5B58\u5927\u5C0F\u9650\u5236", min: 10, max: 1e3 },
       "UPSTASH_REDIS_REST_URL": { category: "cache", type: "text", description: "Upstash Redis\u8BF7\u6C42\u94FE\u63A5" },
       "UPSTASH_REDIS_REST_TOKEN": { category: "cache", type: "text", description: "Upstash Redis\u8BBF\u95EE\u4EE4\u724C" },
+      "LOCAL_REDIS_URL": { category: "cache", type: "text", description: "\u672C\u5730 Redis \u8FDE\u63A5URL\uFF0C\u793A\u4F8B\uFF1Aredis://:password@127.0.0.1:6379/0\uFF0C\u53EA\u652F\u6301\u672C\u5730\u90E8\u7F72\u548Cdocker\u90E8\u7F72" },
       // 系统配置
       "PROXY_URL": { category: "system", type: "text", description: "\u4EE3\u7406/\u53CD\u4EE3\u5730\u5740" },
       "TMDB_API_KEY": { category: "system", type: "text", description: "TMDB API\u5BC6\u94A5" },
@@ -673,12 +675,16 @@ var Envs = class {
       // 弹幕简繁体转换设置：default（默认不转换）、simplified（繁转简）、traditional（简转繁）
       danmuPushUrl: this.get("DANMU_PUSH_URL", "", "string"),
       // 代理/反代地址
+      likeSwitch: this.get("LIKE_SWITCH", true, "boolean"),
+      // 弹幕点赞数显示开关，默认开启
       tmdbApiKey: this.get("TMDB_API_KEY", "", "string", true),
       // TMDB API KEY
       redisUrl: this.get("UPSTASH_REDIS_REST_URL", "", "string", true),
       // upstash redis url
       redisToken: this.get("UPSTASH_REDIS_REST_TOKEN", "", "string", true),
       // upstash redis url
+      localRedisUrl: this.get("LOCAL_REDIS_URL", "", "string", true),
+      // 本地 Redis 连接URL，示例：redis://:password@127.0.0.1:6379/0，只支持本地部署和docker部署
       rateLimitMaxRequests: this.get("RATE_LIMIT_MAX_REQUESTS", 3, "number"),
       // 限流配置：时间窗口内最大请求次数（默认 3，0表示不限流）
       enableAnimeEpisodeFilter: this.get("ENABLE_ANIME_EPISODE_FILTER", false, "boolean"),
@@ -785,7 +791,7 @@ var Globals = {
   originalEnvVars: {},
   accessedEnvVars: {},
   // 静态常量
-  VERSION: "1.15.2",
+  VERSION: "1.15.3",
   MAX_LOGS: 1e3,
   // 日志存储，最多保存 1000 行
   MAX_ANIMES: 100,
@@ -805,6 +811,8 @@ var Globals = {
   // 本地缓存是否已初始化
   redisValid: false,
   // redis是否生效
+  localRedisValid: false,
+  // 本地redis是否生效
   aiValid: false,
   // AI配置是否生效
   redisCacheInitialized: false,
@@ -2539,6 +2547,9 @@ async function updateRedisCaches() {
   }
 }
 
+// danmu_api/apis/dandan-api.js
+
+
 // danmu_api/utils/common-util.js
 function printFirst200Chars(data) {
   let dataToPrint;
@@ -3223,6 +3234,9 @@ function groupDanmusByMinute(filteredDanmus, n) {
   return result.flat().sort((a, b) => a.t - b.t);
 }
 function handleDanmusLike(groupedDanmus) {
+  if (!globals.likeSwitch) {
+    return groupedDanmus;
+  }
   return groupedDanmus.map((item) => {
     if (!item.like || item.like < 5) {
       return item;
@@ -3230,7 +3244,7 @@ function handleDanmusLike(groupedDanmus) {
     const lowThresholdSources = ["[hanjutv]", "[sohu]", "[bilibili1]", "[migu]"];
     const isLowThresholdSource = lowThresholdSources.some((source) => item.p.includes(source));
     const threshold = isLowThresholdSource ? 100 : 1e3;
-    const icon = item.like >= threshold ? "\u{1F525}" : "\u2764\uFE0F";
+    const icon = item.like >= threshold ? "\u{1F525}" : "\uFE0F\u2661";
     let formattedLike;
     if (item.like >= 1e4) {
       formattedLike = (item.like / 1e4).toFixed(1) + "w";
@@ -3239,7 +3253,7 @@ function handleDanmusLike(groupedDanmus) {
     } else {
       formattedLike = item.like.toString();
     }
-    const likeText = ` ${icon} ${formattedLike}`;
+    const likeText = `${icon}${formattedLike}`;
     const newM = item.m + likeText;
     const { like, ...rest } = item;
     return {
@@ -4134,6 +4148,7 @@ var SEASON_PATTERNS = [
   { regex: /sp/, val: "SP" },
   { regex: /[^0-9](\d)$/, prefix: "S", useCleaned: true }
 ];
+var NORMALIZE_REGEX = /[\s\u3000-\u303f\uff00-\uffef]/g;
 function getLanguageType(text) {
   if (!text) return "Unspecified";
   const t = text.toLowerCase();
@@ -5782,6 +5797,107 @@ function mergeDanmakuList(listA, listB) {
   };
   final.sort((a, b) => getTime(a) - getTime(b));
   return final;
+}
+function alignSourceTimelines(results, sourceNames, realIds, minMatchRatio = 0.8, offsetThreshold = 3) {
+  const dandanIndex = sourceNames.findIndex((name) => name === "dandan");
+  if (dandanIndex === -1 || !results[dandanIndex] || results[dandanIndex].length === 0) {
+    log2("info", "[Merge][AlignTimeline] \u65E0 dandan \u6E90\u6216\u65E0\u6570\u636E\uFF0C\u8DF3\u8FC7\u65F6\u95F4\u8F74\u5BF9\u9F50");
+    return results;
+  }
+  const dandanMap = /* @__PURE__ */ new Map();
+  for (const danmu of results[dandanIndex]) {
+    const text = normalizeText(getDanmuText(danmu));
+    if (!text) continue;
+    const time = getDanmuTime(danmu);
+    if (!dandanMap.has(text) || time < dandanMap.get(text)) {
+      dandanMap.set(text, time);
+    }
+  }
+  for (let idx = 0; idx < results.length; idx++) {
+    const sourceName = sourceNames[idx];
+    const realId = realIds[idx];
+    const list = results[idx];
+    if (sourceName === "dandan" || !Array.isArray(list) || list.length === 0) {
+      continue;
+    }
+    const sourceMap = /* @__PURE__ */ new Map();
+    const parsedCache = new Array(list.length);
+    for (let i = 0; i < list.length; i++) {
+      const danmu = list[i];
+      const text = normalizeText(getDanmuText(danmu));
+      const time = getDanmuTime(danmu);
+      parsedCache[i] = { danmu, text, time };
+      if (text && (!sourceMap.has(text) || time < sourceMap.get(text))) {
+        sourceMap.set(text, time);
+      }
+    }
+    if (sourceMap.size === 0) continue;
+    const offsetCounts = /* @__PURE__ */ new Map();
+    let matchCount = 0;
+    for (const [text, sourceTime] of sourceMap) {
+      if (dandanMap.has(text)) {
+        const dandanTime = dandanMap.get(text);
+        const offset = Math.round((sourceTime - dandanTime) * 100) / 100;
+        offsetCounts.set(offset, (offsetCounts.get(offset) || 0) + 1);
+        matchCount++;
+      }
+    }
+    const matchRatio = matchCount / sourceMap.size;
+    if (matchRatio < minMatchRatio) {
+      log2("info", `[Merge][AlignTimeline] ${sourceName}:${realId} \u5339\u914D\u7387\u8FC7\u4F4E (${(matchRatio * 100).toFixed(1)}% < ${(minMatchRatio * 100).toFixed(1)}%)\uFF0C\u8DF3\u8FC7\u65F6\u95F4\u8F74\u5BF9\u9F50`);
+      continue;
+    }
+    let bestOffset = 0;
+    let maxCount = 0;
+    for (const [offset, count] of offsetCounts) {
+      if (count > maxCount) {
+        maxCount = count;
+        bestOffset = offset;
+      }
+    }
+    if (Math.abs(bestOffset) < offsetThreshold) {
+      log2("info", `[Merge][AlignTimeline] ${sourceName}:${realId} \u6700\u4F73\u504F\u79FB\u91CF ${bestOffset}s \u8FC7\u5C0F\uFF0C\u8DF3\u8FC7\u65F6\u95F4\u8F74\u5BF9\u9F50`);
+      continue;
+    }
+    log2("info", `[Merge][AlignTimeline] ${sourceName}:${realId} \u5E94\u7528\u65F6\u95F4\u8F74\u504F\u79FB ${bestOffset}s\uFF08\u5339\u914D\u7387: ${(matchRatio * 100).toFixed(1)}%\uFF0C${maxCount} \u7968\uFF09`);
+    for (let i = 0; i < parsedCache.length; i++) {
+      const { danmu, text, time } = parsedCache[i];
+      const targetTime = text && dandanMap.has(text) ? dandanMap.get(text) : Math.max(0, time - bestOffset);
+      if (danmu.p && typeof danmu.p === "string") {
+        const firstComma = danmu.p.indexOf(",");
+        if (firstComma !== -1) {
+          danmu.p = targetTime.toFixed(2) + danmu.p.substring(firstComma);
+        }
+      }
+      if (danmu.t !== void 0 && danmu.t !== null) {
+        danmu.t = targetTime;
+      }
+      if (typeof danmu.progress === "number") {
+        danmu.progress = Math.round(targetTime * 1e3);
+      }
+    }
+  }
+  return results;
+}
+function getDanmuTime(danmu) {
+  if (danmu.t !== void 0 && danmu.t !== null) return Number(danmu.t);
+  if (danmu.p && typeof danmu.p === "string") {
+    const pTime = parseFloat(danmu.p.split(",")[0]);
+    if (!isNaN(pTime)) return pTime;
+  }
+  if (typeof danmu.progress === "number") {
+    return danmu.progress / 1e3;
+  }
+  return 0;
+}
+function getDanmuText(danmu) {
+  if (typeof danmu.m === "string") return danmu.m;
+  if (typeof danmu.content === "string") return danmu.content;
+  return "";
+}
+function normalizeText(text) {
+  if (typeof text !== "string") return "";
+  return text.replace(NORMALIZE_REGEX, "").toLowerCase();
 }
 
 // danmu_api/sources/base.js
@@ -7810,13 +7926,18 @@ var HanjutvSource = class extends BaseSource {
       sidSet.add(sid);
       resultList.push(item);
     }
+    const pluckNames = (list) => list?.map((item) => item.name) || [];
     return {
       resultList,
       stats: {
         s5Total: s5Candidates.length,
         s5Matched: s5Matched.length,
         webTotal: webCandidates.length,
-        webMatched: webMatched.length
+        webMatched: webMatched.length,
+        s5MatchedList: pluckNames(s5Matched),
+        s5UnmatchedList: pluckNames(s5Unmatched),
+        webMatchedList: pluckNames(webMatched),
+        webUnmatchedList: pluckNames(webUnmatched)
       }
     };
   }
@@ -7890,6 +8011,7 @@ var HanjutvSource = class extends BaseSource {
         log("info", "hanjutvSearchresp: s5 \u4E0E\u65E7\u63A5\u53E3\u5747\u65E0\u6709\u6548\u7ED3\u679C");
         return [];
       }
+      log("info", `[Hanjutv] \u641C\u7D22\u5019\u9009\u7EDF\u8BA1 s5MatchedList=${JSON.stringify(stats.s5MatchedList)}, s5UnmatchedList=${JSON.stringify(stats.s5UnmatchedList)}, webMatchedList=${JSON.stringify(stats.webMatchedList)}, webMatchedList=${JSON.stringify(stats.webUnmatchedList)}`);
       log("info", `[Hanjutv] \u641C\u7D22\u5019\u9009\u7EDF\u8BA1 s5=${stats.s5Total}(\u547D\u4E2D${stats.s5Matched}), web=${stats.webTotal}(\u547D\u4E2D${stats.webMatched})`);
       log("info", `[Hanjutv] \u641C\u7D22\u627E\u5230 ${resultList.length} \u4E2A\u6709\u6548\u7ED3\u679C`);
       return resultList.map((anime) => {
@@ -8077,10 +8199,13 @@ var HanjutvSource = class extends BaseSource {
           retries: 1
         });
         if (resp.data && resp.data.danmus) {
-          allDanmus = allDanmus.concat(resp.data.danmus);
+          allDanmus.push(...resp.data.danmus);
         }
         const nextAxis = resp.data.nextAxis || maxAxis;
         if (nextAxis >= maxAxis) {
+          break;
+        }
+        if (nextAxis <= fromAxis) {
           break;
         }
         fromAxis = nextAxis;
@@ -15301,6 +15426,9 @@ async function searchAnime(url, preferAnimeId = null, preferSource = null) {
     if (globals.redisValid && curAnimes.length !== 0) {
       await updateRedisCaches();
     }
+    if (globals.localRedisValid && curAnimes.length !== 0) {
+
+    }
     return jsonResponse({
       errorCode: 0,
       success: true,
@@ -15447,6 +15575,9 @@ async function searchAnime(url, preferAnimeId = null, preferSource = null) {
   }
   if (globals.redisValid && curAnimes.length !== 0) {
     await updateRedisCaches();
+  }
+  if (globals.localRedisValid && curAnimes.length !== 0) {
+
   }
   if (curAnimes.length > 0) {
     setSearchCache(queryTitle, curAnimes);
@@ -15598,6 +15729,13 @@ async function fetchMergedComments(url) {
     }
   });
   const results = await Promise.all(tasks);
+  if (sourceNames.includes("dandan")) {
+    const realIds = parts.map((part) => {
+      const firstColonIndex = part.indexOf(":");
+      return firstColonIndex === -1 ? "" : part.substring(firstColonIndex + 1);
+    });
+    alignSourceTimelines(results, sourceNames, realIds);
+  }
   let mergedList = [];
   results.forEach((list) => {
     mergedList = mergeDanmakuList(mergedList, list);
@@ -15681,6 +15819,9 @@ async function getComment(path2, queryFormat, segmentFlag) {
     }
     if (globals.redisValid && animeId) {
       setRedisKey("lastSelectMap", globals.lastSelectMap).catch((e) => log("error", "Redis set error", e));
+    }
+    if (globals.localRedisValid && animeId) {
+
     }
   }
   if (!segmentFlag) {
@@ -15776,7 +15917,7 @@ async function getSegmentComment(segment, queryFormat) {
 }
 
 // forward/forward-widget.js
-var wv = true ? "1.15.2" : Globals.VERSION;
+var wv = true ? "1.15.3" : Globals.VERSION;
 WidgetMetadata = {
   id: "forward.auto.danmu2",
   title: "\u81EA\u52A8\u94FE\u63A5\u5F39\u5E55v2",
@@ -16149,6 +16290,21 @@ WidgetMetadata = {
         }
       ]
     },
+    {
+      name: "likeSwitch",
+      title: "\u70B9\u8D5E\u529F\u80FD\u5F00\u5173\uFF0C\u9ED8\u8BA4true",
+      type: "input",
+      placeholders: [
+        {
+          title: "\u5F00\u542F",
+          value: "true"
+        },
+        {
+          title: "\u5173\u95ED",
+          value: "false"
+        }
+      ]
+    },
     // 系统配置
     {
       name: "proxyUrl",
@@ -16228,7 +16384,7 @@ if (typeof window !== "undefined") {
   window.WidgetMetadata = WidgetMetadata;
 }
 var globals2;
-async function initGlobals(sourceOrder, otherServer, customSourceApiUrl, vodServers, vodReturnMode, vodRequestTimeout, bilibiliCookie, platformOrder, episodeTitleFilter, enableAnimeEpisodeFilter, strictTitleMatch2, titleMappingTable, animeTitleFilter, animeTitleSimplified, blockedWords, groupMinute, danmuLimit, danmuSimplifiedTraditional, convertTopBottomToScroll, convertColor, proxyUrl, tmdbApiKey) {
+async function initGlobals(sourceOrder, otherServer, customSourceApiUrl, vodServers, vodReturnMode, vodRequestTimeout, bilibiliCookie, platformOrder, episodeTitleFilter, enableAnimeEpisodeFilter, strictTitleMatch2, titleMappingTable, animeTitleFilter, animeTitleSimplified, blockedWords, groupMinute, danmuLimit, danmuSimplifiedTraditional, convertTopBottomToScroll, convertColor, proxyUrl, tmdbApiKey, likeSwitch) {
   const env = {};
   if (sourceOrder !== void 0) env.SOURCE_ORDER = sourceOrder;
   if (otherServer !== void 0) env.OTHER_SERVER = otherServer;
@@ -16250,6 +16406,7 @@ async function initGlobals(sourceOrder, otherServer, customSourceApiUrl, vodServ
   if (danmuSimplifiedTraditional !== void 0) env.DANMU_SIMPLIFIED_TRADITIONAL = danmuSimplifiedTraditional;
   if (convertTopBottomToScroll !== void 0) env.CONVERT_TOP_BOTTOM_TO_SCROLL = convertTopBottomToScroll;
   if (convertColor !== void 0) env.CONVERT_COLOR = convertColor;
+  if (likeSwitch !== void 0) env.LIKE_SWITCH = likeSwitch;
   if (proxyUrl !== void 0) env.PROXY_URL = proxyUrl;
   if (tmdbApiKey !== void 0) env.TMDB_API_KEY = tmdbApiKey;
   if (!globals2) {
@@ -16320,7 +16477,8 @@ async function searchDanmu(params) {
     convertTopBottomToScroll,
     convertColor,
     proxyUrl,
-    tmdbApiKey
+    tmdbApiKey,
+    likeSwitch
   } = params;
   await initGlobals(
     sourceOrder,
@@ -16344,7 +16502,8 @@ async function searchDanmu(params) {
     convertTopBottomToScroll,
     convertColor,
     proxyUrl,
-    tmdbApiKey
+    tmdbApiKey,
+    likeSwitch
   );
   let simplifiedTitle = title;
   if (globals2.animeTitleSimplified) {
@@ -16421,7 +16580,8 @@ async function getDetailById(params) {
     convertTopBottomToScroll,
     convertColor,
     proxyUrl,
-    tmdbApiKey
+    tmdbApiKey,
+    likeSwitch
   } = params;
   await initGlobals(
     sourceOrder,
@@ -16445,7 +16605,8 @@ async function getDetailById(params) {
     convertTopBottomToScroll,
     convertColor,
     proxyUrl,
-    tmdbApiKey
+    tmdbApiKey,
+    likeSwitch
   );
   const response = await getBangumi(`${PREFIX_URL}/api/v2/bangumi/${animeId}`);
   const resJson = await response.json();
@@ -16485,7 +16646,8 @@ async function getCommentsById(params) {
     convertTopBottomToScroll,
     convertColor,
     proxyUrl,
-    tmdbApiKey
+    tmdbApiKey,
+    likeSwitch
   } = params;
   await initGlobals(
     sourceOrder,
@@ -16509,7 +16671,8 @@ async function getCommentsById(params) {
     convertTopBottomToScroll,
     convertColor,
     proxyUrl,
-    tmdbApiKey
+    tmdbApiKey,
+    likeSwitch
   );
   if (commentId) {
     const storeKey = season && episode ? `${tmdbId}.${season}.${episode}` : `${tmdbId}`;
@@ -16548,7 +16711,8 @@ async function getCommentsById(params) {
         convertTopBottomToScroll,
         convertColor,
         proxyUrl,
-        tmdbApiKey
+        tmdbApiKey,
+        likeSwitch
       });
     } else {
       Widget.storage.remove(storeKey);
@@ -16592,7 +16756,8 @@ async function getDanmuWithSegmentTime(params) {
     convertTopBottomToScroll,
     convertColor,
     proxyUrl,
-    tmdbApiKey
+    tmdbApiKey,
+    likeSwitch
   } = params;
   await initGlobals(
     sourceOrder,
@@ -16616,7 +16781,8 @@ async function getDanmuWithSegmentTime(params) {
     convertTopBottomToScroll,
     convertColor,
     proxyUrl,
-    tmdbApiKey
+    tmdbApiKey,
+    likeSwitch
   );
   const storeKey = season && episode ? `${tmdbId}.${season}.${episode}` : `${tmdbId}`;
   const segmentList = Widget.storage.get(storeKey);
