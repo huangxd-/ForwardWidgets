@@ -510,7 +510,7 @@ var Envs = class {
     this.accessedEnvVars.set("EPISODE_TITLE_FILTER", keywords);
     try {
       return new RegExp(`^(.*?)(?:${keywords})(.*?)$`, "i");
-    } catch (error) {
+    } catch (error2) {
       console.warn(`Invalid EPISODE_TITLE_FILTER format, using default.`);
       return new RegExp(`^(.*?)(?:${defaultFilter})(.*?)$`, "i");
     }
@@ -529,7 +529,7 @@ var Envs = class {
     this.accessedEnvVars.set("ANIME_TITLE_FILTER", filterStr);
     try {
       return new RegExp(`^(.*?)(?:${filterStr})(.*?)$`, "i");
-    } catch (error) {
+    } catch (error2) {
       console.warn(`Invalid ANIME_TITLE_FILTER format, returning null.`);
       return null;
     }
@@ -791,7 +791,7 @@ var Globals = {
   originalEnvVars: {},
   accessedEnvVars: {},
   // 静态常量
-  VERSION: "1.15.3",
+  VERSION: "1.15.5",
   MAX_LOGS: 1e3,
   // 日志存储，最多保存 1000 行
   MAX_ANIMES: 100,
@@ -1106,28 +1106,28 @@ async function httpGet(url, options = {}) {
         status: response.status,
         headers
       };
-    } catch (error) {
+    } catch (error2) {
       clearTimeout(timeoutId);
-      lastError = error;
+      lastError = error2;
       if (options.signal?.aborted) {
-        throw error;
+        throw error2;
       }
-      if (error.name === "AbortError") {
-        log("error", `[\u8BF7\u6C42\u6A21\u62DF] \u8BF7\u6C42\u8D85\u65F6:`, error.message);
+      if (error2.name === "AbortError") {
+        log("error", `[\u8BF7\u6C42\u6A21\u62DF] \u8BF7\u6C42\u8D85\u65F6:`, error2.message);
         log("error", "\u8BE6\u7EC6\u8BCA\u65AD:");
         log("error", "- URL:", url);
         log("error", "- \u8D85\u65F6\u65F6\u95F4:", `${timeout}ms`);
         log("error", `- \u5F53\u524D\u5C1D\u8BD5: ${attempt + 1}/${maxRetries + 1}`);
       } else {
-        log("error", `[\u8BF7\u6C42\u6A21\u62DF] \u8BF7\u6C42\u5931\u8D25:`, error.message);
+        log("error", `[\u8BF7\u6C42\u6A21\u62DF] \u8BF7\u6C42\u5931\u8D25:`, error2.message);
         log("error", "\u8BE6\u7EC6\u8BCA\u65AD:");
         log("error", "- URL:", url);
-        log("error", "- \u9519\u8BEF\u7C7B\u578B:", error.name);
-        log("error", "- \u6D88\u606F:", error.message);
+        log("error", "- \u9519\u8BEF\u7C7B\u578B:", error2.name);
+        log("error", "- \u6D88\u606F:", error2.message);
         log("error", `- \u5F53\u524D\u5C1D\u8BD5: ${attempt + 1}/${maxRetries + 1}`);
-        if (error.cause) {
-          log("error", "- \u7801:", error.cause.code);
-          log("error", "- \u539F\u56E0:", error.cause.message);
+        if (error2.cause) {
+          log("error", "- \u7801:", error2.cause.code);
+          log("error", "- \u539F\u56E0:", error2.cause.message);
         }
       }
       if (attempt < maxRetries) {
@@ -1187,28 +1187,28 @@ async function httpPost(url, body, options = {}) {
         status: response.status,
         headers: Object.fromEntries(response.headers.entries())
       };
-    } catch (error) {
+    } catch (error2) {
       clearTimeout(timeoutId);
-      lastError = error;
+      lastError = error2;
       if (options.signal?.aborted) {
-        throw error;
+        throw error2;
       }
-      if (error.name === "AbortError") {
-        log("error", `[\u8BF7\u6C42\u6A21\u62DF] \u8BF7\u6C42\u8D85\u65F6:`, error.message);
+      if (error2.name === "AbortError") {
+        log("error", `[\u8BF7\u6C42\u6A21\u62DF] \u8BF7\u6C42\u8D85\u65F6:`, error2.message);
         log("error", "\u8BE6\u7EC6\u8BCA\u65AD:");
         log("error", "- URL:", url);
         log("error", "- \u8D85\u65F6\u65F6\u95F4:", `${timeout}ms`);
         log("error", `- \u5F53\u524D\u5C1D\u8BD5: ${attempt + 1}/${maxRetries + 1}`);
       } else {
-        log("error", `[\u8BF7\u6C42\u6A21\u62DF] \u8BF7\u6C42\u5931\u8D25:`, error.message);
+        log("error", `[\u8BF7\u6C42\u6A21\u62DF] \u8BF7\u6C42\u5931\u8D25:`, error2.message);
         log("error", "\u8BE6\u7EC6\u8BCA\u65AD:");
         log("error", "- URL:", url);
-        log("error", "- \u9519\u8BEF\u7C7B\u578B:", error.name);
-        log("error", "- \u6D88\u606F:", error.message);
+        log("error", "- \u9519\u8BEF\u7C7B\u578B:", error2.name);
+        log("error", "- \u6D88\u606F:", error2.message);
         log("error", `- \u5F53\u524D\u5C1D\u8BD5: ${attempt + 1}/${maxRetries + 1}`);
-        if (error.cause) {
-          log("error", "- \u7801:", error.cause.code);
-          log("error", "- \u539F\u56E0:", error.cause.message);
+        if (error2.cause) {
+          log("error", "- \u7801:", error2.cause.code);
+          log("error", "- \u539F\u56E0:", error2.cause.message);
         }
       }
       if (attempt < maxRetries) {
@@ -1234,8 +1234,8 @@ async function getPageTitle(url) {
       return title;
     }
     return url;
-  } catch (error) {
-    log("error", `\u83B7\u53D6\u6807\u9898\u5931\u8D25: ${error.message}`);
+  } catch (error2) {
+    log("error", `\u83B7\u53D6\u6807\u9898\u5931\u8D25: ${error2.message}`);
     return url;
   }
 }
@@ -1416,12 +1416,12 @@ async function httpGetWithStreamCheck(url, options = {}, checkCallback) {
     } catch (e) {
       return resultText;
     }
-  } catch (error) {
+  } catch (error2) {
     clearTimeout(timeoutId);
-    if (error.name === "AbortError") {
+    if (error2.name === "AbortError") {
       return null;
     }
-    log("error", `[\u6D41\u5F0F\u8BF7\u6C42] \u5931\u8D25: ${error.message}`);
+    log("error", `[\u6D41\u5F0F\u8BF7\u6C42] \u5931\u8D25: ${error2.message}`);
     return null;
   }
 }
@@ -2461,12 +2461,12 @@ async function setRedisKey(key, value) {
     globals.lastHashes[key] = currentHash;
     log("info", `[redis] \u952E ${key} \u66F4\u65B0\u6210\u529F`);
     return result;
-  } catch (error) {
-    log("error", `[redis] SET \u8BF7\u6C42\u5931\u8D25:`, error.message);
-    log("error", "- \u9519\u8BEF\u7C7B\u578B:", error.name);
-    if (error.cause) {
-      log("error", "- \u7801:", error.cause.code);
-      log("error", "- \u539F\u56E0:", error.cause.message);
+  } catch (error2) {
+    log("error", `[redis] SET \u8BF7\u6C42\u5931\u8D25:`, error2.message);
+    log("error", "- \u9519\u8BEF\u7C7B\u578B:", error2.name);
+    if (error2.cause) {
+      log("error", "- \u7801:", error2.cause.code);
+      log("error", "- \u539F\u56E0:", error2.cause.message);
     }
   }
 }
@@ -2485,12 +2485,12 @@ async function runPipeline(commands) {
     });
     const result = await response.json();
     return result;
-  } catch (error) {
-    log("error", `[redis] Pipeline \u8BF7\u6C42\u5931\u8D25:`, error.message);
-    log("error", "- \u9519\u8BEF\u7C7B\u578B:", error.name);
-    if (error.cause) {
-      log("error", "- \u7801:", error.cause.code);
-      log("error", "- \u539F\u56E0:", error.cause.message);
+  } catch (error2) {
+    log("error", `[redis] Pipeline \u8BF7\u6C42\u5931\u8D25:`, error2.message);
+    log("error", "- \u9519\u8BEF\u7C7B\u578B:", error2.name);
+    if (error2.cause) {
+      log("error", "- \u7801:", error2.cause.code);
+      log("error", "- \u539F\u56E0:", error2.cause.message);
     }
   }
 }
@@ -2541,9 +2541,9 @@ async function updateRedisCaches() {
     } else {
       log("info", "No changes detected, skipping Redis update.");
     }
-  } catch (error) {
-    log("error", `updateRedisCaches failed: ${error.message}`, error.stack);
-    log("error", `Error details - Name: ${error.name}, Cause: ${error.cause ? error.cause.message : "N/A"}`);
+  } catch (error2) {
+    log("error", `updateRedisCaches failed: ${error2.message}`, error2.stack);
+    log("error", `Error details - Name: ${error2.name}, Cause: ${error2.cause ? error2.cause.message : "N/A"}`);
   }
 }
 
@@ -3062,8 +3062,8 @@ function addAnime(anime) {
       (key, value) => key === "links" ? value.length : value
     )}`);
     return true;
-  } catch (error) {
-    log("error", `addAnime failed: ${error.message}`);
+  } catch (error2) {
+    log("error", `addAnime failed: ${error2.message}`);
     return false;
   }
 }
@@ -3163,9 +3163,9 @@ async function updateLocalCaches() {
     } else {
       log("info", "No changes detected, skipping local cache update.");
     }
-  } catch (error) {
-    log("error", `updateLocalCaches failed: ${error.message}`, error.stack);
-    log("error", `Error details - Name: ${error.name}, Cause: ${error.cause ? error.cause.message : "N/A"}`);
+  } catch (error2) {
+    log("error", `updateLocalCaches failed: ${error2.message}`, error2.stack);
+    log("error", `Error details - Name: ${error2.name}, Cause: ${error2.cause ? error2.cause.message : "N/A"}`);
   }
 }
 
@@ -3224,7 +3224,7 @@ function groupDanmusByMinute(filteredDanmus, n) {
         cid: data.cid,
         p: data.p,
         // 仅当计算后的逻辑计数大于1时才显示 "x N"
-        m: displayCount > 1 ? `${message} x ${displayCount}` : message,
+        m: displayCount > 1 ? `${message}\u200Ax\u200A${displayCount}` : message,
         t: data.earliestT,
         like: data.like
         // 包含合并后的like字段
@@ -3253,7 +3253,7 @@ function handleDanmusLike(groupedDanmus) {
     } else {
       formattedLike = item.like.toString();
     }
-    const likeText = `${icon}${formattedLike}`;
+    const likeText = `\u200A${icon}${formattedLike}`;
     const newM = item.m + likeText;
     const { like, ...rest } = item;
     return {
@@ -3492,8 +3492,8 @@ function formatDanmuResponse(danmuData, queryFormat) {
     try {
       const xmlData = convertDanmuToXml(danmuData);
       return xmlResponse(xmlData);
-    } catch (error) {
-      log("error", `Failed to convert to XML: ${error.message}`);
+    } catch (error2) {
+      log("error", `Failed to convert to XML: ${error2.message}`);
       return jsonResponse(danmuData);
     }
   }
@@ -3518,14 +3518,14 @@ async function tmdbApiGet(url, options = {}) {
     });
     if (response.status != 200) return null;
     return response;
-  } catch (error) {
-    if (error.name === "AbortError") {
-      throw error;
+  } catch (error2) {
+    if (error2.name === "AbortError") {
+      throw error2;
     }
     log("error", "[TMDB] Api error:", {
-      message: error.message,
-      name: error.name,
-      stack: error.stack
+      message: error2.message,
+      name: error2.name,
+      stack: error2.stack
     });
     return null;
   }
@@ -3635,11 +3635,11 @@ async function getChineseTitleForResult(result, signal) {
       log("info", `[TMDB] \u672A\u627E\u5230\u4E2D\u6587\u522B\u540D\uFF0C\u4F7F\u7528\u539F\u6807\u9898: ${resultTitle}`);
       return resultTitle;
     }
-  } catch (error) {
-    if (error.name === "AbortError") {
-      throw error;
+  } catch (error2) {
+    if (error2.name === "AbortError") {
+      throw error2;
     }
-    log("error", `[TMDB] \u83B7\u53D6\u522B\u540D\u5931\u8D25: ${error.message}`);
+    log("error", `[TMDB] \u83B7\u53D6\u522B\u540D\u5931\u8D25: ${error2.message}`);
     return resultTitle;
   }
 }
@@ -3799,9 +3799,9 @@ async function getTmdbJaOriginalTitle(title, signal = null, sourceLabel = "Unkno
                 if (chineseTitle !== resultTitle) {
                   alternativeTitleFetchCount++;
                 }
-              } catch (error) {
-                if (error.name === "AbortError") throw error;
-                log("error", `[TMDB] \u5904\u7406\u7ED3\u679C\u5931\u8D25: ${error.message}`);
+              } catch (error2) {
+                if (error2.name === "AbortError") throw error2;
+                log("error", `[TMDB] \u5904\u7406\u7ED3\u679C\u5931\u8D25: ${error2.message}`);
                 chineseTitle = resultTitle;
               }
             } else {
@@ -3841,15 +3841,15 @@ async function getTmdbJaOriginalTitle(title, signal = null, sourceLabel = "Unkno
           log("info", `[TMDB] \u627E\u5230\u65E5\u8BED\u539F\u540D: ${jaOriginalTitle}`);
         }
         return { title: jaOriginalTitle, cnAlias: bestMatchChineseTitle };
-      } catch (error) {
-        if (error.name === "AbortError") {
+      } catch (error2) {
+        if (error2.name === "AbortError") {
           log("info", `[TMDB] \u540E\u53F0\u641C\u7D22\u4EFB\u52A1\u5DF2\u5B8C\u5168\u7EC8\u6B62 (${cleanTitle})`);
           return null;
         }
         log("error", "[TMDB] Background Search error:", {
-          message: error.message,
-          name: error.name,
-          stack: error.stack
+          message: error2.message,
+          name: error2.name,
+          stack: error2.stack
         });
         return null;
       }
@@ -3892,12 +3892,12 @@ async function getTmdbJaOriginalTitle(title, signal = null, sourceLabel = "Unkno
       }
     });
     return await Promise.race([task.promise, userAbortPromise]);
-  } catch (error) {
-    if (error.name === "AbortError") {
+  } catch (error2) {
+    if (error2.name === "AbortError") {
       log("info", `[TMDB] \u641C\u7D22\u5DF2\u88AB\u4E2D\u65AD (Source: ${sourceLabel})`);
       return null;
     }
-    log("error", `[TMDB] \u641C\u7D22\u5F02\u5E38: ${error.message}`);
+    log("error", `[TMDB] \u641C\u7D22\u5F02\u5E38: ${error2.message}`);
     return null;
   }
 }
@@ -6055,11 +6055,11 @@ var Kan360Source = class extends BaseSource {
         return aNum - bNum;
       });
       return links;
-    } catch (error) {
+    } catch (error2) {
       log("error", "get360Animes error:", {
-        message: error.message,
-        name: error.name,
-        stack: error.stack
+        message: error2.message,
+        name: error2.name,
+        stack: error2.stack
       });
       return [];
     }
@@ -6083,11 +6083,11 @@ var Kan360Source = class extends BaseSource {
       }
       log("info", `360kan animes.length: ${tmpAnimes.length}`);
       return tmpAnimes;
-    } catch (error) {
+    } catch (error2) {
       log("error", "get360Animes error:", {
-        message: error.message,
-        name: error.name,
-        stack: error.stack
+        message: error2.message,
+        name: error2.name,
+        stack: error2.stack
       });
       return [];
     }
@@ -6158,8 +6158,8 @@ var Kan360Source = class extends BaseSource {
           addAnime({ ...transformedAnime, links });
           if (globals.animes.length > globals.MAX_ANIMES) removeEarliestAnime();
         }
-      } catch (error) {
-        log("error", `[360kan] Error processing anime: ${error.message}`);
+      } catch (error2) {
+        log("error", `[360kan] Error processing anime: ${error2.message}`);
       }
     }));
     this.sortAndPushAnimesByYear(tmpAnimes, curAnimes);
@@ -6195,11 +6195,11 @@ var VodSource = class extends BaseSource {
         log("info", `\u8BF7\u6C42 ${serverName}(${server}) \u6210\u529F\uFF0C\u4F46 response.data.list \u4E3A\u7A7A`);
         return { serverName, list: [] };
       }
-    } catch (error) {
+    } catch (error2) {
       log("error", `\u8BF7\u6C42 ${serverName}(${server}) \u5931\u8D25:`, {
-        message: error.message,
-        name: error.name,
-        stack: error.stack
+        message: error2.message,
+        name: error2.name,
+        stack: error2.stack
       });
       return { serverName, list: [] };
     }
@@ -6317,8 +6317,8 @@ var VodSource = class extends BaseSource {
           addAnime({ ...transformedAnime, links });
           if (globals.animes.length > globals.MAX_ANIMES) removeEarliestAnime();
         }
-      } catch (error) {
-        log("error", `[VOD] Error processing anime: ${error.message}`);
+      } catch (error2) {
+        log("error", `[VOD] Error processing anime: ${error2.message}`);
       }
     }));
     this.sortAndPushAnimesByYear(tmpAnimes, curAnimes);
@@ -6344,11 +6344,11 @@ async function doubanApiGet(url) {
     });
     if (response.status != 200) return null;
     return response;
-  } catch (error) {
+  } catch (error2) {
     log("error", "[DOUBAN] GET API error:", {
-      message: error.message,
-      name: error.name,
-      stack: error.stack
+      message: error2.message,
+      name: error2.name,
+      stack: error2.stack
     });
     return null;
   }
@@ -6370,11 +6370,11 @@ async function doubanApiPost(url, data = {}) {
     );
     if (response.status != 200) return null;
     return response;
-  } catch (error) {
+  } catch (error2) {
     log("error", "[DOUBAN] POST API error:", {
-      message: error.message,
-      name: error.name,
-      stack: error.stack
+      message: error2.message,
+      name: error2.name,
+      stack: error2.stack
     });
     return null;
   }
@@ -6405,11 +6405,11 @@ async function imdbApiGet(url) {
     });
     if (response.status != 200) return null;
     return response;
-  } catch (error) {
+  } catch (error2) {
     log("error", "[IMDB] API error:", {
-      message: error.message,
-      name: error.name,
-      stack: error.stack
+      message: error2.message,
+      name: error2.name,
+      stack: error2.stack
     });
     return null;
   }
@@ -6468,18 +6468,18 @@ var TmdbSource = class extends BaseSource {
               finalImdbId = episodes.data?.episodes.find((ep) => ep.episodeNumber === 1)?.id ?? "";
             }
             await this._getDoubanInfo(finalImdbId, mediaType, doubanIds);
-          } catch (error) {
-            log("error", `\u5904\u7406\u7B2C ${season.season} \u5B63\u5931\u8D25\uFF0C\u7EE7\u7EED\u6267\u884C\u5176\u4ED6\u5B63:`, error);
+          } catch (error2) {
+            log("error", `\u5904\u7406\u7B2C ${season.season} \u5B63\u5931\u8D25\uFF0C\u7EE7\u7EED\u6267\u884C\u5176\u4ED6\u5B63:`, error2);
           }
         });
         await Promise.all(seasonPromises);
       }
       return doubanIds;
-    } catch (error) {
+    } catch (error2) {
       log("error", "getTmdbIds error:", {
-        message: error.message,
-        name: error.name,
-        stack: error.stack
+        message: error2.message,
+        name: error2.name,
+        stack: error2.stack
       });
       return [];
     }
@@ -6498,19 +6498,19 @@ var TmdbSource = class extends BaseSource {
         try {
           const doubanIds = await this.getDoubanIdByTmdbId(tmdbItem.media_type, tmdbItem.id);
           return doubanIds;
-        } catch (error) {
-          log("error", `\u83B7\u53D6 TMDB ID ${tmdbItem.id} \u7684\u8C46\u74E3 ID \u5931\u8D25\uFF0C\u7EE7\u7EED\u5904\u7406\u5176\u4ED6\u6761\u76EE:`, error);
+        } catch (error2) {
+          log("error", `\u83B7\u53D6 TMDB ID ${tmdbItem.id} \u7684\u8C46\u74E3 ID \u5931\u8D25\uFF0C\u7EE7\u7EED\u5904\u7406\u5176\u4ED6\u6761\u76EE:`, error2);
           return [];
         }
       });
       const doubanResults = await Promise.all(doubanPromises);
       tmpAnimes = [...tmpAnimes, ...doubanResults.flat()];
       return tmpAnimes;
-    } catch (error) {
+    } catch (error2) {
       log("error", "getTmdbAnimes error:", {
-        message: error.message,
-        name: error.name,
-        stack: error.stack
+        message: error2.message,
+        name: error2.name,
+        stack: error2.stack
       });
       return [];
     }
@@ -6549,11 +6549,11 @@ var DoubanSource = class extends BaseSource {
       }
       log("info", `douban animes.length: ${tmpAnimes.length}`);
       return tmpAnimes;
-    } catch (error) {
+    } catch (error2) {
       log("error", "getDoubanAnimes error:", {
-        message: error.message,
-        name: error.name,
-        stack: error.stack
+        message: error2.message,
+        name: error2.name,
+        stack: error2.stack
       });
       return [];
     }
@@ -6665,8 +6665,8 @@ var DoubanSource = class extends BaseSource {
           }
         }
         return results;
-      } catch (error) {
-        log("error", `[Douban] Error processing anime: ${error.message}`);
+      } catch (error2) {
+        log("error", `[Douban] Error processing anime: ${error2.message}`);
         return [];
       }
     }));
@@ -6835,8 +6835,8 @@ var RenrenSource = class extends BaseSource {
         // 列表页不返回总集数
         currentEpisodeIndex: null
       }));
-    } catch (error) {
-      log("info", "[Renren] searchAppContent error:", error.message);
+    } catch (error2) {
+      log("info", "[Renren] searchAppContent error:", error2.message);
       return [];
     }
   }
@@ -6885,8 +6885,8 @@ var RenrenSource = class extends BaseSource {
       }
       log("info", `[Renren] TV\u8BE6\u60C5\u83B7\u53D6\u6210\u529F: ID=${dramaId}, \u5305\u542B\u96C6\u6570=${resData.data.episodeList.length}`);
       return resData;
-    } catch (error) {
-      log("info", "[Renren] getAppDramaDetail error:", error.message);
+    } catch (error2) {
+      log("info", "[Renren] getAppDramaDetail error:", error2.message);
       return null;
     }
   }
@@ -6917,8 +6917,8 @@ var RenrenSource = class extends BaseSource {
       if (Array.isArray(data)) return data;
       if (data && data.data && Array.isArray(data.data)) return data.data;
       return [];
-    } catch (error) {
-      log("info", "[Renren] getAppDanmu error:", error.message);
+    } catch (error2) {
+      log("info", "[Renren] getAppDanmu error:", error2.message);
       return null;
     }
   }
@@ -6964,8 +6964,8 @@ var RenrenSource = class extends BaseSource {
         episodeCount: item.episodeTotal,
         currentEpisodeIndex: null
       }));
-    } catch (error) {
-      log("info", "[Renren] performNetworkSearch error:", error.message);
+    } catch (error2) {
+      log("info", "[Renren] performNetworkSearch error:", error2.message);
       return [];
     }
   }
@@ -7083,8 +7083,8 @@ var RenrenSource = class extends BaseSource {
                 removeEarliestAnime();
               }
             }
-          } catch (error) {
-            log("info", `[Renren] Error processing anime: ${error.message}`);
+          } catch (error2) {
+            log("info", `[Renren] Error processing anime: ${error2.message}`);
           }
         })
       );
@@ -7286,6 +7286,9 @@ var HANJUTV_UK_KEY = "f349wghhe784tqwh";
 var HANJUTV_UK_IV = "d3w8hf94fidk38lk";
 var HANJUTV_RESPONSE_SECRET = "34F9Q53w/HJW8E6Q";
 var UID_CHARSET = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
+var UK_KEY = "f349wghhe784tqwh";
+var UK_IV = "d3w8hf94fidk38lk";
+var SAID = "fb3597b87601d5a7";
 var SBOX2 = [
   99,
   124,
@@ -7783,6 +7786,11 @@ function createHanjutvUid(length = 20) {
   for (let i = 0; i < length; i++) uid += UID_CHARSET[randomInt(UID_CHARSET.length)];
   return uid;
 }
+function randomFrom(chars, len) {
+  let s = "";
+  for (let i = 0; i < len; i++) s += chars[Math.floor(Math.random() * chars.length)];
+  return s;
+}
 async function createHanjutvSearchHeaders(uid, timestamp = Date.now()) {
   const ts = Number(timestamp);
   const uidMd5 = md5(uid);
@@ -7801,6 +7809,62 @@ async function createHanjutvSearchHeaders(uid, timestamp = Date.now()) {
     "auth-token": "",
     "Accept-Encoding": "gzip",
     Connection: "Keep-Alive"
+  };
+}
+async function buildLiteHeaders(sessionInitTs = Date.now()) {
+  const uid = randomFrom("0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz", 20);
+  const oa = randomFrom("0123456789abcdef", 16);
+  return async function makeHeaders(reqTs = Date.now()) {
+    const uidMd5 = md5(uid);
+    const rpPayload = JSON.stringify({
+      emu: 0,
+      ou: 0,
+      it: sessionInitTs,
+      iit: sessionInitTs,
+      bs: 0,
+      uid,
+      isp: "",
+      pc: 0,
+      tm: 50,
+      d8m: "0,0,0,0,0,0,14,7",
+      md: "23127PN0CC",
+      dn: "",
+      osv: "16",
+      br: 50,
+      rpc: 0,
+      scc: 1,
+      plc: 1,
+      toc: 5,
+      tsc: 7,
+      ts: reqTs,
+      nw: 2,
+      px: "0",
+      ai: SAID,
+      oa,
+      dpc: 0,
+      dsc: 0,
+      qpc: 0,
+      apad: 0
+    });
+    const di = await aesCbcEncryptToBase64(uid, UK_KEY, UK_IV);
+    const rp = await aesCbcEncryptToBase64(rpPayload, uidMd5.slice(0, 16), uidMd5.slice(16, 32));
+    return {
+      uid,
+      headers: {
+        version: "a_22570",
+        "version-name": "1.7.2",
+        channel: "xiaomi",
+        "app-type": "ztv",
+        "User-Agent": "ZTV/1.7.2 (23127PN0CC; Android 16; Scale/2.00)",
+        said: SAID,
+        di,
+        token: "",
+        uid: "",
+        rp,
+        "Accept-Encoding": "gzip",
+        Connection: "Keep-Alive"
+      }
+    };
   };
 }
 async function decodeHanjutvEncryptedPayload(payload, uid = "") {
@@ -7824,6 +7888,7 @@ var HanjutvSource = class extends BaseSource {
     super();
     this.webHost = "https://hxqapi.hiyun.tv";
     this.appHost = "https://hxqapi.hiyun.tv";
+    this.tvHost = "https://api.xiawen.tv";
     this.oldDanmuHost = "https://hxqapi.zmdcq.com";
     this.defaultRefer = "2JGztvGjRVpkxcr0T4ZWG2k+tOlnHmDGUNMwAGSeq548YV2FMbs0h0bXNi6DJ00L";
     this.webUserAgent = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36";
@@ -7882,7 +7947,7 @@ var HanjutvSource = class extends BaseSource {
     }).filter(Boolean).sort((a, b) => a.serialNo - b.serialNo);
   }
   extractSearchItems(data) {
-    const list = data?.seriesData?.seriesList || data?.seriesList || [];
+    const list = data?.seriesData?.seriesList || data?.seriesList || data?.seriesData?.series || [];
     return this.normalizeSearchItems(list);
   }
   dedupeBySid(items = []) {
@@ -7958,8 +8023,8 @@ var HanjutvSource = class extends BaseSource {
       let decoded;
       try {
         decoded = await decodeHanjutvEncryptedPayload(payload, uid);
-      } catch (error) {
-        throw new Error(`s5 \u54CD\u5E94\u89E3\u5BC6\u5931\u8D25: ${error.message}`);
+      } catch (error2) {
+        throw new Error(`s5 \u54CD\u5E94\u89E3\u5BC6\u5931\u8D25: ${error2.message}`);
       }
       const items = this.extractSearchItems(decoded);
       if (items.length === 0) throw new Error("s5 \u89E3\u5BC6\u540E\u65E0\u6709\u6548\u7ED3\u679C");
@@ -7981,18 +8046,49 @@ var HanjutvSource = class extends BaseSource {
     });
     return this.extractSearchItems(resp?.data);
   }
+  async searchWithTvApi(keyword) {
+    const q = encodeURIComponent(keyword);
+    const makeHeaders = await buildLiteHeaders(Date.now());
+    const headerInfo = await makeHeaders(Date.now());
+    const headers = headerInfo.headers;
+    const resp = await Widget.http.get(`https://api.xiawen.tv/api/v1/aggregate/search?key=${q}&scope=101&page=1`, {
+      headers,
+      timeout: 1e4,
+      retries: 1
+    });
+    const payload = resp?.data;
+    if (!payload || typeof payload !== "object") {
+      throw new Error("tv \u54CD\u5E94\u4E3A\u7A7A");
+    }
+    if (typeof payload.data === "string" && payload.data.length > 0) {
+      let decoded;
+      try {
+        decoded = await decodeHanjutvEncryptedPayload(payload, headerInfo.uid);
+      } catch (error2) {
+        throw new Error(`tv \u54CD\u5E94\u89E3\u5BC6\u5931\u8D25: ${error2.message}`);
+      }
+      const items = this.extractSearchItems(decoded);
+      if (items.length === 0) throw new Error("tv \u89E3\u5BC6\u540E\u65E0\u6709\u6548\u7ED3\u679C");
+      return items;
+    }
+    const plainItems = this.extractSearchItems(payload);
+    if (plainItems.length === 0) throw new Error("tv \u65E0\u6709\u6548\u7ED3\u679C");
+    return plainItems;
+  }
   async search(keyword) {
     try {
       const key = String(keyword || "").trim();
       if (!key) return [];
       let s5List = [];
       let webList = [];
+      let tvList = [];
       let s5Error = null;
+      let webError = null;
       try {
         s5List = await this.searchWithS5Api(key);
-      } catch (error) {
-        s5Error = error;
-        log("warn", `[Hanjutv] s5 \u641C\u7D22\u5931\u8D25\uFF0C\u964D\u7EA7\u65E7\u63A5\u53E3: ${error.message}`);
+      } catch (error2) {
+        s5Error = error2;
+        log("warn", `[Hanjutv] s5 \u641C\u7D22\u5931\u8D25\uFF0C\u964D\u7EA7\u65E7\u63A5\u53E3: ${error2.message}`);
       }
       const s5MatchedCount = this.countMatchedItems(s5List, key);
       const needLegacySearch = s5List.length === 0 || s5MatchedCount === 0;
@@ -8002,13 +8098,27 @@ var HanjutvSource = class extends BaseSource {
         }
         try {
           webList = await this.searchWithLegacyApi(key);
-        } catch (error) {
-          log("warn", `[Hanjutv] \u65E7\u641C\u7D22\u63A5\u53E3\u5931\u8D25: ${error.message}`);
+        } catch (error2) {
+          webError = error2;
+          log("warn", `[Hanjutv] \u65E7\u641C\u7D22\u63A5\u53E3\u5931\u8D25: ${error2.message}`);
+        }
+        const webMatchedCount = this.countMatchedItems(webList, key);
+        const needTvSearch = webList.length === 0 || webMatchedCount === 0;
+        if (needTvSearch) {
+          if (!webError && webList.length > 0 && webMatchedCount === 0) {
+            log("warn", `[Hanjutv] web \u8FD4\u56DE ${webList.length} \u6761\u4F46\u6807\u9898\u96F6\u547D\u4E2D\uFF0C\u89E6\u53D1 TV \u8865\u507F\u68C0\u7D22`);
+          }
+          try {
+            log("info", `[Hanjutv] \u5C1D\u8BD5TV\u7AEF\u641C\u7D22\u63A5\u53E3\u4F5C\u4E3A\u964D\u7EA7\u65B9\u6848`);
+            tvList = await this.searchWithTvApi(key);
+          } catch (tvError) {
+            log("warn", `[Hanjutv] TV\u7AEF\u641C\u7D22\u63A5\u53E3\u4E5F\u5931\u8D25: ${tvError.message}`);
+          }
         }
       }
-      const { resultList, stats } = this.mergeSearchCandidates(key, s5List, webList);
+      const { resultList, stats } = this.mergeSearchCandidates(key, s5List, [...webList, ...tvList]);
       if (resultList.length === 0) {
-        log("info", "hanjutvSearchresp: s5 \u4E0E\u65E7\u63A5\u53E3\u5747\u65E0\u6709\u6548\u7ED3\u679C");
+        log("info", "hanjutvSearchresp: s5\u3001\u65E7\u63A5\u53E3\u548CTV\u7AEF\u63A5\u53E3\u5747\u65E0\u6709\u6548\u7ED3\u679C");
         return [];
       }
       log("info", `[Hanjutv] \u641C\u7D22\u5019\u9009\u7EDF\u8BA1 s5MatchedList=${JSON.stringify(stats.s5MatchedList)}, s5UnmatchedList=${JSON.stringify(stats.s5UnmatchedList)}, webMatchedList=${JSON.stringify(stats.webMatchedList)}, webMatchedList=${JSON.stringify(stats.webUnmatchedList)}`);
@@ -8018,11 +8128,11 @@ var HanjutvSource = class extends BaseSource {
         const animeId = convertToAsciiSum(anime.sid);
         return { ...anime, animeId };
       });
-    } catch (error) {
+    } catch (error2) {
       log("error", "getHanjutvAnimes error:", {
-        message: error.message,
-        name: error.name,
-        stack: error.stack
+        message: error2.message,
+        name: error2.name,
+        stack: error2.stack
       });
       return [];
     }
@@ -8053,15 +8163,35 @@ var HanjutvSource = class extends BaseSource {
         }
       }
       if (!detail) {
+        const makeHeaders = await buildLiteHeaders(Date.now());
+        const headerInfo = await makeHeaders(Date.now());
+        const headers = headerInfo.headers;
+        try {
+          const tvResp = await Widget.http.get(`${this.tvHost}/api/v1/series/detail/query?sid=${sid}`, {
+            headers,
+            timeout: 1e4,
+            retries: 1
+          });
+          const decoded = await decodeHanjutvEncryptedPayload(tvResp?.data, headerInfo.uid);
+          detail = decoded?.series || null;
+        } catch (error2) {
+          log("error", "getHanjutvDetail error:", {
+            message: error2.message,
+            name: error2.name,
+            stack: error2.stack
+          });
+        }
+      }
+      if (!detail) {
         log("info", "getHanjutvDetail: series \u4E0D\u5B58\u5728");
         return [];
       }
       return detail;
-    } catch (error) {
+    } catch (error2) {
       log("error", "getHanjutvDetail error:", {
-        message: error.message,
-        name: error.name,
-        stack: error.stack
+        message: error2.message,
+        name: error2.name,
+        stack: error2.stack
       });
       return [];
     }
@@ -8122,15 +8252,35 @@ var HanjutvSource = class extends BaseSource {
         }
       }
       if (episodes.length === 0) {
+        const makeHeaders = await buildLiteHeaders(Date.now());
+        const headerInfo = await makeHeaders(Date.now());
+        const headers = headerInfo.headers;
+        try {
+          const tvResp = await Widget.http.get(`${this.tvHost}/api/v1/series/detail/query?sid=${sid}`, {
+            headers,
+            timeout: 1e4,
+            retries: 1
+          });
+          const decoded = await decodeHanjutvEncryptedPayload(tvResp?.data, headerInfo.uid);
+          episodes = this.normalizeEpisodes(decoded?.episodes || []);
+        } catch {
+          log("error", "getHanjutvDetail episodes:", {
+            message: error.message,
+            name: error.name,
+            stack: error.stack
+          });
+        }
+      }
+      if (episodes.length === 0) {
         log("info", "getHanjutvEposides: episodes \u4E0D\u5B58\u5728");
         return [];
       }
       return episodes.sort((a, b) => a.serialNo - b.serialNo);
-    } catch (error) {
+    } catch (error2) {
       log("error", "getHanjutvEposides error:", {
-        message: error.message,
-        name: error.name,
-        stack: error.stack
+        message: error2.message,
+        name: error2.name,
+        stack: error2.stack
       });
       return [];
     }
@@ -8177,8 +8327,8 @@ var HanjutvSource = class extends BaseSource {
             addAnime({ ...transformedAnime, links });
             if (globals.animes.length > globals.MAX_ANIMES) removeEarliestAnime();
           }
-        } catch (error) {
-          log("error", `[Hanjutv] Error processing anime: ${error.message}`);
+        } catch (error2) {
+          log("error", `[Hanjutv] Error processing anime: ${error2.message}`);
         }
       })
     );
@@ -8187,8 +8337,11 @@ var HanjutvSource = class extends BaseSource {
   }
   async getEpisodeDanmu(id) {
     let allDanmus = [];
+    let prevId = 0;
     let fromAxis = 0;
+    let pageCount = 0;
     const maxAxis = 1e8;
+    const maxPages = 120;
     try {
       while (fromAxis < maxAxis) {
         const resp = await Widget.http.get(`https://hxqapi.zmdcq.com/api/danmu/playItem/list?fromAxis=${fromAxis}&pid=${id}&toAxis=${maxAxis}`, {
@@ -8210,12 +8363,43 @@ var HanjutvSource = class extends BaseSource {
         }
         fromAxis = nextAxis;
       }
+      if (allDanmus.length === 0) {
+        while (fromAxis < maxAxis && pageCount < maxPages) {
+          const makeHeaders = await buildLiteHeaders(Date.now());
+          const headerInfo = await makeHeaders(Date.now());
+          const headers = headerInfo.headers;
+          try {
+            const tvResp = await Widget.http.get(`${this.tvHost}/api/v1/bulletchat/episode/get?eid=${id}&prevId=${prevId}&fromAxis=${fromAxis}&toAxis=${maxAxis}&offset=0`, {
+              headers,
+              timeout: 1e4,
+              retries: 1
+            });
+            const data = await decodeHanjutvEncryptedPayload(tvResp?.data, headerInfo.uid);
+            pageCount += 1;
+            allDanmus.push(...data.bulletchats);
+            const hasMore = Number(data.more ?? 0) === 1 || data.more === true || data.more === "1";
+            const nextAxis = Number(data.nextAxis ?? maxAxis);
+            const lastId = Number(data.lastId ?? prevId);
+            if (Number.isFinite(lastId) && lastId > prevId) prevId = lastId;
+            if (!Number.isFinite(nextAxis) || nextAxis <= fromAxis) break;
+            if (nextAxis >= maxAxis) break;
+            fromAxis = nextAxis;
+            if (!hasMore) prevId = 0;
+          } catch {
+            log("error", "fetchHanjutvEpisodeDanmu:", {
+              message: error.message,
+              name: error.name,
+              stack: error.stack
+            });
+          }
+        }
+      }
       return allDanmus;
-    } catch (error) {
+    } catch (error2) {
       log("error", "fetchHanjutvEpisodeDanmu error:", {
-        message: error.message,
-        name: error.name,
-        stack: error.stack
+        message: error2.message,
+        name: error2.name,
+        stack: error2.stack
       });
       return allDanmus;
     }
@@ -8282,11 +8466,11 @@ var BahamutSource = class extends BaseSource {
           }
           log("info", `[Bahamut] \u539F\u59CB\u641C\u7D22\u6210\u529F\uFF0C\u4F46\u672A\u8FD4\u56DE\u4EFB\u4F55\u7ED3\u679C (source: original)`);
           return { success: false, source: "original" };
-        } catch (error) {
+        } catch (error2) {
           log("error", "[Bahamut] \u539F\u59CB\u641C\u7D22\u5931\u8D25:", {
-            message: error.message,
-            name: error.name,
-            stack: error.stack
+            message: error2.message,
+            name: error2.name,
+            stack: error2.stack
           });
           return { success: false, source: "original" };
         }
@@ -8327,12 +8511,12 @@ var BahamutSource = class extends BaseSource {
           }
           log("info", `[Bahamut] \u65E5\u8BED\u539F\u540D\u641C\u7D22\u6210\u529F\uFF0C\u4F46\u672A\u8FD4\u56DE\u4EFB\u4F55\u7ED3\u679C (source: tmdb)`);
           return { success: false, source: "tmdb" };
-        } catch (error) {
-          if (error.name === "AbortError") {
+        } catch (error2) {
+          if (error2.name === "AbortError") {
             log("info", "[Bahamut] \u539F\u59CB\u641C\u7D22\u6210\u529F\uFF0C\u4E2D\u65AD\u65E5\u8BED\u539F\u540D\u641C\u7D22");
             return { success: false, source: "tmdb", aborted: true };
           }
-          throw error;
+          throw error2;
         }
       })();
       const [originalResult, tmdbResult] = await Promise.all([
@@ -8347,11 +8531,11 @@ var BahamutSource = class extends BaseSource {
       }
       log("info", "[Bahamut] \u539F\u59CB\u641C\u7D22\u548C\u57FA\u4E8ETMDB\u7684\u641C\u7D22\u5747\u672A\u8FD4\u56DE\u4EFB\u4F55\u7ED3\u679C");
       return [];
-    } catch (error) {
+    } catch (error2) {
       log("error", "getBahamutAnimes error:", {
-        message: error.message,
-        name: error.name,
-        stack: error.stack
+        message: error2.message,
+        name: error2.name,
+        stack: error2.stack
       });
       return [];
     }
@@ -8376,11 +8560,11 @@ var BahamutSource = class extends BaseSource {
       }
       log("info", `getBahamutEposides: ${JSON.stringify(resp.data.data)}`);
       return resp.data.data;
-    } catch (error) {
+    } catch (error2) {
       log("error", "getBahamutEposides error:", {
-        message: error.message,
-        name: error.name,
-        stack: error.stack
+        message: error2.message,
+        name: error2.name,
+        stack: error2.stack
       });
       return [];
     }
@@ -8462,10 +8646,17 @@ var BahamutSource = class extends BaseSource {
         if (links.length > 0) {
           let yearMatch = (anime.info || "").match(/(\d{4})/);
           const displayTitle = anime._displayTitle || simplized(anime.title);
+          let itemType = "\u52A8\u6F2B";
+          const fullTitle = epData.anime && epData.anime.title || detail && detail.title || "";
+          if (fullTitle.includes("[\u96FB\u5F71]")) {
+            itemType = "\u5267\u573A\u7248";
+          } else if (fullTitle.includes("[\u7279\u5225\u7BC7]")) {
+            itemType = "OVA";
+          }
           let transformedAnime = {
             animeId: anime.video_sn,
             bangumiId: String(anime.video_sn),
-            animeTitle: `${displayTitle}(${(anime.info.match(/(\d{4})/) || [null])[0]})\u3010\u52A8\u6F2B\u3011from bahamut`,
+            animeTitle: `${displayTitle}(${(anime.info.match(/(\d{4})/) || [null])[0]})\u3010${itemType}\u3011from bahamut`,
             type: "\u52A8\u6F2B",
             typeDescription: "\u52A8\u6F2B",
             imageUrl: anime.cover,
@@ -8479,8 +8670,8 @@ var BahamutSource = class extends BaseSource {
           addAnime({ ...transformedAnime, links });
           if (globals.animes.length > globals.MAX_ANIMES) removeEarliestAnime();
         }
-      } catch (error) {
-        log("error", `[Bahamut] Error processing anime: ${error.message}`);
+      } catch (error2) {
+        log("error", `[Bahamut] Error processing anime: ${error2.message}`);
       }
     }));
     this.sortAndPushAnimesByYear(tmpAnimes, curAnimes);
@@ -8502,11 +8693,11 @@ var BahamutSource = class extends BaseSource {
         danmus = resp.data.data.danmu;
       }
       return danmus;
-    } catch (error) {
+    } catch (error2) {
       log("error", "fetchBahamutEpisodeDanmu error:", {
-        message: error.message,
-        name: error.name,
-        stack: error.stack
+        message: error2.message,
+        name: error2.name,
+        stack: error2.stack
       });
       return danmus;
     }
@@ -8565,11 +8756,11 @@ var DandanSource = class extends BaseSource {
           log("info", `dandanSearchresp (original): ${JSON.stringify(animes)}`);
           log("info", `[Dandan] \u8FD4\u56DE ${animes.length} \u6761\u7ED3\u679C (source: original)`);
           return { success: true, data: animes, source: "original" };
-        } catch (error) {
+        } catch (error2) {
           log("error", "getDandanAnimes error:", {
-            message: error.message,
-            name: error.name,
-            stack: error.stack
+            message: error2.message,
+            name: error2.name,
+            stack: error2.stack
           });
           return { success: false, source: "original" };
         }
@@ -8603,12 +8794,12 @@ var DandanSource = class extends BaseSource {
           log("info", `dandanSearchresp (tmdb): ${JSON.stringify(animes)}`);
           log("info", `[Dandan] \u8FD4\u56DE ${animes.length} \u6761\u7ED3\u679C (source: tmdb)`);
           return { success: true, data: animes, source: "tmdb" };
-        } catch (error) {
-          if (error.name === "AbortError") {
+        } catch (error2) {
+          if (error2.name === "AbortError") {
             log("info", "[Dandan] \u539F\u59CB\u641C\u7D22\u6210\u529F\uFF0C\u4E2D\u65AD\u65E5\u8BED\u539F\u540D\u641C\u7D22");
             return { success: false, source: "tmdb", aborted: true };
           }
-          throw error;
+          throw error2;
         }
       })();
       const [originalResult, tmdbResult] = await Promise.all([
@@ -8623,11 +8814,11 @@ var DandanSource = class extends BaseSource {
       }
       log("info", "[Dandan] \u539F\u59CB\u641C\u7D22\u548C\u57FA\u4E8ETMDB\u7684\u641C\u7D22\u5747\u672A\u8FD4\u56DE\u4EFB\u4F55\u7ED3\u679C");
       return [];
-    } catch (error) {
+    } catch (error2) {
       log("error", "getDandanAnimes error:", {
-        message: error.message,
-        name: error.name,
-        stack: error.stack
+        message: error2.message,
+        name: error2.name,
+        stack: error2.stack
       });
       return [];
     }
@@ -8658,11 +8849,11 @@ var DandanSource = class extends BaseSource {
       const imageUrl = bangumiData.imageUrl || null;
       log("info", `getDandanEposides: ${JSON.stringify(resp.data.bangumi.episodes)}`);
       return { episodes, titles, relateds, type, typeDescription, imageUrl };
-    } catch (error) {
+    } catch (error2) {
       log("error", "getDandanEposides error:", {
-        message: error.message,
-        name: error.name,
-        stack: error.stack
+        message: error2.message,
+        name: error2.name,
+        stack: error2.stack
       });
       return { episodes: [], titles: [], relateds: [], type: null, typeDescription: null, imageUrl: null };
     }
@@ -8747,8 +8938,8 @@ var DandanSource = class extends BaseSource {
             addAnime({ ...transformedAnime, links });
             if (globals.animes.length > globals.MAX_ANIMES) removeEarliestAnime();
           }
-        } catch (error) {
-          log("error", `[Dandan] Error processing anime: ${error.message}`);
+        } catch (error2) {
+          log("error", `[Dandan] Error processing anime: ${error2.message}`);
         }
       }));
     }
@@ -8769,11 +8960,11 @@ var DandanSource = class extends BaseSource {
         allDanmus = resp.data.comments;
       }
       return allDanmus;
-    } catch (error) {
+    } catch (error2) {
       log("error", "fetchDandanEpisodeDanmu error:", {
-        message: error.message,
-        name: error.name,
-        stack: error.stack
+        message: error2.message,
+        name: error2.name,
+        stack: error2.stack
       });
       return allDanmus;
     }
@@ -8829,11 +9020,11 @@ var CustomSource = class extends BaseSource {
       }
       log("info", `[Custom] \u641C\u7D22\u627E\u5230 ${resp.data.animes.length} \u4E2A\u6709\u6548\u7ED3\u679C`);
       return resp.data.animes;
-    } catch (error) {
+    } catch (error2) {
       log("error", "getCustomSourceAnimes error:", {
-        message: error.message,
-        name: error.name,
-        stack: error.stack
+        message: error2.message,
+        name: error2.name,
+        stack: error2.stack
       });
       return [];
     }
@@ -8856,11 +9047,11 @@ var CustomSource = class extends BaseSource {
       }
       log("info", `getCustomSourceEposides: ${JSON.stringify(resp.data.bangumi.episodes)}`);
       return resp.data.bangumi.episodes;
-    } catch (error) {
+    } catch (error2) {
       log("error", "getCustomSourceEposides error:", {
-        message: error.message,
-        name: error.name,
-        stack: error.stack
+        message: error2.message,
+        name: error2.name,
+        stack: error2.stack
       });
       return [];
     }
@@ -8902,8 +9093,8 @@ var CustomSource = class extends BaseSource {
             addAnime({ ...transformedAnime, links });
             if (globals.animes.length > globals.MAX_ANIMES) removeEarliestAnime();
           }
-        } catch (error) {
-          log("error", `[Custom Source] Error processing anime: ${error.message}`);
+        } catch (error2) {
+          log("error", `[Custom Source] Error processing anime: ${error2.message}`);
         }
       })
     );
@@ -8924,11 +9115,11 @@ var CustomSource = class extends BaseSource {
         allDanmus = resp.data.comments;
       }
       return allDanmus;
-    } catch (error) {
+    } catch (error2) {
       log("error", "fetchCustomSourceEpisodeDanmu error:", {
-        message: error.message,
-        name: error.name,
-        stack: error.stack
+        message: error2.message,
+        name: error2.name,
+        stack: error2.stack
       });
       return allDanmus;
     }
@@ -9094,8 +9285,8 @@ var TencentSource = class extends BaseSource {
       }
       log("info", `[Tencent] \u641C\u7D22\u627E\u5230 ${results.length} \u4E2A\u6709\u6548\u7ED3\u679C`);
       return results;
-    } catch (error) {
-      log("error", "[Tencent] \u641C\u7D22\u51FA\u9519:", error.message);
+    } catch (error2) {
+      log("error", "[Tencent] \u641C\u7D22\u51FA\u9519:", error2.message);
       return [];
     }
   }
@@ -9223,8 +9414,8 @@ var TencentSource = class extends BaseSource {
       }
       log("info", `[Tencent] \u5171\u83B7\u53D6 ${allEpisodes.length} \u96C6`);
       return allEpisodes;
-    } catch (error) {
-      log("error", "[Tencent] \u83B7\u53D6\u5206\u96C6\u51FA\u9519:", error.message);
+    } catch (error2) {
+      log("error", "[Tencent] \u83B7\u53D6\u5206\u96C6\u51FA\u9519:", error2.message);
       return [];
     }
   }
@@ -9268,8 +9459,8 @@ var TencentSource = class extends BaseSource {
             addAnime({ ...transformedAnime, links });
             if (globals.animes.length > globals.MAX_ANIMES) removeEarliestAnime();
           }
-        } catch (error) {
-          log("error", `[Tencent] Error processing anime: ${error.message}`);
+        } catch (error2) {
+          log("error", `[Tencent] Error processing anime: ${error2.message}`);
         }
       })
     );
@@ -9303,8 +9494,8 @@ var TencentSource = class extends BaseSource {
           "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
         }
       });
-    } catch (error) {
-      log("error", "\u8BF7\u6C42\u9875\u9762\u5931\u8D25:", error);
+    } catch (error2) {
+      log("error", "\u8BF7\u6C42\u9875\u9762\u5931\u8D25:", error2);
       return [];
     }
     const titleMatch = res.data.match(/<title[^>]*>(.*?)<\/title>/i);
@@ -9341,8 +9532,8 @@ var TencentSource = class extends BaseSource {
         data = typeof data === "string" ? JSON.parse(data) : data;
         contents.push(...data.barrage_list);
       });
-    } catch (error) {
-      log("error", "\u89E3\u6790\u5F39\u5E55\u6570\u636E\u5931\u8D25:", error);
+    } catch (error2) {
+      log("error", "\u89E3\u6790\u5F39\u5E55\u6570\u636E\u5931\u8D25:", error2);
       return [];
     }
     printFirst200Chars(contents);
@@ -9362,14 +9553,14 @@ var TencentSource = class extends BaseSource {
           "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
         }
       });
-    } catch (error) {
-      if (error.response?.status === 404) {
+    } catch (error2) {
+      if (error2.response?.status === 404) {
         return new SegmentListResponse({
           "type": "qq",
           "segmentList": []
         });
       }
-      log("error", "\u8BF7\u6C42\u5F39\u5E55\u57FA\u7840\u6570\u636E\u5931\u8D25:", error);
+      log("error", "\u8BF7\u6C42\u5F39\u5E55\u57FA\u7840\u6570\u636E\u5931\u8D25:", error2);
       return new SegmentListResponse({
         "type": "qq",
         "segmentList": []
@@ -9412,8 +9603,8 @@ var TencentSource = class extends BaseSource {
         contents.push(...parsedData.barrage_list);
       }
       return contents;
-    } catch (error) {
-      log("error", "\u8BF7\u6C42\u5206\u7247\u5F39\u5E55\u5931\u8D25:", error);
+    } catch (error2) {
+      log("error", "\u8BF7\u6C42\u5206\u7247\u5F39\u5E55\u5931\u8D25:", error2);
       return [];
     }
   }
@@ -9523,8 +9714,8 @@ var _IqiyiSource = class _IqiyiSource extends BaseSource {
       }
       log("info", `[iQiyi] \u641C\u7D22\u627E\u5230 ${results.length} \u4E2A\u6709\u6548\u7ED3\u679C`);
       return results;
-    } catch (error) {
-      log("error", "[iQiyi] \u641C\u7D22\u51FA\u9519:", error.message);
+    } catch (error2) {
+      log("error", "[iQiyi] \u641C\u7D22\u51FA\u9519:", error2.message);
       return [];
     }
   }
@@ -9753,8 +9944,8 @@ var _IqiyiSource = class _IqiyiSource extends BaseSource {
               try {
                 const seasonResponse = await Widget.http.get(videosData);
                 videosData = typeof seasonResponse.data === "string" ? JSON.parse(seasonResponse.data) : seasonResponse.data;
-              } catch (error) {
-                log("error", `[iQiyi] \u83B7\u53D6\u5206\u5B63\u6570\u636E\u5931\u8D25: ${error.message}`);
+              } catch (error2) {
+                log("error", `[iQiyi] \u83B7\u53D6\u5206\u5B63\u6570\u636E\u5931\u8D25: ${error2.message}`);
                 continue;
               }
             }
@@ -9798,8 +9989,8 @@ var _IqiyiSource = class _IqiyiSource extends BaseSource {
       uniqueEpisodes.sort((a, b) => a.order - b.order);
       log("info", `[iQiyi] \u6210\u529F\u83B7\u53D6 ${uniqueEpisodes.length} \u4E2A\u5206\u96C6`);
       return uniqueEpisodes;
-    } catch (error) {
-      log("error", "[iQiyi] \u83B7\u53D6\u5206\u96C6\u51FA\u9519:", error.message);
+    } catch (error2) {
+      log("error", "[iQiyi] \u83B7\u53D6\u5206\u96C6\u51FA\u9519:", error2.message);
       return [];
     }
   }
@@ -9867,8 +10058,8 @@ var _IqiyiSource = class _IqiyiSource extends BaseSource {
       log("error", "[iQiyi] base_info API \u54CD\u5E94\u4E2D\u672A\u627E\u5230\u89C6\u9891ID");
       log("debug", `[iQiyi] \u54CD\u5E94\u6570\u636E\u7ED3\u6784: ${JSON.stringify(data).substring(0, 1e3)}...`);
       return null;
-    } catch (error) {
-      log("error", `[iQiyi] \u83B7\u53D6\u7535\u5F71\u89C6\u9891ID\u65F6\u51FA\u9519: ${error.message}`);
+    } catch (error2) {
+      log("error", `[iQiyi] \u83B7\u53D6\u7535\u5F71\u89C6\u9891ID\u65F6\u51FA\u9519: ${error2.message}`);
       return null;
     }
   }
@@ -9883,8 +10074,8 @@ var _IqiyiSource = class _IqiyiSource extends BaseSource {
       const xorResult = this._xorOperation(base36Decoded);
       const finalResult = xorResult < 9e5 ? 100 * (xorResult + 9e5) : xorResult;
       return String(finalResult);
-    } catch (error) {
-      log("error", `[iQiyi] \u5C06 video_id '${videoId}' \u8F6C\u6362\u4E3A entity_id \u65F6\u51FA\u9519: ${error.message}`);
+    } catch (error2) {
+      log("error", `[iQiyi] \u5C06 video_id '${videoId}' \u8F6C\u6362\u4E3A entity_id \u65F6\u51FA\u9519: ${error2.message}`);
       return null;
     }
   }
@@ -9983,8 +10174,8 @@ var _IqiyiSource = class _IqiyiSource extends BaseSource {
               removeEarliestAnime();
             }
           }
-        } catch (error) {
-          log("error", `[iQiyi] Error processing anime: ${error.message}`);
+        } catch (error2) {
+          log("error", `[iQiyi] Error processing anime: ${error2.message}`);
         }
       })
     );
@@ -10001,8 +10192,8 @@ var _IqiyiSource = class _IqiyiSource extends BaseSource {
           "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
         }
       });
-    } catch (error) {
-      log("error", "\u8BF7\u6C42\u9875\u9762\u5931\u8D25:", error);
+    } catch (error2) {
+      log("error", "\u8BF7\u6C42\u9875\u9762\u5931\u8D25:", error2);
       return [];
     }
     const titleMatch = res.data.match(/<title[^>]*>(.*?)<\/title>/i);
@@ -10025,8 +10216,8 @@ var _IqiyiSource = class _IqiyiSource extends BaseSource {
       datas.forEach((data) => {
         contents.push(...data);
       });
-    } catch (error) {
-      log("error", "\u89E3\u6790\u5F39\u5E55\u6570\u636E\u5931\u8D25:", error);
+    } catch (error2) {
+      log("error", "\u89E3\u6790\u5F39\u5E55\u6570\u636E\u5931\u8D25:", error2);
       return [];
     }
     printFirst200Chars(contents);
@@ -10058,8 +10249,8 @@ var _IqiyiSource = class _IqiyiSource extends BaseSource {
       const data = typeof res.data === "string" ? JSON.parse(res.data) : res.data;
       tvid = data.data.toString();
       log("info", `\u89E3\u7801\u540E tvid: ${tvid}`);
-    } catch (error) {
-      log("error", "\u8BF7\u6C42\u89E3\u7801\u4FE1\u606F\u5931\u8D25:", error);
+    } catch (error2) {
+      log("error", "\u8BF7\u6C42\u89E3\u7801\u4FE1\u606F\u5931\u8D25:", error2);
       return new SegmentListResponse({
         "type": "qiyi",
         "segmentList": []
@@ -10080,8 +10271,8 @@ var _IqiyiSource = class _IqiyiSource extends BaseSource {
       albumid = videoInfo.albumId;
       categoryid = videoInfo.channelId || videoInfo.categoryId;
       log("info", `\u65F6\u957F: ${duration}`);
-    } catch (error) {
-      log("error", "\u8BF7\u6C42\u89C6\u9891\u57FA\u7840\u4FE1\u606F\u5931\u8D25:", error);
+    } catch (error2) {
+      log("error", "\u8BF7\u6C42\u89C6\u9891\u57FA\u7840\u4FE1\u606F\u5931\u8D25:", error2);
       return new SegmentListResponse({
         "type": "qiyi",
         "segmentList": []
@@ -10147,8 +10338,8 @@ var _IqiyiSource = class _IqiyiSource extends BaseSource {
         })));
       }
       return contents;
-    } catch (error) {
-      log("error", "\u8BF7\u6C42\u5206\u7247\u5F39\u5E55\u5931\u8D25:", error);
+    } catch (error2) {
+      log("error", "\u8BF7\u6C42\u5206\u7247\u5F39\u5E55\u5931\u8D25:", error2);
       return [];
     }
   }
@@ -10282,8 +10473,8 @@ var MangoSource = class extends BaseSource {
       }
       log("info", `[Mango] \u641C\u7D22\u627E\u5230 ${results.length} \u4E2A\u6709\u6548\u7ED3\u679C`);
       return results;
-    } catch (error) {
-      log("error", "[Mango] \u641C\u7D22\u51FA\u9519:", error.message);
+    } catch (error2) {
+      log("error", "[Mango] \u641C\u7D22\u51FA\u9519:", error2.message);
       return [];
     }
   }
@@ -10339,8 +10530,8 @@ var MangoSource = class extends BaseSource {
       const processedEpisodes = this._processVarietyEpisodes(episodes);
       log("info", `[Mango] \u5171\u83B7\u53D6 ${processedEpisodes.length} \u96C6`);
       return processedEpisodes;
-    } catch (error) {
-      log("error", "[Mango] \u83B7\u53D6\u5206\u96C6\u51FA\u9519:", error.message);
+    } catch (error2) {
+      log("error", "[Mango] \u83B7\u53D6\u5206\u96C6\u51FA\u9519:", error2.message);
       return [];
     }
   }
@@ -10377,8 +10568,8 @@ var MangoSource = class extends BaseSource {
       }
       log("info", `[Mango] \u627E\u5230\u7535\u5F71\u6B63\u7247: ${mainFeature.t3 || mainFeature.t1 || "\u6B63\u7247"}`);
       return mainFeature;
-    } catch (error) {
-      log("error", "[Mango] \u83B7\u53D6\u7535\u5F71\u6B63\u7247\u51FA\u9519:", error.message);
+    } catch (error2) {
+      log("error", "[Mango] \u83B7\u53D6\u7535\u5F71\u6B63\u7247\u51FA\u9519:", error2.message);
       return null;
     }
   }
@@ -10536,8 +10727,8 @@ var MangoSource = class extends BaseSource {
             addAnime({ ...transformedAnime, links });
             if (globals.animes.length > globals.MAX_ANIMES) removeEarliestAnime();
           }
-        } catch (error) {
-          log("error", `[Mango] Error processing anime: ${error.message}`);
+        } catch (error2) {
+          log("error", `[Mango] Error processing anime: ${error2.message}`);
         }
       })
     );
@@ -10579,8 +10770,8 @@ var MangoSource = class extends BaseSource {
           contents.push(...data.data.items);
         }
       });
-    } catch (error) {
-      log("error", "\u89E3\u6790\u5F39\u5E55\u6570\u636E\u5931\u8D25:", error);
+    } catch (error2) {
+      log("error", "\u89E3\u6790\u5F39\u5E55\u6570\u636E\u5931\u8D25:", error2);
       return [];
     }
     printFirst200Chars(contents);
@@ -10615,14 +10806,14 @@ var MangoSource = class extends BaseSource {
           "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
         }
       });
-    } catch (error) {
-      if (error.response?.status === 404) {
+    } catch (error2) {
+      if (error2.response?.status === 404) {
         return new SegmentListResponse({
           "type": "imgo",
           "segmentList": []
         });
       }
-      log("error", "\u8BF7\u6C42\u89C6\u9891\u4FE1\u606F\u5931\u8D25:", error);
+      log("error", "\u8BF7\u6C42\u89C6\u9891\u4FE1\u606F\u5931\u8D25:", error2);
       return new SegmentListResponse({
         "type": "imgo",
         "segmentList": []
@@ -10679,8 +10870,8 @@ var MangoSource = class extends BaseSource {
         "type": "imgo",
         "segmentList": segmentList
       });
-    } catch (error) {
-      log("error", "\u8BF7\u6C42\u5F39\u5E55\u5206\u6BB5\u6570\u636E\u5931\u8D25:", error);
+    } catch (error2) {
+      log("error", "\u8BF7\u6C42\u5F39\u5E55\u5206\u6BB5\u6570\u636E\u5931\u8D25:", error2);
       return new SegmentListResponse({
         "type": "imgo",
         "segmentList": []
@@ -10704,8 +10895,8 @@ var MangoSource = class extends BaseSource {
         }
       }
       return contents;
-    } catch (error) {
-      log("error", "\u8BF7\u6C42\u5206\u7247\u5F39\u5E55\u5931\u8D25:", error);
+    } catch (error2) {
+      log("error", "\u8BF7\u6C42\u5206\u7247\u5F39\u5E55\u5931\u8D25:", error2);
       return [];
     }
   }
@@ -10769,8 +10960,8 @@ var _BilibiliSource = class _BilibiliSource extends BaseSource {
       }
       log("error", "\u65E0\u6CD5\u89E3\u6790 b23.tv \u77ED\u94FE\u63A5");
       return shortUrl;
-    } catch (error) {
-      log("error", "\u89E3\u6790 b23.tv \u77ED\u94FE\u63A5\u5931\u8D25:", error);
+    } catch (error2) {
+      log("error", "\u89E3\u6790 b23.tv \u77ED\u94FE\u63A5\u5931\u8D25:", error2);
       return shortUrl;
     }
   }
@@ -10807,8 +10998,8 @@ var _BilibiliSource = class _BilibiliSource extends BaseSource {
       cache.timestamp = now;
       log("info", "[Bilibili] \u6210\u529F\u83B7\u53D6\u65B0\u7684 WBI mixin key");
       return mixinKey;
-    } catch (error) {
-      log("error", "[Bilibili] \u83B7\u53D6 WBI \u5BC6\u94A5\u5931\u8D25:", error.message);
+    } catch (error2) {
+      log("error", "[Bilibili] \u83B7\u53D6 WBI \u5BC6\u94A5\u5931\u8D25:", error2.message);
       return "dba4a5925b345b4598b7452c75070bca";
     }
   }
@@ -10895,8 +11086,8 @@ var _BilibiliSource = class _BilibiliSource extends BaseSource {
       }
       log("info", `[Bilibili] \u7C7B\u578B '${searchType}' \u627E\u5230 ${results.length} \u4E2A\u7ED3\u679C`);
       return results;
-    } catch (error) {
-      log("error", `[Bilibili] \u641C\u7D22\u7C7B\u578B '${searchType}' \u5931\u8D25:`, error.message);
+    } catch (error2) {
+      log("error", `[Bilibili] \u641C\u7D22\u7C7B\u578B '${searchType}' \u5931\u8D25:`, error2.message);
       return [];
     }
   }
@@ -10948,8 +11139,8 @@ var _BilibiliSource = class _BilibiliSource extends BaseSource {
       }
       log("info", `[Bilibili] \u641C\u7D22\u5B8C\u6210\uFF0C\u627E\u5230 ${uniqueResults.length} \u4E2A\u6709\u6548\u7ED3\u679C`);
       return uniqueResults;
-    } catch (error) {
-      log("error", "[Bilibili] \u641C\u7D22\u51FA\u9519:", error.message);
+    } catch (error2) {
+      log("error", "[Bilibili] \u641C\u7D22\u51FA\u9519:", error2.message);
       return [];
     }
   }
@@ -11023,8 +11214,8 @@ var _BilibiliSource = class _BilibiliSource extends BaseSource {
       }));
       log("info", `[Bilibili] \u83B7\u53D6\u5230 ${episodes.length} \u4E2A\u89C6\u9891\u5206\u96C6`);
       return episodes;
-    } catch (error) {
-      log("error", `[Bilibili] \u83B7\u53D6\u89C6\u9891\u5206\u96C6\u51FA\u9519 (bvid=${bvid}):`, error.message);
+    } catch (error2) {
+      log("error", `[Bilibili] \u83B7\u53D6\u89C6\u9891\u5206\u96C6\u51FA\u9519 (bvid=${bvid}):`, error2.message);
       return [];
     }
   }
@@ -11116,8 +11307,8 @@ var _BilibiliSource = class _BilibiliSource extends BaseSource {
         if (globals.animes.length > globals.MAX_ANIMES) {
           removeEarliestAnime();
         }
-      } catch (error) {
-        log("error", `[Bilibili] \u5904\u7406 ${anime.title} \u5931\u8D25:`, error.message);
+      } catch (error2) {
+        log("error", `[Bilibili] \u5904\u7406 ${anime.title} \u5931\u8D25:`, error2.message);
       }
     });
     await Promise.all(processPromises);
@@ -11175,8 +11366,8 @@ var _BilibiliSource = class _BilibiliSource extends BaseSource {
         }
         duration = data.data.duration;
         cid = data.data.pages[p - 1].cid;
-      } catch (error) {
-        log("error", "\u8BF7\u6C42\u666E\u901A\u6295\u7A3F\u89C6\u9891\u4FE1\u606F\u5931\u8D25:", error);
+      } catch (error2) {
+        log("error", "\u8BF7\u6C42\u666E\u901A\u6295\u7A3F\u89C6\u9891\u4FE1\u606F\u5931\u8D25:", error2);
         return null;
       }
     } else if (id.includes("bangumi/") && id.includes("ep")) {
@@ -11245,8 +11436,8 @@ var _BilibiliSource = class _BilibiliSource extends BaseSource {
           return null;
         }
         if (!duration && duration !== 0) duration = 0;
-      } catch (error) {
-        log("error", "\u8BF7\u6C42\u756A\u5267\u89C6\u9891\u4FE1\u606F\u5931\u8D25:", error);
+      } catch (error2) {
+        log("error", "\u8BF7\u6C42\u756A\u5267\u89C6\u9891\u4FE1\u606F\u5931\u8D25:", error2);
         return null;
       }
     } else if (id.includes("bangumi/") && id.includes("ss")) {
@@ -11274,8 +11465,8 @@ var _BilibiliSource = class _BilibiliSource extends BaseSource {
         duration = firstEpisode.duration / 1e3;
         title = firstEpisode.share_copy;
         log("info", `\u4F7F\u7528\u7B2C\u4E00\u96C6: ${title}, cid=${cid}`);
-      } catch (error) {
-        log("error", "\u8BF7\u6C42\u756A\u5267\u89C6\u9891\u4FE1\u606F\u5931\u8D25:", error);
+      } catch (error2) {
+        log("error", "\u8BF7\u6C42\u756A\u5267\u89C6\u9891\u4FE1\u606F\u5931\u8D25:", error2);
         return null;
       }
     } else {
@@ -11363,8 +11554,8 @@ var _BilibiliSource = class _BilibiliSource extends BaseSource {
         contents = parseDanmakuBase64(response.data);
       }
       return contents;
-    } catch (error) {
-      throw error;
+    } catch (error2) {
+      throw error2;
     }
   }
   formatComments(comments) {
@@ -12470,11 +12661,11 @@ var MiguSource = class extends BaseSource {
       });
       log("info", `[Migu] \u641C\u7D22\u627E\u5230 ${animes.length} \u4E2A\u6709\u6548\u7ED3\u679C`);
       return animes;
-    } catch (error) {
+    } catch (error2) {
       log("error", "getMiguAnimes error:", {
-        message: error.message,
-        name: error.name,
-        stack: error.stack
+        message: error2.message,
+        name: error2.name,
+        stack: error2.stack
       });
       return [];
     }
@@ -12498,11 +12689,11 @@ var MiguSource = class extends BaseSource {
       const duration = resp.data?.body?.data?.playing?.duration || 0;
       const epsID = resp.data?.body?.data?.epsID || null;
       return { duration, epsID };
-    } catch (error) {
+    } catch (error2) {
       log("error", "getMiguDetail error:", {
-        message: error.message,
-        name: error.name,
-        stack: error.stack
+        message: error2.message,
+        name: error2.name,
+        stack: error2.stack
       });
       return { duration: 0, epsID: null };
     }
@@ -12533,11 +12724,11 @@ var MiguSource = class extends BaseSource {
         log("info", "getMiguEposides: eps \u4E0D\u5B58\u5728");
         return [];
       }
-    } catch (error) {
+    } catch (error2) {
       log("error", "getMiguEposides error:", {
-        message: error.message,
-        name: error.name,
-        stack: error.stack
+        message: error2.message,
+        name: error2.name,
+        stack: error2.stack
       });
       return [];
     }
@@ -12578,8 +12769,8 @@ var MiguSource = class extends BaseSource {
             addAnime({ ...transformedAnime, links });
             if (globals.animes.length > globals.MAX_ANIMES) removeEarliestAnime();
           }
-        } catch (error) {
-          log("error", `[Migu] Error processing anime: ${error.message}`);
+        } catch (error2) {
+          log("error", `[Migu] Error processing anime: ${error2.message}`);
         }
       })
     );
@@ -12668,8 +12859,8 @@ var MiguSource = class extends BaseSource {
         contents.push(...danmakuList);
       }
       return contents;
-    } catch (error) {
-      log("error", "\u8BF7\u6C42\u5206\u7247\u5F39\u5E55\u5931\u8D25:", error);
+    } catch (error2) {
+      log("error", "\u8BF7\u6C42\u5206\u7247\u5F39\u5E55\u5931\u8D25:", error2);
       return [];
     }
   }
@@ -12780,8 +12971,8 @@ var YoukuSource = class extends BaseSource {
       }
       log("info", `[Youku] \u641C\u7D22\u627E\u5230 ${results.length} \u4E2A\u6709\u6548\u7ED3\u679C`);
       return results;
-    } catch (error) {
-      log("error", "[Youku] \u641C\u7D22\u51FA\u9519:", error.message);
+    } catch (error2) {
+      log("error", "[Youku] \u641C\u7D22\u51FA\u9519:", error2.message);
       return [];
     }
   }
@@ -12816,8 +13007,8 @@ var YoukuSource = class extends BaseSource {
       }
       log("info", `[Youku] \u5171\u83B7\u53D6 ${allEpisodes.length} \u96C6`);
       return allEpisodes;
-    } catch (error) {
-      log("error", "[Youku] \u83B7\u53D6\u5206\u96C6\u51FA\u9519:", error.message);
+    } catch (error2) {
+      log("error", "[Youku] \u83B7\u53D6\u5206\u96C6\u51FA\u9519:", error2.message);
       return [];
     }
   }
@@ -12874,8 +13065,8 @@ var YoukuSource = class extends BaseSource {
             addAnime({ ...transformedAnime, links });
             if (globals.animes.length > globals.MAX_ANIMES) removeEarliestAnime();
           }
-        } catch (error) {
-          log("error", `[Youku] Error processing anime: ${error.message}`);
+        } catch (error2) {
+          log("error", `[Youku] Error processing anime: ${error2.message}`);
         }
       })
     );
@@ -13040,8 +13231,8 @@ var YoukuSource = class extends BaseSource {
         },
         allow_redirects: false
       });
-    } catch (error) {
-      log("error", "\u8BF7\u6C42\u89C6\u9891\u4FE1\u606F\u5931\u8D25:", error);
+    } catch (error2) {
+      log("error", "\u8BF7\u6C42\u89C6\u9891\u4FE1\u606F\u5931\u8D25:", error2);
       return [];
     }
     const data = typeof res.data === "string" ? JSON.parse(res.data) : res.data;
@@ -13085,8 +13276,8 @@ var YoukuSource = class extends BaseSource {
       _m_h5_tk = tkH5Match ? tkH5Match[1] : null;
       log("info", `_m_h5_tk_enc: ${_m_h5_tk_enc}`);
       log("info", `_m_h5_tk: ${_m_h5_tk}`);
-    } catch (error) {
-      log("error", "\u83B7\u53D6 cna \u6216 tk_enc \u5931\u8D25:", error);
+    } catch (error2) {
+      log("error", "\u83B7\u53D6 cna \u6216 tk_enc \u5931\u8D25:", error2);
       return [];
     }
     const step = 60;
@@ -13332,8 +13523,8 @@ var SohuSource = class extends BaseSource {
       }
       log("info", `[Sohu] \u641C\u7D22\u627E\u5230 ${results.length} \u4E2A\u6709\u6548\u7ED3\u679C`);
       return results;
-    } catch (error) {
-      log("error", "[Sohu] \u641C\u7D22\u51FA\u9519:", error.message);
+    } catch (error2) {
+      log("error", "[Sohu] \u641C\u7D22\u51FA\u9519:", error2.message);
       return [];
     }
   }
@@ -13401,8 +13592,8 @@ var SohuSource = class extends BaseSource {
       }
       log("info", `[Sohu] \u6210\u529F\u83B7\u53D6 ${episodes.length} \u4E2A\u5206\u96C6 (media_id=${id})`);
       return episodes;
-    } catch (error) {
-      log("error", "[Sohu] \u83B7\u53D6\u5206\u96C6\u51FA\u9519:", error.message);
+    } catch (error2) {
+      log("error", "[Sohu] \u83B7\u53D6\u5206\u96C6\u51FA\u9519:", error2.message);
       return [];
     }
   }
@@ -13446,8 +13637,8 @@ var SohuSource = class extends BaseSource {
             addAnime({ ...transformedAnime, links });
             if (globals.animes.length > globals.MAX_ANIMES) removeEarliestAnime();
           }
-        } catch (error) {
-          log("error", `[Sohu] Error processing anime: ${error.message}`);
+        } catch (error2) {
+          log("error", `[Sohu] Error processing anime: ${error2.message}`);
         }
       })
     );
@@ -13532,12 +13723,12 @@ var SohuSource = class extends BaseSource {
           log("info", `\u641C\u72D0\u89C6\u9891: \u83B7\u53D6\u5230 ${comments.length} \u6761\u5F39\u5E55 (${segment.segment_start}-${segment.segment_end}s)`);
         }
         return comments || [];
-      } catch (error) {
-        log("error", `\u641C\u72D0\u89C6\u9891: \u89E3\u6790\u5F39\u5E55\u54CD\u5E94\u5931\u8D25: ${error.message}`);
+      } catch (error2) {
+        log("error", `\u641C\u72D0\u89C6\u9891: \u89E3\u6790\u5F39\u5E55\u54CD\u5E94\u5931\u8D25: ${error2.message}`);
         return [];
       }
-    } catch (error) {
-      log("error", `\u641C\u72D0\u89C6\u9891: \u83B7\u53D6\u5F39\u5E55\u6BB5\u5931\u8D25 (vid=${vid}, ${start}-${end}s): ${error.message}`);
+    } catch (error2) {
+      log("error", `\u641C\u72D0\u89C6\u9891: \u83B7\u53D6\u5F39\u5E55\u6BB5\u5931\u8D25 (vid=${vid}, ${start}-${end}s): ${error2.message}`);
       return [];
     }
   }
@@ -13576,8 +13767,8 @@ var SohuSource = class extends BaseSource {
         contents.push(...parsedData.info?.comments || []);
       }
       return contents;
-    } catch (error) {
-      log("error", "\u8BF7\u6C42\u5206\u7247\u5F39\u5E55\u5931\u8D25:", error);
+    } catch (error2) {
+      log("error", "\u8BF7\u6C42\u5206\u7247\u5F39\u5E55\u5931\u8D25:", error2);
       return [];
     }
   }
@@ -13609,8 +13800,8 @@ var SohuSource = class extends BaseSource {
           t: parseFloat(vtime),
           like: comment.fcount
         };
-      } catch (error) {
-        log("error", `\u683C\u5F0F\u5316\u5F39\u5E55\u5931\u8D25: ${error.message}, \u5F39\u5E55\u6570\u636E:`, comment);
+      } catch (error2) {
+        log("error", `\u683C\u5F0F\u5316\u5F39\u5E55\u5931\u8D25: ${error2.message}, \u5F39\u5E55\u6570\u636E:`, comment);
         return null;
       }
     }).filter((comment) => comment !== null);
@@ -13795,8 +13986,8 @@ var LeshiSource = class extends BaseSource {
         log("info", `[Leshi] \u7F51\u7EDC\u641C\u7D22 '${keyword}' \u5B8C\u6210\uFF0C\u627E\u5230 0 \u4E2A\u7ED3\u679C\u3002`);
       }
       return results;
-    } catch (error) {
-      log("error", "[Leshi] \u641C\u7D22\u51FA\u9519:", error.message);
+    } catch (error2) {
+      log("error", "[Leshi] \u641C\u7D22\u51FA\u9519:", error2.message);
       return [];
     }
   }
@@ -13864,8 +14055,8 @@ var LeshiSource = class extends BaseSource {
         return episodes;
       }
       return [];
-    } catch (error) {
-      log("error", "[Leshi] \u83B7\u53D6\u5206\u96C6\u51FA\u9519:", error.message);
+    } catch (error2) {
+      log("error", "[Leshi] \u83B7\u53D6\u5206\u96C6\u51FA\u9519:", error2.message);
       return [];
     }
   }
@@ -13901,8 +14092,8 @@ var LeshiSource = class extends BaseSource {
         return [];
       }
       return this.extractEpisodes(dlElements, mediaId);
-    } catch (error) {
-      log("error", `[Leshi] \u89E3\u6790\u5267\u96C6HTML\u5931\u8D25: ${error.message}`);
+    } catch (error2) {
+      log("error", `[Leshi] \u89E3\u6790\u5267\u96C6HTML\u5931\u8D25: ${error2.message}`);
       return [];
     }
   }
@@ -14009,8 +14200,8 @@ var LeshiSource = class extends BaseSource {
             addAnime({ ...transformedAnime, links });
             if (globals.animes.length > globals.MAX_ANIMES) removeEarliestAnime();
           }
-        } catch (error) {
-          log("error", `[Leshi] Error processing anime: ${error.message}`);
+        } catch (error2) {
+          log("error", `[Leshi] Error processing anime: ${error2.message}`);
         }
       })
     );
@@ -14079,8 +14270,8 @@ var LeshiSource = class extends BaseSource {
         }
       }
       return contents;
-    } catch (error) {
-      log("error", "\u8BF7\u6C42\u5206\u7247\u5F39\u5E55\u5931\u8D25:", error);
+    } catch (error2) {
+      log("error", "\u8BF7\u6C42\u5206\u7247\u5F39\u5E55\u5931\u8D25:", error2);
       return [];
     }
   }
@@ -14157,8 +14348,8 @@ var LeshiSource = class extends BaseSource {
           m: content,
           t: Math.round(timeVal * 100) / 100
         };
-      } catch (error) {
-        log("error", `\u683C\u5F0F\u5316\u5F39\u5E55\u5931\u8D25: ${error.message}, \u5F39\u5E55\u6570\u636E:`, comment);
+      } catch (error2) {
+        log("error", `\u683C\u5F0F\u5316\u5F39\u5E55\u5931\u8D25: ${error2.message}, \u5F39\u5E55\u6570\u636E:`, comment);
         return null;
       }
     }).filter((comment) => comment !== null);
@@ -14218,11 +14409,11 @@ var XiguaSource = class extends BaseSource {
       }
       log("info", `[Xigua] \u641C\u7D22\u627E\u5230 ${animes.length} \u4E2A\u6709\u6548\u7ED3\u679C`);
       return animes;
-    } catch (error) {
+    } catch (error2) {
       log("error", "getXiguaAnimes error:", {
-        message: error.message,
-        name: error.name,
-        stack: error.stack
+        message: error2.message,
+        name: error2.name,
+        stack: error2.stack
       });
       return [];
     }
@@ -14242,11 +14433,11 @@ var XiguaSource = class extends BaseSource {
       }
       const match = resp.data.match(/"duration"\s*:\s*([\d.]+)/);
       return match ? parseFloat(match[1]) : 0;
-    } catch (error) {
+    } catch (error2) {
       log("error", "getXiguaDetail error:", {
-        message: error.message,
-        name: error.name,
-        stack: error.stack
+        message: error2.message,
+        name: error2.name,
+        stack: error2.stack
       });
       return 0;
     }
@@ -14283,11 +14474,11 @@ var XiguaSource = class extends BaseSource {
         log("info", "getXiguaEposides: episodes_list \u4E0D\u5B58\u5728");
         return [];
       }
-    } catch (error) {
+    } catch (error2) {
       log("error", "getXiguaEposides error:", {
-        message: error.message,
-        name: error.name,
-        stack: error.stack
+        message: error2.message,
+        name: error2.name,
+        stack: error2.stack
       });
       return [];
     }
@@ -14330,8 +14521,8 @@ var XiguaSource = class extends BaseSource {
             addAnime({ ...transformedAnime, links });
             if (globals.animes.length > globals.MAX_ANIMES) removeEarliestAnime();
           }
-        } catch (error) {
-          log("error", `[Xigua] Error processing anime: ${error.message}`);
+        } catch (error2) {
+          log("error", `[Xigua] Error processing anime: ${error2.message}`);
         }
       })
     );
@@ -14422,8 +14613,8 @@ var XiguaSource = class extends BaseSource {
         contents.push(...danmakuList);
       }
       return contents;
-    } catch (error) {
-      log("error", "\u8BF7\u6C42\u5206\u7247\u5F39\u5E55\u5931\u8D25:", error);
+    } catch (error2) {
+      log("error", "\u8BF7\u6C42\u5206\u7247\u5F39\u5E55\u5931\u8D25:", error2);
       return [];
     }
   }
@@ -14511,11 +14702,11 @@ var MaiduiduiSource = class extends BaseSource {
       }
       log("info", `[Maiduidui] \u641C\u7D22\u627E\u5230 ${animes.length} \u4E2A\u6709\u6548\u7ED3\u679C`);
       return animes;
-    } catch (error) {
+    } catch (error2) {
       log("error", "getMaiduiduiAnimes error:", {
-        message: error.message,
-        name: error.name,
-        stack: error.stack
+        message: error2.message,
+        name: error2.name,
+        stack: error2.stack
       });
       return [];
     }
@@ -14545,11 +14736,11 @@ var MaiduiduiSource = class extends BaseSource {
         }
       }
       return 0;
-    } catch (error) {
+    } catch (error2) {
       log("error", "getMaiduiduiDetail error:", {
-        message: error.message,
-        name: error.name,
-        stack: error.stack
+        message: error2.message,
+        name: error2.name,
+        stack: error2.stack
       });
       return 0;
     }
@@ -14578,11 +14769,11 @@ var MaiduiduiSource = class extends BaseSource {
         });
       });
       return eps;
-    } catch (error) {
+    } catch (error2) {
       log("error", "getMaiduiduiEposides error:", {
-        message: error.message,
-        name: error.name,
-        stack: error.stack
+        message: error2.message,
+        name: error2.name,
+        stack: error2.stack
       });
       return [];
     }
@@ -14624,8 +14815,8 @@ var MaiduiduiSource = class extends BaseSource {
             addAnime({ ...transformedAnime, links });
             if (globals.animes.length > globals.MAX_ANIMES) removeEarliestAnime();
           }
-        } catch (error) {
-          log("error", `[Maiduidui] Error processing anime: ${error.message}`);
+        } catch (error2) {
+          log("error", `[Maiduidui] Error processing anime: ${error2.message}`);
         }
       })
     );
@@ -14720,8 +14911,8 @@ var MaiduiduiSource = class extends BaseSource {
         });
       }
       return contents;
-    } catch (error) {
-      log("error", "\u8BF7\u6C42\u5206\u7247\u5F39\u5E55\u5931\u8D25:", error);
+    } catch (error2) {
+      log("error", "\u8BF7\u6C42\u5206\u7247\u5F39\u5E55\u5931\u8D25:", error2);
       return [];
     }
   }
@@ -14750,7 +14941,7 @@ var AnimekoSource = class extends BaseSource {
   }
   /**
    * 搜索动画条目
-   * 使用 Bangumi V0 POST 接口进行搜索，并进行后置过滤和关系检测
+   * 使用 Bangumi V0 POST 接口进行搜索，支持偏移翻页、结果过滤及关系检测
    * @param {string} keyword 搜索关键词
    * @returns {Promise<Array>} 转换后的搜索结果列表
    */
@@ -14758,41 +14949,58 @@ var AnimekoSource = class extends BaseSource {
     try {
       const searchKeyword = keyword.replace(/[._]/g, " ").replace(/\s+/g, " ").trim();
       log("info", `[Animeko] \u5F00\u59CB\u641C\u7D22 (V0): ${searchKeyword}`);
-      const searchUrl = `https://api.bgm.tv/v0/search/subjects?limit=5`;
-      const payload = {
-        keyword: searchKeyword,
-        filter: {
-          type: [2]
-          // 2 代表动画类型
+      let allFilteredResults = [];
+      let offset = 0;
+      const limit = 20;
+      while (true) {
+        const searchUrl = `https://api.bgm.tv/v0/search/subjects?limit=${limit}&offset=${offset}`;
+        const payload = {
+          keyword: searchKeyword,
+          filter: {
+            type: [2]
+            // 2 代表动画类型
+          }
+        };
+        const resp = await Widget.http.post(searchUrl, JSON.stringify(payload), {
+          headers: this.headers
+        });
+        if (!resp || !resp.data) {
+          log("info", `[Animeko] \u641C\u7D22\u8BF7\u6C42\u5931\u8D25\u6216\u65E0\u6570\u636E\u8FD4\u56DE (offset: ${offset})`);
+          break;
         }
-      };
-      const resp = await Widget.http.post(searchUrl, JSON.stringify(payload), {
-        headers: this.headers
-      });
-      if (!resp || !resp.data) {
-        log("info", "[Animeko] \u641C\u7D22\u8BF7\u6C42\u5931\u8D25\u6216\u65E0\u6570\u636E\u8FD4\u56DE");
-        return [];
+        const currentBatch = resp.data.data || [];
+        if (currentBatch.length === 0) {
+          break;
+        }
+        const filteredBatch = this.filterSearchResults(currentBatch, keyword);
+        if (filteredBatch.length > 0) {
+          allFilteredResults = allFilteredResults.concat(filteredBatch);
+        }
+        if (filteredBatch.length < limit) {
+          log("info", `[Animeko] \u8FC7\u6EE4\u540E\u5F53\u524D\u6279\u6B21\u5269 ${filteredBatch.length} \u4E2A\u7ED3\u679C\uFF0C\u505C\u6B62\u7FFB\u9875`);
+          break;
+        }
+        offset += limit;
+        if (offset >= 60) {
+          log("warn", `[Animeko] \u641C\u7D22\u7FFB\u9875\u8FBE\u5230\u5B89\u5168\u4E0A\u9650(60)\uFF0C\u5F3A\u5236\u505C\u6B62`);
+          break;
+        }
       }
-      let resultsList = resp.data.data || [];
-      if (resultsList.length === 0) {
-        log("info", "[Animeko] \u672A\u627E\u5230\u76F8\u5173\u6761\u76EE");
-        return [];
-      }
-      resultsList = this.filterSearchResults(resultsList, keyword);
-      if (resultsList.length === 0) {
+      if (allFilteredResults.length === 0) {
         log("info", "[Animeko] \u8FC7\u6EE4\u540E\u65E0\u5339\u914D\u7ED3\u679C");
         return [];
       }
-      if (resultsList.length > 1) {
-        resultsList = await this.checkRelationsAndModifyTitles(resultsList);
+      let uniqueResults = Array.from(new Map(allFilteredResults.map((item) => [item.id, item])).values());
+      if (uniqueResults.length > 1) {
+        uniqueResults = await this.checkRelationsAndModifyTitles(uniqueResults);
       }
-      log("info", `[Animeko] \u641C\u7D22\u5B8C\u6210\uFF0C\u627E\u5230 ${resultsList.length} \u4E2A\u6709\u6548\u7ED3\u679C`);
-      return this.transformResults(resultsList);
-    } catch (error) {
+      log("info", `[Animeko] \u641C\u7D22\u5B8C\u6210\uFF0C\u5171\u627E\u5230 ${uniqueResults.length} \u4E2A\u6709\u6548\u7ED3\u679C`);
+      return this.transformResults(uniqueResults);
+    } catch (error2) {
       log("error", "[Animeko] Search error:", {
-        message: error.message,
-        name: error.name,
-        stack: error.stack
+        message: error2.message,
+        name: error2.name,
+        stack: error2.stack
       });
       return [];
     }
@@ -15089,9 +15297,9 @@ var AnimekoSource = class extends BaseSource {
         }
       }
       return allEpisodes;
-    } catch (error) {
+    } catch (error2) {
       log("error", "[Animeko] GetEpisodes error:", {
-        message: error.message,
+        message: error2.message,
         id: subjectId,
         offset
       });
@@ -15153,8 +15361,8 @@ var AnimekoSource = class extends BaseSource {
             addAnime({ ...transformedAnime, links });
             if (globals.animes.length > globals.MAX_ANIMES) removeEarliestAnime();
           }
-        } catch (error) {
-          log("error", `[Animeko] Error processing anime ${anime.id}: ${error.message}`);
+        } catch (error2) {
+          log("error", `[Animeko] Error processing anime ${anime.id}: ${error2.message}`);
         }
       })
     );
@@ -15190,8 +15398,8 @@ var AnimekoSource = class extends BaseSource {
         const body = resp.data;
         if (body.danmakuList) return body.danmakuList;
         return null;
-      } catch (error) {
-        log("warn", `[Animeko] \u8BF7\u6C42\u8282\u70B9\u5931\u8D25: ${hostUrl} - ${error.message}`);
+      } catch (error2) {
+        log("warn", `[Animeko] \u8BF7\u6C42\u8282\u70B9\u5931\u8D25: ${hostUrl} - ${error2.message}`);
         return null;
       }
     };
@@ -15276,8 +15484,8 @@ var OtherSource = class extends BaseSource {
       log("info", `danmu response from ${globals.otherServer}: \u2193\u2193\u2193`);
       printFirst200Chars(response.data);
       return response.data;
-    } catch (error) {
-      log("error", `\u8BF7\u6C42 ${globals.otherServer} \u5931\u8D25:`, error);
+    } catch (error2) {
+      log("error", `\u8BF7\u6C42 ${globals.otherServer} \u5931\u8D25:`, error2);
       return [];
     }
   }
@@ -15536,8 +15744,8 @@ async function searchAnime(url, preferAnimeId = null, preferSource = null) {
         await animekoSource.handleAnimes(animesAnimeko, queryTitle, curAnimes);
       }
     }
-  } catch (error) {
-    log("error", "\u53D1\u751F\u9519\u8BEF:", error);
+  } catch (error2) {
+    log("error", "\u53D1\u751F\u9519\u8BEF:", error2);
   }
   if (globals.mergeSourcePairs.length > 0) {
     await applyMergeLogic(curAnimes);
@@ -15907,8 +16115,8 @@ async function getSegmentComment(segment, queryFormat) {
       comments: danmus
     };
     return formatDanmuResponse(responseData, queryFormat);
-  } catch (error) {
-    log("error", `Failed to process segment comment request: ${error.message}`);
+  } catch (error2) {
+    log("error", `Failed to process segment comment request: ${error2.message}`);
     return jsonResponse(
       { errorCode: 500, success: false, errorMessage: "Internal server error", count: 0, comments: [] },
       500
@@ -15917,7 +16125,7 @@ async function getSegmentComment(segment, queryFormat) {
 }
 
 // forward/forward-widget.js
-var wv = true ? "1.15.3" : Globals.VERSION;
+var wv = true ? "1.15.5" : Globals.VERSION;
 WidgetMetadata = {
   id: "forward.auto.danmu2",
   title: "\u81EA\u52A8\u94FE\u63A5\u5F39\u5E55v2",
