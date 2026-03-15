@@ -516,6 +516,106 @@ var Envs = class {
     }
   }
   /**
+   * 解析 IP 黑名单列表
+   * @description 支持逗号/分号/换行分隔，支持 /regex/ 或 /regex/i 的正则格式，支持 IPv4/IPv6 CIDR（如 127.0.0.0/24、2001:db8::/64）
+   * @returns {Array} IP 黑名单规则列表
+   */
+  static resolveIpBlacklist() {
+    const rawList = this.get("IP_BLACKLIST", "", "string", false).trim();
+    if (!rawList) {
+      this.accessedEnvVars.set("IP_BLACKLIST", []);
+      return [];
+    }
+    const entries = rawList.split(/[\n,;]+/).map((item) => item.trim()).filter(Boolean);
+    const rules = [];
+    for (const entry of entries) {
+      try {
+        if (entry.startsWith("/") && entry.lastIndexOf("/") > 0) {
+          const lastSlashIndex = entry.lastIndexOf("/");
+          const pattern = entry.slice(1, lastSlashIndex);
+          const flags = entry.slice(lastSlashIndex + 1);
+          rules.push({ type: "regex", value: new RegExp(pattern, flags) });
+          continue;
+        }
+        if (entry.includes("/")) {
+          const [ip, prefix] = entry.split("/").map((s) => s.trim());
+          const prefixNum = Number(prefix);
+          const isIpv4 = this.isValidIpv4(ip);
+          const isIpv6 = this.isValidIpv6(ip);
+          if (Number.isInteger(prefixNum)) {
+            if (isIpv4 && prefixNum >= 0 && prefixNum <= 32) {
+              rules.push({ type: "cidr", ip, prefix: prefixNum });
+              continue;
+            }
+            if (isIpv6 && prefixNum >= 0 && prefixNum <= 128) {
+              rules.push({ type: "cidr", ip, prefix: prefixNum });
+              continue;
+            }
+          }
+        }
+        if (this.isValidIpv4(entry) || this.isValidIpv6(entry)) {
+          rules.push({ type: "exact", value: entry });
+          continue;
+        }
+        const escaped = entry.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+        rules.push({ type: "regex", value: new RegExp(`^${escaped}$`) });
+      } catch (error) {
+        console.warn(`Invalid IP_BLACKLIST entry: ${entry}, skipped.`);
+      }
+    }
+    this.accessedEnvVars.set("IP_BLACKLIST", entries);
+    return rules;
+  }
+  /**
+   * 校验 IPv4 地址合法性
+   * @param {string} ip IPv4 地址
+   * @returns {boolean}
+   */
+  static isValidIpv4(ip) {
+    if (!ip || typeof ip !== "string") return false;
+    const parts = ip.split(".");
+    if (parts.length !== 4) return false;
+    return parts.every((part) => {
+      if (!/^(\d{1,3})$/.test(part)) return false;
+      const num = Number(part);
+      return num >= 0 && num <= 255;
+    });
+  }
+  /**
+   * 校验 IPv6 地址合法性（支持 :: 缩写与 IPv4 映射）
+   * @param {string} ip IPv6 地址
+   * @returns {boolean}
+   */
+  static isValidIpv6(ip) {
+    if (!ip || typeof ip !== "string") return false;
+    const normalized = ip.trim();
+    if (!normalized.includes(":")) return false;
+    const [left, right] = normalized.split("::");
+    if (normalized.split("::").length > 2) return false;
+    const leftParts = left ? left.split(":").filter(Boolean) : [];
+    let rightParts = right ? right.split(":").filter(Boolean) : [];
+    const expandIpv4Part = (parts) => {
+      if (parts.length === 0) return parts;
+      const last = parts[parts.length - 1];
+      if (!last.includes(".")) return parts;
+      if (!this.isValidIpv4(last)) return null;
+      const nums = last.split(".").map((n) => Number(n));
+      const high = (nums[0] << 8 | nums[1]).toString(16);
+      const low = (nums[2] << 8 | nums[3]).toString(16);
+      return [...parts.slice(0, -1), high, low];
+    };
+    const leftExpanded = expandIpv4Part(leftParts);
+    if (!leftExpanded) return false;
+    rightParts = expandIpv4Part(rightParts);
+    if (!rightParts) return false;
+    const totalParts = leftExpanded.length + rightParts.length;
+    if (totalParts > 8) return false;
+    const isValidGroup = (part) => /^[0-9a-fA-F]{1,4}$/.test(part);
+    if (!leftExpanded.every(isValidGroup)) return false;
+    if (!rightParts.every(isValidGroup)) return false;
+    return true;
+  }
+  /**
    * 解析剧名过滤正则
    * @description 用于控制剧名过滤规则，没有默认值
    * @returns {RegExp|null} 过滤正则表达式或null
@@ -616,6 +716,7 @@ var Envs = class {
       "DANMU_OUTPUT_FORMAT": { category: "danmu", type: "select", options: ["json", "xml"], description: "\u5F39\u5E55\u8F93\u51FA\u683C\u5F0F\uFF0C\u9ED8\u8BA4json" },
       "DANMU_PUSH_URL": { category: "danmu", type: "text", description: "\u5F39\u5E55\u63A8\u9001\u5730\u5740\uFF0C\u793A\u4F8B http://127.0.0.1:9978/action?do=refresh&type=danmaku&path= " },
       "LIKE_SWITCH": { category: "danmu", type: "boolean", description: "\u5F39\u5E55\u70B9\u8D5E\u6570\u663E\u793A\u5F00\u5173\uFF0C\u9ED8\u8BA4\u5F00\u542F" },
+      "DANMU_OFFSET": { category: "danmu", type: "text", description: "\u5F39\u5E55\u65F6\u95F4\u504F\u79FB\u914D\u7F6E\uFF0C\u683C\u5F0F\uFF1A\u5267\u540D:\u79D2 \u6216 \u5267\u540D/\u5B63:\u79D2 \u6216 \u5267\u540D/\u5B63/\u96C6:\u79D2\uFF0C\u591A\u6761\u7528\u9017\u53F7\u5206\u9694\uFF0C\u4F8B\u5982\uFF1Aoverlord/S01:90,re-zero/S02:120,re-zero/S02/E03:10,re-zero/S02/E07:150" },
       // 缓存配置
       "SEARCH_CACHE_MINUTES": { category: "cache", type: "number", description: "\u641C\u7D22\u7ED3\u679C\u7F13\u5B58\u65F6\u95F4(\u5206\u949F)\uFF0C\u9ED8\u8BA41", min: 1, max: 120 },
       "COMMENT_CACHE_MINUTES": { category: "cache", type: "number", description: "\u5F39\u5E55\u7F13\u5B58\u65F6\u95F4(\u5206\u949F)\uFF0C\u9ED8\u8BA41", min: 1, max: 120 },
@@ -631,7 +732,8 @@ var Envs = class {
       "DEPLOY_PLATFROM_ACCOUNT": { category: "system", type: "text", description: "\u90E8\u7F72\u5E73\u53F0\u8D26\u53F7ID" },
       "DEPLOY_PLATFROM_PROJECT": { category: "system", type: "text", description: "\u90E8\u7F72\u5E73\u53F0\u9879\u76EE\u540D\u79F0" },
       "DEPLOY_PLATFROM_TOKEN": { category: "system", type: "text", description: "\u90E8\u7F72\u5E73\u53F0\u8BBF\u95EE\u4EE4\u724C" },
-      "NODE_TLS_REJECT_UNAUTHORIZED": { category: "system", type: "number", description: "\u5728\u5EFA\u7ACB HTTPS \u8FDE\u63A5\u65F6\u662F\u5426\u9A8C\u8BC1\u670D\u52A1\u5668\u7684 SSL/TLS \u8BC1\u4E66\uFF0C0\u8868\u793A\u5FFD\u7565\uFF0C\u9ED8\u8BA4\u4E3A1", min: 0, max: 1 }
+      "NODE_TLS_REJECT_UNAUTHORIZED": { category: "system", type: "number", description: "\u5728\u5EFA\u7ACB HTTPS \u8FDE\u63A5\u65F6\u662F\u5426\u9A8C\u8BC1\u670D\u52A1\u5668\u7684 SSL/TLS \u8BC1\u4E66\uFF0C0\u8868\u793A\u5FFD\u7565\uFF0C\u9ED8\u8BA4\u4E3A1", min: 0, max: 1 },
+      "IP_BLACKLIST": { category: "system", type: "text", description: "IP \u9ED1\u540D\u5355\u5217\u8868\uFF0C\u652F\u6301\u9017\u53F7/\u5206\u53F7/\u6362\u884C\u5206\u9694\uFF0C\u652F\u6301 /regex/ \u6216 /regex/i \u6B63\u5219\uFF0C\u652F\u6301 IPv4/IPv6 CIDR\uFF08\u5982 10.0.0.0/4\u30012001:db8::/64\uFF09\u3002\u547D\u4E2D\u5219\u62D2\u7EDD\u8BF7\u6C42" }
     };
     return {
       vodAllowedPlatforms: this.VOD_ALLOWED_PLATFORMS,
@@ -680,6 +782,8 @@ var Envs = class {
       // 代理/反代地址
       likeSwitch: this.get("LIKE_SWITCH", true, "boolean"),
       // 弹幕点赞数显示开关，默认开启
+      danmuOffset: this.get("DANMU_OFFSET", "", "string"),
+      // 弹幕时间偏移配置
       tmdbApiKey: this.get("TMDB_API_KEY", "", "string", true),
       // TMDB API KEY
       redisUrl: this.get("UPSTASH_REDIS_REST_URL", "", "string", true),
@@ -694,10 +798,10 @@ var Envs = class {
       // 控制手动搜索的时候是否根据ANIME_TITLE_FILTER进行剧名过滤以及根据EPISODE_TITLE_FILTER进行集标题过滤（默认 false，禁用过滤）
       logLevel: this.get("LOG_LEVEL", "info", "string"),
       // 日志级别配置（默认 info，可选值：error, warn, info）
-      searchCacheMinutes: this.get("SEARCH_CACHE_MINUTES", 1, "number"),
-      // 搜索结果缓存时间配置（分钟，默认 1）
-      commentCacheMinutes: this.get("COMMENT_CACHE_MINUTES", 1, "number"),
-      // 弹幕缓存时间配置（分钟，默认 1）
+      searchCacheMinutes: this.get("SEARCH_CACHE_MINUTES", 3, "number"),
+      // 搜索结果缓存时间配置（分钟，默认 3）
+      commentCacheMinutes: this.get("COMMENT_CACHE_MINUTES", 3, "number"),
+      // 弹幕缓存时间配置（分钟，默认 3）
       convertTopBottomToScroll: this.get("CONVERT_TOP_BOTTOM_TO_SCROLL", false, "boolean"),
       // 顶部/底部弹幕转换为浮动弹幕配置（默认 false，禁用转换）
       convertColor: this.get("CONVERT_COLOR", "default", "string"),
@@ -712,6 +816,8 @@ var Envs = class {
       // 搜索的剧名标题自动繁转简
       titleMappingTable: this.resolveTitleMappingTable(),
       // 剧名映射表，用于自动匹配时替换标题进行搜索
+      ipBlacklist: this.resolveIpBlacklist(),
+      // IP 黑名单（支持正则）
       aiBaseUrl: this.get("AI_BASE_URL", "https://api.openai.com/v1", "string"),
       // AI服务基础URL
       aiModel: this.get("AI_MODEL", "gpt-4o", "string"),
@@ -794,7 +900,7 @@ var Globals = {
   originalEnvVars: {},
   accessedEnvVars: {},
   // 静态常量
-  VERSION: "1.15.6",
+  VERSION: "1.17.0",
   MAX_LOGS: 1e3,
   // 日志存储，最多保存 1000 行
   MAX_ANIMES: 100,
@@ -2636,24 +2742,44 @@ function convertChineseNumber(chineseNumber) {
 }
 function normalizeSpaces(str) {
   if (!str) return "";
-  return String(str).trim().replace(/\s+/g, "");
+  return String(str).trim().replace(/[\s【】\[\]《》<>「」!?！？.,，。~～]/g, "");
 }
 function strictTitleMatch(title, query) {
   if (!title || !query) return false;
   const t = normalizeSpaces(title);
   const q = normalizeSpaces(query);
   if (t === q) return true;
-  const separators = [" ", "(", "\uFF08", ":", "\uFF1A", "-", "\u2014", "\xB7", "\u7B2C", "S", "s"];
+  const separators = [" ", "(", "\uFF08", ":", "\uFF1A", "-", "\u2014", "\xB7", "\u7B2C", "S", "s", "\u5E74\u756A", "\u5408\u96C6"];
   for (const sep of separators) {
     if (t.startsWith(q + sep)) return true;
   }
   return false;
+}
+function getExplicitSeasonNumber(text) {
+  if (!text) return null;
+  const match = text.match(/(?:第\s*([0-9一二三四五六七八九十百千万]+)\s*[季期部])|(?:S(?:eason)?\s*(\d+))|(?:Part\s*(\d+))/i);
+  if (match) {
+    const numStr = match[1] || match[2] || match[3];
+    if (numStr) {
+      return convertChineseNumber(numStr);
+    }
+  }
+  return null;
 }
 function titleMatches(title, query) {
   if (globals.strictTitleMatch) return strictTitleMatch(title, query);
   const t = normalizeSpaces(title).toLowerCase();
   const q = normalizeSpaces(query).toLowerCase();
   if (t.includes(q)) return true;
+  const querySeason = getExplicitSeasonNumber(query);
+  if (querySeason !== null) {
+    const titleSeason = getExplicitSeasonNumber(title);
+    if (querySeason > 1) {
+      if ((titleSeason || 1) !== querySeason) return false;
+    } else if (querySeason === 1) {
+      if (titleSeason !== null && titleSeason !== 1) return false;
+    }
+  }
   const qSet = new Set(q);
   const tSet = new Set(t);
   const matchCount = [...qSet].reduce((acc, char) => acc + (tSet.has(char) ? 1 : 0), 0);
@@ -2672,6 +2798,69 @@ function validateType(value, expectedType) {
   } else if (typeof value !== expectedType) {
     throw new TypeError(`${value} \u5FC5\u987B\u662F ${expectedType}\uFF0C\u4F46\u4F20\u5165\u7684\u662F ${fieldName}`);
   }
+}
+function extractSeasonNumberFromAnimeTitle(animeTitle) {
+  if (!animeTitle) return { season: null, baseTitle: null };
+  const normalizedAnimeTitle = normalizeSpaces(animeTitle);
+  const match = normalizedAnimeTitle.match(/^(.*?)\(\d{4}\)/);
+  const titleWithoutYear = match ? match[1].trim() : normalizedAnimeTitle.split("(")[0].trim();
+  const explicitSeasonMatch = titleWithoutYear.match(/第\s*([0-9一二三四五六七八九十壹贰叁肆伍陆柒捌玖拾]+)\s*[季期部]/);
+  if (explicitSeasonMatch) {
+    return {
+      season: convertChineseNumber(explicitSeasonMatch[1]),
+      baseTitle: titleWithoutYear.replace(explicitSeasonMatch[0], "").trim()
+    };
+  }
+  const seasonMatch = titleWithoutYear.match(/(?:S(?:eason)?|Season)\s*(\d+)/i);
+  if (seasonMatch) {
+    return {
+      season: parseInt(seasonMatch[1], 10),
+      baseTitle: titleWithoutYear.replace(seasonMatch[0], "").trim()
+    };
+  }
+  const partMatch = titleWithoutYear.match(/Part\s*(\d+)/i);
+  if (partMatch) {
+    return {
+      season: parseInt(partMatch[1], 10),
+      baseTitle: titleWithoutYear.replace(partMatch[0], "").trim()
+    };
+  }
+  const trailingNumber = titleWithoutYear.match(/(?:^|\s|[^\d])(\d{1,2})$/);
+  if (trailingNumber) {
+    return {
+      season: parseInt(trailingNumber[1], 10),
+      baseTitle: titleWithoutYear.slice(0, titleWithoutYear.lastIndexOf(trailingNumber[1])).trim()
+    };
+  }
+  const trailingChinese = titleWithoutYear.match(/([一二三四五六七八九十壹贰叁肆伍陆柒捌玖拾]+)$/);
+  if (trailingChinese) {
+    return {
+      season: convertChineseNumber(trailingChinese[1]),
+      baseTitle: titleWithoutYear.replace(trailingChinese[0], "").trim()
+    };
+  }
+  return { season: null, baseTitle: titleWithoutYear };
+}
+function extractEpisodeNumberFromTitle(episodeTitle) {
+  if (!episodeTitle) return null;
+  const chineseMatch = episodeTitle.match(/第(\d+)集/);
+  if (chineseMatch) {
+    return parseInt(chineseMatch[1], 10);
+  }
+  const epMatch = episodeTitle.match(/[Ee][Pp]?(\d+)/);
+  if (epMatch) {
+    return parseInt(epMatch[1], 10);
+  }
+  const numberMatch = episodeTitle.match(/(?:^|\s)(\d+)(?:\s|$)/);
+  if (numberMatch) {
+    return parseInt(numberMatch[1], 10);
+  }
+  return null;
+}
+function extractAnimeInfo(animeTitle, episodeTitle) {
+  let { season, baseTitle } = extractSeasonNumberFromAnimeTitle(animeTitle);
+  let episode = extractEpisodeNumberFromTitle(episodeTitle);
+  return { baseTitle, season, episode };
 }
 
 // danmu_api/models/dandan-model.js
@@ -2926,6 +3115,10 @@ var Segment = class _Segment {
 // danmu_api/utils/cache-util.js
 var fs;
 var path;
+var lastSearchMap = /* @__PURE__ */ new Map();
+function getLastSearch(ip) {
+  return lastSearchMap.get(ip);
+}
 function isSearchCacheValid(keyword) {
   if (!globals.searchCache.has(keyword)) {
     return false;
@@ -3014,6 +3207,15 @@ function findUrlById(id) {
   log("error", `No URL found for ID: ${id}`);
   return null;
 }
+function findIndexById(id) {
+  const index = globals.episodeIds.findIndex((episode) => episode.id === id);
+  if (index !== -1) {
+    log("info", `Found index for ID ${id}: ${index}`);
+    return index;
+  }
+  log("error", `No index found for ID: ${id}`);
+  return -1;
+}
 function findTitleById(id) {
   const episode = globals.episodeIds.find((episode2) => episode2.id === id);
   if (episode) {
@@ -3021,6 +3223,20 @@ function findTitleById(id) {
     return episode.title;
   }
   log("error", `No TITLE found for ID: ${id}`);
+  return null;
+}
+function findAnimeTitleById(id) {
+  for (const anime of globals.animes) {
+    if (!anime.links || !Array.isArray(anime.links)) {
+      continue;
+    }
+    const match = anime.links.find((link) => link.id === id);
+    if (match) {
+      log("info", `Found animeTitle for ID ${id}: ${anime.animeTitle}`);
+      return anime.animeTitle;
+    }
+  }
+  log("error", `No animeTitle found for ID: ${id}`);
   return null;
 }
 function addAnime(anime) {
@@ -3094,12 +3310,25 @@ function storeAnimeIdsToMap(curAnimes, key) {
   const oldValue = globals.lastSelectMap.get(key);
   const oldPrefer = oldValue?.prefer;
   const oldSource = oldValue?.source;
+  const oldPreferBySeason = oldValue?.preferBySeason;
+  const oldSourceBySeason = oldValue?.sourceBySeason;
+  const oldOffsets = oldValue?.offsets;
+  const preferBySeason = oldPreferBySeason ? { ...oldPreferBySeason } : {};
+  const sourceBySeason = oldSourceBySeason ? { ...oldSourceBySeason } : {};
+  if (oldPrefer !== void 0) {
+    preferBySeason.default = oldPrefer;
+  }
+  if (oldSource !== void 0) {
+    sourceBySeason.default = oldSource;
+  }
   if (globals.lastSelectMap.has(key)) {
     globals.lastSelectMap.delete(key);
   }
   globals.lastSelectMap.set(key, {
     animeIds: [...uniqueAnimeIds],
-    ...oldPrefer !== void 0 && { prefer: oldPrefer, source: oldSource }
+    ...Object.keys(preferBySeason).length > 0 && { preferBySeason },
+    ...Object.keys(sourceBySeason).length > 0 && { sourceBySeason },
+    ...oldOffsets !== void 0 && { offsets: oldOffsets }
   });
   if (globals.lastSelectMap.size > globals.MAX_LAST_SELECT_MAP) {
     const firstKey = globals.lastSelectMap.keys().next().value;
@@ -3111,17 +3340,24 @@ function findAnimeIdByCommentId(commentId) {
   for (const anime of globals.animes) {
     for (const link of anime.links) {
       if (link.id === commentId) {
-        return [anime.animeId, anime.source];
+        return [anime.animeId, anime.source, link.title];
       }
     }
   }
-  return [null, null];
+  return [null, null, null];
 }
-function setPreferByAnimeId(animeId, source) {
+function setPreferByAnimeId(animeId, source, season = null, offset = null) {
   for (const [key, value] of globals.lastSelectMap.entries()) {
     if (value.animeIds && value.animeIds.includes(animeId)) {
-      value.prefer = animeId;
-      value.source = source;
+      const seasonKey = season === null ? "default" : String(season);
+      value.preferBySeason = value.preferBySeason || {};
+      value.sourceBySeason = value.sourceBySeason || {};
+      value.preferBySeason[seasonKey] = animeId;
+      value.sourceBySeason[seasonKey] = source;
+      if (season !== null && offset !== null) {
+        value.offsets = value.offsets || {};
+        value.offsets[seasonKey] = offset;
+      }
       globals.lastSelectMap.set(key, value);
       return key;
     }
@@ -3511,6 +3747,49 @@ function formatDanmuResponse(danmuData, queryFormat) {
     }
   }
   return jsonResponse(danmuData);
+}
+function parseOffset(env) {
+  const map = /* @__PURE__ */ new Map();
+  if (!env) return map;
+  for (const entry of env.split(",")) {
+    const [path2, sec] = entry.trim().split(":");
+    if (path2 && sec !== void 0) {
+      const normalizedPath = path2.trim().split("/").map((segment, index) => {
+        if (index === 0) return segment;
+        const seasonMatch = segment.match(/^S(\d+)$/i);
+        if (seasonMatch) return `S${String(parseInt(seasonMatch[1])).padStart(2, "0")}`;
+        const episodeMatch = segment.match(/^E(\d+)$/i);
+        if (episodeMatch) return `E${String(parseInt(episodeMatch[1])).padStart(2, "0")}`;
+        return segment;
+      }).join("/");
+      map.set(normalizedPath, parseInt(sec));
+    }
+  }
+  return map;
+}
+function getOffset(anime, season, episode) {
+  const map = parseOffset(globals.danmuOffset);
+  log("info", `getOffset params: ${anime}, ${season}, ${episode}`);
+  log("info", `getOffset map: ${JSON.stringify([...map])}`);
+  return map.get(`${anime}/${season}/${episode}`) ?? // 集级
+  map.get(`${anime}/${season}`) ?? // 季级
+  map.get(anime) ?? // 剧级
+  0;
+}
+function applyDanmuOffset(danmus, offset) {
+  if (offset === 0) return danmus;
+  return danmus.map((danmu) => {
+    const pValues = danmu.p.split(",");
+    const time = parseFloat(pValues[0]) || 0;
+    const newTime = Math.max(0, time + offset);
+    pValues[0] = newTime.toFixed(3);
+    return {
+      ...danmu,
+      p: pValues.join(","),
+      t: newTime
+      // 如果有t字段也更新
+    };
+  });
 }
 
 // danmu_api/utils/tmdb-util.js
@@ -4007,7 +4286,7 @@ var DISPLAY_CONNECTOR = "&";
 var ENABLE_VERBOSE_MERGE_LOG = false;
 var MergeWeights = Object.freeze({
   // 标题与结构
-  TITLE_STRUCTURE_CONFLICT: -0.15,
+  TITLE_STRUCTURE_CONFLICT: -0.3,
   // 标题结构冲突（如父子集关系）
   LANG_MATCH_CN: 0.15,
   // 双端均为中文时的奖励
@@ -4051,7 +4330,7 @@ var MergeWeights = Object.freeze({
   }
 });
 var Thresholds = Object.freeze({
-  SIMILARITY_MIN: 0.6,
+  SIMILARITY_MIN: 0.65,
   // 最低标题相似度
   SIMILARITY_STRONG: 0.98,
   // 强匹配（Probe确认后）
@@ -4152,13 +4431,13 @@ var SUFFIX_SPECIFIC_MAP = [
 ];
 var SEASON_PATTERNS = [
   { regex: /(?:第)?(\d+)(?:季|期|部(?!分))/, prefix: "S" },
-  { regex: /season\s*(\d+)/, prefix: "S" },
-  { regex: /s(\d+)/, prefix: "S" },
-  { regex: /part\s*(\d+)/, prefix: "P" },
-  { regex: /(ova|oad)/, val: "OVA" },
-  { regex: /(剧场版|the\s*movie|theatrical|movie|film|电影)/, val: "MOVIE" },
+  { regex: /\bseason\s*(\d+)/i, prefix: "S" },
+  { regex: /\bs\s*(\d+)\b/i, prefix: "S" },
+  { regex: /\bpart\s*(\d+)/i, prefix: "P" },
+  { regex: /\b(ova|oad)\d*\b/i, val: "OVA" },
+  { regex: /(剧场版|the\s*movie|theatrical|movie|film|电影)/i, val: "MOVIE" },
   { regex: /(续篇|续集)/, val: "SEQUEL" },
-  { regex: /sp/, val: "SP" },
+  { regex: /\b(sp|special)\d*\b/i, val: "SP" },
   { regex: /[^0-9](\d)$/, prefix: "S", useCleaned: true }
 ];
 function getLanguageType(text) {
@@ -4398,8 +4677,8 @@ function extractSeasonMarkers(title, typeDesc = "") {
   }
   if (RegexStore.Season.SUFFIX_SEQUEL.test(t) || type.includes("\u7EED\u7BC7")) markers.add("SEQUEL");
   if (type.includes("\u5267\u573A\u7248") || type.includes("movie") || type.includes("film") || type.includes("\u7535\u5F71")) markers.add("MOVIE");
-  if (type.includes("ova") || type.includes("oad")) markers.add("OVA");
-  if (type.includes("sp") || type.includes("special")) markers.add("SP");
+  if (/\b(ova|oad)\b/i.test(type)) markers.add("OVA");
+  if (/\b(sp|special)\b/i.test(type)) markers.add("SP");
   const cnNums = { "\u4E00": 1, "\u4E8C": 2, "\u4E09": 3, "\u56DB": 4, "\u4E94": 5, "final": 99 };
   for (const [cn, num] of Object.entries(cnNums)) {
     if (t.includes(`\u7B2C${cn}\u5B63`)) markers.add(`S${num}`);
@@ -4832,13 +5111,28 @@ function extractEpisodeInfo(title, sourceName = "") {
   }
   return { isMovie, num, isSpecial, isPV, season, isStrictSpecial };
 }
-function filterEpisodes(links, filterRegex) {
+function filterEpisodes(links, filterRegex, sourceName = "") {
   if (!links) return [];
-  if (!filterRegex) return links.map((link, index) => ({ link, originalIndex: index }));
-  return links.map((link, index) => ({ link, originalIndex: index })).filter((item) => {
-    const title = item.link.title || item.link.name || "";
-    return !filterRegex.test(title);
+  const skipFilterSources = ["animeko", "bilibili", "bilibili1", "bahamut", "dandan"];
+  const shouldSkipFilter = skipFilterSources.includes(sourceName);
+  if (!filterRegex || shouldSkipFilter) {
+    return links.map((link, index) => ({ link, originalIndex: index }));
+  }
+  const validLinks = [];
+  const droppedTitles = [];
+  links.forEach((link, index) => {
+    const title = link.title || link.name || "";
+    if (filterRegex.test(title)) {
+      droppedTitles.push(title);
+    } else {
+      validLinks.push({ link, originalIndex: index });
+    }
   });
+  if (droppedTitles.length > 0) {
+    const sourcePrefix = sourceName ? `[${sourceName}] ` : "";
+    log2("info", `[Merge-Check] ${sourcePrefix}\u547D\u4E2DEPISODE_TITLE_FILTER\u8FC7\u6EE4\uFF0C\u5DF2\u524D\u7F6E\u5254\u9664 ${droppedTitles.length} \u96C6: ${droppedTitles.join(", ")}`);
+  }
+  return validLinks;
 }
 var _redundantTitleRegexCache = /* @__PURE__ */ new Map();
 function identifyRedundantTitle(links, seriesTitle, sourceName) {
@@ -5119,7 +5413,7 @@ function buildSeasonLengthMap(allGroupAnimes, epFilter, collectionAnimeIds) {
     }
     const seasonNum = getSeasonNumber(realAnime.animeTitle, realAnime.typeDescription);
     if (seasonNum !== null && realAnime.links) {
-      const validLinks = filterEpisodes(realAnime.links, epFilter).filter((item) => {
+      const validLinks = filterEpisodes(realAnime.links, epFilter, realAnime.source).filter((item) => {
         const title = item.link.title || item.link.name || "";
         const cleanT = cleanText(title);
         const rawTemp = cleanT.replace(RegexStore.Clean.SOURCE_TAG, "").replace(RegexStore.Clean.FROM_SUFFIX, "").trim();
@@ -5198,8 +5492,8 @@ async function processMergeTask(params) {
     allowReuseIds,
     collectionProgress
   } = params;
-  if (collectionAnimeIds.has(pAnime.animeId) && globalConsumedIds.has(pAnime.animeId)) {
-    log2("info", `${logPrefix} \u8DF3\u8FC7: [${currentPrimarySource}] \u662F\u5408\u96C6\u4E14\u5DF2\u4F5C\u4E3A\u526F\u6E90\u53C2\u4E0E\u8FC7\u5408\u5E76\u3002`);
+  if (collectionAnimeIds.has(pAnime.animeId) && groupConsumedIds.has(pAnime.animeId)) {
+    log2("info", `${logPrefix} \u8DF3\u8FC7: [${currentPrimarySource}] \u662F\u5408\u96C6\u4E14\u5DF2\u4F5C\u4E3A\u7EC4\u5185\u526F\u6E90\u53C2\u4E0E\u8FC7\u5408\u5E76\u3002`);
     return null;
   }
   const cachedPAnime = globals.animes.find((a) => String(a.animeId) === String(pAnime.animeId));
@@ -5232,6 +5526,7 @@ async function processMergeTask(params) {
   for (const secSource of availableSecondaries) {
     let secondaryItems = curAnimes.filter((a) => {
       if (a.source !== secSource) return false;
+      if (isPrimaryCollection) return true;
       const isConsumed = groupConsumedIds.has(a.animeId);
       const isAllowedReuse = allowReuseIds && allowReuseIds.has(a.animeId);
       if (isConsumed && !isAllowedReuse) return false;
@@ -5249,25 +5544,27 @@ async function processMergeTask(params) {
     if (secondaryItems.length === 0) continue;
     const matches = findSecondaryMatches(pAnime, secondaryItems, collectionAnimeIds);
     for (const match of matches) {
-      const isReuse = allowReuseIds && allowReuseIds.has(match.animeId);
-      if (!isReuse && groupConsumedIds.has(match.animeId)) continue;
-      const cachedMatch = globals.animes.find((a) => String(a.animeId) === String(match.animeId));
-      if (!cachedMatch?.links) continue;
+      if (!isPrimaryCollection) {
+        const isReuse = allowReuseIds && allowReuseIds.has(match.animeId);
+        if (!isReuse && groupConsumedIds.has(match.animeId)) continue;
+      }
+      const globalCachedMatch = globals.animes.find((a) => String(a.animeId) === String(match.animeId));
+      if (!globalCachedMatch?.links) continue;
+      const derivedMatch = fastCloneAnime(globalCachedMatch);
       const mappingEntries = [], matchedPIndices = /* @__PURE__ */ new Set(), pendingMutations = [], orphanedEpisodes = [];
-      const logTitleB = cachedMatch.animeTitle.replace(RegexStore.Clean.FROM_SUFFIX, "");
+      const logTitleB = derivedMatch.animeTitle.replace(RegexStore.Clean.FROM_SUFFIX, "");
       const decimalsP = getDecimalEpisodes(derivedAnime.links, currentPrimarySource);
-      const decimalsS = getDecimalEpisodes(cachedMatch.links, secSource);
+      const decimalsS = getDecimalEpisodes(derivedMatch.links, secSource);
       const toSinkS = new Set([...decimalsS].filter((x) => !decimalsP.has(x)));
       const toSinkP = new Set([...decimalsP].filter((x) => !decimalsS.has(x)));
       if (toSinkP.size > 0) sinkDecimalEpisodes(derivedAnime.links, toSinkP, currentPrimarySource, `\u4E3B\u6E90:${currentPrimarySource}`);
-      let currentSecondaryLinks = cachedMatch.links;
       if (toSinkS.size > 0) {
-        currentSecondaryLinks = [...cachedMatch.links];
-        sinkDecimalEpisodes(currentSecondaryLinks, toSinkS, secSource, `\u526F\u6E90:${secSource}`);
+        sinkDecimalEpisodes(derivedMatch.links, toSinkS, secSource, `\u526F\u6E90:${secSource}`);
       }
-      const filteredPLinksWithIndex = filterEpisodes(derivedAnime.links, epFilter);
-      const filteredMLinksWithIndex = filterEpisodes(currentSecondaryLinks, epFilter);
-      const seriesLangB = getLanguageType(cachedMatch.animeTitle);
+      let currentSecondaryLinks = derivedMatch.links;
+      const filteredPLinksWithIndex = filterEpisodes(derivedAnime.links, epFilter, currentPrimarySource);
+      const filteredMLinksWithIndex = filterEpisodes(currentSecondaryLinks, epFilter, secSource);
+      const seriesLangB = getLanguageType(derivedMatch.animeTitle);
       let activePLinks = filteredPLinksWithIndex, activeMLinks = filteredMLinksWithIndex;
       let sliceStartP = 0, sliceStartS = 0;
       const isSecondaryCollection = collectionAnimeIds.has(match.animeId);
@@ -5319,7 +5616,7 @@ async function processMergeTask(params) {
         return { sliceStart, slicedList };
       };
       if (isPrimaryCollection && !isSecondaryCollection) {
-        const secSeason = getSeasonNumber(cachedMatch.animeTitle, cachedMatch.typeDescription);
+        const secSeason = getSeasonNumber(derivedMatch.animeTitle, derivedMatch.typeDescription);
         const res = performSlicing(true, filteredPLinksWithIndex, secSeason);
         activePLinks = res.slicedList;
         sliceStartP = res.sliceStart;
@@ -5329,13 +5626,13 @@ async function processMergeTask(params) {
         activeMLinks = res.slicedList;
         sliceStartS = res.sliceStart;
       }
-      const bestOffsetLocal = findBestAlignmentOffset(activePLinks, activeMLinks, seriesLangA, seriesLangB, currentPrimarySource, secSource, pAnime.animeTitle, cachedMatch.animeTitle);
+      const bestOffsetLocal = findBestAlignmentOffset(activePLinks, activeMLinks, seriesLangA, seriesLangB, currentPrimarySource, secSource, pAnime.animeTitle, derivedMatch.animeTitle);
       const offset = bestOffsetLocal + sliceStartP - sliceStartS;
       if (offset !== 0) log2("info", `${logPrefix} \u96C6\u6570\u81EA\u52A8\u5BF9\u9F50 (${secSource}): Offset=${offset} (P:${filteredPLinksWithIndex.length}, S:${filteredMLinksWithIndex.length})`);
       derivedAnime.animeId = generateSafeMergedId(derivedAnime.animeId, match.animeId, groupFingerprint);
       derivedAnime.bangumiId = String(derivedAnime.animeId);
       let mergedCount = 0;
-      const redundantS = identifyRedundantTitle(cachedMatch.links, cachedMatch.animeTitle, secSource);
+      const redundantS = identifyRedundantTitle(derivedMatch.links, derivedMatch.animeTitle, secSource);
       for (let k = 0; k < filteredMLinksWithIndex.length; k++) {
         const pIndex = k + offset;
         const sourceLinkItem = filteredMLinksWithIndex[k];
@@ -5344,10 +5641,6 @@ async function processMergeTask(params) {
         const orphanItem = { link: sourceLink, originalIndex: sourceLinkItem.originalIndex, relativeIndex: pIndex, info: null };
         const cleanTitleS = getTempTitle(sourceLink.title, redundantS);
         orphanItem.info = extractEpisodeInfo(cleanTitleS, secSource);
-        if (epFilter && epFilter.test(sTitleShort)) {
-          mappingEntries.push({ idx: pIndex, text: `   [\u7565\u8FC7] ${sTitleShort} (\u547D\u4E2DPV/\u9884\u544A\u8FC7\u6EE4\u5668)` });
-          continue;
-        }
         if (pIndex >= 0 && pIndex < filteredPLinksWithIndex.length) {
           const originalPIndex = filteredPLinksWithIndex[pIndex].originalIndex;
           const targetLink = derivedAnime.links[originalPIndex];
@@ -5449,9 +5742,6 @@ ${mappingEntries.map((e) => e.text).join("\n")}`);
             derivedAnime.links = [...normals, ...sinkers];
             log2("info", `${logPrefix} [\u6392\u5E8F\u4F18\u5316] \u7ACB\u5373\u6267\u884C\u756A\u5916\u6C89\u5E95: \u79FB\u52A8\u4E86 ${sinkers.length} \u4E2A\u756A\u5916\u96C6\u5230\u672B\u5C3E`);
           }
-          if (!collectionAnimeIds.has(match.animeId)) groupConsumedIds.add(match.animeId);
-          else log2("info", `${logPrefix} \u5408\u96C6\u4FDD\u7559: [${secSource}] ${logTitleB} \u662F\u5408\u96C6\uFF0C\u4FDD\u7559\u4EE5\u4F9B\u540C\u7EC4\u590D\u7528\u3002`);
-          globalConsumedIds.add(match.animeId);
           hasMergedAny = true;
           actualMergedSources.push(secSource);
           contentSignatureParts.push(match.animeId);
@@ -5463,9 +5753,18 @@ ${mappingEntries.map((e) => e.text).join("\n")}`);
     const signature = contentSignatureParts.join("|");
     if (generatedSignatures.has(signature)) {
       log2("info", `${logPrefix} \u68C0\u6D4B\u5230\u91CD\u590D\u7684\u5408\u5E76\u7ED3\u679C (Signature: ${signature})\uFF0C\u5DF2\u81EA\u52A8\u9690\u53BB\u5197\u4F59\u6761\u76EE\u3002`);
-      return derivedAnime;
+      return null;
     }
     generatedSignatures.add(signature);
+    for (let i = 1; i < contentSignatureParts.length; i++) {
+      const secId = contentSignatureParts[i];
+      if (!collectionAnimeIds.has(secId)) {
+        groupConsumedIds.add(secId);
+      } else {
+        log2("info", `${logPrefix} \u5408\u96C6\u4FDD\u7559: ID [${secId}] \u662F\u5408\u96C6\uFF0C\u4FDD\u7559\u4EE5\u4F9B\u540C\u7EC4\u590D\u7528\u3002`);
+      }
+      globalConsumedIds.add(secId);
+    }
     const joinedSources = actualMergedSources.join(DISPLAY_CONNECTOR);
     derivedAnime.animeTitle = derivedAnime.animeTitle.replace(`from ${currentPrimarySource}`, `from ${currentPrimarySource}${DISPLAY_CONNECTOR}${joinedSources}`);
     derivedAnime.source = currentPrimarySource;
@@ -5621,6 +5920,9 @@ async function applyMergeLogic(curAnimes) {
       if (!list || list.length < 2) return list;
       log2("info", `[Merge-Check] [Sort] ${phaseName} \u6392\u5E8F\u524D\u9996\u4E2A\u5143\u7D20: ${list[0].animeTitle}`);
       list.sort((a, b) => {
+        const pA = sourcePriorityMap.get(a.source) ?? 99;
+        const pB = sourcePriorityMap.get(b.source) ?? 99;
+        if (pA !== pB) return pA - pB;
         const getMediaTypePriority = (anime) => {
           const markers = extractSeasonMarkers(anime.animeTitle, anime.typeDescription);
           if (markers.has("MOVIE")) return 2;
@@ -5634,15 +5936,13 @@ async function applyMergeLogic(curAnimes) {
         if (typeA !== typeB) return typeA - typeB;
         const sA = getSeasonNumber(a.animeTitle, a.typeDescription) || 1;
         const sB = getSeasonNumber(b.animeTitle, b.typeDescription) || 1;
-        if (sA !== sB) return sA - sB;
-        const pA = sourcePriorityMap.get(a.source);
-        const pB = sourcePriorityMap.get(b.source);
-        return pA - pB;
+        return sA - sB;
       });
       const debugOrder = list.map((a) => {
         const sNum = getSeasonNumber(a.animeTitle, a.typeDescription) || 1;
         const typeLabel = extractSeasonMarkers(a.animeTitle, a.typeDescription).has("MOVIE") || getStrictMediaType(a.animeTitle, a.typeDescription) === "MOVIE" ? "Movie" : `S${sNum}`;
-        return `[${typeLabel}] [${a.source}] ${a.animeTitle}`;
+        const pLevel = sourcePriorityMap.get(a.source) ?? "?";
+        return `[P${pLevel}] [${typeLabel}] [${a.source}] ${a.animeTitle}`;
       });
       log2("info", `[Merge-Check] [Sort] ${phaseName} \u6267\u884C\u987A\u5E8F:
    ${debugOrder.join("\n   ")}`);
@@ -5650,12 +5950,12 @@ async function applyMergeLogic(curAnimes) {
     };
     const cnCandidates = [];
     fullPriorityList.forEach((source) => {
-      const items = curAnimes.filter((a) => a.source === source && !globalConsumedIds.has(a.animeId) && getLanguageType(a.animeTitle) === "CN");
+      const items = curAnimes.filter((a) => a.source === source && !groupConsumedIds.has(a.animeId) && getLanguageType(a.animeTitle) === "CN");
       items.forEach((item) => cnCandidates.push(item));
     });
     let hasCnInSecondaries = false;
     for (const secSrc of fullPriorityList) {
-      if (curAnimes.some((a) => a.source === secSrc && !globalConsumedIds.has(a.animeId) && getLanguageType(a.animeTitle) === "CN")) {
+      if (curAnimes.some((a) => a.source === secSrc && !groupConsumedIds.has(a.animeId) && getLanguageType(a.animeTitle) === "CN")) {
         hasCnInSecondaries = true;
         break;
       }
@@ -5665,7 +5965,6 @@ async function applyMergeLogic(curAnimes) {
       sortCandidates(cnCandidates, "Phase 1");
       for (const pAnime of cnCandidates) {
         if (groupConsumedIds.has(pAnime.animeId)) continue;
-        if (globalConsumedIds.has(pAnime.animeId)) continue;
         const currentPriorityIdx = sourcePriorityMap.get(pAnime.source);
         const availableSecondaries = fullPriorityList.slice(currentPriorityIdx + 1);
         if (availableSecondaries.length === 0) continue;
@@ -5694,7 +5993,7 @@ async function applyMergeLogic(curAnimes) {
     const secondaryCnCandidates = [];
     for (let i = 1; i < fullPriorityList.length; i++) {
       const source = fullPriorityList[i];
-      const items = curAnimes.filter((a) => a.source === source && !globalConsumedIds.has(a.animeId) && getLanguageType(a.animeTitle) === "CN");
+      const items = curAnimes.filter((a) => a.source === source && !groupConsumedIds.has(a.animeId) && getLanguageType(a.animeTitle) === "CN");
       items.forEach((item) => secondaryCnCandidates.push(item));
     }
     if (secondaryCnCandidates.length >= 2) {
@@ -5702,7 +6001,6 @@ async function applyMergeLogic(curAnimes) {
       sortCandidates(secondaryCnCandidates, "Phase 1.5");
       for (const tAnime of secondaryCnCandidates) {
         if (groupConsumedIds.has(tAnime.animeId)) continue;
-        if (globalConsumedIds.has(tAnime.animeId)) continue;
         const currentPriorityIdx = sourcePriorityMap.get(tAnime.source);
         const availableSecondaries = fullPriorityList.slice(currentPriorityIdx + 1);
         if (availableSecondaries.length === 0) continue;
@@ -5730,7 +6028,7 @@ async function applyMergeLogic(curAnimes) {
     }
     const remainingCandidates = [];
     fullPriorityList.forEach((source) => {
-      const items = curAnimes.filter((a) => a.source === source && !globalConsumedIds.has(a.animeId));
+      const items = curAnimes.filter((a) => a.source === source && !groupConsumedIds.has(a.animeId));
       items.forEach((item) => remainingCandidates.push(item));
     });
     if (remainingCandidates.length > 0) {
@@ -5738,7 +6036,6 @@ async function applyMergeLogic(curAnimes) {
       sortCandidates(remainingCandidates, "Phase 2");
       for (const pAnime of remainingCandidates) {
         if (groupConsumedIds.has(pAnime.animeId)) continue;
-        if (globalConsumedIds.has(pAnime.animeId)) continue;
         const currentPriorityIdx = sourcePriorityMap.get(pAnime.source);
         const availableSecondaries = fullPriorityList.slice(currentPriorityIdx + 1);
         if (availableSecondaries.length === 0) continue;
@@ -5868,11 +6165,11 @@ function alignSourceTimelines(results, sourceNames, realIds, dandanShifts = {}) 
   return results;
 }
 function getDanmuTime(danmu) {
-  if (danmu.t !== void 0 && danmu.t !== null) return Number(danmu.t);
   if (danmu.p && typeof danmu.p === "string") {
     const pTime = parseFloat(danmu.p.split(",")[0]);
     if (!isNaN(pTime)) return pTime;
   }
+  if (danmu.t !== void 0 && danmu.t !== null) return Number(danmu.t);
   if (typeof danmu.progress === "number") {
     return danmu.progress / 1e3;
   }
@@ -8177,6 +8474,9 @@ var BahamutSource = class extends BaseSource {
       }
       return bahamutTitleMatches(itemTitle, queryTitle, usedSearchTitle);
     });
+    filtered.forEach((item) => {
+      item._originalTitleAlias = item.title ? simplized(item.title) : "";
+    });
     const cnAlias = filtered.length > 0 ? filtered[0]._tmdbCnAlias : null;
     smartTitleReplace(filtered, cnAlias);
     const processBahamutAnimes = await Promise.all(filtered.map(async (anime) => {
@@ -8201,6 +8501,10 @@ var BahamutSource = class extends BaseSource {
         if (links.length > 0) {
           let yearMatch = (anime.info || "").match(/(\d{4})/);
           const displayTitle = anime._displayTitle || simplized(anime.title);
+          const aliases = [];
+          if (anime._originalTitleAlias && anime._originalTitleAlias !== displayTitle) {
+            aliases.push(anime._originalTitleAlias);
+          }
           let itemType = "\u52A8\u6F2B";
           const fullTitle = epData.anime && epData.anime.title || detail && detail.title || "";
           if (fullTitle.includes("[\u96FB\u5F71]")) {
@@ -8212,6 +8516,7 @@ var BahamutSource = class extends BaseSource {
             animeId: anime.video_sn,
             bangumiId: String(anime.video_sn),
             animeTitle: `${displayTitle}(${(anime.info.match(/(\d{4})/) || [null])[0]})\u3010${itemType}\u3011from bahamut`,
+            aliases,
             type: "\u52A8\u6F2B",
             typeDescription: "\u52A8\u6F2B",
             imageUrl: anime.cover,
@@ -8276,10 +8581,10 @@ var BahamutSource = class extends BaseSource {
     const positionToMode = { 0: 1, 1: 5, 2: 4 };
     return comments.map((c) => ({
       cid: Number(c.sn),
-      p: `${Math.round(c.time / 10).toFixed(2)},${positionToMode[c.position] || c.tp},${parseInt(c.color.slice(1), 16)},[bahamut]`,
+      p: `${(c.time / 10).toFixed(2)},${positionToMode[c.position] || c.tp},${parseInt(c.color.slice(1), 16)},[bahamut]`,
       // 根据 globals.danmuSimplifiedTraditional 控制是否繁转简
       m: globals.danmuSimplifiedTraditional === "simplified" ? simplized(c.text) : c.text,
-      t: Math.round(c.time / 10)
+      t: c.time / 10
     }));
   }
 };
@@ -10365,9 +10670,18 @@ var _BilibiliSource = class _BilibiliSource extends BaseSource {
       log("error", "[Bilibili] sourceAnimes is not a valid array");
       return [];
     }
+    sourceAnimes.forEach((anime) => {
+      anime.aliases = anime.aliases || [];
+      if (anime.title && !anime.aliases.includes(anime.title)) {
+        anime.aliases.push(anime.title);
+      }
+      if (anime.org_title && !anime.aliases.includes(anime.org_title)) {
+        anime.aliases.push(anime.org_title);
+      }
+    });
     const cnAlias = sourceAnimes.length > 0 ? sourceAnimes[0]._tmdbCnAlias : null;
     smartTitleReplace(sourceAnimes, cnAlias);
-    const processPromises = sourceAnimes.filter((anime) => anime.isOversea || titleMatches(anime.title, queryTitle) || anime.org_title && titleMatches(anime.org_title, queryTitle)).map(async (anime) => {
+    const processPromises = sourceAnimes.filter((anime) => anime.isOversea || titleMatches(anime.title, queryTitle) || anime.aliases && anime.aliases.some((alias) => titleMatches(alias, queryTitle))).map(async (anime) => {
       try {
         let links = [];
         const isIncomplete = anime.checkMore?.content?.includes("\u67E5\u770B\u5168\u90E8");
@@ -10429,7 +10743,8 @@ var _BilibiliSource = class _BilibiliSource extends BaseSource {
           episodeCount: links.length,
           rating: 0,
           isFavorited: true,
-          source: "bilibili"
+          source: "bilibili",
+          aliases: anime.aliases
         };
         tmpAnimes.push(transformedAnime);
         addAnime({ ...transformedAnime, links });
@@ -10731,6 +11046,7 @@ var _BilibiliSource = class _BilibiliSource extends BaseSource {
             provider: "bilibili",
             mediaId: i.season_id ? `ss${i.season_id}` : i.uri.match(/season\/(\d+)/)?.[1] ? `ss${i.uri.match(/season\/(\d+)/)[1]}` : "",
             title: (i.title || "").replace(/<[^>]+>/g, "").trim(),
+            org_title: (i.org_title || "").replace(/<[^>]+>/g, "").trim(),
             type: this._extractMediaType(i.season_type_name),
             year: i.ptime ? new Date(i.ptime * 1e3).getFullYear() : null,
             imageUrl: i.cover || i.pic || "",
@@ -10768,6 +11084,10 @@ var _BilibiliSource = class _BilibiliSource extends BaseSource {
           provider: "bilibili",
           mediaId: i.season_id ? `ss${i.season_id}` : "",
           title: (i.title || "").replace(/<[^>]+>/g, "").trim(),
+          org_title: (i.org_title || "").replace(/<[^>]+>/g, "").replace(/&[^;]+;/g, (match) => {
+            const entities = { "&lt;": "<", "&gt;": ">", "&amp;": "&", "&quot;": '"', "&#39;": "'" };
+            return entities[match] || match;
+          }).trim(),
           type: this._extractMediaType(i.season_type_name),
           year: i.pubtime ? new Date(i.pubtime * 1e3).getFullYear() : null,
           imageUrl: i.cover || null,
@@ -11469,7 +11789,13 @@ var bilibiliSource = new BilibiliSource();
 var youkuSource = new YoukuSource();
 var bahamutSource = new BahamutSource();
 var DandanSource = class extends BaseSource {
-  async search(keyword) {
+  /**
+   * 搜索动画条目
+   * 包含常规搜索、TMDB 日语原名搜索，以及去除季度信息后的降级搜索策略
+   * @param {string} keyword 搜索关键词
+   * @param {boolean} isFallback 标记当前是否处于降级搜索状态，防止无限递归
+   */
+  async search(keyword, isFallback = false) {
     try {
       log("info", `[Dandan] \u539F\u59CB\u641C\u7D22\u8BCD: ${keyword}`);
       const tmdbAbortController = new AbortController();
@@ -11529,6 +11855,9 @@ var DandanSource = class extends BaseSource {
             return { success: false, source: "tmdb" };
           }
           const animes = resp.data.animes;
+          for (const anime of animes) {
+            anime.isTmdbSource = true;
+          }
           log("info", `dandanSearchresp (tmdb): ${JSON.stringify(animes)}`);
           log("info", `[Dandan] \u8FD4\u56DE ${animes.length} \u6761\u7ED3\u679C (source: tmdb)`);
           return { success: true, data: animes, source: "tmdb" };
@@ -11550,7 +11879,14 @@ var DandanSource = class extends BaseSource {
       if (tmdbResult.success) {
         return tmdbResult.data;
       }
-      log("info", "[Dandan] \u539F\u59CB\u641C\u7D22\u548C\u57FA\u4E8ETMDB\u7684\u641C\u7D22\u5747\u672A\u8FD4\u56DE\u4EFB\u4F55\u7ED3\u679C");
+      log("info", `[Dandan] \u539F\u59CB\u641C\u7D22\u548C\u57FA\u4E8ETMDB\u7684\u641C\u7D22\u5747\u672A\u8FD4\u56DE\u4EFB\u4F55\u7ED3\u679C (\u5F53\u524D\u641C\u7D22\u8BCD: ${keyword})`);
+      if (!isFallback) {
+        const strippedKeyword = keyword.replace(/(?:第\s*[0-9一二三四五六七八九十百千万]+\s*[季期部])|(?:S(?:eason)?\s*\d+)|(?:Part\s*\d+)/gi, "").trim();
+        if (strippedKeyword && strippedKeyword !== keyword) {
+          log("info", `[Dandan] \u5C1D\u8BD5\u53BB\u9664\u5B63\u5EA6\u4FE1\u606F\u8FDB\u884C\u964D\u7EA7\u641C\u7D22: ${strippedKeyword}`);
+          return await this.search(strippedKeyword, true);
+        }
+      }
       return [];
     } catch (error) {
       log("error", "getDandanAnimes error:", {
@@ -11596,10 +11932,6 @@ var DandanSource = class extends BaseSource {
       return { episodes: [], titles: [], relateds: [], type: null, typeDescription: null, imageUrl: null };
     }
   }
-  // 检测标题中是否包含明确的季度或部分特征，用于相关作品开关
-  hasSeasonInfo(title) {
-    return /(?:^|\s)(?:第[0-9一二三四五六七八九十百千万]+季|S(?:eason)?\s*\d+)(?:\s+|_)/gi.test(title) || /^(?:(?:第|S(?:eason)?)\s*\d+(?:季|期|部)?|(?:Part|P|第)\s*\d+(?:部分)?)$/i.test(title) || /(第[0-9一二三四五六七八九十百千万\d]+(?:季|期|部)|S(?:eason)?\s*\d+|Part\s*\d+)/i.test(title);
-  }
   // 计算两个字符串的文本相似度（字符集交并比算法）
   calculateSimilarity(str1, str2) {
     if (!str1 || !str2) return 0;
@@ -11621,7 +11953,7 @@ var DandanSource = class extends BaseSource {
     const queue = [];
     for (const anime of sourceAnimes) {
       existingIds.add(anime.animeId);
-      queue.push(anime);
+      queue.push({ ...anime, isRelated: false });
     }
     while (queue.length > 0) {
       const currentBatch = queue.splice(0, queue.length);
@@ -11633,16 +11965,47 @@ var DandanSource = class extends BaseSource {
           const similarity = this.calculateSimilarity(queryTitle, anime.animeTitle);
           if (similarity >= 0.1 && details.relateds && Array.isArray(details.relateds)) {
             for (const rel of details.relateds) {
-              if (!existingIds.has(rel.animeId) && (this.hasSeasonInfo(rel.animeTitle) || initialCount >= 25)) {
+              const hasSeason = getExplicitSeasonNumber(rel.animeTitle) !== null;
+              if (!existingIds.has(rel.animeId) && (hasSeason || initialCount >= 25)) {
                 existingIds.add(rel.animeId);
                 queue.push({
                   animeId: rel.animeId,
                   animeTitle: rel.animeTitle,
                   imageUrl: rel.imageUrl,
-                  rating: rel.rating || 0
+                  rating: rel.rating || 0,
+                  isRelated: true
+                  // 标记动态挖掘出的条目为相关作品
                 });
               }
             }
+          }
+          const allTitles = [anime.animeTitle, ...aliases];
+          let isMatch = false;
+          if (anime.isRelated || anime.isTmdbSource) {
+            const querySeason = getExplicitSeasonNumber(queryTitle);
+            if (querySeason !== null) {
+              let titleSeason = null;
+              for (const t of allTitles) {
+                if (!t) continue;
+                const s = getExplicitSeasonNumber(t);
+                if (s !== null) {
+                  titleSeason = s;
+                  break;
+                }
+              }
+              if (querySeason > 1) {
+                isMatch = (titleSeason || 1) === querySeason;
+              } else if (querySeason === 1) {
+                isMatch = titleSeason === null || titleSeason === 1;
+              }
+            } else {
+              isMatch = true;
+            }
+          } else {
+            isMatch = allTitles.some((t) => t && titleMatches(t, queryTitle));
+          }
+          if (!isMatch) {
+            return;
           }
           let links = [];
           for (const ep of eps) {
@@ -14722,118 +15085,29 @@ var AnimekoSource = class extends BaseSource {
     }
   }
   /**
-   * 从文本中提取明确的季度数字
-   * @param {string} text 标题文本
-   * @returns {number|null} 季度数字，未找到返回 null
-   */
-  getExplicitSeasonNumber(text) {
-    if (!text) return null;
-    const cleanText2 = simplized(text);
-    const arabicMatch = cleanText2.match(/(?:^|\s|\[|\(|（|【)(?:Season|S|第)\s*(\d+)(?:\s*季|期|部|Season|\]|\)|）|】)?/i);
-    if (arabicMatch && arabicMatch[1]) {
-      return parseInt(arabicMatch[1], 10);
-    }
-    const cnNums = { "\u4E00": 1, "\u4E8C": 2, "\u4E09": 3, "\u56DB": 4, "\u4E94": 5, "\u516D": 6, "\u4E03": 7, "\u516B": 8, "\u4E5D": 9, "\u5341": 10 };
-    const cnMatch = cleanText2.match(/第([一二三四五六七八九十]+)[季期部]/);
-    if (cnMatch && cnNums[cnMatch[1]]) {
-      return cnNums[cnMatch[1]];
-    }
-    return null;
-  }
-  /**
-   * 移除字符串中的标点符号、特殊符号和空白字符
-   * 兼容不支持 Unicode 属性转义的 Node.js 版本
-   * @param {string} str 输入字符串
-   * @returns {string} 清理后的字符串
-   */
-  removePunctuationAndSymbols(str) {
-    if (!str) return "";
-    return str.replace(/[\s\x20-\x2F\x3A-\x40\x5B-\x60\x7B-\x7E\u2000-\u206F\u3000-\u3003\u3008-\u301F\u3030-\u303F\uFF01-\uFF0F\uFF1A-\uFF20\uFF3B-\uFF40\uFF5B-\uFF60\uFFE0-\uFFE6\uFF61-\uFF65\u2190-\u21FF\u2600-\u27BF]+/g, "");
-  }
-  /**
    * 过滤搜索结果
-   * 包含基础相似度过滤和智能季度匹配逻辑
+   * 利用公共方法对主标题和别名进行匹配校验
    * @param {Array} list 原始 API 返回结果列表
    * @param {string} keyword 用户搜索关键词
    * @returns {Array} 过滤后的结果列表
    */
   filterSearchResults(list, keyword) {
-    const threshold = 0.8;
-    const normalize = (str) => {
-      if (!str) return "";
-      return this.removePunctuationAndSymbols(simplized(str).toLowerCase());
-    };
-    const normalizedKeyword = normalize(keyword);
-    const candidates = list.filter((item) => {
-      const titles = /* @__PURE__ */ new Set();
-      if (item.name) titles.add(item.name);
-      if (item.name_cn) titles.add(item.name_cn);
+    return list.filter((item) => {
+      const titles = [item.name, item.name_cn];
       if (item.infobox && Array.isArray(item.infobox)) {
         item.infobox.forEach((info) => {
           if (info.key === "\u522B\u540D" && Array.isArray(info.value)) {
             info.value.forEach((v) => {
-              if (v.v) titles.add(v.v);
+              if (v && v.v) titles.push(v.v);
             });
           }
           if (info.key === "\u4E2D\u6587\u540D" && typeof info.value === "string") {
-            titles.add(info.value);
+            titles.push(info.value);
           }
         });
       }
-      let maxScore = 0;
-      for (const t of titles) {
-        const normalizedTitle = normalize(t);
-        const score = this.calculateSimilarity(normalizedKeyword, normalizedTitle);
-        if (score > maxScore) maxScore = score;
-      }
-      return maxScore >= threshold;
+      return titles.some((t) => t && titleMatches(t, keyword));
     });
-    if (candidates.length === 0) return [];
-    const targetSeason = this.getExplicitSeasonNumber(keyword);
-    if (targetSeason !== null && targetSeason > 1) {
-      log("info", `[Animeko] \u68C0\u6D4B\u5230\u6307\u5B9A\u5B63\u5EA6\u641C\u7D22: \u7B2C ${targetSeason} \u5B63`);
-      const strictMatches = candidates.filter((item) => {
-        const seasonInName = this.getExplicitSeasonNumber(item.name);
-        const seasonInCn = this.getExplicitSeasonNumber(item.name_cn);
-        const itemSeason = seasonInName !== null ? seasonInName : seasonInCn !== null ? seasonInCn : 1;
-        return itemSeason === targetSeason;
-      });
-      if (strictMatches.length > 0) {
-        return strictMatches;
-      }
-      log("info", `[Animeko] \u672A\u627E\u5230\u7B2C ${targetSeason} \u5B63\u5BF9\u5E94\u6761\u76EE\uFF0C\u56DE\u9000\u81F3\u6700\u4F18\u7ED3\u679C`);
-      return [candidates[0]];
-    }
-    return candidates;
-  }
-  /**
-   * 计算字符串相似度
-   * 结合包含关系与编辑距离算法
-   * @param {string} s1 字符串1
-   * @param {string} s2 字符串2
-   * @returns {number} 相似度得分 (0.0 - 1.0)
-   */
-  calculateSimilarity(s1, s2) {
-    if (!s1 || !s2) return 0;
-    if (s1 === s2) return 1;
-    if (s1.includes(s2) || s2.includes(s1)) {
-      const lenRatio = Math.min(s1.length, s2.length) / Math.max(s1.length, s2.length);
-      return 0.8 + lenRatio * 0.2;
-    }
-    const len1 = s1.length;
-    const len2 = s2.length;
-    const matrix = [];
-    for (let i = 0; i <= len1; i++) matrix[i] = [i];
-    for (let j = 0; j <= len2; j++) matrix[0][j] = j;
-    for (let i = 1; i <= len1; i++) {
-      for (let j = 1; j <= len2; j++) {
-        const cost = s1.charAt(i - 1) === s2.charAt(j - 1) ? 0 : 1;
-        matrix[i][j] = Math.min(matrix[i - 1][j] + 1, matrix[i][j - 1] + 1, matrix[i - 1][j - 1] + cost);
-      }
-    }
-    const distance = matrix[len1][len2];
-    const maxLength = Math.max(len1, len2);
-    return maxLength === 0 ? 1 : 1 - distance / maxLength;
   }
   /**
    * 检查标题是否包含明确的季度或类型标识
@@ -15676,8 +15950,9 @@ async function fetchMergedComments(url) {
   log("info", `[Merge] \u805A\u5408\u539F\u59CB\u6570\u636E\u5B8C\u6210: \u603B\u8BA1 ${mergedList.length} \u6761 (${statDetails})`);
   return convertToDanmakuJson(mergedList, sourceTag);
 }
-async function getComment(path2, queryFormat, segmentFlag) {
+async function getComment(path2, queryFormat, segmentFlag, clientIp) {
   const commentId = parseInt(path2.split("/").pop());
+  let animeTitle = findAnimeTitleById(commentId);
   let url = findUrlById(commentId);
   let title = findTitleById(commentId);
   let plat = title ? (title.match(/【(.*?)】/) || [null])[0]?.replace(/[【】]/g, "") : null;
@@ -15743,9 +16018,25 @@ async function getComment(path2, queryFormat, segmentFlag) {
       danmus = await otherSource.getComments(url, "other_server", segmentFlag);
     }
   }
-  const [animeId, source] = findAnimeIdByCommentId(commentId);
+  const [animeId, source, episodeTitle] = findAnimeIdByCommentId(commentId);
   if (animeId && source) {
-    setPreferByAnimeId(animeId, source);
+    let lastTitle = null;
+    let lastSeason = null;
+    let offset = null;
+    if (clientIp) {
+      const lastSearch = getLastSearch(clientIp);
+      if (lastSearch && lastSearch.title && lastSearch.season && lastSearch.episode && episodeTitle) {
+        lastTitle = lastSearch.title;
+        lastSeason = lastSearch.season;
+        offset = `${lastSearch.episode}:${episodeTitle}`;
+        log("info", `Calculated episode offset for IP ${clientIp}: Query E${lastSearch.episode}, Selected ${episodeTitle} -> Offset ${offset} (Season ${lastSeason})`);
+      }
+    }
+    log("info", `animeTitle\uFF1A${animeTitle}; lastTitle\uFF1A${lastTitle}; titleMatches\uFF1A${titleMatches(animeTitle, lastTitle)}`);
+    if (titleMatches(animeTitle, lastTitle)) {
+      log("info", `excute setPreferByAnimeId`);
+      setPreferByAnimeId(animeId, source, lastSeason, offset);
+    }
     if (globals.localCacheValid && animeId) {
       writeCacheToFile("lastSelectMap", JSON.stringify(Object.fromEntries(globals.lastSelectMap)));
     }
@@ -15754,6 +16045,18 @@ async function getComment(path2, queryFormat, segmentFlag) {
     }
     if (globals.localRedisValid && animeId) {
 
+    }
+  }
+  if (animeTitle && episodeTitle && globals.danmuOffset) {
+    let { baseTitle, season, episode } = extractAnimeInfo(animeTitle, episodeTitle);
+    season || (season = 1);
+    episode || (episode = findIndexById(commentId) + 1);
+    const seasonStr = `S${season.toString().padStart(2, "0")}`;
+    const episodeStr = `E${episode.toString().padStart(2, "0")}`;
+    const offset = getOffset(baseTitle, seasonStr, episodeStr);
+    if (offset !== 0) {
+      log("info", `Applying danmu offset: ${offset}s for ${baseTitle}/${seasonStr}/${episodeStr}`);
+      danmus = applyDanmuOffset(danmus, offset);
     }
   }
   if (!segmentFlag) {
@@ -15849,7 +16152,7 @@ async function getSegmentComment(segment, queryFormat) {
 }
 
 // forward/forward-widget.js
-var wv = true ? "1.15.6" : Globals.VERSION;
+var wv = true ? "1.17.0" : Globals.VERSION;
 WidgetMetadata = {
   id: "forward.auto.danmu2",
   title: "\u81EA\u52A8\u94FE\u63A5\u5F39\u5E55v2",
@@ -16189,6 +16492,17 @@ WidgetMetadata = {
       ]
     },
     {
+      name: "danmuOffset",
+      title: "\u5F39\u5E55\u65F6\u95F4\u504F\u79FB\u914D\u7F6E\uFF0C\u683C\u5F0F\uFF1A\u5267\u540D:\u79D2 \u6216 \u5267\u540D/\u5B63:\u79D2 \u6216 \u5267\u540D/\u5B63/\u96C6:\u79D2\uFF0C\u591A\u6761\u7528\u9017\u53F7\u5206\u9694\uFF0C\u793A\u4F8B\uFF1Aoverlord/S01:90,re-zero/S02:120,re-zero/S02/E03:10",
+      type: "input",
+      placeholders: [
+        {
+          title: "\u793A\u4F8B",
+          value: ""
+        }
+      ]
+    },
+    {
       name: "convertTopBottomToScroll",
       title: "\u9876\u90E8/\u5E95\u90E8\u5F39\u5E55\u8F6C\u6362\u4E3A\u6D6E\u52A8\u5F39\u5E55\uFF0C\u9ED8\u8BA4false",
       type: "input",
@@ -16316,7 +16630,7 @@ if (typeof window !== "undefined") {
   window.WidgetMetadata = WidgetMetadata;
 }
 var globals2;
-async function initGlobals(sourceOrder, otherServer, customSourceApiUrl, vodServers, vodReturnMode, vodRequestTimeout, bilibiliCookie, platformOrder, episodeTitleFilter, enableAnimeEpisodeFilter, strictTitleMatch2, titleMappingTable, animeTitleFilter, animeTitleSimplified, blockedWords, groupMinute, danmuLimit, danmuSimplifiedTraditional, convertTopBottomToScroll, convertColor, proxyUrl, tmdbApiKey, likeSwitch) {
+async function initGlobals(sourceOrder, otherServer, customSourceApiUrl, vodServers, vodReturnMode, vodRequestTimeout, bilibiliCookie, platformOrder, episodeTitleFilter, enableAnimeEpisodeFilter, strictTitleMatch2, titleMappingTable, animeTitleFilter, animeTitleSimplified, blockedWords, groupMinute, danmuLimit, danmuSimplifiedTraditional, danmuOffset, convertTopBottomToScroll, convertColor, proxyUrl, tmdbApiKey, likeSwitch) {
   const env = {};
   if (sourceOrder !== void 0) env.SOURCE_ORDER = sourceOrder;
   if (otherServer !== void 0) env.OTHER_SERVER = otherServer;
@@ -16336,6 +16650,7 @@ async function initGlobals(sourceOrder, otherServer, customSourceApiUrl, vodServ
   if (groupMinute !== void 0) env.GROUP_MINUTE = groupMinute;
   if (danmuLimit !== void 0) env.DANMU_LIMIT = danmuLimit;
   if (danmuSimplifiedTraditional !== void 0) env.DANMU_SIMPLIFIED_TRADITIONAL = danmuSimplifiedTraditional;
+  if (danmuOffset !== void 0) env.DANMU_OFFSET = danmuOffset;
   if (convertTopBottomToScroll !== void 0) env.CONVERT_TOP_BOTTOM_TO_SCROLL = convertTopBottomToScroll;
   if (convertColor !== void 0) env.CONVERT_COLOR = convertColor;
   if (likeSwitch !== void 0) env.LIKE_SWITCH = likeSwitch;
@@ -16406,6 +16721,7 @@ async function searchDanmu(params) {
     groupMinute,
     danmuLimit,
     danmuSimplifiedTraditional,
+    danmuOffset,
     convertTopBottomToScroll,
     convertColor,
     proxyUrl,
@@ -16431,6 +16747,7 @@ async function searchDanmu(params) {
     groupMinute,
     danmuLimit,
     danmuSimplifiedTraditional,
+    danmuOffset,
     convertTopBottomToScroll,
     convertColor,
     proxyUrl,
@@ -16509,6 +16826,7 @@ async function getDetailById(params) {
     groupMinute,
     danmuLimit,
     danmuSimplifiedTraditional,
+    danmuOffset,
     convertTopBottomToScroll,
     convertColor,
     proxyUrl,
@@ -16534,6 +16852,7 @@ async function getDetailById(params) {
     groupMinute,
     danmuLimit,
     danmuSimplifiedTraditional,
+    danmuOffset,
     convertTopBottomToScroll,
     convertColor,
     proxyUrl,
@@ -16575,6 +16894,7 @@ async function getCommentsById(params) {
     groupMinute,
     danmuLimit,
     danmuSimplifiedTraditional,
+    danmuOffset,
     convertTopBottomToScroll,
     convertColor,
     proxyUrl,
@@ -16600,6 +16920,7 @@ async function getCommentsById(params) {
     groupMinute,
     danmuLimit,
     danmuSimplifiedTraditional,
+    danmuOffset,
     convertTopBottomToScroll,
     convertColor,
     proxyUrl,
@@ -16640,6 +16961,7 @@ async function getCommentsById(params) {
         groupMinute,
         danmuLimit,
         danmuSimplifiedTraditional,
+        danmuOffset,
         convertTopBottomToScroll,
         convertColor,
         proxyUrl,
@@ -16685,6 +17007,7 @@ async function getDanmuWithSegmentTime(params) {
     groupMinute,
     danmuLimit,
     danmuSimplifiedTraditional,
+    danmuOffset,
     convertTopBottomToScroll,
     convertColor,
     proxyUrl,
@@ -16710,6 +17033,7 @@ async function getDanmuWithSegmentTime(params) {
     groupMinute,
     danmuLimit,
     danmuSimplifiedTraditional,
+    danmuOffset,
     convertTopBottomToScroll,
     convertColor,
     proxyUrl,
