@@ -364,6 +364,139 @@ var __defProp = Object.defineProperty;
 var __defNormalProp = (obj, key, value) => key in obj ? __defProp(obj, key, { enumerable: true, configurable: true, writable: true, value }) : obj[key] = value;
 var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "symbol" ? key + "" : key, value);
 
+// danmu_api/utils/offset-util.js
+var SOURCE_ALIASES = {
+  tencent: "qq",
+  iqiyi: "qiyi",
+  bilibili: "bilibili1"
+};
+function normalizeSegment(segment) {
+  const seasonMatch = segment.match(/^S(\d+)$/i);
+  if (seasonMatch) return `S${String(parseInt(seasonMatch[1])).padStart(2, "0")}`;
+  const episodeMatch = segment.match(/^E(\d+)$/i);
+  if (episodeMatch) return `E${String(parseInt(episodeMatch[1])).padStart(2, "0")}`;
+  return segment;
+}
+function parseOffsetRules(env) {
+  if (!env || typeof env !== "string") return [];
+  return env.split(",").map((entry) => {
+    const trimmed = entry.trim();
+    const colonIdx = trimmed.lastIndexOf(":");
+    if (colonIdx === -1) return null;
+    const rawPath = trimmed.substring(0, colonIdx);
+    const offsetStr = trimmed.substring(colonIdx + 1);
+    if (!rawPath || offsetStr === "") return null;
+    const offset = parseFloat(offsetStr);
+    if (!Number.isFinite(offset)) return null;
+    const atIdx = rawPath.lastIndexOf("@");
+    let pathPart, sources, all;
+    if (atIdx !== -1) {
+      pathPart = rawPath.substring(0, atIdx);
+      const sourcePart = rawPath.substring(atIdx + 1).trim().toLowerCase();
+      if (sourcePart === "all" || sourcePart === "*") {
+        sources = null;
+        all = true;
+      } else {
+        sources = sourcePart.split("&").map((s) => s.trim()).filter(Boolean);
+        all = false;
+        if (sources.length === 0) return null;
+      }
+    } else {
+      pathPart = rawPath;
+      sources = null;
+      all = false;
+    }
+    const segments = pathPart.trim().split("/");
+    const anime = segments[0] || null;
+    if (!anime) return null;
+    const season = segments[1] ? normalizeSegment(segments[1]) : null;
+    const episode = segments[2] ? normalizeSegment(segments[2]) : null;
+    return { anime, season, episode, sources, all, offset };
+  }).filter(Boolean);
+}
+function resolveOffset(rules, { anime, season, episode, source }) {
+  if (!Array.isArray(rules) || rules.length === 0 || !anime) return 0;
+  const sourceKeys = /* @__PURE__ */ new Set();
+  if (source) {
+    for (const s of source.split("&")) {
+      const trimmed = s.trim().toLowerCase();
+      if (trimmed) {
+        sourceKeys.add(trimmed);
+        if (SOURCE_ALIASES[trimmed]) sourceKeys.add(SOURCE_ALIASES[trimmed]);
+      }
+    }
+  }
+  const levels = [
+    { matchSeason: true, matchEpisode: true },
+    // 集级
+    { matchSeason: true, matchEpisode: false },
+    // 季级
+    { matchSeason: false, matchEpisode: false }
+    // 剧级
+  ];
+  for (const level of levels) {
+    let specificMatch = null;
+    let allMatch = null;
+    let genericMatch = null;
+    for (const rule of rules) {
+      if (rule.anime !== anime) continue;
+      if (level.matchEpisode) {
+        if (!rule.season || !rule.episode) continue;
+        if (rule.season !== season || rule.episode !== episode) continue;
+      } else if (level.matchSeason) {
+        if (!rule.season || rule.episode) continue;
+        if (rule.season !== season) continue;
+      } else {
+        if (rule.season || rule.episode) continue;
+      }
+      if (rule.sources) {
+        if (sourceKeys.size > 0 && rule.sources.some((s) => sourceKeys.has(s))) {
+          specificMatch = rule.offset;
+        }
+      } else if (rule.all) {
+        allMatch = rule.offset;
+      } else {
+        genericMatch = rule.offset;
+      }
+    }
+    if (specificMatch !== null) return specificMatch;
+    if (allMatch !== null) return allMatch;
+    if (genericMatch !== null) return genericMatch;
+  }
+  return 0;
+}
+function applyOffset(danmus, offsetSeconds) {
+  const offset = Number(offsetSeconds);
+  if (!offset || !Array.isArray(danmus) || danmus.length === 0) return danmus;
+  const offsetMs = offset * 1e3;
+  const clamp = (v) => Math.max(0, v);
+  return danmus.map((danmu) => {
+    if (!danmu || typeof danmu !== "object") return danmu;
+    const updated = { ...danmu };
+    if (typeof updated.p === "string") {
+      const parts = updated.p.split(",");
+      const time = parseFloat(parts[0]);
+      if (Number.isFinite(time)) {
+        parts[0] = clamp(time + offset).toFixed(3);
+        updated.p = parts.join(",");
+      }
+    }
+    if (updated.t !== void 0 && updated.t !== null) {
+      const t = Number(updated.t);
+      if (Number.isFinite(t)) updated.t = clamp(t + offset);
+    }
+    if (updated.progress !== void 0 && updated.progress !== null) {
+      const p = Number(updated.progress);
+      if (Number.isFinite(p)) updated.progress = clamp(p + offsetMs);
+    }
+    if (updated.timepoint !== void 0 && updated.timepoint !== null) {
+      const tp = Number(updated.timepoint);
+      if (Number.isFinite(tp)) updated.timepoint = clamp(tp + offset);
+    }
+    return updated;
+  });
+}
+
 // danmu_api/configs/envs.js
 var Envs = class {
   /**
@@ -713,10 +846,11 @@ var Envs = class {
       "DANMU_SIMPLIFIED_TRADITIONAL": { category: "danmu", type: "select", options: ["default", "simplified", "traditional"], description: "\u5F39\u5E55\u7B80\u7E41\u4F53\u8F6C\u6362\u8BBE\u7F6E\uFF1Adefault\uFF08\u9ED8\u8BA4\u4E0D\u8F6C\u6362\uFF09\u3001simplified\uFF08\u7E41\u8F6C\u7B80\uFF09\u3001traditional\uFF08\u7B80\u8F6C\u7E41\uFF09" },
       "CONVERT_TOP_BOTTOM_TO_SCROLL": { category: "danmu", type: "boolean", description: "\u9876\u90E8/\u5E95\u90E8\u5F39\u5E55\u8F6C\u6362\u4E3A\u6D6E\u52A8\u5F39\u5E55" },
       "CONVERT_COLOR": { category: "danmu", type: "select", options: ["default", "white", "color"], description: "\u5F39\u5E55\u8F6C\u6362\u989C\u8272\u914D\u7F6E" },
+      "COLOR_POOL": { category: "danmu", type: "text", description: "\u81EA\u5B9A\u4E49\u989C\u8272\u6C60\uFF08CONVERT_COLOR\u4E3Acolor\u65F6\u751F\u6548\uFF09\uFF0C\u4E0D\u914D\u7F6E\u4F7F\u7528\u9ED8\u8BA4\u989C\u8272\u6C60\uFF0C\u683C\u5F0F\uFF1A\u5341\u8FDB\u5236\u989C\u8272\u503C\u9017\u53F7\u5206\u9694" },
       "DANMU_OUTPUT_FORMAT": { category: "danmu", type: "select", options: ["json", "xml"], description: "\u5F39\u5E55\u8F93\u51FA\u683C\u5F0F\uFF0C\u9ED8\u8BA4json" },
       "DANMU_PUSH_URL": { category: "danmu", type: "text", description: "\u5F39\u5E55\u63A8\u9001\u5730\u5740\uFF0C\u793A\u4F8B http://127.0.0.1:9978/action?do=refresh&type=danmaku&path= " },
       "LIKE_SWITCH": { category: "danmu", type: "boolean", description: "\u5F39\u5E55\u70B9\u8D5E\u6570\u663E\u793A\u5F00\u5173\uFF0C\u9ED8\u8BA4\u5F00\u542F" },
-      "DANMU_OFFSET": { category: "danmu", type: "text", description: "\u5F39\u5E55\u65F6\u95F4\u504F\u79FB\u914D\u7F6E\uFF0C\u683C\u5F0F\uFF1A\u5267\u540D:\u79D2 \u6216 \u5267\u540D/\u5B63:\u79D2 \u6216 \u5267\u540D/\u5B63/\u96C6:\u79D2\uFF0C\u591A\u6761\u7528\u9017\u53F7\u5206\u9694\uFF0C\u6B63\u6570\u8868\u793A\u5F39\u5E55\u5EF6\u540E\uFF08\u5411\u53F3\uFF09\uFF0C\u8D1F\u6570\u8868\u793A\u5F39\u5E55\u63D0\u524D\uFF08\u5411\u5DE6\uFF09\uFF0C\u4F8B\u5982\uFF1Aoverlord/S01:90,re-zero/S02:120,re-zero/S02/E03:10,re-zero/S02/E07:150" },
+      "DANMU_OFFSET": { category: "danmu", type: "text", sources: this.ALLOWED_SOURCES, description: "\u5F39\u5E55\u65F6\u95F4\u504F\u79FB\u914D\u7F6E\uFF0C\u683C\u5F0F\uFF1A\u5267\u540D:\u79D2 \u6216 \u5267\u540D/\u5B63:\u79D2 \u6216 \u5267\u540D/\u5B63/\u96C6:\u79D2\uFF0C\u652F\u6301\u6307\u5B9A\u6765\u6E90\uFF1A\u5267\u540D@\u6765\u6E90:\u79D2 \u6216 \u5267\u540D/\u5B63@\u6765\u6E901&\u6765\u6E902:\u79D2\uFF0C\u591A\u6761\u7528\u9017\u53F7\u5206\u9694\uFF0C\u6B63\u6570\u8868\u793A\u5F39\u5E55\u5EF6\u540E\uFF08\u5411\u53F3\uFF09\uFF0C\u8D1F\u6570\u8868\u793A\u5F39\u5E55\u63D0\u524D\uFF08\u5411\u5DE6\uFF09\uFF0C\u4F8B\u5982\uFF1Aoverlord/S01:90,re-zero/S02@bilibili:120,re-zero/S02/E03@dandan&bilibili:10" },
       // 缓存配置
       "SEARCH_CACHE_MINUTES": { category: "cache", type: "number", description: "\u641C\u7D22\u7ED3\u679C\u7F13\u5B58\u65F6\u95F4(\u5206\u949F)\uFF0C\u9ED8\u8BA41", min: 1, max: 120 },
       "COMMENT_CACHE_MINUTES": { category: "cache", type: "number", description: "\u5F39\u5E55\u7F13\u5B58\u65F6\u95F4(\u5206\u949F)\uFF0C\u9ED8\u8BA41", min: 1, max: 120 },
@@ -784,6 +918,8 @@ var Envs = class {
       // 弹幕点赞数显示开关，默认开启
       danmuOffset: this.get("DANMU_OFFSET", "", "string"),
       // 弹幕时间偏移配置
+      danmuOffsetRules: parseOffsetRules(this.get("DANMU_OFFSET", "", "string")),
+      // 解析后的偏移规则（缓存）
       tmdbApiKey: this.get("TMDB_API_KEY", "", "string", true),
       // TMDB API KEY
       redisUrl: this.get("UPSTASH_REDIS_REST_URL", "", "string", true),
@@ -806,6 +942,8 @@ var Envs = class {
       // 顶部/底部弹幕转换为浮动弹幕配置（默认 false，禁用转换）
       convertColor: this.get("CONVERT_COLOR", "default", "string"),
       // 弹幕转换颜色配置，支持 default、white、color（默认 default，禁用转换）
+      colorPool: this.get("COLOR_POOL", "16777215,16777215,16777215,16777215,16777215,16777215,16777215,16777215,16744319,16752762,16774799,9498256,8388564,8900346,14204888,16758465", "string"),
+      // 自定义颜色池，CONVERT_COLOR为color时生效
       danmuOutputFormat: this.get("DANMU_OUTPUT_FORMAT", "json", "string"),
       // 弹幕输出格式配置（默认 json，可选值：json, xml）
       strictTitleMatch: this.get("STRICT_TITLE_MATCH", false, "boolean"),
@@ -900,7 +1038,7 @@ var Globals = {
   originalEnvVars: {},
   accessedEnvVars: {},
   // 静态常量
-  VERSION: "1.17.1",
+  VERSION: "1.17.3",
   MAX_LOGS: 1e3,
   // 日志存储，最多保存 1000 行
   MAX_ANIMES: 100,
@@ -914,6 +1052,8 @@ var Globals = {
   logBuffer: [],
   requestHistory: /* @__PURE__ */ new Map(),
   // 记录每个 IP 地址的请求历史
+  requestAnimeDetailsMap: null,
+  // 当前请求内的详情缓存，避免搜索结果被全局上限裁剪后丢失
   localCacheValid: false,
   // 本地缓存是否生效
   localCacheInitialized: false,
@@ -1148,13 +1288,26 @@ async function httpGet(url, options = {}) {
     const timeoutId = setTimeout(() => controller.abort(), timeout);
     linkSignal(options.signal, controller);
     try {
-      const response = await fetch(url, {
-        method: "GET",
-        headers: {
-          ...options.headers
-        },
-        signal: controller.signal
-      });
+      let response;
+      if (typeof WebAssembly === "undefined") {
+        log("info", "iOS\u73AF\u5883\u964D\u7EA7\u4F7F\u7528node-fetch");
+        const fetch2 = (await import("node-fetch")).default;
+        response = await fetch2(url, {
+          method: "GET",
+          headers: {
+            ...options.headers
+          },
+          signal: controller.signal
+        });
+      } else {
+        response = await fetch(url, {
+          method: "GET",
+          headers: {
+            ...options.headers
+          },
+          signal: controller.signal
+        });
+      }
       clearTimeout(timeoutId);
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
@@ -1174,16 +1327,28 @@ async function httpGet(url, options = {}) {
       } else if (options.zlibMode) {
         log("info", "zlib\u6A21\u5F0F");
         const arrayBuffer = await response.arrayBuffer();
-        const decompressionStream = new DecompressionStream("deflate");
-        const decompressedStream = new Response(
-          new Blob([arrayBuffer]).stream().pipeThrough(decompressionStream)
-        );
         let decodedData;
-        try {
-          decodedData = await decompressedStream.text();
-        } catch (e) {
-          log("error", "[\u8BF7\u6C42\u6A21\u62DF] \u89E3\u538B\u7F29\u5931\u8D25", e);
-          throw e;
+        if (typeof DecompressionStream !== "undefined") {
+          const decompressionStream = new DecompressionStream("deflate");
+          const decompressedStream = new Response(
+            new Blob([arrayBuffer]).stream().pipeThrough(decompressionStream)
+          );
+          try {
+            decodedData = await decompressedStream.text();
+          } catch (e) {
+            log("error", "[\u8BF7\u6C42\u6A21\u62DF] \u89E3\u538B\u7F29\u5931\u8D25", e);
+            throw e;
+          }
+        } else {
+          log("info", "iOS\u73AF\u5883\u964D\u7EA7\u4F7F\u7528pako\u89E3\u538B");
+          try {
+            const pako = await import("pako");
+            const inflateResult = pako.inflate(new Uint8Array(arrayBuffer));
+            decodedData = new TextDecoder("utf-8").decode(inflateResult);
+          } catch (e) {
+            log("error", "[\u8BF7\u6C42\u6A21\u62DF] pako\u89E3\u538B\u7F29\u5931\u8D25", e);
+            throw e;
+          }
         }
         data = decodedData;
       } else {
@@ -1275,7 +1440,14 @@ async function httpPost(url, body, options = {}) {
       fetchOptions.redirect = "manual";
     }
     try {
-      const response = await fetch(url, fetchOptions);
+      let response;
+      if (typeof WebAssembly === "undefined") {
+        log("info", "iOS\u73AF\u5883\u964D\u7EA7\u4F7F\u7528node-fetch");
+        const fetch2 = (await import("node-fetch")).default;
+        response = await fetch2(url, fetchOptions);
+      } else {
+        response = await fetch(url, fetchOptions);
+      }
       clearTimeout(timeoutId);
       const data = await response.text();
       if (!response.ok) {
@@ -3134,16 +3306,27 @@ function isSearchCacheValid(keyword) {
   }
   return true;
 }
-function getSearchCache(keyword) {
+function getSearchCache(keyword, detailsMap = null) {
   if (isSearchCacheValid(keyword)) {
     log("info", `Using search cache for "${keyword}"`);
-    return globals.searchCache.get(keyword).results;
+    const cached = globals.searchCache.get(keyword);
+    if (detailsMap instanceof Map && Array.isArray(cached.details)) {
+      cached.details.forEach((anime) => {
+        detailsMap.set(String(anime.bangumiId), anime);
+        detailsMap.set(String(anime.animeId), anime);
+      });
+    }
+    return cached.results;
   }
   return null;
 }
-function setSearchCache(keyword, results) {
+function setSearchCache(keyword, results, detailsMap = null) {
+  const details = detailsMap instanceof Map ? Array.from(new Map(
+    Array.from(detailsMap.values()).map((anime) => [String(anime.bangumiId || anime.animeId), anime])
+  ).values()) : [];
   globals.searchCache.set(keyword, {
     results,
+    details,
     timestamp: Date.now()
   });
   log("info", `Cached search results for "${keyword}" (${results.length} animes)`);
@@ -3259,6 +3442,10 @@ function addAnime(anime) {
       }
     });
     const animeCopy = Anime.fromJson({ ...anime, links: newLinks });
+    if (globals.requestAnimeDetailsMap instanceof Map) {
+      globals.requestAnimeDetailsMap.set(String(animeCopy.bangumiId), animeCopy);
+      globals.requestAnimeDetailsMap.set(String(animeCopy.animeId), animeCopy);
+    }
     const existingAnimeIndex = globals.animes.findIndex((a) => a.animeId === anime.animeId);
     if (existingAnimeIndex !== -1) {
       globals.animes.splice(existingAnimeIndex, 1);
@@ -3631,24 +3818,7 @@ function convertToDanmakuJson(contents, platform) {
         color = 16777215;
         modified = true;
       }
-      let colors = [
-        16777215,
-        16777215,
-        16777215,
-        16777215,
-        16777215,
-        16777215,
-        16777215,
-        16777215,
-        16744319,
-        16752762,
-        16774799,
-        9498256,
-        8388564,
-        8900346,
-        14204888,
-        16758465
-      ];
+      let colors = globals.colorPool.split(",").map((c) => parseInt(c.trim(), 10)).filter((c) => !isNaN(c) && c >= 0 && c <= 16777215);
       let randomColor = colors[Math.floor(Math.random() * colors.length)];
       if (globals.convertColor === "color" && color === 16777215 && color !== randomColor) {
         colorCount++;
@@ -3748,49 +3918,6 @@ function formatDanmuResponse(danmuData, queryFormat) {
     }
   }
   return jsonResponse(danmuData);
-}
-function parseOffset(env) {
-  const map = /* @__PURE__ */ new Map();
-  if (!env) return map;
-  for (const entry of env.split(",")) {
-    const [path2, sec] = entry.trim().split(":");
-    if (path2 && sec !== void 0) {
-      const normalizedPath = path2.trim().split("/").map((segment, index) => {
-        if (index === 0) return segment;
-        const seasonMatch = segment.match(/^S(\d+)$/i);
-        if (seasonMatch) return `S${String(parseInt(seasonMatch[1])).padStart(2, "0")}`;
-        const episodeMatch = segment.match(/^E(\d+)$/i);
-        if (episodeMatch) return `E${String(parseInt(episodeMatch[1])).padStart(2, "0")}`;
-        return segment;
-      }).join("/");
-      map.set(normalizedPath, parseInt(sec));
-    }
-  }
-  return map;
-}
-function getOffset(anime, season, episode) {
-  const map = parseOffset(globals.danmuOffset);
-  log("info", `getOffset params: ${anime}, ${season}, ${episode}`);
-  log("info", `getOffset map: ${JSON.stringify([...map])}`);
-  return map.get(`${anime}/${season}/${episode}`) ?? // 集级
-  map.get(`${anime}/${season}`) ?? // 季级
-  map.get(anime) ?? // 剧级
-  0;
-}
-function applyDanmuOffset(danmus, offset) {
-  if (offset === 0) return danmus;
-  return danmus.map((danmu) => {
-    const pValues = danmu.p.split(",");
-    const time = parseFloat(pValues[0]) || 0;
-    const newTime = Math.max(0, time + offset);
-    pValues[0] = newTime.toFixed(3);
-    return {
-      ...danmu,
-      p: pValues.join(","),
-      t: newTime
-      // 如果有t字段也更新
-    };
-  });
 }
 
 // danmu_api/utils/tmdb-util.js
@@ -15640,61 +15767,217 @@ async function searchAnime(url, preferAnimeId = null, preferSource = null) {
     log("info", `searchAnime converted traditional to simplified: ${queryTitle} -> ${simplifiedTitle}`);
     queryTitle = simplifiedTitle;
   }
-  const cachedResults = getSearchCache(queryTitle);
-  if (cachedResults !== null) {
-    return jsonResponse({
-      errorCode: 0,
-      success: true,
-      errorMessage: "",
-      animes: cachedResults
-    });
+  const previousRequestAnimeDetailsMap = globals.requestAnimeDetailsMap;
+  const requestAnimeDetailsMap = previousRequestAnimeDetailsMap instanceof Map ? previousRequestAnimeDetailsMap : /* @__PURE__ */ new Map();
+  if (!(previousRequestAnimeDetailsMap instanceof Map)) {
+    globals.requestAnimeDetailsMap = requestAnimeDetailsMap;
   }
-  const curAnimes = [];
-  const urlRegex = /^(https?:\/\/)?([a-zA-Z0-9-]+\.)+[a-zA-Z]{2,6}(:\d+)?(\/[^\s]*)?$/;
-  if (urlRegex.test(queryTitle)) {
-    const tmpAnime = Anime.fromJson({
-      "animeId": 111,
-      "bangumiId": "string",
-      "animeTitle": queryTitle,
-      "type": "type",
-      "typeDescription": "string",
-      "imageUrl": "string",
-      "startDate": "2025-08-08T13:25:11.189Z",
-      "episodeCount": 1,
-      "rating": 0,
-      "isFavorited": true
-    });
-    let platform = "unknown";
-    if (queryTitle.includes(".qq.com")) {
-      platform = "qq";
-    } else if (queryTitle.includes(".iqiyi.com")) {
-      platform = "qiyi";
-    } else if (queryTitle.includes(".mgtv.com")) {
-      platform = "imgo";
-    } else if (queryTitle.includes(".youku.com")) {
-      platform = "youku";
-    } else if (queryTitle.includes(".bilibili.com")) {
-      platform = "bilibili1";
-    } else if (queryTitle.includes(".miguvideo.com")) {
-      platform = "migu";
-    } else if (queryTitle.includes(".sohu.com")) {
-      platform = "sohu";
-    } else if (queryTitle.includes(".le.com")) {
-      platform = "leshi";
-    } else if (queryTitle.includes(".douyin.com") || queryTitle.includes(".ixigua.com")) {
-      platform = "xigua";
-    } else if (queryTitle.includes(".mddcloud.com.cn")) {
-      platform = "maiduidui";
+  try {
+    const cachedResults = getSearchCache(queryTitle, requestAnimeDetailsMap);
+    if (cachedResults !== null) {
+      return jsonResponse({
+        errorCode: 0,
+        success: true,
+        errorMessage: "",
+        animes: cachedResults
+      });
     }
-    const pageTitle = await getPageTitle(queryTitle);
-    const links = [{
-      "name": "\u624B\u52A8\u89E3\u6790\u94FE\u63A5\u5F39\u5E55",
-      "url": queryTitle,
-      "title": `\u3010${platform}\u3011 ${pageTitle}`
-    }];
-    curAnimes.push(tmpAnime);
-    addAnime(Anime.fromJson({ ...tmpAnime, links }));
-    if (globals.animes.length > globals.MAX_ANIMES) removeEarliestAnime();
+    const curAnimes = [];
+    const urlRegex = /^(https?:\/\/)?([a-zA-Z0-9-]+\.)+[a-zA-Z]{2,6}(:\d+)?(\/[^\s]*)?$/;
+    if (urlRegex.test(queryTitle)) {
+      const tmpAnime = Anime.fromJson({
+        "animeId": 111,
+        "bangumiId": "string",
+        "animeTitle": queryTitle,
+        "type": "type",
+        "typeDescription": "string",
+        "imageUrl": "string",
+        "startDate": "2025-08-08T13:25:11.189Z",
+        "episodeCount": 1,
+        "rating": 0,
+        "isFavorited": true
+      });
+      let platform = "unknown";
+      if (queryTitle.includes(".qq.com")) {
+        platform = "qq";
+      } else if (queryTitle.includes(".iqiyi.com")) {
+        platform = "qiyi";
+      } else if (queryTitle.includes(".mgtv.com")) {
+        platform = "imgo";
+      } else if (queryTitle.includes(".youku.com")) {
+        platform = "youku";
+      } else if (queryTitle.includes(".bilibili.com")) {
+        platform = "bilibili1";
+      } else if (queryTitle.includes(".miguvideo.com")) {
+        platform = "migu";
+      } else if (queryTitle.includes(".sohu.com")) {
+        platform = "sohu";
+      } else if (queryTitle.includes(".le.com")) {
+        platform = "leshi";
+      } else if (queryTitle.includes(".douyin.com") || queryTitle.includes(".ixigua.com")) {
+        platform = "xigua";
+      } else if (queryTitle.includes(".mddcloud.com.cn")) {
+        platform = "maiduidui";
+      }
+      const pageTitle = await getPageTitle(queryTitle);
+      const links = [{
+        "name": "\u624B\u52A8\u89E3\u6790\u94FE\u63A5\u5F39\u5E55",
+        "url": queryTitle,
+        "title": `\u3010${platform}\u3011 ${pageTitle}`
+      }];
+      curAnimes.push(tmpAnime);
+      addAnime(Anime.fromJson({ ...tmpAnime, links }));
+      if (globals.animes.length > globals.MAX_ANIMES) removeEarliestAnime();
+      if (globals.localCacheValid && curAnimes.length !== 0) {
+        await updateLocalCaches();
+      }
+      if (globals.redisValid && curAnimes.length !== 0) {
+        await updateRedisCaches();
+      }
+      if (globals.localRedisValid && curAnimes.length !== 0) {
+
+      }
+      return jsonResponse({
+        errorCode: 0,
+        success: true,
+        errorMessage: "",
+        animes: curAnimes
+      });
+    }
+    try {
+      log("info", `Search sourceOrderArr: ${globals.sourceOrderArr}`);
+      const requestPromises = globals.sourceOrderArr.map((source) => {
+        if (source === "360") return kan360Source.search(queryTitle);
+        if (source === "vod") return vodSource.search(queryTitle, preferAnimeId, preferSource);
+        if (source === "tmdb") return tmdbSource.search(queryTitle);
+        if (source === "douban") return doubanSource.search(queryTitle);
+        if (source === "renren") return renrenSource.search(queryTitle);
+        if (source === "hanjutv") return hanjutvSource.search(queryTitle);
+        if (source === "bahamut") return bahamutSource2.search(queryTitle);
+        if (source === "dandan") return dandanSource.search(queryTitle);
+        if (source === "custom") return customSource.search(queryTitle);
+        if (source === "tencent") return tencentSource2.search(queryTitle);
+        if (source === "youku") return youkuSource2.search(queryTitle);
+        if (source === "iqiyi") return iqiyiSource2.search(queryTitle);
+        if (source === "imgo") return mangoSource2.search(queryTitle);
+        if (source === "bilibili") return bilibiliSource2.search(queryTitle);
+        if (source === "migu") return miguSource.search(queryTitle);
+        if (source === "sohu") return sohuSource.search(queryTitle);
+        if (source === "leshi") return leshiSource.search(queryTitle);
+        if (source === "xigua") return xiguaSource.search(queryTitle);
+        if (source === "maiduidui") return maiduiduiSource.search(queryTitle);
+        if (source === "animeko") return animekoSource.search(queryTitle);
+      });
+      const results = await Promise.all(requestPromises);
+      const resultData = {};
+      globals.sourceOrderArr.forEach((source, index) => {
+        resultData[source] = results[index];
+      });
+      const {
+        vod: animesVodResults,
+        360: animes360,
+        tmdb: animesTmdb,
+        douban: animesDouban,
+        renren: animesRenren,
+        hanjutv: animesHanjutv,
+        bahamut: animesBahamut,
+        dandan: animesDandan,
+        custom: animesCustom,
+        tencent: animesTencent,
+        youku: animesYouku,
+        iqiyi: animesIqiyi,
+        imgo: animesImgo,
+        bilibili: animesBilibili,
+        migu: animesMigu,
+        sohu: animesSohu,
+        leshi: animesLeshi,
+        xigua: animesXigua,
+        maiduidui: animesMaiduidui,
+        animeko: animesAnimeko
+      } = resultData;
+      for (const key of globals.sourceOrderArr) {
+        if (key === "360") {
+          await kan360Source.handleAnimes(animes360, queryTitle, curAnimes);
+        } else if (key === "vod") {
+          if (animesVodResults && Array.isArray(animesVodResults)) {
+            for (const vodResult of animesVodResults) {
+              if (vodResult && vodResult.list && vodResult.list.length > 0) {
+                await vodSource.handleAnimes(vodResult.list, queryTitle, curAnimes, vodResult.serverName);
+              }
+            }
+          }
+        } else if (key === "tmdb") {
+          await tmdbSource.handleAnimes(animesTmdb, queryTitle, curAnimes);
+        } else if (key === "douban") {
+          await doubanSource.handleAnimes(animesDouban, queryTitle, curAnimes);
+        } else if (key === "renren") {
+          await renrenSource.handleAnimes(animesRenren, queryTitle, curAnimes);
+        } else if (key === "hanjutv") {
+          await hanjutvSource.handleAnimes(animesHanjutv, queryTitle, curAnimes);
+        } else if (key === "bahamut") {
+          await bahamutSource2.handleAnimes(animesBahamut, queryTitle, curAnimes);
+        } else if (key === "dandan") {
+          await dandanSource.handleAnimes(animesDandan, queryTitle, curAnimes);
+        } else if (key === "custom") {
+          await customSource.handleAnimes(animesCustom, queryTitle, curAnimes);
+        } else if (key === "tencent") {
+          await tencentSource2.handleAnimes(animesTencent, queryTitle, curAnimes);
+        } else if (key === "youku") {
+          await youkuSource2.handleAnimes(animesYouku, queryTitle, curAnimes);
+        } else if (key === "iqiyi") {
+          await iqiyiSource2.handleAnimes(animesIqiyi, queryTitle, curAnimes);
+        } else if (key === "imgo") {
+          await mangoSource2.handleAnimes(animesImgo, queryTitle, curAnimes);
+        } else if (key === "bilibili") {
+          await bilibiliSource2.handleAnimes(animesBilibili, queryTitle, curAnimes);
+        } else if (key === "migu") {
+          await miguSource.handleAnimes(animesMigu, queryTitle, curAnimes);
+        } else if (key === "sohu") {
+          await sohuSource.handleAnimes(animesSohu, queryTitle, curAnimes);
+        } else if (key === "leshi") {
+          await leshiSource.handleAnimes(animesLeshi, queryTitle, curAnimes);
+        } else if (key === "xigua") {
+          await xiguaSource.handleAnimes(animesXigua, queryTitle, curAnimes);
+        } else if (key === "maiduidui") {
+          await maiduiduiSource.handleAnimes(animesMaiduidui, queryTitle, curAnimes);
+        } else if (key === "animeko") {
+          await animekoSource.handleAnimes(animesAnimeko, queryTitle, curAnimes);
+        }
+      }
+    } catch (error) {
+      log("error", "\u53D1\u751F\u9519\u8BEF:", error);
+    }
+    if (globals.mergeSourcePairs.length > 0) {
+      await applyMergeLogic(curAnimes);
+    }
+    storeAnimeIdsToMap(curAnimes, queryTitle);
+    if (globals.enableAnimeEpisodeFilter) {
+      const validAnimes = [];
+      for (const anime of curAnimes) {
+        const animeTitle = anime.animeTitle || "";
+        if (globals.animeTitleFilter && globals.animeTitleFilter.test(animeTitle)) {
+          log("info", `[searchAnime] Anime ${anime.animeId} filtered by name: ${animeTitle}`);
+          continue;
+        }
+        const animeData = globals.animes.find((a) => a.animeId === anime.animeId);
+        if (animeData && animeData.links) {
+          let episodesList = animeData.links.map((link, index) => ({
+            episodeId: link.id,
+            episodeTitle: link.title,
+            episodeNumber: index + 1
+          }));
+          episodesList = episodesList.filter((episode) => {
+            return !globals.episodeTitleFilter.test(episode.episodeTitle);
+          });
+          log("info", `[searchAnime] Anime ${anime.animeId} filtered episodes: ${episodesList.length}/${animeData.links.length}`);
+          if (episodesList.length > 0) {
+            validAnimes.push(anime);
+          }
+        }
+      }
+      curAnimes.length = 0;
+      curAnimes.push(...validAnimes);
+    }
     if (globals.localCacheValid && curAnimes.length !== 0) {
       await updateLocalCaches();
     }
@@ -15704,165 +15987,20 @@ async function searchAnime(url, preferAnimeId = null, preferSource = null) {
     if (globals.localRedisValid && curAnimes.length !== 0) {
 
     }
+    if (curAnimes.length > 0) {
+      setSearchCache(queryTitle, curAnimes, requestAnimeDetailsMap);
+    }
     return jsonResponse({
       errorCode: 0,
       success: true,
       errorMessage: "",
       animes: curAnimes
     });
-  }
-  try {
-    log("info", `Search sourceOrderArr: ${globals.sourceOrderArr}`);
-    const requestPromises = globals.sourceOrderArr.map((source) => {
-      if (source === "360") return kan360Source.search(queryTitle);
-      if (source === "vod") return vodSource.search(queryTitle, preferAnimeId, preferSource);
-      if (source === "tmdb") return tmdbSource.search(queryTitle);
-      if (source === "douban") return doubanSource.search(queryTitle);
-      if (source === "renren") return renrenSource.search(queryTitle);
-      if (source === "hanjutv") return hanjutvSource.search(queryTitle);
-      if (source === "bahamut") return bahamutSource2.search(queryTitle);
-      if (source === "dandan") return dandanSource.search(queryTitle);
-      if (source === "custom") return customSource.search(queryTitle);
-      if (source === "tencent") return tencentSource2.search(queryTitle);
-      if (source === "youku") return youkuSource2.search(queryTitle);
-      if (source === "iqiyi") return iqiyiSource2.search(queryTitle);
-      if (source === "imgo") return mangoSource2.search(queryTitle);
-      if (source === "bilibili") return bilibiliSource2.search(queryTitle);
-      if (source === "migu") return miguSource.search(queryTitle);
-      if (source === "sohu") return sohuSource.search(queryTitle);
-      if (source === "leshi") return leshiSource.search(queryTitle);
-      if (source === "xigua") return xiguaSource.search(queryTitle);
-      if (source === "maiduidui") return maiduiduiSource.search(queryTitle);
-      if (source === "animeko") return animekoSource.search(queryTitle);
-    });
-    const results = await Promise.all(requestPromises);
-    const resultData = {};
-    globals.sourceOrderArr.forEach((source, index) => {
-      resultData[source] = results[index];
-    });
-    const {
-      vod: animesVodResults,
-      360: animes360,
-      tmdb: animesTmdb,
-      douban: animesDouban,
-      renren: animesRenren,
-      hanjutv: animesHanjutv,
-      bahamut: animesBahamut,
-      dandan: animesDandan,
-      custom: animesCustom,
-      tencent: animesTencent,
-      youku: animesYouku,
-      iqiyi: animesIqiyi,
-      imgo: animesImgo,
-      bilibili: animesBilibili,
-      migu: animesMigu,
-      sohu: animesSohu,
-      leshi: animesLeshi,
-      xigua: animesXigua,
-      maiduidui: animesMaiduidui,
-      animeko: animesAnimeko
-    } = resultData;
-    for (const key of globals.sourceOrderArr) {
-      if (key === "360") {
-        await kan360Source.handleAnimes(animes360, queryTitle, curAnimes);
-      } else if (key === "vod") {
-        if (animesVodResults && Array.isArray(animesVodResults)) {
-          for (const vodResult of animesVodResults) {
-            if (vodResult && vodResult.list && vodResult.list.length > 0) {
-              await vodSource.handleAnimes(vodResult.list, queryTitle, curAnimes, vodResult.serverName);
-            }
-          }
-        }
-      } else if (key === "tmdb") {
-        await tmdbSource.handleAnimes(animesTmdb, queryTitle, curAnimes);
-      } else if (key === "douban") {
-        await doubanSource.handleAnimes(animesDouban, queryTitle, curAnimes);
-      } else if (key === "renren") {
-        await renrenSource.handleAnimes(animesRenren, queryTitle, curAnimes);
-      } else if (key === "hanjutv") {
-        await hanjutvSource.handleAnimes(animesHanjutv, queryTitle, curAnimes);
-      } else if (key === "bahamut") {
-        await bahamutSource2.handleAnimes(animesBahamut, queryTitle, curAnimes);
-      } else if (key === "dandan") {
-        await dandanSource.handleAnimes(animesDandan, queryTitle, curAnimes);
-      } else if (key === "custom") {
-        await customSource.handleAnimes(animesCustom, queryTitle, curAnimes);
-      } else if (key === "tencent") {
-        await tencentSource2.handleAnimes(animesTencent, queryTitle, curAnimes);
-      } else if (key === "youku") {
-        await youkuSource2.handleAnimes(animesYouku, queryTitle, curAnimes);
-      } else if (key === "iqiyi") {
-        await iqiyiSource2.handleAnimes(animesIqiyi, queryTitle, curAnimes);
-      } else if (key === "imgo") {
-        await mangoSource2.handleAnimes(animesImgo, queryTitle, curAnimes);
-      } else if (key === "bilibili") {
-        await bilibiliSource2.handleAnimes(animesBilibili, queryTitle, curAnimes);
-      } else if (key === "migu") {
-        await miguSource.handleAnimes(animesMigu, queryTitle, curAnimes);
-      } else if (key === "sohu") {
-        await sohuSource.handleAnimes(animesSohu, queryTitle, curAnimes);
-      } else if (key === "leshi") {
-        await leshiSource.handleAnimes(animesLeshi, queryTitle, curAnimes);
-      } else if (key === "xigua") {
-        await xiguaSource.handleAnimes(animesXigua, queryTitle, curAnimes);
-      } else if (key === "maiduidui") {
-        await maiduiduiSource.handleAnimes(animesMaiduidui, queryTitle, curAnimes);
-      } else if (key === "animeko") {
-        await animekoSource.handleAnimes(animesAnimeko, queryTitle, curAnimes);
-      }
+  } finally {
+    if (!(previousRequestAnimeDetailsMap instanceof Map)) {
+      globals.requestAnimeDetailsMap = previousRequestAnimeDetailsMap;
     }
-  } catch (error) {
-    log("error", "\u53D1\u751F\u9519\u8BEF:", error);
   }
-  if (globals.mergeSourcePairs.length > 0) {
-    await applyMergeLogic(curAnimes);
-  }
-  storeAnimeIdsToMap(curAnimes, queryTitle);
-  if (globals.enableAnimeEpisodeFilter) {
-    const validAnimes = [];
-    for (const anime of curAnimes) {
-      const animeTitle = anime.animeTitle || "";
-      if (globals.animeTitleFilter && globals.animeTitleFilter.test(animeTitle)) {
-        log("info", `[searchAnime] Anime ${anime.animeId} filtered by name: ${animeTitle}`);
-        continue;
-      }
-      const animeData = globals.animes.find((a) => a.animeId === anime.animeId);
-      if (animeData && animeData.links) {
-        let episodesList = animeData.links.map((link, index) => ({
-          episodeId: link.id,
-          episodeTitle: link.title,
-          episodeNumber: index + 1
-        }));
-        episodesList = episodesList.filter((episode) => {
-          return !globals.episodeTitleFilter.test(episode.episodeTitle);
-        });
-        log("info", `[searchAnime] Anime ${anime.animeId} filtered episodes: ${episodesList.length}/${animeData.links.length}`);
-        if (episodesList.length > 0) {
-          validAnimes.push(anime);
-        }
-      }
-    }
-    curAnimes.length = 0;
-    curAnimes.push(...validAnimes);
-  }
-  if (globals.localCacheValid && curAnimes.length !== 0) {
-    await updateLocalCaches();
-  }
-  if (globals.redisValid && curAnimes.length !== 0) {
-    await updateRedisCaches();
-  }
-  if (globals.localRedisValid && curAnimes.length !== 0) {
-
-  }
-  if (curAnimes.length > 0) {
-    setSearchCache(queryTitle, curAnimes);
-  }
-  return jsonResponse({
-    errorCode: 0,
-    success: true,
-    errorMessage: "",
-    animes: curAnimes
-  });
 }
 async function getBangumi(path2) {
   const idParam = path2.split("/").pop();
@@ -15881,7 +16019,10 @@ async function getBangumi(path2) {
       404
     );
   }
-  log("info", `Fetched details for anime ID: ${idParam}`);
+  return jsonResponse(buildBangumiData(anime, idParam));
+}
+function buildBangumiData(anime, idParam = "") {
+  log("info", `Fetched details for anime ID: ${idParam || anime.bangumiId}`);
   let episodesList = [];
   for (let i = 0; i < anime.links.length; i++) {
     const link = anime.links[i];
@@ -15899,11 +16040,13 @@ async function getBangumi(path2) {
     });
     log("info", `[getBangumi] Episode filter enabled. Filtered episodes: ${episodesList.length}/${anime.links.length}`);
     if (episodesList.length === 0) {
-      log("warn", `[getBangumi] No valid episodes after filtering for anime ID ${idParam}`);
-      return jsonResponse(
-        { errorCode: 404, success: false, errorMessage: "No valid episodes after filtering", bangumi: null },
-        404
-      );
+      log("warn", `[getBangumi] No valid episodes after filtering for anime ID ${idParam || anime.bangumiId}`);
+      return {
+        errorCode: 404,
+        success: false,
+        errorMessage: "No valid episodes after filtering",
+        bangumi: null
+      };
     }
     episodesList = episodesList.map((episode, index) => ({
       ...episode,
@@ -15931,14 +16074,14 @@ async function getBangumi(path2) {
     ],
     episodes: episodesList
   });
-  return jsonResponse({
+  return {
     errorCode: 0,
     success: true,
     errorMessage: "",
     bangumi
-  });
+  };
 }
-async function fetchMergedComments(url) {
+async function fetchMergedComments(url, animeTitle, commentId) {
   const parts = url.split(MERGE_DELIMITER);
   const sourceNames = parts.map((part) => part.split(":")[0]).filter(Boolean);
   const sourceTag = sourceNames.join("\uFF06");
@@ -16019,6 +16162,28 @@ async function fetchMergedComments(url) {
     const dandanShifts = results[dandanIndex] && results[dandanIndex].relatedShifts ? results[dandanIndex].relatedShifts : {};
     alignSourceTimelines(results, sourceNames, realIds, dandanShifts);
   }
+  if (globals.danmuOffsetRules?.length > 0 && animeTitle && commentId) {
+    const [, , episodeTitle] = findAnimeIdByCommentId(commentId);
+    if (episodeTitle) {
+      let { baseTitle, season, episode } = extractAnimeInfo(animeTitle, episodeTitle);
+      season || (season = 1);
+      episode || (episode = findIndexById(commentId) + 1);
+      const seasonStr = `S${season.toString().padStart(2, "0")}`;
+      const episodeStr = `E${episode.toString().padStart(2, "0")}`;
+      results.forEach((list, idx) => {
+        const offset = resolveOffset(globals.danmuOffsetRules, {
+          anime: baseTitle,
+          season: seasonStr,
+          episode: episodeStr,
+          source: sourceNames[idx]
+        });
+        if (offset !== 0 && Array.isArray(list)) {
+          log("info", `[Merge] \u5E94\u7528\u504F\u79FB ${offset}s -> ${sourceNames[idx]} (${baseTitle}/${seasonStr}/${episodeStr})`);
+          results[idx] = applyOffset(list, offset);
+        }
+      });
+    }
+  }
   let mergedList = [];
   results.forEach((list) => {
     mergedList = mergeDanmakuList(mergedList, list);
@@ -16054,7 +16219,7 @@ async function getComment(path2, queryFormat, segmentFlag, clientIp, includeDura
   let danmus = [];
   const durationPromise = shouldAttachDuration ? resolveMergedDuration(url) : null;
   if (url && url.includes(MERGE_DELIMITER)) {
-    danmus = await fetchMergedComments(url);
+    danmus = await fetchMergedComments(url, animeTitle, commentId);
   } else {
     if (url.includes(".qq.com")) {
       danmus = await tencentSource2.getComments(url, plat, segmentFlag);
@@ -16129,16 +16294,21 @@ async function getComment(path2, queryFormat, segmentFlag, clientIp, includeDura
 
     }
   }
-  if (animeTitle && episodeTitle && globals.danmuOffset) {
+  if (animeTitle && episodeTitle && globals.danmuOffsetRules?.length > 0 && !(url && url.includes(MERGE_DELIMITER))) {
     let { baseTitle, season, episode } = extractAnimeInfo(animeTitle, episodeTitle);
     season || (season = 1);
     episode || (episode = findIndexById(commentId) + 1);
     const seasonStr = `S${season.toString().padStart(2, "0")}`;
     const episodeStr = `E${episode.toString().padStart(2, "0")}`;
-    const offset = getOffset(baseTitle, seasonStr, episodeStr);
+    const offset = resolveOffset(globals.danmuOffsetRules, {
+      anime: baseTitle,
+      season: seasonStr,
+      episode: episodeStr,
+      source
+    });
     if (offset !== 0) {
       log("info", `Applying danmu offset: ${offset}s for ${baseTitle}/${seasonStr}/${episodeStr}`);
-      danmus = applyDanmuOffset(danmus, offset);
+      danmus = applyOffset(danmus, offset);
     }
   }
   if (!segmentFlag) {
@@ -16237,7 +16407,7 @@ async function getSegmentComment(segment, queryFormat) {
 }
 
 // forward/forward-widget.js
-var wv = true ? "1.17.1" : Globals.VERSION;
+var wv = true ? "1.17.3" : Globals.VERSION;
 WidgetMetadata = {
   id: "forward.auto.danmu2",
   title: "\u81EA\u52A8\u94FE\u63A5\u5F39\u5E55v2",
@@ -16622,6 +16792,17 @@ WidgetMetadata = {
       ]
     },
     {
+      name: "colorPool",
+      title: "\u81EA\u5B9A\u4E49\u989C\u8272\u6C60\uFF08CONVERT_COLOR\u4E3Acolor\u65F6\u751F\u6548\uFF09\uFF0C\u4E0D\u914D\u7F6E\u4F7F\u7528\u9ED8\u8BA4\u989C\u8272\u6C60\uFF0C\u683C\u5F0F\uFF1A\u5341\u8FDB\u5236\u989C\u8272\u503C\u9017\u53F7\u5206\u9694",
+      type: "input",
+      placeholders: [
+        {
+          title: "\u9ED8\u8BA4\u989C\u8272\u6C60",
+          value: ""
+        }
+      ]
+    },
+    {
       name: "likeSwitch",
       title: "\u70B9\u8D5E\u529F\u80FD\u5F00\u5173\uFF0C\u9ED8\u8BA4true",
       type: "input",
@@ -16715,7 +16896,7 @@ if (typeof window !== "undefined") {
   window.WidgetMetadata = WidgetMetadata;
 }
 var globals2;
-async function initGlobals(sourceOrder, otherServer, customSourceApiUrl, vodServers, vodReturnMode, vodRequestTimeout, bilibiliCookie, platformOrder, episodeTitleFilter, enableAnimeEpisodeFilter, strictTitleMatch2, titleMappingTable, animeTitleFilter, animeTitleSimplified, blockedWords, groupMinute, danmuLimit, danmuSimplifiedTraditional, danmuOffset, convertTopBottomToScroll, convertColor, proxyUrl, tmdbApiKey, likeSwitch) {
+async function initGlobals(sourceOrder, otherServer, customSourceApiUrl, vodServers, vodReturnMode, vodRequestTimeout, bilibiliCookie, platformOrder, episodeTitleFilter, enableAnimeEpisodeFilter, strictTitleMatch2, titleMappingTable, animeTitleFilter, animeTitleSimplified, blockedWords, groupMinute, danmuLimit, danmuSimplifiedTraditional, danmuOffset, convertTopBottomToScroll, convertColor, colorPool, proxyUrl, tmdbApiKey, likeSwitch) {
   const env = {};
   if (sourceOrder !== void 0) env.SOURCE_ORDER = sourceOrder;
   if (otherServer !== void 0) env.OTHER_SERVER = otherServer;
@@ -16738,6 +16919,7 @@ async function initGlobals(sourceOrder, otherServer, customSourceApiUrl, vodServ
   if (danmuOffset !== void 0) env.DANMU_OFFSET = danmuOffset;
   if (convertTopBottomToScroll !== void 0) env.CONVERT_TOP_BOTTOM_TO_SCROLL = convertTopBottomToScroll;
   if (convertColor !== void 0) env.CONVERT_COLOR = convertColor;
+  if (colorPool !== void 0) env.COLOR_POOL = colorPool;
   if (likeSwitch !== void 0) env.LIKE_SWITCH = likeSwitch;
   if (proxyUrl !== void 0) env.PROXY_URL = proxyUrl;
   if (tmdbApiKey !== void 0) env.TMDB_API_KEY = tmdbApiKey;
@@ -16809,6 +16991,7 @@ async function searchDanmu(params) {
     danmuOffset,
     convertTopBottomToScroll,
     convertColor,
+    colorPool,
     proxyUrl,
     tmdbApiKey,
     likeSwitch
@@ -16835,6 +17018,7 @@ async function searchDanmu(params) {
     danmuOffset,
     convertTopBottomToScroll,
     convertColor,
+    colorPool,
     proxyUrl,
     tmdbApiKey,
     likeSwitch
@@ -16914,6 +17098,7 @@ async function getDetailById(params) {
     danmuOffset,
     convertTopBottomToScroll,
     convertColor,
+    colorPool,
     proxyUrl,
     tmdbApiKey,
     likeSwitch
@@ -16940,6 +17125,7 @@ async function getDetailById(params) {
     danmuOffset,
     convertTopBottomToScroll,
     convertColor,
+    colorPool,
     proxyUrl,
     tmdbApiKey,
     likeSwitch
@@ -16982,6 +17168,7 @@ async function getCommentsById(params) {
     danmuOffset,
     convertTopBottomToScroll,
     convertColor,
+    colorPool,
     proxyUrl,
     tmdbApiKey,
     likeSwitch
@@ -17008,6 +17195,7 @@ async function getCommentsById(params) {
     danmuOffset,
     convertTopBottomToScroll,
     convertColor,
+    colorPool,
     proxyUrl,
     tmdbApiKey,
     likeSwitch
@@ -17049,6 +17237,7 @@ async function getCommentsById(params) {
         danmuOffset,
         convertTopBottomToScroll,
         convertColor,
+        colorPool,
         proxyUrl,
         tmdbApiKey,
         likeSwitch
@@ -17095,6 +17284,7 @@ async function getDanmuWithSegmentTime(params) {
     danmuOffset,
     convertTopBottomToScroll,
     convertColor,
+    colorPool,
     proxyUrl,
     tmdbApiKey,
     likeSwitch
@@ -17121,6 +17311,7 @@ async function getDanmuWithSegmentTime(params) {
     danmuOffset,
     convertTopBottomToScroll,
     convertColor,
+    colorPool,
     proxyUrl,
     tmdbApiKey,
     likeSwitch
