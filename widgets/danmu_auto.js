@@ -1038,7 +1038,7 @@ var Globals = {
   originalEnvVars: {},
   accessedEnvVars: {},
   // 静态常量
-  VERSION: "1.17.3",
+  VERSION: "1.17.4",
   MAX_LOGS: 1e3,
   // 日志存储，最多保存 1000 行
   MAX_ANIMES: 100,
@@ -1052,8 +1052,6 @@ var Globals = {
   logBuffer: [],
   requestHistory: /* @__PURE__ */ new Map(),
   // 记录每个 IP 地址的请求历史
-  requestAnimeDetailsMap: null,
-  // 当前请求内的详情缓存，避免搜索结果被全局上限裁剪后丢失
   localCacheValid: false,
   // 本地缓存是否生效
   localCacheInitialized: false,
@@ -3292,6 +3290,174 @@ var lastSearchMap = /* @__PURE__ */ new Map();
 function getLastSearch(ip) {
   return lastSearchMap.get(ip);
 }
+function getAnimeIdentityKey(anime) {
+  if (!anime || typeof anime !== "object") {
+    return "";
+  }
+  const sourcePrefix = anime.source ? String(anime.source) + ":" : "";
+  if (anime.bangumiId !== void 0 && anime.bangumiId !== null && String(anime.bangumiId) !== "") {
+    return "bangumi:" + sourcePrefix + String(anime.bangumiId);
+  }
+  if (anime.animeId !== void 0 && anime.animeId !== null && String(anime.animeId) !== "") {
+    return "anime:" + sourcePrefix + String(anime.animeId);
+  }
+  return "";
+}
+function storeAnimeDetail(detailStore, anime) {
+  if (!(detailStore instanceof Map) || !anime) {
+    return;
+  }
+  const identityKey = getAnimeIdentityKey(anime);
+  if (!identityKey) {
+    return;
+  }
+  detailStore.set(identityKey, anime);
+}
+function* iterateDetailStore(detailStore) {
+  if (!(detailStore instanceof Map)) {
+    return;
+  }
+  const seen = /* @__PURE__ */ new Set();
+  for (const anime of detailStore.values()) {
+    const identityKey = getAnimeIdentityKey(anime);
+    if (identityKey && seen.has(identityKey)) {
+      continue;
+    }
+    if (identityKey) {
+      seen.add(identityKey);
+    }
+    yield anime;
+  }
+}
+function collectUniqueAnimeDetails(detailStore) {
+  const details = [];
+  for (const anime of iterateDetailStore(detailStore)) {
+    details.push(anime);
+  }
+  return details;
+}
+function getActiveSearchCacheEntries() {
+  const now = Date.now();
+  const activeEntries = [];
+  for (const [keyword, cached] of globals.searchCache.entries()) {
+    const cacheAgeMinutes = (now - cached.timestamp) / (1e3 * 60);
+    if (cacheAgeMinutes > globals.searchCacheMinutes) {
+      globals.searchCache.delete(keyword);
+      log("info", `Search cache for "${keyword}" expired after ${cacheAgeMinutes.toFixed(2)} minutes`);
+      continue;
+    }
+    activeEntries.push(cached);
+  }
+  activeEntries.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+  return activeEntries;
+}
+function matchesAnimeId(anime, idStr) {
+  return String(anime?.animeId) === idStr || String(anime?.bangumiId) === idStr;
+}
+function findAnimeByIdInIterator(iterator, idStr, source = null) {
+  let fallback = null;
+  for (const anime of iterator) {
+    if (!matchesAnimeId(anime, idStr)) {
+      continue;
+    }
+    if (source && anime?.source === source) {
+      return anime;
+    }
+    if (!fallback) {
+      fallback = anime;
+    }
+  }
+  return fallback;
+}
+function* iterateSearchCacheDetails() {
+  const seen = /* @__PURE__ */ new Set();
+  for (const cached of getActiveSearchCacheEntries()) {
+    if (!Array.isArray(cached.details)) {
+      continue;
+    }
+    for (const anime of cached.details) {
+      const identityKey = getAnimeIdentityKey(anime);
+      if (identityKey && seen.has(identityKey)) {
+        continue;
+      }
+      if (identityKey) {
+        seen.add(identityKey);
+      }
+      yield anime;
+    }
+  }
+}
+function resolveAnimeById(id, detailStore = null, source = null) {
+  const idStr = String(id);
+  let anime = findAnimeByIdInIterator(globals.animes, idStr, source);
+  if (anime) {
+    return anime;
+  }
+  anime = findAnimeByIdInIterator(iterateDetailStore(detailStore), idStr, source);
+  if (anime) {
+    return anime;
+  }
+  return findAnimeByIdInIterator(iterateSearchCacheDetails(), idStr, source);
+}
+function resolveEpisodeContextById(id, detailStore = null) {
+  const commentId = Number(id);
+  if (!Number.isFinite(commentId)) {
+    return null;
+  }
+  const matchEpisode = (anime) => {
+    if (!anime?.links || !Array.isArray(anime.links)) {
+      return null;
+    }
+    const index = anime.links.findIndex((link) => link.id === commentId);
+    if (index === -1) {
+      return null;
+    }
+    return {
+      anime,
+      link: anime.links[index],
+      index
+    };
+  };
+  for (const anime of globals.animes) {
+    const result = matchEpisode(anime);
+    if (result) {
+      return result;
+    }
+  }
+  for (const anime of iterateDetailStore(detailStore)) {
+    const result = matchEpisode(anime);
+    if (result) {
+      return result;
+    }
+  }
+  const seen = /* @__PURE__ */ new Set();
+  for (const anime of globals.animes) {
+    const identityKey = getAnimeIdentityKey(anime);
+    if (identityKey) {
+      seen.add(identityKey);
+    }
+  }
+  for (const anime of iterateDetailStore(detailStore)) {
+    const identityKey = getAnimeIdentityKey(anime);
+    if (identityKey) {
+      seen.add(identityKey);
+    }
+  }
+  for (const anime of iterateSearchCacheDetails()) {
+    const identityKey = getAnimeIdentityKey(anime);
+    if (identityKey && seen.has(identityKey)) {
+      continue;
+    }
+    if (identityKey) {
+      seen.add(identityKey);
+    }
+    const result = matchEpisode(anime);
+    if (result) {
+      return result;
+    }
+  }
+  return null;
+}
 function isSearchCacheValid(keyword) {
   if (!globals.searchCache.has(keyword)) {
     return false;
@@ -3312,8 +3478,7 @@ function getSearchCache(keyword, detailsMap = null) {
     const cached = globals.searchCache.get(keyword);
     if (detailsMap instanceof Map && Array.isArray(cached.details)) {
       cached.details.forEach((anime) => {
-        detailsMap.set(String(anime.bangumiId), anime);
-        detailsMap.set(String(anime.animeId), anime);
+        storeAnimeDetail(detailsMap, anime);
       });
     }
     return cached.results;
@@ -3321,9 +3486,7 @@ function getSearchCache(keyword, detailsMap = null) {
   return null;
 }
 function setSearchCache(keyword, results, detailsMap = null) {
-  const details = detailsMap instanceof Map ? Array.from(new Map(
-    Array.from(detailsMap.values()).map((anime) => [String(anime.bangumiId || anime.animeId), anime])
-  ).values()) : [];
+  const details = collectUniqueAnimeDetails(detailsMap);
   globals.searchCache.set(keyword, {
     results,
     details,
@@ -3388,6 +3551,11 @@ function findUrlById(id) {
     log("info", `Found URL for ID ${id}: ${episode.url}`);
     return episode.url;
   }
+  const resolved = resolveEpisodeContextById(id);
+  if (resolved?.link?.url) {
+    log("info", `Found URL for ID ${id} via cached anime details: ${resolved.link.url}`);
+    return resolved.link.url;
+  }
   log("error", `No URL found for ID: ${id}`);
   return null;
 }
@@ -3396,6 +3564,11 @@ function findIndexById(id) {
   if (index !== -1) {
     log("info", `Found index for ID ${id}: ${index}`);
     return index;
+  }
+  const resolved = resolveEpisodeContextById(id);
+  if (resolved) {
+    log("info", `Found index for ID ${id} via cached anime details: ${resolved.index}`);
+    return resolved.index;
   }
   log("error", `No index found for ID: ${id}`);
   return -1;
@@ -3406,24 +3579,24 @@ function findTitleById(id) {
     log("info", `Found TITLE for ID ${id}: ${episode.title}`);
     return episode.title;
   }
+  const resolved = resolveEpisodeContextById(id);
+  if (resolved?.link?.title) {
+    log("info", `Found TITLE for ID ${id} via cached anime details: ${resolved.link.title}`);
+    return resolved.link.title;
+  }
   log("error", `No TITLE found for ID: ${id}`);
   return null;
 }
 function findAnimeTitleById(id) {
-  for (const anime of globals.animes) {
-    if (!anime.links || !Array.isArray(anime.links)) {
-      continue;
-    }
-    const match = anime.links.find((link) => link.id === id);
-    if (match) {
-      log("info", `Found animeTitle for ID ${id}: ${anime.animeTitle}`);
-      return anime.animeTitle;
-    }
+  const resolved = resolveEpisodeContextById(id);
+  if (resolved?.anime?.animeTitle) {
+    log("info", `Found animeTitle for ID ${id}: ${resolved.anime.animeTitle}`);
+    return resolved.anime.animeTitle;
   }
   log("error", `No animeTitle found for ID: ${id}`);
   return null;
 }
-function addAnime(anime) {
+function addAnime(anime, detailStore = null) {
   anime = Anime.fromJson(anime);
   try {
     if (!anime.links || !Array.isArray(anime.links)) {
@@ -3442,10 +3615,7 @@ function addAnime(anime) {
       }
     });
     const animeCopy = Anime.fromJson({ ...anime, links: newLinks });
-    if (globals.requestAnimeDetailsMap instanceof Map) {
-      globals.requestAnimeDetailsMap.set(String(animeCopy.bangumiId), animeCopy);
-      globals.requestAnimeDetailsMap.set(String(animeCopy.animeId), animeCopy);
-    }
+    storeAnimeDetail(detailStore, animeCopy);
     const existingAnimeIndex = globals.animes.findIndex((a) => a.animeId === anime.animeId);
     if (existingAnimeIndex !== -1) {
       globals.animes.splice(existingAnimeIndex, 1);
@@ -3525,12 +3695,9 @@ function storeAnimeIdsToMap(curAnimes, key) {
   }
 }
 function findAnimeIdByCommentId(commentId) {
-  for (const anime of globals.animes) {
-    for (const link of anime.links) {
-      if (link.id === commentId) {
-        return [anime.animeId, anime.source, link.title];
-      }
-    }
+  const resolved = resolveEpisodeContextById(commentId);
+  if (resolved) {
+    return [resolved.anime.animeId, resolved.anime.source, resolved.link.title];
   }
   return [null, null, null];
 }
@@ -6016,7 +6183,7 @@ ${itemDetails}`);
   }
   return collectionIds;
 }
-async function applyMergeLogic(curAnimes) {
+async function applyMergeLogic(curAnimes, detailStore = null) {
   const groups = globals.mergeSourcePairs;
   if (!groups || groups.length === 0) return;
   log2("info", `[Merge] \u542F\u52A8\u6E90\u5408\u5E76\u7B56\u7565\uFF0C\u914D\u7F6E: ${JSON.stringify(groups)}`);
@@ -6207,7 +6374,7 @@ async function applyMergeLogic(curAnimes) {
     }
   }
   if (newMergedAnimes.length > 0) {
-    for (const anime of newMergedAnimes) addAnime(anime);
+    for (const anime of newMergedAnimes) addAnime(anime, detailStore);
     curAnimes.unshift(...newMergedAnimes);
   }
   if (keepSources.size > 0) {
@@ -6317,7 +6484,7 @@ var BaseSource = class {
     throw new Error("Method 'Episodes' must be implemented");
   }
   // 处理animes结果，用数据模型Anime存储
-  async handleAnimes(sourceAnimes, queryTitle, curAnimes, vodName) {
+  async handleAnimes(sourceAnimes, queryTitle, curAnimes, extra = null, detailStore = null) {
     throw new Error("Method 'handleAnimes' must be implemented");
   }
   // 获取某集的弹幕
@@ -6498,7 +6665,7 @@ var Kan360Source = class extends BaseSource {
   }
   async getEpisodes(id) {
   }
-  async handleAnimes(sourceAnimes, queryTitle, curAnimes) {
+  async handleAnimes(sourceAnimes, queryTitle, curAnimes, detailStore = null) {
     const tmpAnimes = [];
     if (!sourceAnimes || !Array.isArray(sourceAnimes)) {
       log("error", "[360kan] sourceAnimes is not a valid array");
@@ -6559,7 +6726,7 @@ var Kan360Source = class extends BaseSource {
             source: "360"
           };
           tmpAnimes.push(transformedAnime);
-          addAnime({ ...transformedAnime, links });
+          addAnime({ ...transformedAnime, links }, detailStore);
           if (globals.animes.length > globals.MAX_ANIMES) removeEarliestAnime();
         }
       } catch (error) {
@@ -6672,7 +6839,7 @@ var VodSource = class extends BaseSource {
   }
   async getEpisodes(id) {
   }
-  async handleAnimes(sourceAnimes, queryTitle, curAnimes, vodName) {
+  async handleAnimes(sourceAnimes, queryTitle, curAnimes, vodName, detailStore = null) {
     const tmpAnimes = [];
     if (!sourceAnimes || !Array.isArray(sourceAnimes)) {
       log("error", "[VOD] sourceAnimes is not a valid array");
@@ -6718,7 +6885,7 @@ var VodSource = class extends BaseSource {
             source: "vod"
           };
           tmpAnimes.push(transformedAnime);
-          addAnime({ ...transformedAnime, links });
+          addAnime({ ...transformedAnime, links }, detailStore);
           if (globals.animes.length > globals.MAX_ANIMES) removeEarliestAnime();
         }
       } catch (error) {
@@ -6921,8 +7088,8 @@ var TmdbSource = class extends BaseSource {
   }
   async getEpisodes(id) {
   }
-  async handleAnimes(sourceAnimes, queryTitle, curAnimes, vodName) {
-    return this.doubanSource.handleAnimes(sourceAnimes, queryTitle, curAnimes, vodName);
+  async handleAnimes(sourceAnimes, queryTitle, curAnimes, detailStore = null) {
+    return this.doubanSource.handleAnimes(sourceAnimes, queryTitle, curAnimes, detailStore);
   }
   async getEpisodeDanmu(id) {
   }
@@ -6964,7 +7131,7 @@ var DoubanSource = class extends BaseSource {
   }
   async getEpisodes(id) {
   }
-  async handleAnimes(sourceAnimes, queryTitle, curAnimes, vodName) {
+  async handleAnimes(sourceAnimes, queryTitle, curAnimes, detailStore = null) {
     const doubanAnimes = [];
     if (!sourceAnimes || !Array.isArray(sourceAnimes)) {
       log("error", "[Douban] sourceAnimes is not a valid array");
@@ -7021,7 +7188,7 @@ var DoubanSource = class extends BaseSource {
               if (cid) {
                 tmpAnimes[0].provider = "tencent";
                 tmpAnimes[0].mediaId = cid;
-                await this.tencentSource.handleAnimes(tmpAnimes, response.data?.title, doubanAnimes);
+                await this.tencentSource.handleAnimes(tmpAnimes, response.data?.title, doubanAnimes, detailStore);
               }
               break;
             }
@@ -7030,7 +7197,7 @@ var DoubanSource = class extends BaseSource {
               if (tvid) {
                 tmpAnimes[0].provider = "iqiyi";
                 tmpAnimes[0].mediaId = anime?.type_name === "\u7535\u5F71" ? `movie_${tvid}` : tvid;
-                await this.iqiyiSource.handleAnimes(tmpAnimes, response.data?.title, doubanAnimes);
+                await this.iqiyiSource.handleAnimes(tmpAnimes, response.data?.title, doubanAnimes, detailStore);
               }
               break;
             }
@@ -7039,7 +7206,7 @@ var DoubanSource = class extends BaseSource {
               if (showId) {
                 tmpAnimes[0].provider = "youku";
                 tmpAnimes[0].mediaId = showId;
-                await this.youkuSource.handleAnimes(tmpAnimes, response.data?.title, doubanAnimes);
+                await this.youkuSource.handleAnimes(tmpAnimes, response.data?.title, doubanAnimes, detailStore);
               }
               break;
             }
@@ -7048,7 +7215,7 @@ var DoubanSource = class extends BaseSource {
               if (seasonId) {
                 tmpAnimes[0].provider = "bilibili";
                 tmpAnimes[0].mediaId = `ss${seasonId}`;
-                await this.bilibiliSource.handleAnimes(tmpAnimes, response.data?.title, doubanAnimes);
+                await this.bilibiliSource.handleAnimes(tmpAnimes, response.data?.title, doubanAnimes, detailStore);
               }
               break;
             }
@@ -7062,7 +7229,7 @@ var DoubanSource = class extends BaseSource {
               if (epId) {
                 tmpAnimes[0].provider = "migu";
                 tmpAnimes[0].mediaId = `https://v3-sc.miguvideo.com/program/v4/cont/content-info/${epId}/1`;
-                await this.miguSource.handleAnimes(tmpAnimes, response.data?.title, doubanAnimes);
+                await this.miguSource.handleAnimes(tmpAnimes, response.data?.title, doubanAnimes, detailStore);
               }
               break;
             }
@@ -7447,7 +7614,7 @@ var RenrenSource = class extends BaseSource {
       url: null
     }));
   }
-  async handleAnimes(sourceAnimes, queryTitle, curAnimes) {
+  async handleAnimes(sourceAnimes, queryTitle, curAnimes, detailStore = null) {
     const tmpAnimes = [];
     if (!sourceAnimes || !Array.isArray(sourceAnimes)) {
       log("info", "[Renren] sourceAnimes is not a valid array");
@@ -7482,7 +7649,7 @@ var RenrenSource = class extends BaseSource {
                 source: "renren"
               };
               tmpAnimes.push(transformedAnime);
-              addAnime({ ...transformedAnime, links });
+              addAnime({ ...transformedAnime, links }, detailStore);
               if (globals.animes.length > globals.MAX_ANIMES) {
                 removeEarliestAnime();
               }
@@ -8276,7 +8443,7 @@ var HanjutvSource = class extends BaseSource {
     }
   }
   // ── 番剧处理 ─────────────────────────────────────────────────
-  async handleAnimes(sourceAnimes, queryTitle, curAnimes) {
+  async handleAnimes(sourceAnimes, queryTitle, curAnimes, detailStore = null) {
     if (!Array.isArray(sourceAnimes)) {
       log("error", "[Hanjutv] sourceAnimes is not a valid array");
       return [];
@@ -8310,7 +8477,7 @@ var HanjutvSource = class extends BaseSource {
             source: "hanjutv"
           };
           tmpAnimes.push(transformedAnime);
-          addAnime({ ...transformedAnime, links });
+          addAnime({ ...transformedAnime, links }, detailStore);
           if (globals.animes.length > globals.MAX_ANIMES) removeEarliestAnime();
         } catch (error) {
           log("error", `[Hanjutv] Error processing anime: ${error.message}`);
@@ -8523,7 +8690,7 @@ var BahamutSource = class extends BaseSource {
       return [];
     }
   }
-  async handleAnimes(sourceAnimes, queryTitle, curAnimes) {
+  async handleAnimes(sourceAnimes, queryTitle, curAnimes, detailStore = null) {
     const tmpAnimes = [];
     queryTitle = traditionalized(queryTitle);
     function bahamutTitleMatches(itemTitle, queryTitle2, searchUsedTitle) {
@@ -8629,7 +8796,7 @@ var BahamutSource = class extends BaseSource {
             source: "bahamut"
           };
           tmpAnimes.push(transformedAnime);
-          addAnime({ ...transformedAnime, links });
+          addAnime({ ...transformedAnime, links }, detailStore);
           if (globals.animes.length > globals.MAX_ANIMES) removeEarliestAnime();
         }
       } catch (error) {
@@ -8955,7 +9122,7 @@ var TencentSource = class extends BaseSource {
       return [];
     }
   }
-  async handleAnimes(sourceAnimes, queryTitle, curAnimes) {
+  async handleAnimes(sourceAnimes, queryTitle, curAnimes, detailStore = null) {
     const tmpAnimes = [];
     if (!sourceAnimes || !Array.isArray(sourceAnimes)) {
       log("error", "[Tencent] sourceAnimes is not a valid array");
@@ -8992,7 +9159,7 @@ var TencentSource = class extends BaseSource {
               source: "tencent"
             };
             tmpAnimes.push(transformedAnime);
-            addAnime({ ...transformedAnime, links });
+            addAnime({ ...transformedAnime, links }, detailStore);
             if (globals.animes.length > globals.MAX_ANIMES) removeEarliestAnime();
           }
         } catch (error) {
@@ -9670,7 +9837,7 @@ var _IqiyiSource = class _IqiyiSource extends BaseSource {
    * @param {Array} curAnimes - 当前动漫列表
    * @returns {Promise<void>}
    */
-  async handleAnimes(sourceAnimes, queryTitle, curAnimes) {
+  async handleAnimes(sourceAnimes, queryTitle, curAnimes, detailStore = null) {
     const tmpAnimes = [];
     if (!sourceAnimes || !Array.isArray(sourceAnimes)) {
       log("error", "[iQiyi] sourceAnimes is not a valid array");
@@ -9705,7 +9872,7 @@ var _IqiyiSource = class _IqiyiSource extends BaseSource {
               source: "iqiyi"
             };
             tmpAnimes.push(transformedAnime);
-            addAnime({ ...transformedAnime, links });
+            addAnime({ ...transformedAnime, links }, detailStore);
             if (globals.animes.length > globals.MAX_ANIMES) {
               removeEarliestAnime();
             }
@@ -10192,7 +10359,7 @@ var MangoSource = class extends BaseSource {
     log("debug", `[Mango] \u7EFC\u827A\u5904\u7406\u5B8C\u6210\uFF0C\u8FC7\u6EE4\u540E\u5206\u96C6\u6570: ${episodeInfos.length}`);
     return episodeInfos;
   }
-  async handleAnimes(sourceAnimes, queryTitle, curAnimes) {
+  async handleAnimes(sourceAnimes, queryTitle, curAnimes, detailStore = null) {
     const tmpAnimes = [];
     if (!sourceAnimes || !Array.isArray(sourceAnimes)) {
       log("error", "[Mango] sourceAnimes is not a valid array");
@@ -10228,7 +10395,7 @@ var MangoSource = class extends BaseSource {
               source: "imgo"
             };
             tmpAnimes.push(transformedAnime);
-            addAnime({ ...transformedAnime, links: links2 });
+            addAnime({ ...transformedAnime, links: links2 }, detailStore);
             if (globals.animes.length > globals.MAX_ANIMES) removeEarliestAnime();
             return;
           }
@@ -10260,7 +10427,7 @@ var MangoSource = class extends BaseSource {
               source: "imgo"
             };
             tmpAnimes.push(transformedAnime);
-            addAnime({ ...transformedAnime, links });
+            addAnime({ ...transformedAnime, links }, detailStore);
             if (globals.animes.length > globals.MAX_ANIMES) removeEarliestAnime();
           }
         } catch (error) {
@@ -10766,7 +10933,7 @@ var _BilibiliSource = class _BilibiliSource extends BaseSource {
     log("error", `[Bilibili] \u4E0D\u652F\u6301\u7684 ID \u683C\u5F0F: ${id}`);
     return [];
   }
-  async handleAnimes(sourceAnimes, queryTitle, curAnimes) {
+  async handleAnimes(sourceAnimes, queryTitle, curAnimes, detailStore = null) {
     const tmpAnimes = [];
     if (!sourceAnimes || !Array.isArray(sourceAnimes)) {
       log("error", "[Bilibili] sourceAnimes is not a valid array");
@@ -10849,7 +11016,7 @@ var _BilibiliSource = class _BilibiliSource extends BaseSource {
           aliases: anime.aliases
         };
         tmpAnimes.push(transformedAnime);
-        addAnime({ ...transformedAnime, links });
+        addAnime({ ...transformedAnime, links }, detailStore);
         if (globals.animes.length > globals.MAX_ANIMES) {
           removeEarliestAnime();
         }
@@ -11490,7 +11657,7 @@ var YoukuSource = class extends BaseSource {
     const data = typeof response.data === "string" ? JSON.parse(response.data) : response.data;
     return data;
   }
-  async handleAnimes(sourceAnimes, queryTitle, curAnimes) {
+  async handleAnimes(sourceAnimes, queryTitle, curAnimes, detailStore = null) {
     const tmpAnimes = [];
     if (!sourceAnimes || !Array.isArray(sourceAnimes)) {
       log("error", "[Youku] sourceAnimes is not a valid array");
@@ -11527,7 +11694,7 @@ var YoukuSource = class extends BaseSource {
               source: "youku"
             };
             tmpAnimes.push(transformedAnime);
-            addAnime({ ...transformedAnime, links });
+            addAnime({ ...transformedAnime, links }, detailStore);
             if (globals.animes.length > globals.MAX_ANIMES) removeEarliestAnime();
           }
         } catch (error) {
@@ -12045,7 +12212,7 @@ var DandanSource = class extends BaseSource {
     return intersection / union;
   }
   // 处理并转换番剧信息
-  async handleAnimes(sourceAnimes, queryTitle, curAnimes) {
+  async handleAnimes(sourceAnimes, queryTitle, curAnimes, detailStore = null) {
     const tmpAnimes = [];
     if (!sourceAnimes || !Array.isArray(sourceAnimes)) {
       log("error", "[Dandan] sourceAnimes is not a valid array");
@@ -12139,7 +12306,7 @@ var DandanSource = class extends BaseSource {
               source: "dandan"
             };
             tmpAnimes.push(transformedAnime);
-            addAnime({ ...transformedAnime, links });
+            addAnime({ ...transformedAnime, links }, detailStore);
             if (globals.animes.length > globals.MAX_ANIMES) removeEarliestAnime();
           }
         } catch (error) {
@@ -12415,7 +12582,7 @@ var CustomSource = class extends BaseSource {
       return [];
     }
   }
-  async handleAnimes(sourceAnimes, queryTitle, curAnimes) {
+  async handleAnimes(sourceAnimes, queryTitle, curAnimes, detailStore = null) {
     const tmpAnimes = [];
     if (!sourceAnimes || !Array.isArray(sourceAnimes)) {
       log("error", "[Custom Source] sourceAnimes is not a valid array");
@@ -12449,7 +12616,7 @@ var CustomSource = class extends BaseSource {
               source: "custom"
             };
             tmpAnimes.push(transformedAnime);
-            addAnime({ ...transformedAnime, links });
+            addAnime({ ...transformedAnime, links }, detailStore);
             if (globals.animes.length > globals.MAX_ANIMES) removeEarliestAnime();
           }
         } catch (error) {
@@ -13458,7 +13625,7 @@ var MiguSource = class extends BaseSource {
       return [];
     }
   }
-  async handleAnimes(sourceAnimes, queryTitle, curAnimes) {
+  async handleAnimes(sourceAnimes, queryTitle, curAnimes, detailStore = null) {
     const tmpAnimes = [];
     if (!sourceAnimes || !Array.isArray(sourceAnimes)) {
       log("error", "[Migu] sourceAnimes is not a valid array");
@@ -13491,7 +13658,7 @@ var MiguSource = class extends BaseSource {
               source: "migu"
             };
             tmpAnimes.push(transformedAnime);
-            addAnime({ ...transformedAnime, links });
+            addAnime({ ...transformedAnime, links }, detailStore);
             if (globals.animes.length > globals.MAX_ANIMES) removeEarliestAnime();
           }
         } catch (error) {
@@ -13784,7 +13951,7 @@ var SohuSource = class extends BaseSource {
       return [];
     }
   }
-  async handleAnimes(sourceAnimes, queryTitle, curAnimes) {
+  async handleAnimes(sourceAnimes, queryTitle, curAnimes, detailStore = null) {
     const tmpAnimes = [];
     if (!sourceAnimes || !Array.isArray(sourceAnimes)) {
       log("error", "[Sohu] sourceAnimes is not a valid array");
@@ -13821,7 +13988,7 @@ var SohuSource = class extends BaseSource {
               source: "sohu"
             };
             tmpAnimes.push(transformedAnime);
-            addAnime({ ...transformedAnime, links });
+            addAnime({ ...transformedAnime, links }, detailStore);
             if (globals.animes.length > globals.MAX_ANIMES) removeEarliestAnime();
           }
         } catch (error) {
@@ -14364,7 +14531,7 @@ var LeshiSource = class extends BaseSource {
     log("info", `[Leshi] \u6210\u529F\u89E3\u6790\u5267\u96C6\u5217\u8868: media_id=${mediaId}, \u5171 ${episodes.length} \u96C6`);
     return episodes;
   }
-  async handleAnimes(sourceAnimes, queryTitle, curAnimes) {
+  async handleAnimes(sourceAnimes, queryTitle, curAnimes, detailStore = null) {
     const tmpAnimes = [];
     if (!sourceAnimes || !Array.isArray(sourceAnimes)) {
       log("error", "[Leshi] sourceAnimes is not a valid array");
@@ -14400,7 +14567,7 @@ var LeshiSource = class extends BaseSource {
               source: "leshi"
             };
             tmpAnimes.push(transformedAnime);
-            addAnime({ ...transformedAnime, links });
+            addAnime({ ...transformedAnime, links }, detailStore);
             if (globals.animes.length > globals.MAX_ANIMES) removeEarliestAnime();
           }
         } catch (error) {
@@ -14686,7 +14853,7 @@ var XiguaSource = class extends BaseSource {
       return [];
     }
   }
-  async handleAnimes(sourceAnimes, queryTitle, curAnimes) {
+  async handleAnimes(sourceAnimes, queryTitle, curAnimes, detailStore = null) {
     const tmpAnimes = [];
     if (!sourceAnimes || !Array.isArray(sourceAnimes)) {
       log("error", "[Xigua] sourceAnimes is not a valid array");
@@ -14721,7 +14888,7 @@ var XiguaSource = class extends BaseSource {
               source: "xigua"
             };
             tmpAnimes.push(transformedAnime);
-            addAnime({ ...transformedAnime, links });
+            addAnime({ ...transformedAnime, links }, detailStore);
             if (globals.animes.length > globals.MAX_ANIMES) removeEarliestAnime();
           }
         } catch (error) {
@@ -14981,7 +15148,7 @@ var MaiduiduiSource = class extends BaseSource {
       return [];
     }
   }
-  async handleAnimes(sourceAnimes, queryTitle, curAnimes) {
+  async handleAnimes(sourceAnimes, queryTitle, curAnimes, detailStore = null) {
     const tmpAnimes = [];
     if (!sourceAnimes || !Array.isArray(sourceAnimes)) {
       log("error", "[Maiduidui] sourceAnimes is not a valid array");
@@ -15015,7 +15182,7 @@ var MaiduiduiSource = class extends BaseSource {
               source: "maiduidui"
             };
             tmpAnimes.push(transformedAnime);
-            addAnime({ ...transformedAnime, links });
+            addAnime({ ...transformedAnime, links }, detailStore);
             if (globals.animes.length > globals.MAX_ANIMES) removeEarliestAnime();
           }
         } catch (error) {
@@ -15426,7 +15593,7 @@ var AnimekoSource = class extends BaseSource {
    * @param {string} queryTitle 原始查询标题
    * @param {Array} curAnimes 当前缓存的番剧列表
    */
-  async handleAnimes(sourceAnimes, queryTitle, curAnimes) {
+  async handleAnimes(sourceAnimes, queryTitle, curAnimes, detailStore = null) {
     const tmpAnimes = [];
     if (!sourceAnimes || !Array.isArray(sourceAnimes)) {
       if (sourceAnimes) log("error", "[Animeko] sourceAnimes is not a valid array");
@@ -15472,7 +15639,7 @@ var AnimekoSource = class extends BaseSource {
               source: "animeko"
             };
             tmpAnimes.push(transformedAnime);
-            addAnime({ ...transformedAnime, links });
+            addAnime({ ...transformedAnime, links }, detailStore);
             if (globals.animes.length > globals.MAX_ANIMES) removeEarliestAnime();
           }
         } catch (error) {
@@ -15582,7 +15749,7 @@ var OtherSource = class extends BaseSource {
   }
   async getEpisodes(id) {
   }
-  async handleAnimes(sourceAnimes, queryTitle, curAnimes) {
+  async handleAnimes(sourceAnimes, queryTitle, curAnimes, detailStore = null) {
   }
   async getEpisodeDanmu(id) {
     try {
@@ -15751,7 +15918,7 @@ function matchSeason(anime, queryTitle, season) {
     return false;
   }
 }
-async function searchAnime(url, preferAnimeId = null, preferSource = null) {
+async function searchAnime(url, preferAnimeId = null, preferSource = null, detailStore = null) {
   let queryTitle = url.searchParams.get("keyword");
   log("info", `Search anime with keyword: ${queryTitle}`);
   if (queryTitle === "") {
@@ -15767,217 +15934,62 @@ async function searchAnime(url, preferAnimeId = null, preferSource = null) {
     log("info", `searchAnime converted traditional to simplified: ${queryTitle} -> ${simplifiedTitle}`);
     queryTitle = simplifiedTitle;
   }
-  const previousRequestAnimeDetailsMap = globals.requestAnimeDetailsMap;
-  const requestAnimeDetailsMap = previousRequestAnimeDetailsMap instanceof Map ? previousRequestAnimeDetailsMap : /* @__PURE__ */ new Map();
-  if (!(previousRequestAnimeDetailsMap instanceof Map)) {
-    globals.requestAnimeDetailsMap = requestAnimeDetailsMap;
+  const requestAnimeDetailsMap = detailStore instanceof Map ? detailStore : /* @__PURE__ */ new Map();
+  const cachedResults = getSearchCache(queryTitle, requestAnimeDetailsMap);
+  if (cachedResults !== null) {
+    return jsonResponse({
+      errorCode: 0,
+      success: true,
+      errorMessage: "",
+      animes: cachedResults
+    });
   }
-  try {
-    const cachedResults = getSearchCache(queryTitle, requestAnimeDetailsMap);
-    if (cachedResults !== null) {
-      return jsonResponse({
-        errorCode: 0,
-        success: true,
-        errorMessage: "",
-        animes: cachedResults
-      });
+  const curAnimes = [];
+  const urlRegex = /^(https?:\/\/)?([a-zA-Z0-9-]+\.)+[a-zA-Z]{2,6}(:\d+)?(\/[^\s]*)?$/;
+  if (urlRegex.test(queryTitle)) {
+    const tmpAnime = Anime.fromJson({
+      "animeId": 111,
+      "bangumiId": "string",
+      "animeTitle": queryTitle,
+      "type": "type",
+      "typeDescription": "string",
+      "imageUrl": "string",
+      "startDate": "2025-08-08T13:25:11.189Z",
+      "episodeCount": 1,
+      "rating": 0,
+      "isFavorited": true
+    });
+    let platform = "unknown";
+    if (queryTitle.includes(".qq.com")) {
+      platform = "qq";
+    } else if (queryTitle.includes(".iqiyi.com")) {
+      platform = "qiyi";
+    } else if (queryTitle.includes(".mgtv.com")) {
+      platform = "imgo";
+    } else if (queryTitle.includes(".youku.com")) {
+      platform = "youku";
+    } else if (queryTitle.includes(".bilibili.com")) {
+      platform = "bilibili1";
+    } else if (queryTitle.includes(".miguvideo.com")) {
+      platform = "migu";
+    } else if (queryTitle.includes(".sohu.com")) {
+      platform = "sohu";
+    } else if (queryTitle.includes(".le.com")) {
+      platform = "leshi";
+    } else if (queryTitle.includes(".douyin.com") || queryTitle.includes(".ixigua.com")) {
+      platform = "xigua";
+    } else if (queryTitle.includes(".mddcloud.com.cn")) {
+      platform = "maiduidui";
     }
-    const curAnimes = [];
-    const urlRegex = /^(https?:\/\/)?([a-zA-Z0-9-]+\.)+[a-zA-Z]{2,6}(:\d+)?(\/[^\s]*)?$/;
-    if (urlRegex.test(queryTitle)) {
-      const tmpAnime = Anime.fromJson({
-        "animeId": 111,
-        "bangumiId": "string",
-        "animeTitle": queryTitle,
-        "type": "type",
-        "typeDescription": "string",
-        "imageUrl": "string",
-        "startDate": "2025-08-08T13:25:11.189Z",
-        "episodeCount": 1,
-        "rating": 0,
-        "isFavorited": true
-      });
-      let platform = "unknown";
-      if (queryTitle.includes(".qq.com")) {
-        platform = "qq";
-      } else if (queryTitle.includes(".iqiyi.com")) {
-        platform = "qiyi";
-      } else if (queryTitle.includes(".mgtv.com")) {
-        platform = "imgo";
-      } else if (queryTitle.includes(".youku.com")) {
-        platform = "youku";
-      } else if (queryTitle.includes(".bilibili.com")) {
-        platform = "bilibili1";
-      } else if (queryTitle.includes(".miguvideo.com")) {
-        platform = "migu";
-      } else if (queryTitle.includes(".sohu.com")) {
-        platform = "sohu";
-      } else if (queryTitle.includes(".le.com")) {
-        platform = "leshi";
-      } else if (queryTitle.includes(".douyin.com") || queryTitle.includes(".ixigua.com")) {
-        platform = "xigua";
-      } else if (queryTitle.includes(".mddcloud.com.cn")) {
-        platform = "maiduidui";
-      }
-      const pageTitle = await getPageTitle(queryTitle);
-      const links = [{
-        "name": "\u624B\u52A8\u89E3\u6790\u94FE\u63A5\u5F39\u5E55",
-        "url": queryTitle,
-        "title": `\u3010${platform}\u3011 ${pageTitle}`
-      }];
-      curAnimes.push(tmpAnime);
-      addAnime(Anime.fromJson({ ...tmpAnime, links }));
-      if (globals.animes.length > globals.MAX_ANIMES) removeEarliestAnime();
-      if (globals.localCacheValid && curAnimes.length !== 0) {
-        await updateLocalCaches();
-      }
-      if (globals.redisValid && curAnimes.length !== 0) {
-        await updateRedisCaches();
-      }
-      if (globals.localRedisValid && curAnimes.length !== 0) {
-
-      }
-      return jsonResponse({
-        errorCode: 0,
-        success: true,
-        errorMessage: "",
-        animes: curAnimes
-      });
-    }
-    try {
-      log("info", `Search sourceOrderArr: ${globals.sourceOrderArr}`);
-      const requestPromises = globals.sourceOrderArr.map((source) => {
-        if (source === "360") return kan360Source.search(queryTitle);
-        if (source === "vod") return vodSource.search(queryTitle, preferAnimeId, preferSource);
-        if (source === "tmdb") return tmdbSource.search(queryTitle);
-        if (source === "douban") return doubanSource.search(queryTitle);
-        if (source === "renren") return renrenSource.search(queryTitle);
-        if (source === "hanjutv") return hanjutvSource.search(queryTitle);
-        if (source === "bahamut") return bahamutSource2.search(queryTitle);
-        if (source === "dandan") return dandanSource.search(queryTitle);
-        if (source === "custom") return customSource.search(queryTitle);
-        if (source === "tencent") return tencentSource2.search(queryTitle);
-        if (source === "youku") return youkuSource2.search(queryTitle);
-        if (source === "iqiyi") return iqiyiSource2.search(queryTitle);
-        if (source === "imgo") return mangoSource2.search(queryTitle);
-        if (source === "bilibili") return bilibiliSource2.search(queryTitle);
-        if (source === "migu") return miguSource.search(queryTitle);
-        if (source === "sohu") return sohuSource.search(queryTitle);
-        if (source === "leshi") return leshiSource.search(queryTitle);
-        if (source === "xigua") return xiguaSource.search(queryTitle);
-        if (source === "maiduidui") return maiduiduiSource.search(queryTitle);
-        if (source === "animeko") return animekoSource.search(queryTitle);
-      });
-      const results = await Promise.all(requestPromises);
-      const resultData = {};
-      globals.sourceOrderArr.forEach((source, index) => {
-        resultData[source] = results[index];
-      });
-      const {
-        vod: animesVodResults,
-        360: animes360,
-        tmdb: animesTmdb,
-        douban: animesDouban,
-        renren: animesRenren,
-        hanjutv: animesHanjutv,
-        bahamut: animesBahamut,
-        dandan: animesDandan,
-        custom: animesCustom,
-        tencent: animesTencent,
-        youku: animesYouku,
-        iqiyi: animesIqiyi,
-        imgo: animesImgo,
-        bilibili: animesBilibili,
-        migu: animesMigu,
-        sohu: animesSohu,
-        leshi: animesLeshi,
-        xigua: animesXigua,
-        maiduidui: animesMaiduidui,
-        animeko: animesAnimeko
-      } = resultData;
-      for (const key of globals.sourceOrderArr) {
-        if (key === "360") {
-          await kan360Source.handleAnimes(animes360, queryTitle, curAnimes);
-        } else if (key === "vod") {
-          if (animesVodResults && Array.isArray(animesVodResults)) {
-            for (const vodResult of animesVodResults) {
-              if (vodResult && vodResult.list && vodResult.list.length > 0) {
-                await vodSource.handleAnimes(vodResult.list, queryTitle, curAnimes, vodResult.serverName);
-              }
-            }
-          }
-        } else if (key === "tmdb") {
-          await tmdbSource.handleAnimes(animesTmdb, queryTitle, curAnimes);
-        } else if (key === "douban") {
-          await doubanSource.handleAnimes(animesDouban, queryTitle, curAnimes);
-        } else if (key === "renren") {
-          await renrenSource.handleAnimes(animesRenren, queryTitle, curAnimes);
-        } else if (key === "hanjutv") {
-          await hanjutvSource.handleAnimes(animesHanjutv, queryTitle, curAnimes);
-        } else if (key === "bahamut") {
-          await bahamutSource2.handleAnimes(animesBahamut, queryTitle, curAnimes);
-        } else if (key === "dandan") {
-          await dandanSource.handleAnimes(animesDandan, queryTitle, curAnimes);
-        } else if (key === "custom") {
-          await customSource.handleAnimes(animesCustom, queryTitle, curAnimes);
-        } else if (key === "tencent") {
-          await tencentSource2.handleAnimes(animesTencent, queryTitle, curAnimes);
-        } else if (key === "youku") {
-          await youkuSource2.handleAnimes(animesYouku, queryTitle, curAnimes);
-        } else if (key === "iqiyi") {
-          await iqiyiSource2.handleAnimes(animesIqiyi, queryTitle, curAnimes);
-        } else if (key === "imgo") {
-          await mangoSource2.handleAnimes(animesImgo, queryTitle, curAnimes);
-        } else if (key === "bilibili") {
-          await bilibiliSource2.handleAnimes(animesBilibili, queryTitle, curAnimes);
-        } else if (key === "migu") {
-          await miguSource.handleAnimes(animesMigu, queryTitle, curAnimes);
-        } else if (key === "sohu") {
-          await sohuSource.handleAnimes(animesSohu, queryTitle, curAnimes);
-        } else if (key === "leshi") {
-          await leshiSource.handleAnimes(animesLeshi, queryTitle, curAnimes);
-        } else if (key === "xigua") {
-          await xiguaSource.handleAnimes(animesXigua, queryTitle, curAnimes);
-        } else if (key === "maiduidui") {
-          await maiduiduiSource.handleAnimes(animesMaiduidui, queryTitle, curAnimes);
-        } else if (key === "animeko") {
-          await animekoSource.handleAnimes(animesAnimeko, queryTitle, curAnimes);
-        }
-      }
-    } catch (error) {
-      log("error", "\u53D1\u751F\u9519\u8BEF:", error);
-    }
-    if (globals.mergeSourcePairs.length > 0) {
-      await applyMergeLogic(curAnimes);
-    }
-    storeAnimeIdsToMap(curAnimes, queryTitle);
-    if (globals.enableAnimeEpisodeFilter) {
-      const validAnimes = [];
-      for (const anime of curAnimes) {
-        const animeTitle = anime.animeTitle || "";
-        if (globals.animeTitleFilter && globals.animeTitleFilter.test(animeTitle)) {
-          log("info", `[searchAnime] Anime ${anime.animeId} filtered by name: ${animeTitle}`);
-          continue;
-        }
-        const animeData = globals.animes.find((a) => a.animeId === anime.animeId);
-        if (animeData && animeData.links) {
-          let episodesList = animeData.links.map((link, index) => ({
-            episodeId: link.id,
-            episodeTitle: link.title,
-            episodeNumber: index + 1
-          }));
-          episodesList = episodesList.filter((episode) => {
-            return !globals.episodeTitleFilter.test(episode.episodeTitle);
-          });
-          log("info", `[searchAnime] Anime ${anime.animeId} filtered episodes: ${episodesList.length}/${animeData.links.length}`);
-          if (episodesList.length > 0) {
-            validAnimes.push(anime);
-          }
-        }
-      }
-      curAnimes.length = 0;
-      curAnimes.push(...validAnimes);
-    }
+    const pageTitle = await getPageTitle(queryTitle);
+    const links = [{
+      "name": "\u624B\u52A8\u89E3\u6790\u94FE\u63A5\u5F39\u5E55",
+      "url": queryTitle,
+      "title": `\u3010${platform}\u3011 ${pageTitle}`
+    }];
+    curAnimes.push(tmpAnime);
+    addAnime(Anime.fromJson({ ...tmpAnime, links }), requestAnimeDetailsMap);
+    if (globals.animes.length > globals.MAX_ANIMES) removeEarliestAnime();
     if (globals.localCacheValid && curAnimes.length !== 0) {
       await updateLocalCaches();
     }
@@ -15987,31 +15999,169 @@ async function searchAnime(url, preferAnimeId = null, preferSource = null) {
     if (globals.localRedisValid && curAnimes.length !== 0) {
 
     }
-    if (curAnimes.length > 0) {
-      setSearchCache(queryTitle, curAnimes, requestAnimeDetailsMap);
-    }
     return jsonResponse({
       errorCode: 0,
       success: true,
       errorMessage: "",
       animes: curAnimes
     });
-  } finally {
-    if (!(previousRequestAnimeDetailsMap instanceof Map)) {
-      globals.requestAnimeDetailsMap = previousRequestAnimeDetailsMap;
-    }
   }
+  try {
+    log("info", `Search sourceOrderArr: ${globals.sourceOrderArr}`);
+    const requestPromises = globals.sourceOrderArr.map((source) => {
+      if (source === "360") return kan360Source.search(queryTitle);
+      if (source === "vod") return vodSource.search(queryTitle, preferAnimeId, preferSource);
+      if (source === "tmdb") return tmdbSource.search(queryTitle);
+      if (source === "douban") return doubanSource.search(queryTitle);
+      if (source === "renren") return renrenSource.search(queryTitle);
+      if (source === "hanjutv") return hanjutvSource.search(queryTitle);
+      if (source === "bahamut") return bahamutSource2.search(queryTitle);
+      if (source === "dandan") return dandanSource.search(queryTitle);
+      if (source === "custom") return customSource.search(queryTitle);
+      if (source === "tencent") return tencentSource2.search(queryTitle);
+      if (source === "youku") return youkuSource2.search(queryTitle);
+      if (source === "iqiyi") return iqiyiSource2.search(queryTitle);
+      if (source === "imgo") return mangoSource2.search(queryTitle);
+      if (source === "bilibili") return bilibiliSource2.search(queryTitle);
+      if (source === "migu") return miguSource.search(queryTitle);
+      if (source === "sohu") return sohuSource.search(queryTitle);
+      if (source === "leshi") return leshiSource.search(queryTitle);
+      if (source === "xigua") return xiguaSource.search(queryTitle);
+      if (source === "maiduidui") return maiduiduiSource.search(queryTitle);
+      if (source === "animeko") return animekoSource.search(queryTitle);
+    });
+    const results = await Promise.all(requestPromises);
+    const resultData = {};
+    globals.sourceOrderArr.forEach((source, index) => {
+      resultData[source] = results[index];
+    });
+    const {
+      vod: animesVodResults,
+      360: animes360,
+      tmdb: animesTmdb,
+      douban: animesDouban,
+      renren: animesRenren,
+      hanjutv: animesHanjutv,
+      bahamut: animesBahamut,
+      dandan: animesDandan,
+      custom: animesCustom,
+      tencent: animesTencent,
+      youku: animesYouku,
+      iqiyi: animesIqiyi,
+      imgo: animesImgo,
+      bilibili: animesBilibili,
+      migu: animesMigu,
+      sohu: animesSohu,
+      leshi: animesLeshi,
+      xigua: animesXigua,
+      maiduidui: animesMaiduidui,
+      animeko: animesAnimeko
+    } = resultData;
+    for (const key of globals.sourceOrderArr) {
+      if (key === "360") {
+        await kan360Source.handleAnimes(animes360, queryTitle, curAnimes, requestAnimeDetailsMap);
+      } else if (key === "vod") {
+        if (animesVodResults && Array.isArray(animesVodResults)) {
+          for (const vodResult of animesVodResults) {
+            if (vodResult && vodResult.list && vodResult.list.length > 0) {
+              await vodSource.handleAnimes(vodResult.list, queryTitle, curAnimes, vodResult.serverName, requestAnimeDetailsMap);
+            }
+          }
+        }
+      } else if (key === "tmdb") {
+        await tmdbSource.handleAnimes(animesTmdb, queryTitle, curAnimes, requestAnimeDetailsMap);
+      } else if (key === "douban") {
+        await doubanSource.handleAnimes(animesDouban, queryTitle, curAnimes, requestAnimeDetailsMap);
+      } else if (key === "renren") {
+        await renrenSource.handleAnimes(animesRenren, queryTitle, curAnimes, requestAnimeDetailsMap);
+      } else if (key === "hanjutv") {
+        await hanjutvSource.handleAnimes(animesHanjutv, queryTitle, curAnimes, requestAnimeDetailsMap);
+      } else if (key === "bahamut") {
+        await bahamutSource2.handleAnimes(animesBahamut, queryTitle, curAnimes, requestAnimeDetailsMap);
+      } else if (key === "dandan") {
+        await dandanSource.handleAnimes(animesDandan, queryTitle, curAnimes, requestAnimeDetailsMap);
+      } else if (key === "custom") {
+        await customSource.handleAnimes(animesCustom, queryTitle, curAnimes, requestAnimeDetailsMap);
+      } else if (key === "tencent") {
+        await tencentSource2.handleAnimes(animesTencent, queryTitle, curAnimes, requestAnimeDetailsMap);
+      } else if (key === "youku") {
+        await youkuSource2.handleAnimes(animesYouku, queryTitle, curAnimes, requestAnimeDetailsMap);
+      } else if (key === "iqiyi") {
+        await iqiyiSource2.handleAnimes(animesIqiyi, queryTitle, curAnimes, requestAnimeDetailsMap);
+      } else if (key === "imgo") {
+        await mangoSource2.handleAnimes(animesImgo, queryTitle, curAnimes, requestAnimeDetailsMap);
+      } else if (key === "bilibili") {
+        await bilibiliSource2.handleAnimes(animesBilibili, queryTitle, curAnimes, requestAnimeDetailsMap);
+      } else if (key === "migu") {
+        await miguSource.handleAnimes(animesMigu, queryTitle, curAnimes, requestAnimeDetailsMap);
+      } else if (key === "sohu") {
+        await sohuSource.handleAnimes(animesSohu, queryTitle, curAnimes, requestAnimeDetailsMap);
+      } else if (key === "leshi") {
+        await leshiSource.handleAnimes(animesLeshi, queryTitle, curAnimes, requestAnimeDetailsMap);
+      } else if (key === "xigua") {
+        await xiguaSource.handleAnimes(animesXigua, queryTitle, curAnimes, requestAnimeDetailsMap);
+      } else if (key === "maiduidui") {
+        await maiduiduiSource.handleAnimes(animesMaiduidui, queryTitle, curAnimes, requestAnimeDetailsMap);
+      } else if (key === "animeko") {
+        await animekoSource.handleAnimes(animesAnimeko, queryTitle, curAnimes, requestAnimeDetailsMap);
+      }
+    }
+  } catch (error) {
+    log("error", "\u53D1\u751F\u9519\u8BEF:", error);
+  }
+  if (globals.mergeSourcePairs.length > 0) {
+    await applyMergeLogic(curAnimes, requestAnimeDetailsMap);
+  }
+  storeAnimeIdsToMap(curAnimes, queryTitle);
+  if (globals.enableAnimeEpisodeFilter) {
+    const validAnimes = [];
+    for (const anime of curAnimes) {
+      const animeTitle = anime.animeTitle || "";
+      if (globals.animeTitleFilter && globals.animeTitleFilter.test(animeTitle)) {
+        log("info", `[searchAnime] Anime ${anime.animeId} filtered by name: ${animeTitle}`);
+        continue;
+      }
+      const animeData = globals.animes.find((a) => a.animeId === anime.animeId);
+      if (animeData && animeData.links) {
+        let episodesList = animeData.links.map((link, index) => ({
+          episodeId: link.id,
+          episodeTitle: link.title,
+          episodeNumber: index + 1
+        }));
+        episodesList = episodesList.filter((episode) => {
+          return !globals.episodeTitleFilter.test(episode.episodeTitle);
+        });
+        log("info", `[searchAnime] Anime ${anime.animeId} filtered episodes: ${episodesList.length}/${animeData.links.length}`);
+        if (episodesList.length > 0) {
+          validAnimes.push(anime);
+        }
+      }
+    }
+    curAnimes.length = 0;
+    curAnimes.push(...validAnimes);
+  }
+  if (globals.localCacheValid && curAnimes.length !== 0) {
+    await updateLocalCaches();
+  }
+  if (globals.redisValid && curAnimes.length !== 0) {
+    await updateRedisCaches();
+  }
+  if (globals.localRedisValid && curAnimes.length !== 0) {
+
+  }
+  if (curAnimes.length > 0) {
+    setSearchCache(queryTitle, curAnimes, requestAnimeDetailsMap);
+  }
+  return jsonResponse({
+    errorCode: 0,
+    success: true,
+    errorMessage: "",
+    animes: curAnimes
+  });
 }
 async function getBangumi(path2) {
   const idParam = path2.split("/").pop();
-  const animeId = parseInt(idParam);
-  let anime;
-  if (!isNaN(animeId)) {
-    anime = globals.animes.find((a) => a.animeId.toString() === animeId.toString());
-  }
-  if (!anime) {
-    anime = globals.animes.find((a) => a.bangumiId === idParam);
-  }
+  const anime = resolveAnimeById(idParam);
   if (!anime) {
     log("error", `Anime with ID ${idParam} not found`);
     return jsonResponse(
@@ -16407,7 +16557,7 @@ async function getSegmentComment(segment, queryFormat) {
 }
 
 // forward/forward-widget.js
-var wv = true ? "1.17.3" : Globals.VERSION;
+var wv = true ? "1.17.4" : Globals.VERSION;
 WidgetMetadata = {
   id: "forward.auto.danmu2",
   title: "\u81EA\u52A8\u94FE\u63A5\u5F39\u5E55v2",
