@@ -9289,11 +9289,17 @@ var TencentSource = class extends BaseSource {
             });
           }
           if (links.length > 0) {
+            const firstEpTitle = eps[0].unionTitle || eps[0].title || `\u7B2C1\u96C6`;
+            let displayTitle = anime.title;
+            const versionMatch = firstEpTitle.match(/\[.+版\]/);
+            if (versionMatch && firstEpTitle.includes(anime.title)) {
+              displayTitle = `${anime.title}${versionMatch[0]}`;
+            }
             const numericAnimeId = convertToAsciiSum(anime.mediaId);
             let transformedAnime = {
               animeId: numericAnimeId,
               bangumiId: anime.mediaId,
-              animeTitle: `${anime.title}(${anime.year})\u3010${anime.type}\u3011from tencent`,
+              animeTitle: `${displayTitle}(${anime.year})\u3010${anime.type}\u3011from tencent`,
               type: anime.type,
               typeDescription: anime.type,
               imageUrl: anime.imageUrl,
