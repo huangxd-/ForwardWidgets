@@ -852,8 +852,8 @@ var Envs = class {
       "LIKE_SWITCH": { category: "danmu", type: "boolean", description: "\u5F39\u5E55\u70B9\u8D5E\u6570\u663E\u793A\u5F00\u5173\uFF0C\u9ED8\u8BA4\u5F00\u542F" },
       "DANMU_OFFSET": { category: "danmu", type: "text", sources: this.ALLOWED_SOURCES, description: "\u5F39\u5E55\u65F6\u95F4\u504F\u79FB\u914D\u7F6E\uFF0C\u683C\u5F0F\uFF1A\u5267\u540D:\u79D2 \u6216 \u5267\u540D/\u5B63:\u79D2 \u6216 \u5267\u540D/\u5B63/\u96C6:\u79D2\uFF0C\u652F\u6301\u6307\u5B9A\u6765\u6E90\uFF1A\u5267\u540D@\u6765\u6E90:\u79D2 \u6216 \u5267\u540D/\u5B63@\u6765\u6E901&\u6765\u6E902:\u79D2\uFF0C\u591A\u6761\u7528\u9017\u53F7\u5206\u9694\uFF0C\u6B63\u6570\u8868\u793A\u5F39\u5E55\u5EF6\u540E\uFF08\u5411\u53F3\uFF09\uFF0C\u8D1F\u6570\u8868\u793A\u5F39\u5E55\u63D0\u524D\uFF08\u5411\u5DE6\uFF09\uFF0C\u4F8B\u5982\uFF1Aoverlord/S01:90,re-zero/S02@bilibili:120,re-zero/S02/E03@dandan&bilibili:10" },
       // 缓存配置
-      "SEARCH_CACHE_MINUTES": { category: "cache", type: "number", description: "\u641C\u7D22\u7ED3\u679C\u7F13\u5B58\u65F6\u95F4(\u5206\u949F)\uFF0C\u9ED8\u8BA41", min: 1, max: 120 },
-      "COMMENT_CACHE_MINUTES": { category: "cache", type: "number", description: "\u5F39\u5E55\u7F13\u5B58\u65F6\u95F4(\u5206\u949F)\uFF0C\u9ED8\u8BA41", min: 1, max: 120 },
+      "SEARCH_CACHE_MINUTES": { category: "cache", type: "number", description: "\u641C\u7D22\u7ED3\u679C\u7F13\u5B58\u65F6\u95F4(\u5206\u949F)\uFF0C\u9ED8\u8BA43", min: 1, max: 120 },
+      "COMMENT_CACHE_MINUTES": { category: "cache", type: "number", description: "\u5F39\u5E55\u7F13\u5B58\u65F6\u95F4(\u5206\u949F)\uFF0C\u9ED8\u8BA43", min: 1, max: 120 },
       "REMEMBER_LAST_SELECT": { category: "cache", type: "boolean", description: "\u8BB0\u4F4F\u624B\u52A8\u9009\u62E9\u7ED3\u679C" },
       "MAX_LAST_SELECT_MAP": { category: "cache", type: "number", description: "\u8BB0\u4F4F\u4E0A\u6B21\u9009\u62E9\u6620\u5C04\u7F13\u5B58\u5927\u5C0F\u9650\u5236", min: 10, max: 1e3 },
       "UPSTASH_REDIS_REST_URL": { category: "cache", type: "text", description: "Upstash Redis\u8BF7\u6C42\u94FE\u63A5" },
@@ -1038,7 +1038,7 @@ var Globals = {
   originalEnvVars: {},
   accessedEnvVars: {},
   // 静态常量
-  VERSION: "1.17.4",
+  VERSION: "1.17.5",
   MAX_LOGS: 1e3,
   // 日志存储，最多保存 1000 行
   MAX_ANIMES: 100,
@@ -4735,6 +4735,67 @@ var SEASON_PATTERNS = [
   { regex: /\b(sp|special)\d*\b/i, val: "SP" },
   { regex: /[^0-9](\d)$/, prefix: "S", useCleaned: true }
 ];
+var SpecialSeriesRegistry = [
+  {
+    // 案例 1：经典的带副标题映射（美少女战士）
+    seriesKeywords: ["\u7F8E\u5C11\u5973\u6218\u58EB"],
+    mappings: [
+      // 忽略大小写，填入 "R" 即可自动匹配 "r"
+      { markers: ["R"], targetStandard: "\u7B2C\u4E8C\u5B63" },
+      { markers: ["S"], targetStandard: "\u7B2C\u4E09\u5B63" },
+      { markers: ["SuperS", "Super S"], targetStandard: "\u7B2C\u56DB\u5B63" },
+      { markers: ["Sailor Stars", "\u6700\u540E\u7684\u661F\u5149"], targetStandard: "\u7B2C\u4E94\u5B63" }
+    ]
+  },
+  {
+    seriesKeywords: ["\u5C0F\u6797\u5BB6\u7684\u9F99\u5973\u4EC6"],
+    mappings: [
+      { markers: ["S"], targetStandard: "\u7B2C\u4E8C\u5B63" }
+    ]
+  },
+  {
+    // 案例 2：可能携带副标题的（我们不可能成为恋人）
+    seriesKeywords: ["\u53EF\u80FD\u6210\u4E3A\u604B\u4EBA", "\u4E0D\u884C"],
+    mappings: [
+      { markers: ["NEXT SHINE", "\u518D\u6B21\u95EA\u8000"], targetStandard: "\u7EED\u7BC7" }
+    ]
+  },
+  {
+    // 案例 3：没有任何副标题，主标题本身就是特殊类型
+    seriesKeywords: ["\u7EA2\u732A", "\u5343\u4E0E\u5343\u5BFB", "\u9F99\u732B"],
+    // 当没有匹配到任何 mappings（或根本没写 mappings）时，直接给这个条目打上默认标签
+    defaultStandard: "\u5267\u573A\u7248"
+  }
+];
+function escapeRegExp(string) {
+  return string.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+function normalizeTitleForEngine(title) {
+  if (!title) return "";
+  let normTitle = title;
+  const upperTitle = normTitle.toUpperCase();
+  for (const rule of SpecialSeriesRegistry) {
+    const isTargetSeries = rule.seriesKeywords.every((kw) => upperTitle.includes(kw.toUpperCase()));
+    if (isTargetSeries) {
+      let hasMapped = false;
+      if (rule.mappings) {
+        for (const mapping of rule.mappings) {
+          mapping.markers.forEach((marker) => {
+            const reg = new RegExp(escapeRegExp(marker), "gi");
+            if (reg.test(normTitle)) {
+              normTitle = normTitle.replace(reg, ` ${mapping.targetStandard} `);
+              hasMapped = true;
+            }
+          });
+        }
+      }
+      if (!hasMapped && rule.defaultStandard) {
+        normTitle += ` ${rule.defaultStandard} `;
+      }
+    }
+  }
+  return normTitle;
+}
 function getLanguageType(text) {
   if (!text) return "Unspecified";
   const t = text.toLowerCase();
@@ -4767,7 +4828,8 @@ function cleanText(text) {
 }
 function cleanTitleForSimilarity(text) {
   if (!text) return "";
-  let clean = simplized(text);
+  let clean = normalizeTitleForEngine(text);
+  clean = simplized(clean);
   const startBracketMatch = clean.match(/^(?:【|\[)(.+?)(?:】|\])/);
   if (startBracketMatch) {
     const content = startBracketMatch[1];
@@ -4933,6 +4995,7 @@ function checkTitleSubtitleConflict(titleA, titleB, isDateValid = true) {
   return false;
 }
 function extractSeasonMarkers(title, typeDesc = "") {
+  title = normalizeTitleForEngine(title);
   const markers = /* @__PURE__ */ new Set();
   const t = cleanText(title);
   const type = cleanText(typeDesc || "");
@@ -4988,6 +5051,7 @@ function extractSeasonMarkers(title, typeDesc = "") {
   return markers;
 }
 function getSeasonNumber(title, typeDesc = "") {
+  title = normalizeTitleForEngine(title);
   const markers = extractSeasonMarkers(title, typeDesc);
   let maxSeason = null;
   for (const m of markers) {
@@ -5039,6 +5103,21 @@ function checkMediaTypeMismatch(titleA, titleB, typeDescA, typeDescB, countA, co
   const catA = getContentCategory(titleA, typeDescA, sourceA);
   const catB = getContentCategory(titleB, typeDescB, sourceB);
   if (catA === "REAL" && catB === "ANIME" || catA === "ANIME" && catB === "REAL") return true;
+  let is3DA = (typeDescA || "").includes("3D");
+  let is3DB = (typeDescB || "").includes("3D");
+  let is2DA = (typeDescA || "").includes("2D");
+  let is2DB = (typeDescB || "").includes("2D");
+  if (is3DA && !is3DB) {
+    if (/3[dD]/.test(titleB)) is3DB = true;
+  } else if (is3DB && !is3DA) {
+    if (/3[dD]/.test(titleA)) is3DA = true;
+  }
+  if (is2DA && !is2DB) {
+    if (/2[dD]/.test(titleB)) is2DB = true;
+  } else if (is2DB && !is2DA) {
+    if (/2[dD]/.test(titleA)) is2DA = true;
+  }
+  if (is3DA !== is3DB) return true;
   const mediaA = getStrictMediaType(titleA, typeDescA);
   const mediaB = getStrictMediaType(titleB, typeDescB);
   if (!mediaA || !mediaB || mediaA === mediaB) return false;
@@ -5239,7 +5318,7 @@ function findSecondaryMatches(primaryAnime, secondaryList, collectionAnimeIds = 
     if (checkMediaTypeMismatch(rawPrimaryTitle, rawSecTitle, primaryAnime.typeDescription, secAnime.typeDescription, primaryCount, secCount, primaryAnime.source, secAnime.source)) {
       const pType = getContentCategory(rawPrimaryTitle, primaryAnime.typeDescription, primaryAnime.source);
       const sType = getContentCategory(rawSecTitle, secAnime.typeDescription, secAnime.source);
-      logReason(rawSecTitle, `\u5A92\u4F53\u7C7B\u578B\u4E0D\u5339\u914D (P:${pType}/${getStrictMediaType(rawPrimaryTitle, primaryAnime.typeDescription)} vs S:${sType}/${getStrictMediaType(rawSecTitle, secAnime.typeDescription)})`);
+      logReason(rawSecTitle, `\u5A92\u4F53\u7C7B\u578B\u6216\u7EF4\u6570\u4E0D\u5339\u914D (P:${pType}/${getStrictMediaType(rawPrimaryTitle, primaryAnime.typeDescription)} [${primaryAnime.typeDescription}] vs S:${sType}/${getStrictMediaType(rawSecTitle, secAnime.typeDescription)} [${secAnime.typeDescription}])`);
       continue;
     }
     const isDateValid = primaryDate.year !== null && secDate.year !== null;
@@ -5818,6 +5897,7 @@ async function processMergeTask(params) {
       log2("info", `${logPrefix} [\u5408\u96C6\u5904\u7406] \u6784\u5EFA\u5B63\u5EA6\u96C6\u6570\u5730\u56FE (Mode\u7B56\u7565): { ${mapDesc} }`);
     }
   }
+  let allMatches = [];
   for (const secSource of availableSecondaries) {
     let secondaryItems = curAnimes.filter((a) => {
       if (a.source !== secSource) return false;
@@ -5837,8 +5917,24 @@ async function processMergeTask(params) {
       });
     }
     if (secondaryItems.length === 0) continue;
-    const matches = findSecondaryMatches(pAnime, secondaryItems, collectionAnimeIds);
-    for (const match of matches) {
+    const matchesForSource = findSecondaryMatches(pAnime, secondaryItems, collectionAnimeIds);
+    allMatches.push(...matchesForSource);
+  }
+  if (allMatches.length > 0) {
+    if (allMatches.length > 1 && (isPrimaryCollection || allMatches.some((m) => collectionAnimeIds.has(m.animeId)))) {
+      allMatches.sort((a, b) => {
+        const sA = getSeasonNumber(a.animeTitle, a.typeDescription) || 1;
+        const sB = getSeasonNumber(b.animeTitle, b.typeDescription) || 1;
+        if (sA !== sB) return sA - sB;
+        const idxA = availableSecondaries.indexOf(a.source);
+        const idxB = availableSecondaries.indexOf(b.source);
+        return idxA - idxB;
+      });
+      const seqLogs = allMatches.map((m) => `[${m.source}]S${getSeasonNumber(m.animeTitle, m.typeDescription) || 1}`);
+      log2("info", `${logPrefix} [\u5408\u96C6\u65F6\u5E8F] \u5DF2\u5C06\u8DE8\u6E90\u5339\u914D\u961F\u5217\u6309\u5B63\u6570\u5347\u5E8F\u6392\u5217\uFF0C\u4FDD\u969C\u5207\u7247\u63A8\u65AD\u4E25\u683C\u81EA\u4E3E: ${seqLogs.join(" -> ")}`);
+    }
+    for (const match of allMatches) {
+      const secSource = match.source;
       if (!isPrimaryCollection) {
         const isReuse = allowReuseIds && allowReuseIds.has(match.animeId);
         if (!isReuse && groupConsumedIds.has(match.animeId)) continue;
@@ -5867,8 +5963,9 @@ async function processMergeTask(params) {
         let sliceStart = 0, slicedList = collectionLinks;
         if (seasonNum && seasonNum > 1) {
           let historyFound = false;
-          if (!isPrimarySide && collectionProgress && collectionProgress.has(match.animeId)) {
-            const progress = collectionProgress.get(match.animeId);
+          const collectionIdToCheck = isPrimarySide ? pAnime.animeId : match.animeId;
+          if (collectionProgress && collectionProgress.has(collectionIdToCheck)) {
+            const progress = collectionProgress.get(collectionIdToCheck);
             const prevSeason = seasonNum - 1;
             if (progress[`S${prevSeason}`] !== void 0) {
               const inferredStart = progress[`S${prevSeason}`] + 1;
@@ -6007,21 +6104,40 @@ async function processMergeTask(params) {
             log2("info", `${logPrefix} [${secSource}] \u6620\u5C04\u8BE6\u60C5:
 ${mappingEntries.map((e) => e.text).join("\n")}`);
           }
-          if (collectionProgress && isSecondaryCollection) {
+          if (collectionProgress && (isSecondaryCollection || isPrimaryCollection)) {
             let maxUsedIndex = -1;
-            for (let k = 0; k < filteredMLinksWithIndex.length; k++) {
-              const pIndex = k + offset;
-              if (matchedPIndices.has(pIndex)) {
-                const item = filteredMLinksWithIndex[k];
-                if (item.originalIndex > maxUsedIndex) maxUsedIndex = item.originalIndex;
+            if (isPrimaryCollection && !isSecondaryCollection) {
+              for (let k = 0; k < filteredMLinksWithIndex.length; k++) {
+                const pIndex = k + offset;
+                if (matchedPIndices.has(pIndex)) {
+                  const originalPIndex = filteredPLinksWithIndex[pIndex].originalIndex;
+                  if (originalPIndex > maxUsedIndex) maxUsedIndex = originalPIndex;
+                }
               }
-            }
-            if (maxUsedIndex !== -1) {
-              const pSeason = getSeasonNumber(pAnime.animeTitle, pAnime.typeDescription) || 1;
-              if (!collectionProgress.has(match.animeId)) collectionProgress.set(match.animeId, {});
-              const progress = collectionProgress.get(match.animeId);
-              if (mergedCount >= 3) {
-                progress[`S${pSeason}`] = maxUsedIndex;
+              if (maxUsedIndex !== -1) {
+                const sSeason = getSeasonNumber(derivedMatch.animeTitle, derivedMatch.typeDescription) || 1;
+                if (!collectionProgress.has(pAnime.animeId)) collectionProgress.set(pAnime.animeId, {});
+                const progress = collectionProgress.get(pAnime.animeId);
+                if (mergedCount >= 3) {
+                  progress[`S${sSeason}`] = maxUsedIndex;
+                }
+              }
+            } else if (!isPrimaryCollection && isSecondaryCollection) {
+              for (let k = 0; k < filteredMLinksWithIndex.length; k++) {
+                const pIndex = k + offset;
+                if (matchedPIndices.has(pIndex)) {
+                  const item = filteredMLinksWithIndex[k];
+                  if (item.originalIndex > maxUsedIndex) maxUsedIndex = item.originalIndex;
+                }
+              }
+              if (maxUsedIndex !== -1) {
+                const pSeason = getSeasonNumber(pAnime.animeTitle, pAnime.typeDescription) || 1;
+                if (!collectionProgress.has(match.animeId)) collectionProgress.set(match.animeId, {});
+                const progress = collectionProgress.get(match.animeId);
+                if (mergedCount >= 3) {
+                  progress[`S${pSeason}`] = maxUsedIndex;
+                  log2("info", `[Merge-Check] \u66F4\u65B0\u5408\u96C6\u8FDB\u5EA6 [${match.animeId}]: S${pSeason} -> MaxIndex ${maxUsedIndex}`);
+                }
               }
             }
           }
@@ -6131,7 +6247,6 @@ ${itemDetails}`);
             const t = cleanText(rawTitle);
             if (RegexStore.Episode.SPECIAL_CHECK.test(t) || RegexStore.Episode.DANDAN_IGNORE.test(t)) return false;
             if (RegexStore.Episode.MAP_EXCLUDE_KEYWORDS.test(rawContent) || RegexStore.Episode.MAP_EXCLUDE_KEYWORDS.test(rawTitle)) return false;
-            log2("info", `[Merge-Check] [Detail-Ep] [${realAnime.source}] \u4FDD\u7559: "${rawTitle}"`);
             return true;
           }).length;
         } else validCount = realAnime.links.length;
@@ -6139,7 +6254,7 @@ ${itemDetails}`);
       if (!sourceStats.has(realAnime.source)) sourceStats.set(realAnime.source, { seasonCounts: {}, maxSeason: 0, s1Candidates: [] });
       const stat = sourceStats.get(realAnime.source);
       if (!stat.seasonCounts[seasonNum]) stat.seasonCounts[seasonNum] = 0;
-      stat.seasonCounts[seasonNum] += validCount;
+      stat.seasonCounts[seasonNum] = Math.max(stat.seasonCounts[seasonNum], validCount);
       if (seasonNum > stat.maxSeason) stat.maxSeason = seasonNum;
       if (seasonNum === 1) stat.s1Candidates.push({ anime: realAnime, originalCount: validCount });
     });
@@ -6158,27 +6273,20 @@ ${itemDetails}`);
         }
       }
       if (!hasOtherSources) continue;
-      const currentS1Total = stat.seasonCounts[1];
       const threshold = maxOtherS1 + Thresholds.COLLECTION_DIFF;
-      const ratio = maxOtherS1 > 0 ? currentS1Total / maxOtherS1 : 0;
-      if (currentS1Total > threshold) {
-        if (ratio > Thresholds.COLLECTION_RATIO) {
-          log2("info", `[Merge-Check] [\u5408\u96C6\u63A2\u6D4B] \u62D2\u7EDD: [${source}] ${baseTitle} (Ratio too high: ${ratio.toFixed(2)} > ${Thresholds.COLLECTION_RATIO})`);
-          continue;
-        }
-        const giants = stat.s1Candidates.filter((c) => c.originalCount > threshold);
-        if (giants.length > 0) {
-          giants.forEach((cand) => {
-            collectionIds.add(cand.anime.animeId);
-            log2("info", `[Merge-Check] [\u5408\u96C6\u63A2\u6D4B] \u53D1\u73B0\u7591\u4F3C\u5408\u96C6(\u5355\u4F53): [${source}] ${cand.anime.animeTitle} (Count:${cand.originalCount} > Thr:${threshold}, Ratio:${ratio.toFixed(2)}) -> \u6807\u8BB0\u4E3A\u5408\u96C6`);
-          });
+      stat.s1Candidates.forEach((cand) => {
+        const ratio = maxOtherS1 > 0 ? cand.originalCount / maxOtherS1 : 0;
+        if (cand.originalCount > threshold) {
+          if (ratio > Thresholds.COLLECTION_RATIO) {
+            log2("info", `[Merge-Check] [\u5408\u96C6\u63A2\u6D4B] \u62D2\u7EDD: [${source}] ${cand.anime.animeTitle} (Ratio too high: ${ratio.toFixed(2)} > ${Thresholds.COLLECTION_RATIO})`);
+            return;
+          }
+          collectionIds.add(cand.anime.animeId);
+          log2("info", `[Merge-Check] [\u5408\u96C6\u63A2\u6D4B] \u53D1\u73B0\u7591\u4F3C\u5408\u96C6(\u5355\u4F53): [${source}] ${cand.anime.animeTitle} (Count:${cand.originalCount} > Thr:${threshold}, Ratio:${ratio.toFixed(2)}) -> \u6807\u8BB0\u4E3A\u5408\u96C6`);
         } else {
-          stat.s1Candidates.forEach((cand) => {
-            collectionIds.add(cand.anime.animeId);
-            log2("info", `[Merge-Check] [\u5408\u96C6\u63A2\u6D4B] \u53D1\u73B0\u7591\u4F3C\u5408\u96C6(\u805A\u5408): [${source}] ${cand.anime.animeTitle} (TotalS1:${currentS1Total} > Thr:${threshold}, Ratio:${ratio.toFixed(2)}) -> \u6807\u8BB0\u4E3A\u5408\u96C6`);
-          });
+          log2("info", `[Merge-Check] [\u5408\u96C6\u63A2\u6D4B] \u672A\u547D\u4E2D: [${source}] ${cand.anime.animeTitle} (Count:${cand.originalCount} <= Threshold:${threshold})`);
         }
-      } else log2("info", `[Merge-Check] [\u5408\u96C6\u63A2\u6D4B] \u672A\u547D\u4E2D: [${source}] ${baseTitle} (TotalS1:${currentS1Total} <= Threshold:${threshold})`);
+      });
     }
   }
   return collectionIds;
@@ -8890,6 +8998,28 @@ var TencentSource = class extends BaseSource {
     if (!allowedTypes.includes(contentType)) {
       return null;
     }
+    let mediaType = contentType;
+    let is3D = false;
+    let is2D = false;
+    if (videoInfo.coverDoc) {
+      if (videoInfo.coverDoc.richTags && Array.isArray(videoInfo.coverDoc.richTags)) {
+        videoInfo.coverDoc.richTags.forEach((tag) => {
+          if (tag.text && tag.text.includes("3D")) is3D = true;
+          if (tag.text && tag.text.includes("2D")) is2D = true;
+        });
+      }
+      if (videoInfo.coverDoc.tags && Array.isArray(videoInfo.coverDoc.tags)) {
+        videoInfo.coverDoc.tags.forEach((tag) => {
+          if (tag && tag.includes("3D")) is3D = true;
+          if (tag && tag.includes("2D")) is2D = true;
+        });
+      }
+    }
+    if (is3D) {
+      mediaType = "3D" + mediaType;
+    } else if (is2D) {
+      mediaType = "2D" + mediaType;
+    }
     const allSites = (videoInfo.playSites || []).concat(videoInfo.episodeSites || []);
     if (allSites.length > 0 && !allSites.some((site) => site.enName === "qq")) {
       return null;
@@ -8905,8 +9035,7 @@ var TencentSource = class extends BaseSource {
       provider: "tencent",
       mediaId,
       title,
-      type: contentType,
-      // 使用中文类型,与360/vod保持一致
+      type: mediaType,
       year: videoInfo.year,
       imageUrl: videoInfo.imgUrl,
       episodeCount
@@ -8974,6 +9103,22 @@ var TencentSource = class extends BaseSource {
       if (itemList.length === 0 && data.data && data.data.normalList && data.data.normalList.itemList) {
         log("info", "[Tencent] MainNeed box \u672A\u627E\u5230\uFF0C\u4F7F\u7528 normalList");
         itemList = data.data.normalList.itemList;
+      }
+      if (data.data && data.data.areaBoxList) {
+        for (const box of data.data.areaBoxList) {
+          if (box.itemList && box.boxTitle && Array.isArray(box.boxTitle.boxTitles) && box.boxTitle.boxTitles.includes("\u76F8\u5173\u5F71\u89C6")) {
+            const relatedItems = box.itemList.filter(
+              (item) => item.videoInfo && item.videoInfo.title && item.videoInfo.title.includes(keyword)
+            );
+            if (relatedItems.length > 0) {
+              log("info", `[Tencent] \u8FFD\u52A0\u300C\u76F8\u5173\u5F71\u89C6\u300Dbox \u4E2D\u5339\u914D "${keyword}" \u7684 ${relatedItems.length} \u4E2A\u9879\u76EE`);
+              itemList = [...itemList, ...relatedItems];
+            } else {
+              log("info", `[Tencent] \u300C\u76F8\u5173\u5F71\u89C6\u300Dbox \u4E2D\u65E0\u5339\u914D "${keyword}" \u7684\u9879\u76EE`);
+            }
+            break;
+          }
+        }
       }
       if (itemList.length === 0) {
         log("info", "[Tencent] \u641C\u7D22\u65E0\u7ED3\u679C");
@@ -9451,7 +9596,26 @@ var _IqiyiSource = class _IqiyiSource extends BaseSource {
     } else {
       return null;
     }
-    if (mediaType === "\u7535\u5F71") {
+    let is3D = false;
+    let is2D = false;
+    if (album.metaTags && Array.isArray(album.metaTags)) {
+      album.metaTags.forEach((tag) => {
+        if (tag.name === "3D") is3D = true;
+        if (tag.name === "2D") is2D = true;
+      });
+    }
+    if (album.baseTags && Array.isArray(album.baseTags)) {
+      album.baseTags.forEach((tag) => {
+        if (tag.value === "3D") is3D = true;
+        if (tag.value === "2D") is2D = true;
+      });
+    }
+    if (is3D) {
+      mediaType = "3D" + mediaType;
+    } else if (is2D) {
+      mediaType = "2D" + mediaType;
+    }
+    if (mediaType.includes("\u7535\u5F71")) {
       const qipuId = album.qipuId || album.playQipuId;
       if (!qipuId) {
         log("debug", `[iQiyi] \u7535\u5F71\u7F3A\u5C11 qipuId: ${album.title}`);
@@ -12058,6 +12222,7 @@ var mangoSource = new MangoSource();
 var bilibiliSource = new BilibiliSource();
 var youkuSource = new YoukuSource();
 var bahamutSource = new BahamutSource();
+var DandanUserAgent = `LogVar Danmu API/${globals.version}`;
 var DandanSource = class extends BaseSource {
   /**
    * 搜索动画条目
@@ -12074,7 +12239,7 @@ var DandanSource = class extends BaseSource {
           const resp = await Widget.http.get(`https://api.danmaku.weeblify.app/ddp/v1?path=/v2/search/anime?keyword=${keyword}`, {
             headers: {
               "Content-Type": "application/json",
-              "User-Agent": `LogVar Danmu API/${globals.version}`
+              "User-Agent": DandanUserAgent
             }
           });
           if (!resp || !resp.data) {
@@ -12112,7 +12277,7 @@ var DandanSource = class extends BaseSource {
           const resp = await Widget.http.get(`https://api.danmaku.weeblify.app/ddp/v1?path=/v2/search/episodes?anime=${encodeURIComponent(tmdbTitle)}`, {
             headers: {
               "Content-Type": "application/json",
-              "User-Agent": `LogVar Danmu API/${globals.version}`
+              "User-Agent": DandanUserAgent
             },
             signal: tmdbAbortController.signal
           });
@@ -12173,7 +12338,7 @@ var DandanSource = class extends BaseSource {
       const resp = await Widget.http.get(`https://api.danmaku.weeblify.app/ddp/v1?path=/v2/bangumi/${id}`, {
         headers: {
           "Content-Type": "application/json",
-          "User-Agent": `LogVar Danmu API/${globals.version}`
+          "User-Agent": DandanUserAgent
         }
       });
       if (!resp || !resp.data) {
@@ -12326,7 +12491,7 @@ var DandanSource = class extends BaseSource {
       const dandanPromise = httpGet(`https://api.danmaku.weeblify.app/ddp/v1?path=%2Fv2%2Fcomment%2F${id}%3Ffrom%3D0%26withRelated%3Dtrue%26chConvert%3D0`, {
         headers: {
           "Content-Type": "application/json",
-          "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
+          "User-Agent": DandanUserAgent
         },
         retries: 1
       }).catch((e) => {
@@ -12338,7 +12503,7 @@ var DandanSource = class extends BaseSource {
         relatedPromise = httpGet(`https://api.danmaku.weeblify.app/ddp/v1?path=/v2/related/${id}`, {
           headers: {
             "Content-Type": "application/json",
-            "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
+            "User-Agent": DandanUserAgent
           },
           retries: 1
         }).catch((e) => {
@@ -15512,6 +15677,16 @@ var AnimekoSource = class extends BaseSource {
             typeDesc = item.platform;
         }
       }
+      let is3D = false;
+      let is2D = false;
+      if (item.tags && Array.isArray(item.tags)) {
+        item.tags.forEach((tag) => {
+          if (tag.name === "3D") is3D = true;
+          if (tag.name === "2D") is2D = true;
+        });
+      }
+      if (is3D) typeDesc = "3D" + typeDesc;
+      else if (is2D) typeDesc = "2D" + typeDesc;
       const titleSuffix = item._relation_mark ? ` ${item._relation_mark}` : "";
       const aliases = [];
       if (item.infobox && Array.isArray(item.infobox)) {
@@ -16557,7 +16732,7 @@ async function getSegmentComment(segment, queryFormat) {
 }
 
 // forward/forward-widget.js
-var wv = true ? "1.17.4" : Globals.VERSION;
+var wv = true ? "1.17.5" : Globals.VERSION;
 WidgetMetadata = {
   id: "forward.auto.danmu2",
   title: "\u81EA\u52A8\u94FE\u63A5\u5F39\u5E55v2",
