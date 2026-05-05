@@ -1089,7 +1089,7 @@ var Globals = {
   originalEnvVars: {},
   accessedEnvVars: {},
   // 静态常量
-  VERSION: "1.19.2",
+  VERSION: "1.19.3",
   MAX_LOGS: 1e3,
   // 日志存储，最多保存 1000 行
   MAX_RECORDS: 100,
@@ -6077,15 +6077,24 @@ async function processMergeTask(params) {
       const redundantS = identifyRedundantTitle(derivedMatch.links, derivedMatch.animeTitle, secSource);
       const isBroadSpecial = (info) => info.isSpecial || info.isStrictSpecial || info.num !== null && info.num % 1 !== 0;
       const shiftCounts = /* @__PURE__ */ new Map();
+      let lastPNum = null;
       filteredMLinksWithIndex.forEach((sItem, k) => {
         const pItem = filteredPLinksWithIndex[k + offset];
         if (!pItem) return;
-        const infoP = extractEpisodeInfo(getTempTitle(pItem.link.title || pItem.link.name, redundantP), currentPrimarySource);
-        const infoS = extractEpisodeInfo(getTempTitle(sItem.link.title || sItem.link.name, redundantS), secSource);
-        if (infoP.num !== null && infoS.num !== null && !infoP.isSpecial && !infoS.isSpecial) {
-          const diff = infoP.num - infoS.num;
-          shiftCounts.set(diff, (shiftCounts.get(diff) || 0) + 1);
+        const titleP = getTempTitle(pItem.link.title || pItem.link.name, redundantP);
+        const titleS = getTempTitle(sItem.link.title || sItem.link.name, redundantS);
+        const infoP = extractEpisodeInfo(titleP, currentPrimarySource);
+        const infoS = extractEpisodeInfo(titleS, secSource);
+        if (infoP.num === null || infoS.num === null || isBroadSpecial(infoP) || isBroadSpecial(infoS)) return;
+        const diff = infoP.num - infoS.num;
+        const sim = calculateSimilarity(cleanEpisodeText(titleP), cleanEpisodeText(titleS));
+        let weight = 1 + (sim > 0.45 ? 1 : 0);
+        if (lastPNum !== null && infoP.num - lastPNum > 1) {
+          weight = 0.1;
+        } else {
+          lastPNum = infoP.num;
         }
+        shiftCounts.set(diff, (shiftCounts.get(diff) || 0) + weight);
       });
       const consensusShift = shiftCounts.size > 0 ? [...shiftCounts.entries()].reduce((max, curr) => curr[1] > max[1] ? curr : max)[0] : null;
       const pSpecialIndices = filteredPLinksWithIndex.reduce((acc, pItem, i) => {
@@ -6608,7 +6617,11 @@ async function applyMergeLogic(curAnimes, detailStore = null) {
     const item = curAnimes[i];
     if (item._isMerged || globalConsumedIds.has(item.animeId)) curAnimes.splice(i, 1);
   }
-  log2("info", `[Merge] \u5408\u5E76\u6267\u884C\u5B8C\u6BD5\uFF0C\u6700\u7EC8\u5217\u8868\u6570\u91CF: ${curAnimes.length}`);
+  if (newMergedAnimes.length > 0) {
+    log2("info", `[Merge] \u5408\u5E76\u6267\u884C\u5B8C\u6BD5\uFF0C\u65B0\u589E\u4E86 ${newMergedAnimes.length} \u4E2A\u5408\u5E76\u9879\uFF0C\u6700\u7EC8\u5217\u8868\u6570\u91CF: ${curAnimes.length}`);
+  } else {
+    log2("info", `[Merge] \u626B\u63CF\u5B8C\u6BD5\uFF0C\u672A\u4EA7\u751F\u4EFB\u4F55\u5408\u5E76\uFF0C\u5217\u8868\u4FDD\u6301\u4E0D\u53D8 (\u6570\u91CF: ${curAnimes.length})`);
+  }
 }
 function mergeDanmakuList(listA, listB) {
   const final = [...listA || [], ...listB || []];
@@ -11564,20 +11577,23 @@ var MangoSource = class extends BaseSource {
 var _BilibiliSource = class _BilibiliSource extends BaseSource {
   // 解析 b23.tv 短链接
   async resolveB23Link(shortUrl) {
+    let timeoutId;
     try {
       log("info", `\u6B63\u5728\u89E3\u6790 b23.tv \u77ED\u94FE\u63A5: ${shortUrl}`);
-      const timeout = parseInt(globals.vodRequestTimeout);
+      const timeout = parseInt(globals.vodRequestTimeout || "5000", 10) || 5e3;
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), timeout);
-      const response = await Widget.http.get(shortUrl, {
+      timeoutId = setTimeout(() => controller.abort(), timeout);
+      const fetchFn = typeof fetch === "function" ? fetch : (await import("node-fetch")).default;
+      const response = await fetchFn(shortUrl, {
+        method: "GET",
         headers: {
           "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
         },
         signal: controller.signal,
-        redirect: "follow"
+        redirect: "manual"
       });
-      clearTimeout(timeoutId);
-      const finalUrl = response.url;
+      const location = response.headers?.get?.("location") || response.headers?.get?.("Location");
+      const finalUrl = location ? new URL(location, shortUrl).toString() : response.url;
       if (finalUrl && finalUrl !== shortUrl) {
         log("info", `b23.tv \u77ED\u94FE\u63A5\u5DF2\u89E3\u6790\u4E3A: ${finalUrl}`);
         return finalUrl;
@@ -11587,6 +11603,8 @@ var _BilibiliSource = class _BilibiliSource extends BaseSource {
     } catch (error) {
       log("error", "\u89E3\u6790 b23.tv \u77ED\u94FE\u63A5\u5931\u8D25:", error);
       return shortUrl;
+    } finally {
+      if (timeoutId) clearTimeout(timeoutId);
     }
   }
   /**
@@ -18320,7 +18338,7 @@ async function getSegmentComment(segment, queryFormat) {
 }
 
 // forward/forward-widget.js
-var wv = true ? "1.19.2" : Globals.VERSION;
+var wv = true ? "1.19.3" : Globals.VERSION;
 WidgetMetadata = {
   id: "forward.auto.danmu2",
   title: "\u81EA\u52A8\u94FE\u63A5\u5F39\u5E55v2",
