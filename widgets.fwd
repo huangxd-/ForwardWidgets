@@ -22,6 +22,15 @@
       "url": "https://raw.githubusercontent.com/huangxd-/ForwardWidgets/refs/heads/main/widgets/trakt.js"
     },
     {
+      "id": "simkl",
+      "title": "SIMKL我看&追剧日历",
+      "description": "解析SIMKL想看、在看、看过以及动漫/剧集/电影追剧日历【30% off code：CHEAP】",
+      "requiredVersion": "0.0.1",
+      "version": "1.0.0",
+      "author": "huangxd",
+      "url": "https://raw.githubusercontent.com/huangxd-/ForwardWidgets/refs/heads/main/widgets/simkl.js"
+    },
+    {
       "id": "live",
       "title": "直播(电视+网络)",
       "description": "解析直播订阅链接【30% off code：CHEAP】",

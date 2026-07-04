@@ -474,6 +474,47 @@ https://dm.lxlad.com
 /(全体成员|报到|报道|来啦|签到|刷|打卡|我在|来了|考古|爱了|挖坟|留念|你好|回来|哦哦|重温|复习|重刷|再看|在看|前排|沙发|有人看|板凳|末排|我老婆|我老公|撅了|后排|周目|重看|包养|DVD|同上|同样|我也是|俺也|算我|爱豆|我家爱豆|我家哥哥|加我|三连|币|新人|入坑|补剧|冲了|硬了|看完|舔屏|万人|牛逼|煞笔|傻逼|卧槽|tm|啊这|哇哦)/  # 屏蔽常见互动、报到或口语化弹幕词汇
 ```
 
+### 十一、SIMKL我看&追剧日历
+
+```shell
+几点说明：
+1. simkl.js 走官方 JSON API，返回数据自带 imdb/tmdb，无需像 trakt 那样解析网页、逐条抓详情页
+2. SIMKL 的 access_token 官方声明 5 年有效（除非在 Connected Apps 主动解绑应用），基本填一次即可，不用频繁抓 cookie
+3. 优先返回 imdb 类型，仅当无 imdb 时回退 tmdb，以规避 tmdb 类型的缓存覆盖问题
+```
+
+其中「SIMKL我看」「SIMKL在看进度」需要 Client ID + Access Token；「SIMKL追剧日历」为公共接口，无需登录
+
+#### Client ID 获取
+前往 https://simkl.com/settings/developer/ 免费创建一个应用（Redirect URI 可随便填，如 `urn:ietf:wg:oauth:2.0:oob`），创建后即可拿到 Client ID
+
+#### Access Token 获取（PIN 授权，拿一次即可长期使用）
+1. 请求 PIN（把 `你的CLIENT_ID` 换成上一步的 Client ID）
+```shell
+curl "https://api.simkl.com/oauth/pin?client_id=你的CLIENT_ID"
+# 返回里有 user_code（如 54155）和 verification_url（https://simkl.com/pin）
+```
+2. 浏览器打开 https://simkl.com/pin ，输入 user_code，登录并点授权
+3. 轮询换取 token（把 `上一步user_code` 和 `你的CLIENT_ID` 换成实际值）
+```shell
+curl "https://api.simkl.com/oauth/pin/上一步user_code?client_id=你的CLIENT_ID"
+# 授权完成后返回 {"result":"OK","access_token":"xxxx"}，其中 access_token 即所需
+```
+
+#### SIMKL我看
+```shell
+类型：电影(movies)/剧集(shows)/动漫(anime)
+状态：想看(plantowatch)/在看(watching)/看过(completed)/搁置(hold)/弃剧(dropped)/随机想看
+```
+注：电影没有「在看/搁置」状态，选了会返回空；随机想看从想看列表中无序抽取 9 个影片
+
+#### SIMKL追剧日历
+数据来自 SIMKL 公共 CDN（data.simkl.in），无需登录，动漫日历是 SIMKL 的强项
+```shell
+类型：动漫(anime)/剧集(tv)/电影(movies)
+范围：即将播出(今天起)/全部
+```
+
 ### 各插件刷新时间列表
 ```shell
 【豆瓣】
@@ -511,6 +552,10 @@ trakt追剧日历：12小时
 
 【Letterboxd电影爱好者平台】
 Letterboxd片单：24小时
+
+【simkl】
+SIMKL我看：1小时
+SIMKL追剧日历：12小时
 ```
 
 ### Forward图标库自助上传
