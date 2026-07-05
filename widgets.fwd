@@ -44,7 +44,7 @@
       "title": "雅图(每日放送+点播排行榜+评分排行榜)",
       "description": "解析雅图每日放送更新以及各类排行榜【30% off code：CHEAP】",
       "requiredVersion": "0.0.1",
-      "version": "1.0.6",
+      "version": "1.0.7",
       "author": "huangxd",
       "url": "https://raw.githubusercontent.com/huangxd-/ForwardWidgets/refs/heads/main/widgets/yatu.js"
     },

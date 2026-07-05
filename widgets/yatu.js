@@ -196,7 +196,7 @@ WidgetMetadata = {
             ],
         },
     ],
-    version: "1.0.6",
+    version: "1.0.7",
     requiredVersion: "0.0.1",
     description: "解析雅图每日放送更新以及各类排行榜【五折码：CHEAP.5;七折码：CHEAP】",
     author: "huangxd",
@@ -219,73 +219,136 @@ async function fetchTmdbData(key, mediaType) {
     return tmdbResults.results;
 }
 
-function getItemInfos(data, startDateInput, days, genre) {
-    let docId = Widget.dom.parse(data);
+function normalizeYatuTitle(title) {
+    const trimmedTitle = title.trim();
+    return trimmedTitle.replace(/ *第[^季]*季(?:~[^季]+季)?| *\d+~\d+季| *\d+季/, '') || trimmedTitle;
+}
 
-    let tables = Widget.dom.select(docId, `table#${genre}`);
+function createYatuParser(data) {
+    if (Widget.html && typeof Widget.html.load === 'function') {
+        const $ = Widget.html.load(data);
+        return {
+            root: null,
+            select(context, selector) {
+                return context ? $(context).find(selector).toArray() : $(selector).toArray();
+            },
+            text(element) {
+                return element ? $(element).text().trim() : '';
+            },
+            attr(element, attrName) {
+                return element ? ($(element).attr(attrName) || '') : '';
+            },
+        };
+    }
 
-    if (!tables || tables.length === 0) {
-        console.error(`没有解析到相应table`);
+    if (!Widget.dom || typeof Widget.dom.parse !== 'function') {
+        throw new Error('当前环境缺少 HTML 解析能力：需要 Widget.html.load 或 Widget.dom.parse');
+    }
+
+    const docId = Widget.dom.parse(data);
+    return {
+        root: docId,
+        select(context, selector) {
+            return Widget.dom.select(context ?? docId, selector);
+        },
+        text(element) {
+            return element ? Widget.dom.text(element).trim() : '';
+        },
+        attr(element, attrName) {
+            return element ? (Widget.dom.attr(element, attrName) || '') : '';
+        },
+    };
+}
+
+function getFirstMatchedElement(parser, context, selectors) {
+    for (const selector of selectors) {
+        const elements = parser.select(context, selector);
+        if (elements && elements.length > 0) {
+            return elements[0];
+        }
+    }
+    return null;
+}
+
+function parseYatuDate(value, today) {
+    const text = (value || '').trim();
+    const baseDate = new Date(today);
+
+    if (/^\d{1,2}:\d{2}:\d{2}$/.test(text)) {
+        return baseDate;
+    }
+
+    if (text === '昨天') {
+        baseDate.setDate(baseDate.getDate() - 1);
+        return baseDate;
+    }
+
+    if (text === '前天') {
+        baseDate.setDate(baseDate.getDate() - 2);
+        return baseDate;
+    }
+
+    const dateMatch = text.match(/^(\d{2,4})\/(\d{1,2})(?:\/(\d{1,2}))?/);
+    if (!dateMatch) {
         return null;
     }
 
-    let tdElements = Widget.dom.select(tables[0], 'td');
+    let year = Number(dateMatch[1]);
+    const month = Number(dateMatch[2]);
+    const day = Number(dateMatch[3] || 1);
+
+    if (year < 100) {
+        const currentYear = today.getFullYear();
+        const century = Math.floor(currentYear / 100) * 100;
+        year = year <= (currentYear % 100) ? century + year : century - 100 + year;
+    }
+
+    const parsedDate = new Date(year, month - 1, day);
+    return isNaN(parsedDate) ? null : parsedDate;
+}
+
+function getItemInfos(data, startDateInput, days, genre) {
+    let parser = createYatuParser(data);
+
+    let table = getFirstMatchedElement(parser, parser.root, [`table#${genre}`, `#${genre}`]);
+
+    if (!table) {
+        console.error(`没有解析到相应table`);
+        return [];
+    }
+
+    let tdElements = parser.select(table, 'td');
 
     let today = new Date();
-    let yesterday = new Date(today);
-    yesterday.setDate(today.getDate() - 1);
-    let dayBeforeYesterday = new Date(today);
-    dayBeforeYesterday.setDate(today.getDate() - 2);
-
-    function formatDate(date) {
-        let year = date.getFullYear().toString().slice(2); // Get last two digits
-        let month = date.getMonth() + 1; // Months are 0-based
-        let day = date.getDate();
-        return `${year}/${month}/${day}`;
-    }
 
     let results = [];
 
     tdElements.forEach(td => {
         // Get all text content within the td
-        let tdContent = Widget.dom.text(td).trim();
+        let tdContent = parser.text(td);
 
-        // Find the span with style="color:#666666;" for time information
-        let timeSpan = Widget.dom.select(td, 'span[style="color:#666666;"]')[0];
-        let timeText = timeSpan ? Widget.dom.text(timeSpan).trim() : '';
-
-        // Process timeText
-        let processedTime = timeText;
-        if (/^\d{1,2}:\d{2}:\d{2}$/.test(timeText)) {
-            // If time is in hh:mm:ss format, use today's date
-            processedTime = formatDate(today);
-        } else if (timeText === '昨天') {
-            // If time is "昨天", use yesterday's date
-            processedTime = formatDate(yesterday);
-        } else if (timeText === '前天') {
-            // If time is "前天", use day before yesterday's date
-            processedTime = formatDate(dayBeforeYesterday);
-        }
+        let spanTexts = parser.select(td, 'span').map(span => parser.text(span));
+        let timeText = spanTexts.find(text => /^\d{1,2}:\d{2}:\d{2}$/.test(text) || text === '昨天' || text === '前天' || /^\d{2,4}\/\d{1,2}(?:\/\d{1,2})?/.test(text)) || '';
 
         // Extract the link and title from the <a> tag
-        let linkEl = Widget.dom.select(td, 'a')[0];
-        let linkHref = linkEl ? Widget.dom.attr(linkEl, 'href') : '';
-        let linkText = linkEl ? Widget.dom.text(linkEl).trim() : '';
+        let linkEl = parser.select(td, 'a')[0];
+        let linkHref = parser.attr(linkEl, 'href');
+        let linkText = parser.text(linkEl);
 
         // Extract the episode information from the span (if exists)
-        let episodeSpan = Widget.dom.select(td, 'span:not([style])')[0];
-        let episodeText = episodeSpan ? Widget.dom.text(episodeSpan).trim() : '';
+        let episodeSpan = parser.select(td, 'span:not([style])')[0];
+        let episodeText = parser.text(episodeSpan);
 
-        results.push({
-            title: linkText.replace(/ *第[^季]*季(?:~[^季]+季)?| *\d+~\d+季| *\d+季/, ''),
-            link: linkHref,
-            episodes: episodeText,
-            time: processedTime,
-            fullContent: tdContent
-        });
+        if (linkText && timeText) {
+            results.push({
+                title: normalizeYatuTitle(linkText),
+                link: linkHref,
+                episodes: episodeText,
+                time: timeText,
+                fullContent: tdContent
+            });
+        }
     });
-
-    console.log("results: ", results)
 
     today.setHours(0, 0, 0, 0); // 规范化时间
 
@@ -298,26 +361,12 @@ function getItemInfos(data, startDateInput, days, genre) {
     endDate.setDate(startDate.getDate() + Number(days) - 1);
     endDate.setHours(0, 0, 0, 0);
 
-    console.log("startDate: ", startDate);
-    console.log("endDate: ", endDate);
-
     // 过滤结果
     return results.filter(item => {
-        // 验证日期格式
-        if (!item.time || !/^\d{1,2}\/\d{1,2}\/\d{2}$/.test(item.time)) {
+        const itemDate = parseYatuDate(item.time, today);
+        if (!itemDate) {
             return false;
         }
-
-        // 解析日期，假设格式为 YY/MM/DD
-        let [year, month, day] = item.time.split('/').map(Number);
-        let currentYear = new Date().getFullYear();
-        let century = Math.floor(currentYear / 100) * 100;
-        // 如果年份小于等于当前年份的两位数，假设是 2000 年代
-        let fullYear = year <= (currentYear % 100) ? century + year : century - 100 + year;
-        let itemDate = new Date(fullYear, month - 1, day);
-
-        // 检查日期有效性
-        if (isNaN(itemDate)) return false;
 
         itemDate.setHours(0, 0, 0, 0);
         return itemDate >= startDate && itemDate <= endDate;
@@ -327,10 +376,10 @@ function getItemInfos(data, startDateInput, days, genre) {
 async function loadLatestItems(params = {}) {
     try {
         const genre = params.genre || "";
-        const startDateInput = params.start_date || "";
-        const days = params.days || "";
+        const startDateInput = params.start_date ?? "";
+        const days = params.days ?? "";
 
-        if (!genre || !startDateInput || !days) {
+        if (!genre || startDateInput === "" || days === "") {
             throw new Error("必须提供分类、开始日期、天数");
         }
 
@@ -347,11 +396,7 @@ async function loadLatestItems(params = {}) {
             },
         });
 
-        console.log("请求结果:", response.data);
-
         const itemInfos = getItemInfos(response.data, startDateInput, days, genre);
-
-        console.log("itemInfos:", itemInfos)
 
         const promises = itemInfos.map(async (itemInfo) => {
             // 模拟API请求
@@ -377,8 +422,6 @@ async function loadLatestItems(params = {}) {
         // 等待所有请求完成
         const items = (await Promise.all(promises)).filter(Boolean);
 
-        console.log(items)
-
         return items;
     } catch (error) {
         console.error("处理失败:", error);
@@ -387,19 +430,19 @@ async function loadLatestItems(params = {}) {
 }
 
 function getClickItemInfos(data, typ) {
-    let docId = Widget.dom.parse(data);
+    let parser = createYatuParser(data);
 
-    let tables = Widget.dom.select(docId, `table#${typ}`);
+    let table = getFirstMatchedElement(parser, parser.root, [`table#${typ}`, `#${typ}`]);
 
-    if (!tables || tables.length === 0) {
+    if (!table) {
         console.error(`没有解析到相应table`);
-        return null;
+        return [];
     }
 
     return [...new Set(
         Array.from(
-            Widget.dom.select(tables[0], 'a[target="_blank"]')
-        ).map(a => Widget.dom.text(a).trim().replace(/ *第[^季]*季(?:~[^季]+季)?| *\d+~\d+季| *\d+季/, ''))
+            parser.select(table, 'a[target="_blank"]')
+        ).map(a => normalizeYatuTitle(parser.text(a))).filter(Boolean)
     )];
 }
 
@@ -411,11 +454,7 @@ async function fetchFinalItems(genre, typ, mediaTypeDict, suffixDict) {
         },
     });
 
-    console.log("请求结果:", response.data);
-
     const itemInfos = getClickItemInfos(response.data, typ);
-
-    console.log("itemInfos:", itemInfos)
 
     const promises = itemInfos.map(async (title) => {
         // 模拟API请求
@@ -441,7 +480,6 @@ async function fetchFinalItems(genre, typ, mediaTypeDict, suffixDict) {
     // 等待所有请求完成
     const items = (await Promise.all(promises)).filter(Boolean);
 
-    console.log(items)
     return items;
 }
 
