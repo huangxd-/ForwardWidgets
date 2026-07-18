@@ -31,7 +31,7 @@ class URL {
       this.hostname = match[2];
       const pathAndQuery = match[3] || '';
       const queryIndex = pathAndQuery.indexOf('?');
-
+      
       if (queryIndex !== -1) {
         this.pathname = pathAndQuery.substring(0, queryIndex);
         this.search = pathAndQuery.substring(queryIndex);
@@ -88,7 +88,7 @@ class URL {
 
       this.get = (name) => entries[name] || null;
       this.set = (name, value) => { entries[name] = value.toString(); };
-      this.toString = () => Object.keys(entries).map(key =>
+      this.toString = () => Object.keys(entries).map(key => 
         encodeURIComponent(key) + '=' + encodeURIComponent(entries[key])
       ).join('&');
     })();
@@ -115,9 +115,9 @@ class AbortSignal {
 
   abort() {
     if (this.aborted) return;
-
+    
     this.aborted = true;
-
+    
     // 触发所有监听器
     this.listeners.forEach(listener => {
       try {
@@ -130,7 +130,7 @@ class AbortSignal {
         // 忽略监听器中的错误
       }
     });
-
+    
     // 触发onabort回调
     if (this.onabort) {
       try {
@@ -181,7 +181,7 @@ const { setTimeout: customSetTimeout, clearTimeout: customClearTimeout } = (func
 
   const setTimeoutFn = function(callback, delay = 0) {
     const id = ++timerId;
-
+    
     if (typeof Promise !== 'undefined') {
       Promise.resolve().then(() => {
         if (timers.has(id)) {
@@ -202,7 +202,7 @@ const { setTimeout: customSetTimeout, clearTimeout: customClearTimeout } = (func
         console.error('setTimeout error:', e);
       }
     }
-
+    
     timers.set(id, { callback, delay, timestamp: Date.now() });
     return id;
   };
@@ -303,11 +303,11 @@ class Response {
   constructor(body, init = {}) {
     this.status = init.status || 200;
     this.statusText = init.statusText || 'OK';
-    this.headers = new Headers(init.headers || {});
+    this.headers = new Headers(init.headers || {}); 
     this.type = 'default';
     this.url = '';
     this.redirected = false;
-
+    
     this._bodyUsed = false;
     if (body !== undefined && body !== null) {
       this._body = body;
@@ -360,9 +360,8011 @@ class Response {
   }
 }
 
+var __create = Object.create;
 var __defProp = Object.defineProperty;
+var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
+var __getOwnPropNames = Object.getOwnPropertyNames;
+var __getProtoOf = Object.getPrototypeOf;
+var __hasOwnProp = Object.prototype.hasOwnProperty;
 var __defNormalProp = (obj, key, value) => key in obj ? __defProp(obj, key, { enumerable: true, configurable: true, writable: true, value }) : obj[key] = value;
+var __esm = (fn, res) => function __init() {
+  return fn && (res = (0, fn[__getOwnPropNames(fn)[0]])(fn = 0)), res;
+};
+var __commonJS = (cb, mod) => function __require() {
+  return mod || (0, cb[__getOwnPropNames(cb)[0]])((mod = { exports: {} }).exports, mod), mod.exports;
+};
+var __export = (target, all) => {
+  for (var name in all)
+    __defProp(target, name, { get: all[name], enumerable: true });
+};
+var __copyProps = (to, from, except, desc) => {
+  if (from && typeof from === "object" || typeof from === "function") {
+    for (let key of __getOwnPropNames(from))
+      if (!__hasOwnProp.call(to, key) && key !== except)
+        __defProp(to, key, { get: () => from[key], enumerable: !(desc = __getOwnPropDesc(from, key)) || desc.enumerable });
+  }
+  return to;
+};
+var __toESM = (mod, isNodeMode, target) => (target = mod != null ? __create(__getProtoOf(mod)) : {}, __copyProps(
+  // If the importer is in node compatibility mode or this is not an ESM
+  // file that has been converted to a CommonJS file using a Babel-
+  // compatible transform (i.e. "__esModule" has not been set), then set
+  // "default" to the CommonJS "module.exports" for node compatibility.
+  isNodeMode || !mod || !mod.__esModule ? __defProp(target, "default", { value: mod, enumerable: true }) : target,
+  mod
+));
 var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "symbol" ? key + "" : key, value);
+
+// node_modules/pako/dist/pako.esm.mjs
+var pako_esm_exports = {};
+__export(pako_esm_exports, {
+  Deflate: () => Deflate_1,
+  Inflate: () => Inflate_1,
+  constants: () => constants_1,
+  default: () => pako,
+  deflate: () => deflate_1,
+  deflateRaw: () => deflateRaw_1,
+  gzip: () => gzip_1,
+  inflate: () => inflate_1,
+  inflateRaw: () => inflateRaw_1,
+  ungzip: () => ungzip_1
+});
+function zero$1(buf) {
+  let len = buf.length;
+  while (--len >= 0) {
+    buf[len] = 0;
+  }
+}
+function StaticTreeDesc(static_tree, extra_bits, extra_base, elems, max_length) {
+  this.static_tree = static_tree;
+  this.extra_bits = extra_bits;
+  this.extra_base = extra_base;
+  this.elems = elems;
+  this.max_length = max_length;
+  this.has_stree = static_tree && static_tree.length;
+}
+function TreeDesc(dyn_tree, stat_desc) {
+  this.dyn_tree = dyn_tree;
+  this.max_code = 0;
+  this.stat_desc = stat_desc;
+}
+function Config(good_length, max_lazy, nice_length, max_chain, func) {
+  this.good_length = good_length;
+  this.max_lazy = max_lazy;
+  this.nice_length = nice_length;
+  this.max_chain = max_chain;
+  this.func = func;
+}
+function DeflateState() {
+  this.strm = null;
+  this.status = 0;
+  this.pending_buf = null;
+  this.pending_buf_size = 0;
+  this.pending_out = 0;
+  this.pending = 0;
+  this.wrap = 0;
+  this.gzhead = null;
+  this.gzindex = 0;
+  this.method = Z_DEFLATED$2;
+  this.last_flush = -1;
+  this.w_size = 0;
+  this.w_bits = 0;
+  this.w_mask = 0;
+  this.window = null;
+  this.window_size = 0;
+  this.prev = null;
+  this.head = null;
+  this.ins_h = 0;
+  this.hash_size = 0;
+  this.hash_bits = 0;
+  this.hash_mask = 0;
+  this.hash_shift = 0;
+  this.block_start = 0;
+  this.match_length = 0;
+  this.prev_match = 0;
+  this.match_available = 0;
+  this.strstart = 0;
+  this.match_start = 0;
+  this.lookahead = 0;
+  this.prev_length = 0;
+  this.max_chain_length = 0;
+  this.max_lazy_match = 0;
+  this.level = 0;
+  this.strategy = 0;
+  this.good_match = 0;
+  this.nice_match = 0;
+  this.dyn_ltree = new Uint16Array(HEAP_SIZE * 2);
+  this.dyn_dtree = new Uint16Array((2 * D_CODES + 1) * 2);
+  this.bl_tree = new Uint16Array((2 * BL_CODES + 1) * 2);
+  zero(this.dyn_ltree);
+  zero(this.dyn_dtree);
+  zero(this.bl_tree);
+  this.l_desc = null;
+  this.d_desc = null;
+  this.bl_desc = null;
+  this.bl_count = new Uint16Array(MAX_BITS + 1);
+  this.heap = new Uint16Array(2 * L_CODES + 1);
+  zero(this.heap);
+  this.heap_len = 0;
+  this.heap_max = 0;
+  this.depth = new Uint16Array(2 * L_CODES + 1);
+  zero(this.depth);
+  this.sym_buf = 0;
+  this.lit_bufsize = 0;
+  this.sym_next = 0;
+  this.sym_end = 0;
+  this.opt_len = 0;
+  this.static_len = 0;
+  this.matches = 0;
+  this.insert = 0;
+  this.bi_buf = 0;
+  this.bi_valid = 0;
+}
+function ZStream() {
+  this.input = null;
+  this.next_in = 0;
+  this.avail_in = 0;
+  this.total_in = 0;
+  this.output = null;
+  this.next_out = 0;
+  this.avail_out = 0;
+  this.total_out = 0;
+  this.msg = "";
+  this.state = null;
+  this.data_type = 2;
+  this.adler = 0;
+}
+function Deflate$1(options) {
+  this.options = common.assign({
+    level: Z_DEFAULT_COMPRESSION,
+    method: Z_DEFLATED$1,
+    chunkSize: 16384,
+    windowBits: 15,
+    memLevel: 8,
+    strategy: Z_DEFAULT_STRATEGY
+  }, options || {});
+  let opt = this.options;
+  if (opt.raw && opt.windowBits > 0) {
+    opt.windowBits = -opt.windowBits;
+  } else if (opt.gzip && opt.windowBits > 0 && opt.windowBits < 16) {
+    opt.windowBits += 16;
+  }
+  this.err = 0;
+  this.msg = "";
+  this.ended = false;
+  this.chunks = [];
+  this.strm = new zstream();
+  this.strm.avail_out = 0;
+  let status = deflate_1$2.deflateInit2(
+    this.strm,
+    opt.level,
+    opt.method,
+    opt.windowBits,
+    opt.memLevel,
+    opt.strategy
+  );
+  if (status !== Z_OK$2) {
+    throw new Error(messages[status]);
+  }
+  if (opt.header) {
+    deflate_1$2.deflateSetHeader(this.strm, opt.header);
+  }
+  if (opt.dictionary) {
+    let dict;
+    if (typeof opt.dictionary === "string") {
+      dict = strings.string2buf(opt.dictionary);
+    } else if (toString$1.call(opt.dictionary) === "[object ArrayBuffer]") {
+      dict = new Uint8Array(opt.dictionary);
+    } else {
+      dict = opt.dictionary;
+    }
+    status = deflate_1$2.deflateSetDictionary(this.strm, dict);
+    if (status !== Z_OK$2) {
+      throw new Error(messages[status]);
+    }
+    this._dict_set = true;
+  }
+}
+function deflate$1(input, options) {
+  const deflator = new Deflate$1(options);
+  deflator.push(input, true);
+  if (deflator.err) {
+    throw deflator.msg || messages[deflator.err];
+  }
+  return deflator.result;
+}
+function deflateRaw$1(input, options) {
+  options = options || {};
+  options.raw = true;
+  return deflate$1(input, options);
+}
+function gzip$1(input, options) {
+  options = options || {};
+  options.gzip = true;
+  return deflate$1(input, options);
+}
+function InflateState() {
+  this.strm = null;
+  this.mode = 0;
+  this.last = false;
+  this.wrap = 0;
+  this.havedict = false;
+  this.flags = 0;
+  this.dmax = 0;
+  this.check = 0;
+  this.total = 0;
+  this.head = null;
+  this.wbits = 0;
+  this.wsize = 0;
+  this.whave = 0;
+  this.wnext = 0;
+  this.window = null;
+  this.hold = 0;
+  this.bits = 0;
+  this.length = 0;
+  this.offset = 0;
+  this.extra = 0;
+  this.lencode = null;
+  this.distcode = null;
+  this.lenbits = 0;
+  this.distbits = 0;
+  this.ncode = 0;
+  this.nlen = 0;
+  this.ndist = 0;
+  this.have = 0;
+  this.next = null;
+  this.lens = new Uint16Array(320);
+  this.work = new Uint16Array(288);
+  this.lendyn = null;
+  this.distdyn = null;
+  this.sane = 0;
+  this.back = 0;
+  this.was = 0;
+}
+function GZheader() {
+  this.text = 0;
+  this.time = 0;
+  this.xflags = 0;
+  this.os = 0;
+  this.extra = null;
+  this.extra_len = 0;
+  this.name = "";
+  this.comment = "";
+  this.hcrc = 0;
+  this.done = false;
+}
+function Inflate$1(options) {
+  this.options = common.assign({
+    chunkSize: 1024 * 64,
+    windowBits: 15,
+    to: ""
+  }, options || {});
+  const opt = this.options;
+  if (opt.raw && opt.windowBits >= 0 && opt.windowBits < 16) {
+    opt.windowBits = -opt.windowBits;
+    if (opt.windowBits === 0) {
+      opt.windowBits = -15;
+    }
+  }
+  if (opt.windowBits >= 0 && opt.windowBits < 16 && !(options && options.windowBits)) {
+    opt.windowBits += 32;
+  }
+  if (opt.windowBits > 15 && opt.windowBits < 48) {
+    if ((opt.windowBits & 15) === 0) {
+      opt.windowBits |= 15;
+    }
+  }
+  this.err = 0;
+  this.msg = "";
+  this.ended = false;
+  this.chunks = [];
+  this.strm = new zstream();
+  this.strm.avail_out = 0;
+  let status = inflate_1$2.inflateInit2(
+    this.strm,
+    opt.windowBits
+  );
+  if (status !== Z_OK) {
+    throw new Error(messages[status]);
+  }
+  this.header = new gzheader();
+  inflate_1$2.inflateGetHeader(this.strm, this.header);
+  if (opt.dictionary) {
+    if (typeof opt.dictionary === "string") {
+      opt.dictionary = strings.string2buf(opt.dictionary);
+    } else if (toString.call(opt.dictionary) === "[object ArrayBuffer]") {
+      opt.dictionary = new Uint8Array(opt.dictionary);
+    }
+    if (opt.raw) {
+      status = inflate_1$2.inflateSetDictionary(this.strm, opt.dictionary);
+      if (status !== Z_OK) {
+        throw new Error(messages[status]);
+      }
+    }
+  }
+}
+function inflate$1(input, options) {
+  const inflator = new Inflate$1(options);
+  inflator.push(input);
+  if (inflator.err) throw inflator.msg || messages[inflator.err];
+  return inflator.result;
+}
+function inflateRaw$1(input, options) {
+  options = options || {};
+  options.raw = true;
+  return inflate$1(input, options);
+}
+var Z_FIXED$1, Z_BINARY, Z_TEXT, Z_UNKNOWN$1, STORED_BLOCK, STATIC_TREES, DYN_TREES, MIN_MATCH$1, MAX_MATCH$1, LENGTH_CODES$1, LITERALS$1, L_CODES$1, D_CODES$1, BL_CODES$1, HEAP_SIZE$1, MAX_BITS$1, Buf_size, MAX_BL_BITS, END_BLOCK, REP_3_6, REPZ_3_10, REPZ_11_138, extra_lbits, extra_dbits, extra_blbits, bl_order, DIST_CODE_LEN, static_ltree, static_dtree, _dist_code, _length_code, base_length, base_dist, static_l_desc, static_d_desc, static_bl_desc, d_code, put_short, send_bits, send_code, bi_reverse, bi_flush, gen_bitlen, gen_codes, tr_static_init, init_block, bi_windup, smaller, pqdownheap, compress_block, build_tree, scan_tree, send_tree, build_bl_tree, send_all_trees, detect_data_type, static_init_done, _tr_init$1, _tr_stored_block$1, _tr_align$1, _tr_flush_block$1, _tr_tally$1, _tr_init_1, _tr_stored_block_1, _tr_flush_block_1, _tr_tally_1, _tr_align_1, trees, adler32, adler32_1, makeTable, crcTable, crc32, crc32_1, messages, constants$2, _tr_init, _tr_stored_block, _tr_flush_block, _tr_tally, _tr_align, Z_NO_FLUSH$2, Z_PARTIAL_FLUSH, Z_FULL_FLUSH$1, Z_FINISH$3, Z_BLOCK$1, Z_OK$3, Z_STREAM_END$3, Z_STREAM_ERROR$2, Z_DATA_ERROR$2, Z_BUF_ERROR$1, Z_DEFAULT_COMPRESSION$1, Z_FILTERED, Z_HUFFMAN_ONLY, Z_RLE, Z_FIXED, Z_DEFAULT_STRATEGY$1, Z_UNKNOWN, Z_DEFLATED$2, MAX_MEM_LEVEL, MAX_WBITS$1, DEF_MEM_LEVEL, LENGTH_CODES, LITERALS, L_CODES, D_CODES, BL_CODES, HEAP_SIZE, MAX_BITS, MIN_MATCH, MAX_MATCH, MIN_LOOKAHEAD, PRESET_DICT, INIT_STATE, GZIP_STATE, EXTRA_STATE, NAME_STATE, COMMENT_STATE, HCRC_STATE, BUSY_STATE, FINISH_STATE, BS_NEED_MORE, BS_BLOCK_DONE, BS_FINISH_STARTED, BS_FINISH_DONE, OS_CODE, err, rank, zero, slide_hash, HASH_ZLIB, HASH, flush_pending, flush_block_only, put_byte, putShortMSB, read_buf, longest_match, fill_window, deflate_stored, deflate_fast, deflate_slow, deflate_rle, deflate_huff, configuration_table, lm_init, deflateStateCheck, deflateResetKeep, deflateReset, deflateSetHeader, deflateInit2, deflateInit, deflate$2, deflateEnd, deflateSetDictionary, deflateInit_1, deflateInit2_1, deflateReset_1, deflateResetKeep_1, deflateSetHeader_1, deflate_2$1, deflateEnd_1, deflateSetDictionary_1, deflateInfo, deflate_1$2, _has, assign, flattenChunks, common, STR_APPLY_UIA_OK, _utf8len, string2buf, buf2binstring, buf2string, utf8border, strings, zstream, toString$1, Z_NO_FLUSH$1, Z_SYNC_FLUSH, Z_FULL_FLUSH, Z_FINISH$2, Z_OK$2, Z_STREAM_END$2, Z_DEFAULT_COMPRESSION, Z_DEFAULT_STRATEGY, Z_DEFLATED$1, Deflate_1$1, deflate_2, deflateRaw_1$1, gzip_1$1, constants$1, deflate_1$1, BAD$1, TYPE$1, inffast, MAXBITS, ENOUGH_LENS$1, ENOUGH_DISTS$1, CODES$1, LENS$1, DISTS$1, lbase, lext, dbase, dext, inflate_table, inftrees, CODES, LENS, DISTS, Z_FINISH$1, Z_BLOCK, Z_TREES, Z_OK$1, Z_STREAM_END$1, Z_NEED_DICT$1, Z_STREAM_ERROR$1, Z_DATA_ERROR$1, Z_MEM_ERROR$1, Z_BUF_ERROR, Z_DEFLATED, HEAD, FLAGS, TIME, OS, EXLEN, EXTRA, NAME, COMMENT, HCRC, DICTID, DICT, TYPE, TYPEDO, STORED, COPY_, COPY, TABLE, LENLENS, CODELENS, LEN_, LEN, LENEXT, DIST, DISTEXT, MATCH, LIT, CHECK, LENGTH, DONE, BAD, MEM, SYNC, ENOUGH_LENS, ENOUGH_DISTS, MAX_WBITS, DEF_WBITS, zswap32, inflateStateCheck, inflateResetKeep, inflateReset, inflateReset2, inflateInit2, inflateInit, virgin, lenfix, distfix, fixedtables, updatewindow, inflate$2, inflateEnd, inflateGetHeader, inflateSetDictionary, inflateReset_1, inflateReset2_1, inflateResetKeep_1, inflateInit_1, inflateInit2_1, inflate_2$1, inflateEnd_1, inflateGetHeader_1, inflateSetDictionary_1, inflateInfo, inflate_1$2, gzheader, toString, Z_NO_FLUSH, Z_FINISH, Z_OK, Z_STREAM_END, Z_NEED_DICT, Z_STREAM_ERROR, Z_DATA_ERROR, Z_MEM_ERROR, Inflate_1$1, inflate_2, inflateRaw_1$1, ungzip$1, constants, inflate_1$1, Deflate, deflate, deflateRaw, gzip, Inflate, inflate, inflateRaw, ungzip, Deflate_1, deflate_1, deflateRaw_1, gzip_1, Inflate_1, inflate_1, inflateRaw_1, ungzip_1, constants_1, pako;
+var init_pako_esm = __esm({
+  "node_modules/pako/dist/pako.esm.mjs"() {
+    Z_FIXED$1 = 4;
+    Z_BINARY = 0;
+    Z_TEXT = 1;
+    Z_UNKNOWN$1 = 2;
+    STORED_BLOCK = 0;
+    STATIC_TREES = 1;
+    DYN_TREES = 2;
+    MIN_MATCH$1 = 3;
+    MAX_MATCH$1 = 258;
+    LENGTH_CODES$1 = 29;
+    LITERALS$1 = 256;
+    L_CODES$1 = LITERALS$1 + 1 + LENGTH_CODES$1;
+    D_CODES$1 = 30;
+    BL_CODES$1 = 19;
+    HEAP_SIZE$1 = 2 * L_CODES$1 + 1;
+    MAX_BITS$1 = 15;
+    Buf_size = 16;
+    MAX_BL_BITS = 7;
+    END_BLOCK = 256;
+    REP_3_6 = 16;
+    REPZ_3_10 = 17;
+    REPZ_11_138 = 18;
+    extra_lbits = /* extra bits for each length code */
+    new Uint8Array([0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 2, 2, 2, 2, 3, 3, 3, 3, 4, 4, 4, 4, 5, 5, 5, 5, 0]);
+    extra_dbits = /* extra bits for each distance code */
+    new Uint8Array([0, 0, 0, 0, 1, 1, 2, 2, 3, 3, 4, 4, 5, 5, 6, 6, 7, 7, 8, 8, 9, 9, 10, 10, 11, 11, 12, 12, 13, 13]);
+    extra_blbits = /* extra bits for each bit length code */
+    new Uint8Array([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 3, 7]);
+    bl_order = new Uint8Array([16, 17, 18, 0, 8, 7, 9, 6, 10, 5, 11, 4, 12, 3, 13, 2, 14, 1, 15]);
+    DIST_CODE_LEN = 512;
+    static_ltree = new Array((L_CODES$1 + 2) * 2);
+    zero$1(static_ltree);
+    static_dtree = new Array(D_CODES$1 * 2);
+    zero$1(static_dtree);
+    _dist_code = new Array(DIST_CODE_LEN);
+    zero$1(_dist_code);
+    _length_code = new Array(MAX_MATCH$1 - MIN_MATCH$1 + 1);
+    zero$1(_length_code);
+    base_length = new Array(LENGTH_CODES$1);
+    zero$1(base_length);
+    base_dist = new Array(D_CODES$1);
+    zero$1(base_dist);
+    d_code = (dist) => {
+      return dist < 256 ? _dist_code[dist] : _dist_code[256 + (dist >>> 7)];
+    };
+    put_short = (s, w) => {
+      s.pending_buf[s.pending++] = w & 255;
+      s.pending_buf[s.pending++] = w >>> 8 & 255;
+    };
+    send_bits = (s, value, length) => {
+      if (s.bi_valid > Buf_size - length) {
+        s.bi_buf |= value << s.bi_valid & 65535;
+        put_short(s, s.bi_buf);
+        s.bi_buf = value >> Buf_size - s.bi_valid;
+        s.bi_valid += length - Buf_size;
+      } else {
+        s.bi_buf |= value << s.bi_valid & 65535;
+        s.bi_valid += length;
+      }
+    };
+    send_code = (s, c, tree) => {
+      send_bits(
+        s,
+        tree[c * 2],
+        tree[c * 2 + 1]
+        /*.Len*/
+      );
+    };
+    bi_reverse = (code, len) => {
+      let res = 0;
+      do {
+        res |= code & 1;
+        code >>>= 1;
+        res <<= 1;
+      } while (--len > 0);
+      return res >>> 1;
+    };
+    bi_flush = (s) => {
+      if (s.bi_valid === 16) {
+        put_short(s, s.bi_buf);
+        s.bi_buf = 0;
+        s.bi_valid = 0;
+      } else if (s.bi_valid >= 8) {
+        s.pending_buf[s.pending++] = s.bi_buf & 255;
+        s.bi_buf >>= 8;
+        s.bi_valid -= 8;
+      }
+    };
+    gen_bitlen = (s, desc) => {
+      const tree = desc.dyn_tree;
+      const max_code = desc.max_code;
+      const stree = desc.stat_desc.static_tree;
+      const has_stree = desc.stat_desc.has_stree;
+      const extra = desc.stat_desc.extra_bits;
+      const base = desc.stat_desc.extra_base;
+      const max_length = desc.stat_desc.max_length;
+      let h;
+      let n, m;
+      let bits;
+      let xbits;
+      let f;
+      let overflow = 0;
+      for (bits = 0; bits <= MAX_BITS$1; bits++) {
+        s.bl_count[bits] = 0;
+      }
+      tree[s.heap[s.heap_max] * 2 + 1] = 0;
+      for (h = s.heap_max + 1; h < HEAP_SIZE$1; h++) {
+        n = s.heap[h];
+        bits = tree[tree[n * 2 + 1] * 2 + 1] + 1;
+        if (bits > max_length) {
+          bits = max_length;
+          overflow++;
+        }
+        tree[n * 2 + 1] = bits;
+        if (n > max_code) {
+          continue;
+        }
+        s.bl_count[bits]++;
+        xbits = 0;
+        if (n >= base) {
+          xbits = extra[n - base];
+        }
+        f = tree[n * 2];
+        s.opt_len += f * (bits + xbits);
+        if (has_stree) {
+          s.static_len += f * (stree[n * 2 + 1] + xbits);
+        }
+      }
+      if (overflow === 0) {
+        return;
+      }
+      do {
+        bits = max_length - 1;
+        while (s.bl_count[bits] === 0) {
+          bits--;
+        }
+        s.bl_count[bits]--;
+        s.bl_count[bits + 1] += 2;
+        s.bl_count[max_length]--;
+        overflow -= 2;
+      } while (overflow > 0);
+      for (bits = max_length; bits !== 0; bits--) {
+        n = s.bl_count[bits];
+        while (n !== 0) {
+          m = s.heap[--h];
+          if (m > max_code) {
+            continue;
+          }
+          if (tree[m * 2 + 1] !== bits) {
+            s.opt_len += (bits - tree[m * 2 + 1]) * tree[m * 2];
+            tree[m * 2 + 1] = bits;
+          }
+          n--;
+        }
+      }
+    };
+    gen_codes = (tree, max_code, bl_count) => {
+      const next_code = new Array(MAX_BITS$1 + 1);
+      let code = 0;
+      let bits;
+      let n;
+      for (bits = 1; bits <= MAX_BITS$1; bits++) {
+        code = code + bl_count[bits - 1] << 1;
+        next_code[bits] = code;
+      }
+      for (n = 0; n <= max_code; n++) {
+        let len = tree[n * 2 + 1];
+        if (len === 0) {
+          continue;
+        }
+        tree[n * 2] = bi_reverse(next_code[len]++, len);
+      }
+    };
+    tr_static_init = () => {
+      let n;
+      let bits;
+      let length;
+      let code;
+      let dist;
+      const bl_count = new Array(MAX_BITS$1 + 1);
+      length = 0;
+      for (code = 0; code < LENGTH_CODES$1 - 1; code++) {
+        base_length[code] = length;
+        for (n = 0; n < 1 << extra_lbits[code]; n++) {
+          _length_code[length++] = code;
+        }
+      }
+      _length_code[length - 1] = code;
+      dist = 0;
+      for (code = 0; code < 16; code++) {
+        base_dist[code] = dist;
+        for (n = 0; n < 1 << extra_dbits[code]; n++) {
+          _dist_code[dist++] = code;
+        }
+      }
+      dist >>= 7;
+      for (; code < D_CODES$1; code++) {
+        base_dist[code] = dist << 7;
+        for (n = 0; n < 1 << extra_dbits[code] - 7; n++) {
+          _dist_code[256 + dist++] = code;
+        }
+      }
+      for (bits = 0; bits <= MAX_BITS$1; bits++) {
+        bl_count[bits] = 0;
+      }
+      n = 0;
+      while (n <= 143) {
+        static_ltree[n * 2 + 1] = 8;
+        n++;
+        bl_count[8]++;
+      }
+      while (n <= 255) {
+        static_ltree[n * 2 + 1] = 9;
+        n++;
+        bl_count[9]++;
+      }
+      while (n <= 279) {
+        static_ltree[n * 2 + 1] = 7;
+        n++;
+        bl_count[7]++;
+      }
+      while (n <= 287) {
+        static_ltree[n * 2 + 1] = 8;
+        n++;
+        bl_count[8]++;
+      }
+      gen_codes(static_ltree, L_CODES$1 + 1, bl_count);
+      for (n = 0; n < D_CODES$1; n++) {
+        static_dtree[n * 2 + 1] = 5;
+        static_dtree[n * 2] = bi_reverse(n, 5);
+      }
+      static_l_desc = new StaticTreeDesc(static_ltree, extra_lbits, LITERALS$1 + 1, L_CODES$1, MAX_BITS$1);
+      static_d_desc = new StaticTreeDesc(static_dtree, extra_dbits, 0, D_CODES$1, MAX_BITS$1);
+      static_bl_desc = new StaticTreeDesc(new Array(0), extra_blbits, 0, BL_CODES$1, MAX_BL_BITS);
+    };
+    init_block = (s) => {
+      let n;
+      for (n = 0; n < L_CODES$1; n++) {
+        s.dyn_ltree[n * 2] = 0;
+      }
+      for (n = 0; n < D_CODES$1; n++) {
+        s.dyn_dtree[n * 2] = 0;
+      }
+      for (n = 0; n < BL_CODES$1; n++) {
+        s.bl_tree[n * 2] = 0;
+      }
+      s.dyn_ltree[END_BLOCK * 2] = 1;
+      s.opt_len = s.static_len = 0;
+      s.sym_next = s.matches = 0;
+    };
+    bi_windup = (s) => {
+      if (s.bi_valid > 8) {
+        put_short(s, s.bi_buf);
+      } else if (s.bi_valid > 0) {
+        s.pending_buf[s.pending++] = s.bi_buf;
+      }
+      s.bi_buf = 0;
+      s.bi_valid = 0;
+    };
+    smaller = (tree, n, m, depth) => {
+      const _n2 = n * 2;
+      const _m2 = m * 2;
+      return tree[_n2] < tree[_m2] || tree[_n2] === tree[_m2] && depth[n] <= depth[m];
+    };
+    pqdownheap = (s, tree, k) => {
+      const v = s.heap[k];
+      let j = k << 1;
+      while (j <= s.heap_len) {
+        if (j < s.heap_len && smaller(tree, s.heap[j + 1], s.heap[j], s.depth)) {
+          j++;
+        }
+        if (smaller(tree, v, s.heap[j], s.depth)) {
+          break;
+        }
+        s.heap[k] = s.heap[j];
+        k = j;
+        j <<= 1;
+      }
+      s.heap[k] = v;
+    };
+    compress_block = (s, ltree, dtree) => {
+      let dist;
+      let lc;
+      let sx = 0;
+      let code;
+      let extra;
+      if (s.sym_next !== 0) {
+        do {
+          dist = s.pending_buf[s.sym_buf + sx++] & 255;
+          dist += (s.pending_buf[s.sym_buf + sx++] & 255) << 8;
+          lc = s.pending_buf[s.sym_buf + sx++];
+          if (dist === 0) {
+            send_code(s, lc, ltree);
+          } else {
+            code = _length_code[lc];
+            send_code(s, code + LITERALS$1 + 1, ltree);
+            extra = extra_lbits[code];
+            if (extra !== 0) {
+              lc -= base_length[code];
+              send_bits(s, lc, extra);
+            }
+            dist--;
+            code = d_code(dist);
+            send_code(s, code, dtree);
+            extra = extra_dbits[code];
+            if (extra !== 0) {
+              dist -= base_dist[code];
+              send_bits(s, dist, extra);
+            }
+          }
+        } while (sx < s.sym_next);
+      }
+      send_code(s, END_BLOCK, ltree);
+    };
+    build_tree = (s, desc) => {
+      const tree = desc.dyn_tree;
+      const stree = desc.stat_desc.static_tree;
+      const has_stree = desc.stat_desc.has_stree;
+      const elems = desc.stat_desc.elems;
+      let n, m;
+      let max_code = -1;
+      let node;
+      s.heap_len = 0;
+      s.heap_max = HEAP_SIZE$1;
+      for (n = 0; n < elems; n++) {
+        if (tree[n * 2] !== 0) {
+          s.heap[++s.heap_len] = max_code = n;
+          s.depth[n] = 0;
+        } else {
+          tree[n * 2 + 1] = 0;
+        }
+      }
+      while (s.heap_len < 2) {
+        node = s.heap[++s.heap_len] = max_code < 2 ? ++max_code : 0;
+        tree[node * 2] = 1;
+        s.depth[node] = 0;
+        s.opt_len--;
+        if (has_stree) {
+          s.static_len -= stree[node * 2 + 1];
+        }
+      }
+      desc.max_code = max_code;
+      for (n = s.heap_len >> 1; n >= 1; n--) {
+        pqdownheap(s, tree, n);
+      }
+      node = elems;
+      do {
+        n = s.heap[
+          1
+          /*SMALLEST*/
+        ];
+        s.heap[
+          1
+          /*SMALLEST*/
+        ] = s.heap[s.heap_len--];
+        pqdownheap(
+          s,
+          tree,
+          1
+          /*SMALLEST*/
+        );
+        m = s.heap[
+          1
+          /*SMALLEST*/
+        ];
+        s.heap[--s.heap_max] = n;
+        s.heap[--s.heap_max] = m;
+        tree[node * 2] = tree[n * 2] + tree[m * 2];
+        s.depth[node] = (s.depth[n] >= s.depth[m] ? s.depth[n] : s.depth[m]) + 1;
+        tree[n * 2 + 1] = tree[m * 2 + 1] = node;
+        s.heap[
+          1
+          /*SMALLEST*/
+        ] = node++;
+        pqdownheap(
+          s,
+          tree,
+          1
+          /*SMALLEST*/
+        );
+      } while (s.heap_len >= 2);
+      s.heap[--s.heap_max] = s.heap[
+        1
+        /*SMALLEST*/
+      ];
+      gen_bitlen(s, desc);
+      gen_codes(tree, max_code, s.bl_count);
+    };
+    scan_tree = (s, tree, max_code) => {
+      let n;
+      let prevlen = -1;
+      let curlen;
+      let nextlen = tree[0 * 2 + 1];
+      let count = 0;
+      let max_count = 7;
+      let min_count = 4;
+      if (nextlen === 0) {
+        max_count = 138;
+        min_count = 3;
+      }
+      tree[(max_code + 1) * 2 + 1] = 65535;
+      for (n = 0; n <= max_code; n++) {
+        curlen = nextlen;
+        nextlen = tree[(n + 1) * 2 + 1];
+        if (++count < max_count && curlen === nextlen) {
+          continue;
+        } else if (count < min_count) {
+          s.bl_tree[curlen * 2] += count;
+        } else if (curlen !== 0) {
+          if (curlen !== prevlen) {
+            s.bl_tree[curlen * 2]++;
+          }
+          s.bl_tree[REP_3_6 * 2]++;
+        } else if (count <= 10) {
+          s.bl_tree[REPZ_3_10 * 2]++;
+        } else {
+          s.bl_tree[REPZ_11_138 * 2]++;
+        }
+        count = 0;
+        prevlen = curlen;
+        if (nextlen === 0) {
+          max_count = 138;
+          min_count = 3;
+        } else if (curlen === nextlen) {
+          max_count = 6;
+          min_count = 3;
+        } else {
+          max_count = 7;
+          min_count = 4;
+        }
+      }
+    };
+    send_tree = (s, tree, max_code) => {
+      let n;
+      let prevlen = -1;
+      let curlen;
+      let nextlen = tree[0 * 2 + 1];
+      let count = 0;
+      let max_count = 7;
+      let min_count = 4;
+      if (nextlen === 0) {
+        max_count = 138;
+        min_count = 3;
+      }
+      for (n = 0; n <= max_code; n++) {
+        curlen = nextlen;
+        nextlen = tree[(n + 1) * 2 + 1];
+        if (++count < max_count && curlen === nextlen) {
+          continue;
+        } else if (count < min_count) {
+          do {
+            send_code(s, curlen, s.bl_tree);
+          } while (--count !== 0);
+        } else if (curlen !== 0) {
+          if (curlen !== prevlen) {
+            send_code(s, curlen, s.bl_tree);
+            count--;
+          }
+          send_code(s, REP_3_6, s.bl_tree);
+          send_bits(s, count - 3, 2);
+        } else if (count <= 10) {
+          send_code(s, REPZ_3_10, s.bl_tree);
+          send_bits(s, count - 3, 3);
+        } else {
+          send_code(s, REPZ_11_138, s.bl_tree);
+          send_bits(s, count - 11, 7);
+        }
+        count = 0;
+        prevlen = curlen;
+        if (nextlen === 0) {
+          max_count = 138;
+          min_count = 3;
+        } else if (curlen === nextlen) {
+          max_count = 6;
+          min_count = 3;
+        } else {
+          max_count = 7;
+          min_count = 4;
+        }
+      }
+    };
+    build_bl_tree = (s) => {
+      let max_blindex;
+      scan_tree(s, s.dyn_ltree, s.l_desc.max_code);
+      scan_tree(s, s.dyn_dtree, s.d_desc.max_code);
+      build_tree(s, s.bl_desc);
+      for (max_blindex = BL_CODES$1 - 1; max_blindex >= 3; max_blindex--) {
+        if (s.bl_tree[bl_order[max_blindex] * 2 + 1] !== 0) {
+          break;
+        }
+      }
+      s.opt_len += 3 * (max_blindex + 1) + 5 + 5 + 4;
+      return max_blindex;
+    };
+    send_all_trees = (s, lcodes, dcodes, blcodes) => {
+      let rank2;
+      send_bits(s, lcodes - 257, 5);
+      send_bits(s, dcodes - 1, 5);
+      send_bits(s, blcodes - 4, 4);
+      for (rank2 = 0; rank2 < blcodes; rank2++) {
+        send_bits(s, s.bl_tree[bl_order[rank2] * 2 + 1], 3);
+      }
+      send_tree(s, s.dyn_ltree, lcodes - 1);
+      send_tree(s, s.dyn_dtree, dcodes - 1);
+    };
+    detect_data_type = (s) => {
+      let block_mask = 4093624447;
+      let n;
+      for (n = 0; n <= 31; n++, block_mask >>>= 1) {
+        if (block_mask & 1 && s.dyn_ltree[n * 2] !== 0) {
+          return Z_BINARY;
+        }
+      }
+      if (s.dyn_ltree[9 * 2] !== 0 || s.dyn_ltree[10 * 2] !== 0 || s.dyn_ltree[13 * 2] !== 0) {
+        return Z_TEXT;
+      }
+      for (n = 32; n < LITERALS$1; n++) {
+        if (s.dyn_ltree[n * 2] !== 0) {
+          return Z_TEXT;
+        }
+      }
+      return Z_BINARY;
+    };
+    static_init_done = false;
+    _tr_init$1 = (s) => {
+      if (!static_init_done) {
+        tr_static_init();
+        static_init_done = true;
+      }
+      s.l_desc = new TreeDesc(s.dyn_ltree, static_l_desc);
+      s.d_desc = new TreeDesc(s.dyn_dtree, static_d_desc);
+      s.bl_desc = new TreeDesc(s.bl_tree, static_bl_desc);
+      s.bi_buf = 0;
+      s.bi_valid = 0;
+      init_block(s);
+    };
+    _tr_stored_block$1 = (s, buf, stored_len, last) => {
+      send_bits(s, (STORED_BLOCK << 1) + (last ? 1 : 0), 3);
+      bi_windup(s);
+      put_short(s, stored_len);
+      put_short(s, ~stored_len);
+      if (stored_len) {
+        s.pending_buf.set(s.window.subarray(buf, buf + stored_len), s.pending);
+      }
+      s.pending += stored_len;
+    };
+    _tr_align$1 = (s) => {
+      send_bits(s, STATIC_TREES << 1, 3);
+      send_code(s, END_BLOCK, static_ltree);
+      bi_flush(s);
+    };
+    _tr_flush_block$1 = (s, buf, stored_len, last) => {
+      let opt_lenb, static_lenb;
+      let max_blindex = 0;
+      if (s.level > 0) {
+        if (s.strm.data_type === Z_UNKNOWN$1) {
+          s.strm.data_type = detect_data_type(s);
+        }
+        build_tree(s, s.l_desc);
+        build_tree(s, s.d_desc);
+        max_blindex = build_bl_tree(s);
+        opt_lenb = s.opt_len + 3 + 7 >>> 3;
+        static_lenb = s.static_len + 3 + 7 >>> 3;
+        if (static_lenb <= opt_lenb) {
+          opt_lenb = static_lenb;
+        }
+      } else {
+        opt_lenb = static_lenb = stored_len + 5;
+      }
+      if (stored_len + 4 <= opt_lenb && buf !== -1) {
+        _tr_stored_block$1(s, buf, stored_len, last);
+      } else if (s.strategy === Z_FIXED$1 || static_lenb === opt_lenb) {
+        send_bits(s, (STATIC_TREES << 1) + (last ? 1 : 0), 3);
+        compress_block(s, static_ltree, static_dtree);
+      } else {
+        send_bits(s, (DYN_TREES << 1) + (last ? 1 : 0), 3);
+        send_all_trees(s, s.l_desc.max_code + 1, s.d_desc.max_code + 1, max_blindex + 1);
+        compress_block(s, s.dyn_ltree, s.dyn_dtree);
+      }
+      init_block(s);
+      if (last) {
+        bi_windup(s);
+      }
+    };
+    _tr_tally$1 = (s, dist, lc) => {
+      s.pending_buf[s.sym_buf + s.sym_next++] = dist;
+      s.pending_buf[s.sym_buf + s.sym_next++] = dist >> 8;
+      s.pending_buf[s.sym_buf + s.sym_next++] = lc;
+      if (dist === 0) {
+        s.dyn_ltree[lc * 2]++;
+      } else {
+        s.matches++;
+        dist--;
+        s.dyn_ltree[(_length_code[lc] + LITERALS$1 + 1) * 2]++;
+        s.dyn_dtree[d_code(dist) * 2]++;
+      }
+      return s.sym_next === s.sym_end;
+    };
+    _tr_init_1 = _tr_init$1;
+    _tr_stored_block_1 = _tr_stored_block$1;
+    _tr_flush_block_1 = _tr_flush_block$1;
+    _tr_tally_1 = _tr_tally$1;
+    _tr_align_1 = _tr_align$1;
+    trees = {
+      _tr_init: _tr_init_1,
+      _tr_stored_block: _tr_stored_block_1,
+      _tr_flush_block: _tr_flush_block_1,
+      _tr_tally: _tr_tally_1,
+      _tr_align: _tr_align_1
+    };
+    adler32 = (adler, buf, len, pos) => {
+      let s1 = adler & 65535 | 0, s2 = adler >>> 16 & 65535 | 0, n = 0;
+      while (len !== 0) {
+        n = len > 2e3 ? 2e3 : len;
+        len -= n;
+        do {
+          s1 = s1 + buf[pos++] | 0;
+          s2 = s2 + s1 | 0;
+        } while (--n);
+        s1 %= 65521;
+        s2 %= 65521;
+      }
+      return s1 | s2 << 16 | 0;
+    };
+    adler32_1 = adler32;
+    makeTable = () => {
+      let c, table = [];
+      for (var n = 0; n < 256; n++) {
+        c = n;
+        for (var k = 0; k < 8; k++) {
+          c = c & 1 ? 3988292384 ^ c >>> 1 : c >>> 1;
+        }
+        table[n] = c;
+      }
+      return table;
+    };
+    crcTable = new Uint32Array(makeTable());
+    crc32 = (crc, buf, len, pos) => {
+      const t = crcTable;
+      const end2 = pos + len;
+      crc ^= -1;
+      for (let i = pos; i < end2; i++) {
+        crc = crc >>> 8 ^ t[(crc ^ buf[i]) & 255];
+      }
+      return crc ^ -1;
+    };
+    crc32_1 = crc32;
+    messages = {
+      2: "need dictionary",
+      /* Z_NEED_DICT       2  */
+      1: "stream end",
+      /* Z_STREAM_END      1  */
+      0: "",
+      /* Z_OK              0  */
+      "-1": "file error",
+      /* Z_ERRNO         (-1) */
+      "-2": "stream error",
+      /* Z_STREAM_ERROR  (-2) */
+      "-3": "data error",
+      /* Z_DATA_ERROR    (-3) */
+      "-4": "insufficient memory",
+      /* Z_MEM_ERROR     (-4) */
+      "-5": "buffer error",
+      /* Z_BUF_ERROR     (-5) */
+      "-6": "incompatible version"
+      /* Z_VERSION_ERROR (-6) */
+    };
+    constants$2 = {
+      /* Allowed flush values; see deflate() and inflate() below for details */
+      Z_NO_FLUSH: 0,
+      Z_PARTIAL_FLUSH: 1,
+      Z_SYNC_FLUSH: 2,
+      Z_FULL_FLUSH: 3,
+      Z_FINISH: 4,
+      Z_BLOCK: 5,
+      Z_TREES: 6,
+      /* Return codes for the compression/decompression functions. Negative values
+      * are errors, positive values are used for special but normal events.
+      */
+      Z_OK: 0,
+      Z_STREAM_END: 1,
+      Z_NEED_DICT: 2,
+      Z_ERRNO: -1,
+      Z_STREAM_ERROR: -2,
+      Z_DATA_ERROR: -3,
+      Z_MEM_ERROR: -4,
+      Z_BUF_ERROR: -5,
+      //Z_VERSION_ERROR: -6,
+      /* compression levels */
+      Z_NO_COMPRESSION: 0,
+      Z_BEST_SPEED: 1,
+      Z_BEST_COMPRESSION: 9,
+      Z_DEFAULT_COMPRESSION: -1,
+      Z_FILTERED: 1,
+      Z_HUFFMAN_ONLY: 2,
+      Z_RLE: 3,
+      Z_FIXED: 4,
+      Z_DEFAULT_STRATEGY: 0,
+      /* Possible values of the data_type field (though see inflate()) */
+      Z_BINARY: 0,
+      Z_TEXT: 1,
+      //Z_ASCII:                1, // = Z_TEXT (deprecated)
+      Z_UNKNOWN: 2,
+      /* The deflate compression method */
+      Z_DEFLATED: 8
+      //Z_NULL:                 null // Use -1 or null inline, depending on var type
+    };
+    ({ _tr_init, _tr_stored_block, _tr_flush_block, _tr_tally, _tr_align } = trees);
+    ({
+      Z_NO_FLUSH: Z_NO_FLUSH$2,
+      Z_PARTIAL_FLUSH,
+      Z_FULL_FLUSH: Z_FULL_FLUSH$1,
+      Z_FINISH: Z_FINISH$3,
+      Z_BLOCK: Z_BLOCK$1,
+      Z_OK: Z_OK$3,
+      Z_STREAM_END: Z_STREAM_END$3,
+      Z_STREAM_ERROR: Z_STREAM_ERROR$2,
+      Z_DATA_ERROR: Z_DATA_ERROR$2,
+      Z_BUF_ERROR: Z_BUF_ERROR$1,
+      Z_DEFAULT_COMPRESSION: Z_DEFAULT_COMPRESSION$1,
+      Z_FILTERED,
+      Z_HUFFMAN_ONLY,
+      Z_RLE,
+      Z_FIXED,
+      Z_DEFAULT_STRATEGY: Z_DEFAULT_STRATEGY$1,
+      Z_UNKNOWN,
+      Z_DEFLATED: Z_DEFLATED$2
+    } = constants$2);
+    MAX_MEM_LEVEL = 9;
+    MAX_WBITS$1 = 15;
+    DEF_MEM_LEVEL = 8;
+    LENGTH_CODES = 29;
+    LITERALS = 256;
+    L_CODES = LITERALS + 1 + LENGTH_CODES;
+    D_CODES = 30;
+    BL_CODES = 19;
+    HEAP_SIZE = 2 * L_CODES + 1;
+    MAX_BITS = 15;
+    MIN_MATCH = 3;
+    MAX_MATCH = 258;
+    MIN_LOOKAHEAD = MAX_MATCH + MIN_MATCH + 1;
+    PRESET_DICT = 32;
+    INIT_STATE = 42;
+    GZIP_STATE = 57;
+    EXTRA_STATE = 69;
+    NAME_STATE = 73;
+    COMMENT_STATE = 91;
+    HCRC_STATE = 103;
+    BUSY_STATE = 113;
+    FINISH_STATE = 666;
+    BS_NEED_MORE = 1;
+    BS_BLOCK_DONE = 2;
+    BS_FINISH_STARTED = 3;
+    BS_FINISH_DONE = 4;
+    OS_CODE = 3;
+    err = (strm, errorCode) => {
+      strm.msg = messages[errorCode];
+      return errorCode;
+    };
+    rank = (f) => {
+      return f * 2 - (f > 4 ? 9 : 0);
+    };
+    zero = (buf) => {
+      let len = buf.length;
+      while (--len >= 0) {
+        buf[len] = 0;
+      }
+    };
+    slide_hash = (s) => {
+      let n, m;
+      let p;
+      let wsize = s.w_size;
+      n = s.hash_size;
+      p = n;
+      do {
+        m = s.head[--p];
+        s.head[p] = m >= wsize ? m - wsize : 0;
+      } while (--n);
+      n = wsize;
+      p = n;
+      do {
+        m = s.prev[--p];
+        s.prev[p] = m >= wsize ? m - wsize : 0;
+      } while (--n);
+    };
+    HASH_ZLIB = (s, prev, data) => (prev << s.hash_shift ^ data) & s.hash_mask;
+    HASH = HASH_ZLIB;
+    flush_pending = (strm) => {
+      const s = strm.state;
+      let len = s.pending;
+      if (len > strm.avail_out) {
+        len = strm.avail_out;
+      }
+      if (len === 0) {
+        return;
+      }
+      strm.output.set(s.pending_buf.subarray(s.pending_out, s.pending_out + len), strm.next_out);
+      strm.next_out += len;
+      s.pending_out += len;
+      strm.total_out += len;
+      strm.avail_out -= len;
+      s.pending -= len;
+      if (s.pending === 0) {
+        s.pending_out = 0;
+      }
+    };
+    flush_block_only = (s, last) => {
+      _tr_flush_block(s, s.block_start >= 0 ? s.block_start : -1, s.strstart - s.block_start, last);
+      s.block_start = s.strstart;
+      flush_pending(s.strm);
+    };
+    put_byte = (s, b) => {
+      s.pending_buf[s.pending++] = b;
+    };
+    putShortMSB = (s, b) => {
+      s.pending_buf[s.pending++] = b >>> 8 & 255;
+      s.pending_buf[s.pending++] = b & 255;
+    };
+    read_buf = (strm, buf, start2, size) => {
+      let len = strm.avail_in;
+      if (len > size) {
+        len = size;
+      }
+      if (len === 0) {
+        return 0;
+      }
+      strm.avail_in -= len;
+      buf.set(strm.input.subarray(strm.next_in, strm.next_in + len), start2);
+      if (strm.state.wrap === 1) {
+        strm.adler = adler32_1(strm.adler, buf, len, start2);
+      } else if (strm.state.wrap === 2) {
+        strm.adler = crc32_1(strm.adler, buf, len, start2);
+      }
+      strm.next_in += len;
+      strm.total_in += len;
+      return len;
+    };
+    longest_match = (s, cur_match) => {
+      let chain_length = s.max_chain_length;
+      let scan = s.strstart;
+      let match;
+      let len;
+      let best_len = s.prev_length;
+      let nice_match = s.nice_match;
+      const limit = s.strstart > s.w_size - MIN_LOOKAHEAD ? s.strstart - (s.w_size - MIN_LOOKAHEAD) : 0;
+      const _win = s.window;
+      const wmask = s.w_mask;
+      const prev = s.prev;
+      const strend = s.strstart + MAX_MATCH;
+      let scan_end1 = _win[scan + best_len - 1];
+      let scan_end = _win[scan + best_len];
+      if (s.prev_length >= s.good_match) {
+        chain_length >>= 2;
+      }
+      if (nice_match > s.lookahead) {
+        nice_match = s.lookahead;
+      }
+      do {
+        match = cur_match;
+        if (_win[match + best_len] !== scan_end || _win[match + best_len - 1] !== scan_end1 || _win[match] !== _win[scan] || _win[++match] !== _win[scan + 1]) {
+          continue;
+        }
+        scan += 2;
+        match++;
+        do {
+        } while (_win[++scan] === _win[++match] && _win[++scan] === _win[++match] && _win[++scan] === _win[++match] && _win[++scan] === _win[++match] && _win[++scan] === _win[++match] && _win[++scan] === _win[++match] && _win[++scan] === _win[++match] && _win[++scan] === _win[++match] && scan < strend);
+        len = MAX_MATCH - (strend - scan);
+        scan = strend - MAX_MATCH;
+        if (len > best_len) {
+          s.match_start = cur_match;
+          best_len = len;
+          if (len >= nice_match) {
+            break;
+          }
+          scan_end1 = _win[scan + best_len - 1];
+          scan_end = _win[scan + best_len];
+        }
+      } while ((cur_match = prev[cur_match & wmask]) > limit && --chain_length !== 0);
+      if (best_len <= s.lookahead) {
+        return best_len;
+      }
+      return s.lookahead;
+    };
+    fill_window = (s) => {
+      const _w_size = s.w_size;
+      let n, more, str;
+      do {
+        more = s.window_size - s.lookahead - s.strstart;
+        if (s.strstart >= _w_size + (_w_size - MIN_LOOKAHEAD)) {
+          s.window.set(s.window.subarray(_w_size, _w_size + _w_size - more), 0);
+          s.match_start -= _w_size;
+          s.strstart -= _w_size;
+          s.block_start -= _w_size;
+          if (s.insert > s.strstart) {
+            s.insert = s.strstart;
+          }
+          slide_hash(s);
+          more += _w_size;
+        }
+        if (s.strm.avail_in === 0) {
+          break;
+        }
+        n = read_buf(s.strm, s.window, s.strstart + s.lookahead, more);
+        s.lookahead += n;
+        if (s.lookahead + s.insert >= MIN_MATCH) {
+          str = s.strstart - s.insert;
+          s.ins_h = s.window[str];
+          s.ins_h = HASH(s, s.ins_h, s.window[str + 1]);
+          while (s.insert) {
+            s.ins_h = HASH(s, s.ins_h, s.window[str + MIN_MATCH - 1]);
+            s.prev[str & s.w_mask] = s.head[s.ins_h];
+            s.head[s.ins_h] = str;
+            str++;
+            s.insert--;
+            if (s.lookahead + s.insert < MIN_MATCH) {
+              break;
+            }
+          }
+        }
+      } while (s.lookahead < MIN_LOOKAHEAD && s.strm.avail_in !== 0);
+    };
+    deflate_stored = (s, flush) => {
+      let min_block = s.pending_buf_size - 5 > s.w_size ? s.w_size : s.pending_buf_size - 5;
+      let len, left, have, last = 0;
+      let used = s.strm.avail_in;
+      do {
+        len = 65535;
+        have = s.bi_valid + 42 >> 3;
+        if (s.strm.avail_out < have) {
+          break;
+        }
+        have = s.strm.avail_out - have;
+        left = s.strstart - s.block_start;
+        if (len > left + s.strm.avail_in) {
+          len = left + s.strm.avail_in;
+        }
+        if (len > have) {
+          len = have;
+        }
+        if (len < min_block && (len === 0 && flush !== Z_FINISH$3 || flush === Z_NO_FLUSH$2 || len !== left + s.strm.avail_in)) {
+          break;
+        }
+        last = flush === Z_FINISH$3 && len === left + s.strm.avail_in ? 1 : 0;
+        _tr_stored_block(s, 0, 0, last);
+        s.pending_buf[s.pending - 4] = len;
+        s.pending_buf[s.pending - 3] = len >> 8;
+        s.pending_buf[s.pending - 2] = ~len;
+        s.pending_buf[s.pending - 1] = ~len >> 8;
+        flush_pending(s.strm);
+        if (left) {
+          if (left > len) {
+            left = len;
+          }
+          s.strm.output.set(s.window.subarray(s.block_start, s.block_start + left), s.strm.next_out);
+          s.strm.next_out += left;
+          s.strm.avail_out -= left;
+          s.strm.total_out += left;
+          s.block_start += left;
+          len -= left;
+        }
+        if (len) {
+          read_buf(s.strm, s.strm.output, s.strm.next_out, len);
+          s.strm.next_out += len;
+          s.strm.avail_out -= len;
+          s.strm.total_out += len;
+        }
+      } while (last === 0);
+      used -= s.strm.avail_in;
+      if (used) {
+        if (used >= s.w_size) {
+          s.matches = 2;
+          s.window.set(s.strm.input.subarray(s.strm.next_in - s.w_size, s.strm.next_in), 0);
+          s.strstart = s.w_size;
+          s.insert = s.strstart;
+        } else {
+          if (s.window_size - s.strstart <= used) {
+            s.strstart -= s.w_size;
+            s.window.set(s.window.subarray(s.w_size, s.w_size + s.strstart), 0);
+            if (s.matches < 2) {
+              s.matches++;
+            }
+            if (s.insert > s.strstart) {
+              s.insert = s.strstart;
+            }
+          }
+          s.window.set(s.strm.input.subarray(s.strm.next_in - used, s.strm.next_in), s.strstart);
+          s.strstart += used;
+          s.insert += used > s.w_size - s.insert ? s.w_size - s.insert : used;
+        }
+        s.block_start = s.strstart;
+      }
+      if (s.high_water < s.strstart) {
+        s.high_water = s.strstart;
+      }
+      if (last) {
+        return BS_FINISH_DONE;
+      }
+      if (flush !== Z_NO_FLUSH$2 && flush !== Z_FINISH$3 && s.strm.avail_in === 0 && s.strstart === s.block_start) {
+        return BS_BLOCK_DONE;
+      }
+      have = s.window_size - s.strstart;
+      if (s.strm.avail_in > have && s.block_start >= s.w_size) {
+        s.block_start -= s.w_size;
+        s.strstart -= s.w_size;
+        s.window.set(s.window.subarray(s.w_size, s.w_size + s.strstart), 0);
+        if (s.matches < 2) {
+          s.matches++;
+        }
+        have += s.w_size;
+        if (s.insert > s.strstart) {
+          s.insert = s.strstart;
+        }
+      }
+      if (have > s.strm.avail_in) {
+        have = s.strm.avail_in;
+      }
+      if (have) {
+        read_buf(s.strm, s.window, s.strstart, have);
+        s.strstart += have;
+        s.insert += have > s.w_size - s.insert ? s.w_size - s.insert : have;
+      }
+      if (s.high_water < s.strstart) {
+        s.high_water = s.strstart;
+      }
+      have = s.bi_valid + 42 >> 3;
+      have = s.pending_buf_size - have > 65535 ? 65535 : s.pending_buf_size - have;
+      min_block = have > s.w_size ? s.w_size : have;
+      left = s.strstart - s.block_start;
+      if (left >= min_block || (left || flush === Z_FINISH$3) && flush !== Z_NO_FLUSH$2 && s.strm.avail_in === 0 && left <= have) {
+        len = left > have ? have : left;
+        last = flush === Z_FINISH$3 && s.strm.avail_in === 0 && len === left ? 1 : 0;
+        _tr_stored_block(s, s.block_start, len, last);
+        s.block_start += len;
+        flush_pending(s.strm);
+      }
+      return last ? BS_FINISH_STARTED : BS_NEED_MORE;
+    };
+    deflate_fast = (s, flush) => {
+      let hash_head;
+      let bflush;
+      for (; ; ) {
+        if (s.lookahead < MIN_LOOKAHEAD) {
+          fill_window(s);
+          if (s.lookahead < MIN_LOOKAHEAD && flush === Z_NO_FLUSH$2) {
+            return BS_NEED_MORE;
+          }
+          if (s.lookahead === 0) {
+            break;
+          }
+        }
+        hash_head = 0;
+        if (s.lookahead >= MIN_MATCH) {
+          s.ins_h = HASH(s, s.ins_h, s.window[s.strstart + MIN_MATCH - 1]);
+          hash_head = s.prev[s.strstart & s.w_mask] = s.head[s.ins_h];
+          s.head[s.ins_h] = s.strstart;
+        }
+        if (hash_head !== 0 && s.strstart - hash_head <= s.w_size - MIN_LOOKAHEAD) {
+          s.match_length = longest_match(s, hash_head);
+        }
+        if (s.match_length >= MIN_MATCH) {
+          bflush = _tr_tally(s, s.strstart - s.match_start, s.match_length - MIN_MATCH);
+          s.lookahead -= s.match_length;
+          if (s.match_length <= s.max_lazy_match && s.lookahead >= MIN_MATCH) {
+            s.match_length--;
+            do {
+              s.strstart++;
+              s.ins_h = HASH(s, s.ins_h, s.window[s.strstart + MIN_MATCH - 1]);
+              hash_head = s.prev[s.strstart & s.w_mask] = s.head[s.ins_h];
+              s.head[s.ins_h] = s.strstart;
+            } while (--s.match_length !== 0);
+            s.strstart++;
+          } else {
+            s.strstart += s.match_length;
+            s.match_length = 0;
+            s.ins_h = s.window[s.strstart];
+            s.ins_h = HASH(s, s.ins_h, s.window[s.strstart + 1]);
+          }
+        } else {
+          bflush = _tr_tally(s, 0, s.window[s.strstart]);
+          s.lookahead--;
+          s.strstart++;
+        }
+        if (bflush) {
+          flush_block_only(s, false);
+          if (s.strm.avail_out === 0) {
+            return BS_NEED_MORE;
+          }
+        }
+      }
+      s.insert = s.strstart < MIN_MATCH - 1 ? s.strstart : MIN_MATCH - 1;
+      if (flush === Z_FINISH$3) {
+        flush_block_only(s, true);
+        if (s.strm.avail_out === 0) {
+          return BS_FINISH_STARTED;
+        }
+        return BS_FINISH_DONE;
+      }
+      if (s.sym_next) {
+        flush_block_only(s, false);
+        if (s.strm.avail_out === 0) {
+          return BS_NEED_MORE;
+        }
+      }
+      return BS_BLOCK_DONE;
+    };
+    deflate_slow = (s, flush) => {
+      let hash_head;
+      let bflush;
+      let max_insert;
+      for (; ; ) {
+        if (s.lookahead < MIN_LOOKAHEAD) {
+          fill_window(s);
+          if (s.lookahead < MIN_LOOKAHEAD && flush === Z_NO_FLUSH$2) {
+            return BS_NEED_MORE;
+          }
+          if (s.lookahead === 0) {
+            break;
+          }
+        }
+        hash_head = 0;
+        if (s.lookahead >= MIN_MATCH) {
+          s.ins_h = HASH(s, s.ins_h, s.window[s.strstart + MIN_MATCH - 1]);
+          hash_head = s.prev[s.strstart & s.w_mask] = s.head[s.ins_h];
+          s.head[s.ins_h] = s.strstart;
+        }
+        s.prev_length = s.match_length;
+        s.prev_match = s.match_start;
+        s.match_length = MIN_MATCH - 1;
+        if (hash_head !== 0 && s.prev_length < s.max_lazy_match && s.strstart - hash_head <= s.w_size - MIN_LOOKAHEAD) {
+          s.match_length = longest_match(s, hash_head);
+          if (s.match_length <= 5 && (s.strategy === Z_FILTERED || s.match_length === MIN_MATCH && s.strstart - s.match_start > 4096)) {
+            s.match_length = MIN_MATCH - 1;
+          }
+        }
+        if (s.prev_length >= MIN_MATCH && s.match_length <= s.prev_length) {
+          max_insert = s.strstart + s.lookahead - MIN_MATCH;
+          bflush = _tr_tally(s, s.strstart - 1 - s.prev_match, s.prev_length - MIN_MATCH);
+          s.lookahead -= s.prev_length - 1;
+          s.prev_length -= 2;
+          do {
+            if (++s.strstart <= max_insert) {
+              s.ins_h = HASH(s, s.ins_h, s.window[s.strstart + MIN_MATCH - 1]);
+              hash_head = s.prev[s.strstart & s.w_mask] = s.head[s.ins_h];
+              s.head[s.ins_h] = s.strstart;
+            }
+          } while (--s.prev_length !== 0);
+          s.match_available = 0;
+          s.match_length = MIN_MATCH - 1;
+          s.strstart++;
+          if (bflush) {
+            flush_block_only(s, false);
+            if (s.strm.avail_out === 0) {
+              return BS_NEED_MORE;
+            }
+          }
+        } else if (s.match_available) {
+          bflush = _tr_tally(s, 0, s.window[s.strstart - 1]);
+          if (bflush) {
+            flush_block_only(s, false);
+          }
+          s.strstart++;
+          s.lookahead--;
+          if (s.strm.avail_out === 0) {
+            return BS_NEED_MORE;
+          }
+        } else {
+          s.match_available = 1;
+          s.strstart++;
+          s.lookahead--;
+        }
+      }
+      if (s.match_available) {
+        bflush = _tr_tally(s, 0, s.window[s.strstart - 1]);
+        s.match_available = 0;
+      }
+      s.insert = s.strstart < MIN_MATCH - 1 ? s.strstart : MIN_MATCH - 1;
+      if (flush === Z_FINISH$3) {
+        flush_block_only(s, true);
+        if (s.strm.avail_out === 0) {
+          return BS_FINISH_STARTED;
+        }
+        return BS_FINISH_DONE;
+      }
+      if (s.sym_next) {
+        flush_block_only(s, false);
+        if (s.strm.avail_out === 0) {
+          return BS_NEED_MORE;
+        }
+      }
+      return BS_BLOCK_DONE;
+    };
+    deflate_rle = (s, flush) => {
+      let bflush;
+      let prev;
+      let scan, strend;
+      const _win = s.window;
+      for (; ; ) {
+        if (s.lookahead <= MAX_MATCH) {
+          fill_window(s);
+          if (s.lookahead <= MAX_MATCH && flush === Z_NO_FLUSH$2) {
+            return BS_NEED_MORE;
+          }
+          if (s.lookahead === 0) {
+            break;
+          }
+        }
+        s.match_length = 0;
+        if (s.lookahead >= MIN_MATCH && s.strstart > 0) {
+          scan = s.strstart - 1;
+          prev = _win[scan];
+          if (prev === _win[++scan] && prev === _win[++scan] && prev === _win[++scan]) {
+            strend = s.strstart + MAX_MATCH;
+            do {
+            } while (prev === _win[++scan] && prev === _win[++scan] && prev === _win[++scan] && prev === _win[++scan] && prev === _win[++scan] && prev === _win[++scan] && prev === _win[++scan] && prev === _win[++scan] && scan < strend);
+            s.match_length = MAX_MATCH - (strend - scan);
+            if (s.match_length > s.lookahead) {
+              s.match_length = s.lookahead;
+            }
+          }
+        }
+        if (s.match_length >= MIN_MATCH) {
+          bflush = _tr_tally(s, 1, s.match_length - MIN_MATCH);
+          s.lookahead -= s.match_length;
+          s.strstart += s.match_length;
+          s.match_length = 0;
+        } else {
+          bflush = _tr_tally(s, 0, s.window[s.strstart]);
+          s.lookahead--;
+          s.strstart++;
+        }
+        if (bflush) {
+          flush_block_only(s, false);
+          if (s.strm.avail_out === 0) {
+            return BS_NEED_MORE;
+          }
+        }
+      }
+      s.insert = 0;
+      if (flush === Z_FINISH$3) {
+        flush_block_only(s, true);
+        if (s.strm.avail_out === 0) {
+          return BS_FINISH_STARTED;
+        }
+        return BS_FINISH_DONE;
+      }
+      if (s.sym_next) {
+        flush_block_only(s, false);
+        if (s.strm.avail_out === 0) {
+          return BS_NEED_MORE;
+        }
+      }
+      return BS_BLOCK_DONE;
+    };
+    deflate_huff = (s, flush) => {
+      let bflush;
+      for (; ; ) {
+        if (s.lookahead === 0) {
+          fill_window(s);
+          if (s.lookahead === 0) {
+            if (flush === Z_NO_FLUSH$2) {
+              return BS_NEED_MORE;
+            }
+            break;
+          }
+        }
+        s.match_length = 0;
+        bflush = _tr_tally(s, 0, s.window[s.strstart]);
+        s.lookahead--;
+        s.strstart++;
+        if (bflush) {
+          flush_block_only(s, false);
+          if (s.strm.avail_out === 0) {
+            return BS_NEED_MORE;
+          }
+        }
+      }
+      s.insert = 0;
+      if (flush === Z_FINISH$3) {
+        flush_block_only(s, true);
+        if (s.strm.avail_out === 0) {
+          return BS_FINISH_STARTED;
+        }
+        return BS_FINISH_DONE;
+      }
+      if (s.sym_next) {
+        flush_block_only(s, false);
+        if (s.strm.avail_out === 0) {
+          return BS_NEED_MORE;
+        }
+      }
+      return BS_BLOCK_DONE;
+    };
+    configuration_table = [
+      /*      good lazy nice chain */
+      new Config(0, 0, 0, 0, deflate_stored),
+      /* 0 store only */
+      new Config(4, 4, 8, 4, deflate_fast),
+      /* 1 max speed, no lazy matches */
+      new Config(4, 5, 16, 8, deflate_fast),
+      /* 2 */
+      new Config(4, 6, 32, 32, deflate_fast),
+      /* 3 */
+      new Config(4, 4, 16, 16, deflate_slow),
+      /* 4 lazy matches */
+      new Config(8, 16, 32, 32, deflate_slow),
+      /* 5 */
+      new Config(8, 16, 128, 128, deflate_slow),
+      /* 6 */
+      new Config(8, 32, 128, 256, deflate_slow),
+      /* 7 */
+      new Config(32, 128, 258, 1024, deflate_slow),
+      /* 8 */
+      new Config(32, 258, 258, 4096, deflate_slow)
+      /* 9 max compression */
+    ];
+    lm_init = (s) => {
+      s.window_size = 2 * s.w_size;
+      zero(s.head);
+      s.max_lazy_match = configuration_table[s.level].max_lazy;
+      s.good_match = configuration_table[s.level].good_length;
+      s.nice_match = configuration_table[s.level].nice_length;
+      s.max_chain_length = configuration_table[s.level].max_chain;
+      s.strstart = 0;
+      s.block_start = 0;
+      s.lookahead = 0;
+      s.insert = 0;
+      s.match_length = s.prev_length = MIN_MATCH - 1;
+      s.match_available = 0;
+      s.ins_h = 0;
+    };
+    deflateStateCheck = (strm) => {
+      if (!strm) {
+        return 1;
+      }
+      const s = strm.state;
+      if (!s || s.strm !== strm || s.status !== INIT_STATE && //#ifdef GZIP
+      s.status !== GZIP_STATE && //#endif
+      s.status !== EXTRA_STATE && s.status !== NAME_STATE && s.status !== COMMENT_STATE && s.status !== HCRC_STATE && s.status !== BUSY_STATE && s.status !== FINISH_STATE) {
+        return 1;
+      }
+      return 0;
+    };
+    deflateResetKeep = (strm) => {
+      if (deflateStateCheck(strm)) {
+        return err(strm, Z_STREAM_ERROR$2);
+      }
+      strm.total_in = strm.total_out = 0;
+      strm.data_type = Z_UNKNOWN;
+      const s = strm.state;
+      s.pending = 0;
+      s.pending_out = 0;
+      if (s.wrap < 0) {
+        s.wrap = -s.wrap;
+      }
+      s.status = //#ifdef GZIP
+      s.wrap === 2 ? GZIP_STATE : (
+        //#endif
+        s.wrap ? INIT_STATE : BUSY_STATE
+      );
+      strm.adler = s.wrap === 2 ? 0 : 1;
+      s.last_flush = -2;
+      _tr_init(s);
+      return Z_OK$3;
+    };
+    deflateReset = (strm) => {
+      const ret = deflateResetKeep(strm);
+      if (ret === Z_OK$3) {
+        lm_init(strm.state);
+      }
+      return ret;
+    };
+    deflateSetHeader = (strm, head) => {
+      if (deflateStateCheck(strm) || strm.state.wrap !== 2) {
+        return Z_STREAM_ERROR$2;
+      }
+      strm.state.gzhead = head;
+      return Z_OK$3;
+    };
+    deflateInit2 = (strm, level, method, windowBits, memLevel, strategy) => {
+      if (!strm) {
+        return Z_STREAM_ERROR$2;
+      }
+      let wrap = 1;
+      if (level === Z_DEFAULT_COMPRESSION$1) {
+        level = 6;
+      }
+      if (windowBits < 0) {
+        wrap = 0;
+        windowBits = -windowBits;
+      } else if (windowBits > 15) {
+        wrap = 2;
+        windowBits -= 16;
+      }
+      if (memLevel < 1 || memLevel > MAX_MEM_LEVEL || method !== Z_DEFLATED$2 || windowBits < 8 || windowBits > 15 || level < 0 || level > 9 || strategy < 0 || strategy > Z_FIXED || windowBits === 8 && wrap !== 1) {
+        return err(strm, Z_STREAM_ERROR$2);
+      }
+      if (windowBits === 8) {
+        windowBits = 9;
+      }
+      const s = new DeflateState();
+      strm.state = s;
+      s.strm = strm;
+      s.status = INIT_STATE;
+      s.wrap = wrap;
+      s.gzhead = null;
+      s.w_bits = windowBits;
+      s.w_size = 1 << s.w_bits;
+      s.w_mask = s.w_size - 1;
+      s.hash_bits = memLevel + 7;
+      s.hash_size = 1 << s.hash_bits;
+      s.hash_mask = s.hash_size - 1;
+      s.hash_shift = ~~((s.hash_bits + MIN_MATCH - 1) / MIN_MATCH);
+      s.window = new Uint8Array(s.w_size * 2);
+      s.head = new Uint16Array(s.hash_size);
+      s.prev = new Uint16Array(s.w_size);
+      s.lit_bufsize = 1 << memLevel + 6;
+      s.pending_buf_size = s.lit_bufsize * 4;
+      s.pending_buf = new Uint8Array(s.pending_buf_size);
+      s.sym_buf = s.lit_bufsize;
+      s.sym_end = (s.lit_bufsize - 1) * 3;
+      s.level = level;
+      s.strategy = strategy;
+      s.method = method;
+      return deflateReset(strm);
+    };
+    deflateInit = (strm, level) => {
+      return deflateInit2(strm, level, Z_DEFLATED$2, MAX_WBITS$1, DEF_MEM_LEVEL, Z_DEFAULT_STRATEGY$1);
+    };
+    deflate$2 = (strm, flush) => {
+      if (deflateStateCheck(strm) || flush > Z_BLOCK$1 || flush < 0) {
+        return strm ? err(strm, Z_STREAM_ERROR$2) : Z_STREAM_ERROR$2;
+      }
+      const s = strm.state;
+      if (!strm.output || strm.avail_in !== 0 && !strm.input || s.status === FINISH_STATE && flush !== Z_FINISH$3) {
+        return err(strm, strm.avail_out === 0 ? Z_BUF_ERROR$1 : Z_STREAM_ERROR$2);
+      }
+      const old_flush = s.last_flush;
+      s.last_flush = flush;
+      if (s.pending !== 0) {
+        flush_pending(strm);
+        if (strm.avail_out === 0) {
+          s.last_flush = -1;
+          return Z_OK$3;
+        }
+      } else if (strm.avail_in === 0 && rank(flush) <= rank(old_flush) && flush !== Z_FINISH$3) {
+        return err(strm, Z_BUF_ERROR$1);
+      }
+      if (s.status === FINISH_STATE && strm.avail_in !== 0) {
+        return err(strm, Z_BUF_ERROR$1);
+      }
+      if (s.status === INIT_STATE && s.wrap === 0) {
+        s.status = BUSY_STATE;
+      }
+      if (s.status === INIT_STATE) {
+        let header = Z_DEFLATED$2 + (s.w_bits - 8 << 4) << 8;
+        let level_flags = -1;
+        if (s.strategy >= Z_HUFFMAN_ONLY || s.level < 2) {
+          level_flags = 0;
+        } else if (s.level < 6) {
+          level_flags = 1;
+        } else if (s.level === 6) {
+          level_flags = 2;
+        } else {
+          level_flags = 3;
+        }
+        header |= level_flags << 6;
+        if (s.strstart !== 0) {
+          header |= PRESET_DICT;
+        }
+        header += 31 - header % 31;
+        putShortMSB(s, header);
+        if (s.strstart !== 0) {
+          putShortMSB(s, strm.adler >>> 16);
+          putShortMSB(s, strm.adler & 65535);
+        }
+        strm.adler = 1;
+        s.status = BUSY_STATE;
+        flush_pending(strm);
+        if (s.pending !== 0) {
+          s.last_flush = -1;
+          return Z_OK$3;
+        }
+      }
+      if (s.status === GZIP_STATE) {
+        strm.adler = 0;
+        put_byte(s, 31);
+        put_byte(s, 139);
+        put_byte(s, 8);
+        if (!s.gzhead) {
+          put_byte(s, 0);
+          put_byte(s, 0);
+          put_byte(s, 0);
+          put_byte(s, 0);
+          put_byte(s, 0);
+          put_byte(s, s.level === 9 ? 2 : s.strategy >= Z_HUFFMAN_ONLY || s.level < 2 ? 4 : 0);
+          put_byte(s, OS_CODE);
+          s.status = BUSY_STATE;
+          flush_pending(strm);
+          if (s.pending !== 0) {
+            s.last_flush = -1;
+            return Z_OK$3;
+          }
+        } else {
+          put_byte(
+            s,
+            (s.gzhead.text ? 1 : 0) + (s.gzhead.hcrc ? 2 : 0) + (!s.gzhead.extra ? 0 : 4) + (!s.gzhead.name ? 0 : 8) + (!s.gzhead.comment ? 0 : 16)
+          );
+          put_byte(s, s.gzhead.time & 255);
+          put_byte(s, s.gzhead.time >> 8 & 255);
+          put_byte(s, s.gzhead.time >> 16 & 255);
+          put_byte(s, s.gzhead.time >> 24 & 255);
+          put_byte(s, s.level === 9 ? 2 : s.strategy >= Z_HUFFMAN_ONLY || s.level < 2 ? 4 : 0);
+          put_byte(s, s.gzhead.os & 255);
+          if (s.gzhead.extra && s.gzhead.extra.length) {
+            put_byte(s, s.gzhead.extra.length & 255);
+            put_byte(s, s.gzhead.extra.length >> 8 & 255);
+          }
+          if (s.gzhead.hcrc) {
+            strm.adler = crc32_1(strm.adler, s.pending_buf, s.pending, 0);
+          }
+          s.gzindex = 0;
+          s.status = EXTRA_STATE;
+        }
+      }
+      if (s.status === EXTRA_STATE) {
+        if (s.gzhead.extra) {
+          let beg = s.pending;
+          let left = (s.gzhead.extra.length & 65535) - s.gzindex;
+          while (s.pending + left > s.pending_buf_size) {
+            let copy = s.pending_buf_size - s.pending;
+            s.pending_buf.set(s.gzhead.extra.subarray(s.gzindex, s.gzindex + copy), s.pending);
+            s.pending = s.pending_buf_size;
+            if (s.gzhead.hcrc && s.pending > beg) {
+              strm.adler = crc32_1(strm.adler, s.pending_buf, s.pending - beg, beg);
+            }
+            s.gzindex += copy;
+            flush_pending(strm);
+            if (s.pending !== 0) {
+              s.last_flush = -1;
+              return Z_OK$3;
+            }
+            beg = 0;
+            left -= copy;
+          }
+          let gzhead_extra = new Uint8Array(s.gzhead.extra);
+          s.pending_buf.set(gzhead_extra.subarray(s.gzindex, s.gzindex + left), s.pending);
+          s.pending += left;
+          if (s.gzhead.hcrc && s.pending > beg) {
+            strm.adler = crc32_1(strm.adler, s.pending_buf, s.pending - beg, beg);
+          }
+          s.gzindex = 0;
+        }
+        s.status = NAME_STATE;
+      }
+      if (s.status === NAME_STATE) {
+        if (s.gzhead.name) {
+          let beg = s.pending;
+          let val;
+          do {
+            if (s.pending === s.pending_buf_size) {
+              if (s.gzhead.hcrc && s.pending > beg) {
+                strm.adler = crc32_1(strm.adler, s.pending_buf, s.pending - beg, beg);
+              }
+              flush_pending(strm);
+              if (s.pending !== 0) {
+                s.last_flush = -1;
+                return Z_OK$3;
+              }
+              beg = 0;
+            }
+            if (s.gzindex < s.gzhead.name.length) {
+              val = s.gzhead.name.charCodeAt(s.gzindex++) & 255;
+            } else {
+              val = 0;
+            }
+            put_byte(s, val);
+          } while (val !== 0);
+          if (s.gzhead.hcrc && s.pending > beg) {
+            strm.adler = crc32_1(strm.adler, s.pending_buf, s.pending - beg, beg);
+          }
+          s.gzindex = 0;
+        }
+        s.status = COMMENT_STATE;
+      }
+      if (s.status === COMMENT_STATE) {
+        if (s.gzhead.comment) {
+          let beg = s.pending;
+          let val;
+          do {
+            if (s.pending === s.pending_buf_size) {
+              if (s.gzhead.hcrc && s.pending > beg) {
+                strm.adler = crc32_1(strm.adler, s.pending_buf, s.pending - beg, beg);
+              }
+              flush_pending(strm);
+              if (s.pending !== 0) {
+                s.last_flush = -1;
+                return Z_OK$3;
+              }
+              beg = 0;
+            }
+            if (s.gzindex < s.gzhead.comment.length) {
+              val = s.gzhead.comment.charCodeAt(s.gzindex++) & 255;
+            } else {
+              val = 0;
+            }
+            put_byte(s, val);
+          } while (val !== 0);
+          if (s.gzhead.hcrc && s.pending > beg) {
+            strm.adler = crc32_1(strm.adler, s.pending_buf, s.pending - beg, beg);
+          }
+        }
+        s.status = HCRC_STATE;
+      }
+      if (s.status === HCRC_STATE) {
+        if (s.gzhead.hcrc) {
+          if (s.pending + 2 > s.pending_buf_size) {
+            flush_pending(strm);
+            if (s.pending !== 0) {
+              s.last_flush = -1;
+              return Z_OK$3;
+            }
+          }
+          put_byte(s, strm.adler & 255);
+          put_byte(s, strm.adler >> 8 & 255);
+          strm.adler = 0;
+        }
+        s.status = BUSY_STATE;
+        flush_pending(strm);
+        if (s.pending !== 0) {
+          s.last_flush = -1;
+          return Z_OK$3;
+        }
+      }
+      if (strm.avail_in !== 0 || s.lookahead !== 0 || flush !== Z_NO_FLUSH$2 && s.status !== FINISH_STATE) {
+        let bstate = s.level === 0 ? deflate_stored(s, flush) : s.strategy === Z_HUFFMAN_ONLY ? deflate_huff(s, flush) : s.strategy === Z_RLE ? deflate_rle(s, flush) : configuration_table[s.level].func(s, flush);
+        if (bstate === BS_FINISH_STARTED || bstate === BS_FINISH_DONE) {
+          s.status = FINISH_STATE;
+        }
+        if (bstate === BS_NEED_MORE || bstate === BS_FINISH_STARTED) {
+          if (strm.avail_out === 0) {
+            s.last_flush = -1;
+          }
+          return Z_OK$3;
+        }
+        if (bstate === BS_BLOCK_DONE) {
+          if (flush === Z_PARTIAL_FLUSH) {
+            _tr_align(s);
+          } else if (flush !== Z_BLOCK$1) {
+            _tr_stored_block(s, 0, 0, false);
+            if (flush === Z_FULL_FLUSH$1) {
+              zero(s.head);
+              if (s.lookahead === 0) {
+                s.strstart = 0;
+                s.block_start = 0;
+                s.insert = 0;
+              }
+            }
+          }
+          flush_pending(strm);
+          if (strm.avail_out === 0) {
+            s.last_flush = -1;
+            return Z_OK$3;
+          }
+        }
+      }
+      if (flush !== Z_FINISH$3) {
+        return Z_OK$3;
+      }
+      if (s.wrap <= 0) {
+        return Z_STREAM_END$3;
+      }
+      if (s.wrap === 2) {
+        put_byte(s, strm.adler & 255);
+        put_byte(s, strm.adler >> 8 & 255);
+        put_byte(s, strm.adler >> 16 & 255);
+        put_byte(s, strm.adler >> 24 & 255);
+        put_byte(s, strm.total_in & 255);
+        put_byte(s, strm.total_in >> 8 & 255);
+        put_byte(s, strm.total_in >> 16 & 255);
+        put_byte(s, strm.total_in >> 24 & 255);
+      } else {
+        putShortMSB(s, strm.adler >>> 16);
+        putShortMSB(s, strm.adler & 65535);
+      }
+      flush_pending(strm);
+      if (s.wrap > 0) {
+        s.wrap = -s.wrap;
+      }
+      return s.pending !== 0 ? Z_OK$3 : Z_STREAM_END$3;
+    };
+    deflateEnd = (strm) => {
+      if (deflateStateCheck(strm)) {
+        return Z_STREAM_ERROR$2;
+      }
+      const status = strm.state.status;
+      strm.state = null;
+      return status === BUSY_STATE ? err(strm, Z_DATA_ERROR$2) : Z_OK$3;
+    };
+    deflateSetDictionary = (strm, dictionary) => {
+      let dictLength = dictionary.length;
+      if (deflateStateCheck(strm)) {
+        return Z_STREAM_ERROR$2;
+      }
+      const s = strm.state;
+      const wrap = s.wrap;
+      if (wrap === 2 || wrap === 1 && s.status !== INIT_STATE || s.lookahead) {
+        return Z_STREAM_ERROR$2;
+      }
+      if (wrap === 1) {
+        strm.adler = adler32_1(strm.adler, dictionary, dictLength, 0);
+      }
+      s.wrap = 0;
+      if (dictLength >= s.w_size) {
+        if (wrap === 0) {
+          zero(s.head);
+          s.strstart = 0;
+          s.block_start = 0;
+          s.insert = 0;
+        }
+        let tmpDict = new Uint8Array(s.w_size);
+        tmpDict.set(dictionary.subarray(dictLength - s.w_size, dictLength), 0);
+        dictionary = tmpDict;
+        dictLength = s.w_size;
+      }
+      const avail = strm.avail_in;
+      const next = strm.next_in;
+      const input = strm.input;
+      strm.avail_in = dictLength;
+      strm.next_in = 0;
+      strm.input = dictionary;
+      fill_window(s);
+      while (s.lookahead >= MIN_MATCH) {
+        let str = s.strstart;
+        let n = s.lookahead - (MIN_MATCH - 1);
+        do {
+          s.ins_h = HASH(s, s.ins_h, s.window[str + MIN_MATCH - 1]);
+          s.prev[str & s.w_mask] = s.head[s.ins_h];
+          s.head[s.ins_h] = str;
+          str++;
+        } while (--n);
+        s.strstart = str;
+        s.lookahead = MIN_MATCH - 1;
+        fill_window(s);
+      }
+      s.strstart += s.lookahead;
+      s.block_start = s.strstart;
+      s.insert = s.lookahead;
+      s.lookahead = 0;
+      s.match_length = s.prev_length = MIN_MATCH - 1;
+      s.match_available = 0;
+      strm.next_in = next;
+      strm.input = input;
+      strm.avail_in = avail;
+      s.wrap = wrap;
+      return Z_OK$3;
+    };
+    deflateInit_1 = deflateInit;
+    deflateInit2_1 = deflateInit2;
+    deflateReset_1 = deflateReset;
+    deflateResetKeep_1 = deflateResetKeep;
+    deflateSetHeader_1 = deflateSetHeader;
+    deflate_2$1 = deflate$2;
+    deflateEnd_1 = deflateEnd;
+    deflateSetDictionary_1 = deflateSetDictionary;
+    deflateInfo = "pako deflate (from Nodeca project)";
+    deflate_1$2 = {
+      deflateInit: deflateInit_1,
+      deflateInit2: deflateInit2_1,
+      deflateReset: deflateReset_1,
+      deflateResetKeep: deflateResetKeep_1,
+      deflateSetHeader: deflateSetHeader_1,
+      deflate: deflate_2$1,
+      deflateEnd: deflateEnd_1,
+      deflateSetDictionary: deflateSetDictionary_1,
+      deflateInfo
+    };
+    _has = (obj, key) => {
+      return Object.prototype.hasOwnProperty.call(obj, key);
+    };
+    assign = function(obj) {
+      const sources = Array.prototype.slice.call(arguments, 1);
+      while (sources.length) {
+        const source = sources.shift();
+        if (!source) {
+          continue;
+        }
+        if (typeof source !== "object") {
+          throw new TypeError(source + "must be non-object");
+        }
+        for (const p in source) {
+          if (_has(source, p)) {
+            obj[p] = source[p];
+          }
+        }
+      }
+      return obj;
+    };
+    flattenChunks = (chunks) => {
+      let len = 0;
+      for (let i = 0, l = chunks.length; i < l; i++) {
+        len += chunks[i].length;
+      }
+      const result = new Uint8Array(len);
+      for (let i = 0, pos = 0, l = chunks.length; i < l; i++) {
+        let chunk = chunks[i];
+        result.set(chunk, pos);
+        pos += chunk.length;
+      }
+      return result;
+    };
+    common = {
+      assign,
+      flattenChunks
+    };
+    STR_APPLY_UIA_OK = true;
+    try {
+      String.fromCharCode.apply(null, new Uint8Array(1));
+    } catch (__) {
+      STR_APPLY_UIA_OK = false;
+    }
+    _utf8len = new Uint8Array(256);
+    for (let q = 0; q < 256; q++) {
+      _utf8len[q] = q >= 252 ? 6 : q >= 248 ? 5 : q >= 240 ? 4 : q >= 224 ? 3 : q >= 192 ? 2 : 1;
+    }
+    _utf8len[254] = _utf8len[254] = 1;
+    string2buf = (str) => {
+      if (typeof TextEncoder === "function" && TextEncoder.prototype.encode) {
+        return new TextEncoder().encode(str);
+      }
+      let buf, c, c2, m_pos, i, str_len = str.length, buf_len = 0;
+      for (m_pos = 0; m_pos < str_len; m_pos++) {
+        c = str.charCodeAt(m_pos);
+        if ((c & 64512) === 55296 && m_pos + 1 < str_len) {
+          c2 = str.charCodeAt(m_pos + 1);
+          if ((c2 & 64512) === 56320) {
+            c = 65536 + (c - 55296 << 10) + (c2 - 56320);
+            m_pos++;
+          }
+        }
+        buf_len += c < 128 ? 1 : c < 2048 ? 2 : c < 65536 ? 3 : 4;
+      }
+      buf = new Uint8Array(buf_len);
+      for (i = 0, m_pos = 0; i < buf_len; m_pos++) {
+        c = str.charCodeAt(m_pos);
+        if ((c & 64512) === 55296 && m_pos + 1 < str_len) {
+          c2 = str.charCodeAt(m_pos + 1);
+          if ((c2 & 64512) === 56320) {
+            c = 65536 + (c - 55296 << 10) + (c2 - 56320);
+            m_pos++;
+          }
+        }
+        if (c < 128) {
+          buf[i++] = c;
+        } else if (c < 2048) {
+          buf[i++] = 192 | c >>> 6;
+          buf[i++] = 128 | c & 63;
+        } else if (c < 65536) {
+          buf[i++] = 224 | c >>> 12;
+          buf[i++] = 128 | c >>> 6 & 63;
+          buf[i++] = 128 | c & 63;
+        } else {
+          buf[i++] = 240 | c >>> 18;
+          buf[i++] = 128 | c >>> 12 & 63;
+          buf[i++] = 128 | c >>> 6 & 63;
+          buf[i++] = 128 | c & 63;
+        }
+      }
+      return buf;
+    };
+    buf2binstring = (buf, len) => {
+      if (len < 65534) {
+        if (buf.subarray && STR_APPLY_UIA_OK) {
+          return String.fromCharCode.apply(null, buf.length === len ? buf : buf.subarray(0, len));
+        }
+      }
+      let result = "";
+      for (let i = 0; i < len; i++) {
+        result += String.fromCharCode(buf[i]);
+      }
+      return result;
+    };
+    buf2string = (buf, max) => {
+      const len = max || buf.length;
+      if (typeof TextDecoder === "function" && TextDecoder.prototype.decode) {
+        return new TextDecoder().decode(buf.subarray(0, max));
+      }
+      let i, out;
+      const utf16buf = new Array(len * 2);
+      for (out = 0, i = 0; i < len; ) {
+        let c = buf[i++];
+        if (c < 128) {
+          utf16buf[out++] = c;
+          continue;
+        }
+        let c_len = _utf8len[c];
+        if (c_len > 4) {
+          utf16buf[out++] = 65533;
+          i += c_len - 1;
+          continue;
+        }
+        c &= c_len === 2 ? 31 : c_len === 3 ? 15 : 7;
+        while (c_len > 1 && i < len) {
+          c = c << 6 | buf[i++] & 63;
+          c_len--;
+        }
+        if (c_len > 1) {
+          utf16buf[out++] = 65533;
+          continue;
+        }
+        if (c < 65536) {
+          utf16buf[out++] = c;
+        } else {
+          c -= 65536;
+          utf16buf[out++] = 55296 | c >> 10 & 1023;
+          utf16buf[out++] = 56320 | c & 1023;
+        }
+      }
+      return buf2binstring(utf16buf, out);
+    };
+    utf8border = (buf, max) => {
+      max = max || buf.length;
+      if (max > buf.length) {
+        max = buf.length;
+      }
+      let pos = max - 1;
+      while (pos >= 0 && (buf[pos] & 192) === 128) {
+        pos--;
+      }
+      if (pos < 0) {
+        return max;
+      }
+      if (pos === 0) {
+        return max;
+      }
+      return pos + _utf8len[buf[pos]] > max ? pos : max;
+    };
+    strings = {
+      string2buf,
+      buf2string,
+      utf8border
+    };
+    zstream = ZStream;
+    toString$1 = Object.prototype.toString;
+    ({
+      Z_NO_FLUSH: Z_NO_FLUSH$1,
+      Z_SYNC_FLUSH,
+      Z_FULL_FLUSH,
+      Z_FINISH: Z_FINISH$2,
+      Z_OK: Z_OK$2,
+      Z_STREAM_END: Z_STREAM_END$2,
+      Z_DEFAULT_COMPRESSION,
+      Z_DEFAULT_STRATEGY,
+      Z_DEFLATED: Z_DEFLATED$1
+    } = constants$2);
+    Deflate$1.prototype.push = function(data, flush_mode) {
+      const strm = this.strm;
+      const chunkSize = this.options.chunkSize;
+      let status, _flush_mode;
+      if (this.ended) {
+        return false;
+      }
+      if (flush_mode === ~~flush_mode) _flush_mode = flush_mode;
+      else _flush_mode = flush_mode === true ? Z_FINISH$2 : Z_NO_FLUSH$1;
+      if (typeof data === "string") {
+        strm.input = strings.string2buf(data);
+      } else if (toString$1.call(data) === "[object ArrayBuffer]") {
+        strm.input = new Uint8Array(data);
+      } else {
+        strm.input = data;
+      }
+      strm.next_in = 0;
+      strm.avail_in = strm.input.length;
+      for (; ; ) {
+        if (strm.avail_out === 0) {
+          strm.output = new Uint8Array(chunkSize);
+          strm.next_out = 0;
+          strm.avail_out = chunkSize;
+        }
+        if ((_flush_mode === Z_SYNC_FLUSH || _flush_mode === Z_FULL_FLUSH) && strm.avail_out <= 6) {
+          this.onData(strm.output.subarray(0, strm.next_out));
+          strm.avail_out = 0;
+          continue;
+        }
+        status = deflate_1$2.deflate(strm, _flush_mode);
+        if (status === Z_STREAM_END$2) {
+          if (strm.next_out > 0) {
+            this.onData(strm.output.subarray(0, strm.next_out));
+          }
+          status = deflate_1$2.deflateEnd(this.strm);
+          this.onEnd(status);
+          this.ended = true;
+          return status === Z_OK$2;
+        }
+        if (strm.avail_out === 0) {
+          this.onData(strm.output);
+          continue;
+        }
+        if (_flush_mode > 0 && strm.next_out > 0) {
+          this.onData(strm.output.subarray(0, strm.next_out));
+          strm.avail_out = 0;
+          continue;
+        }
+        if (strm.avail_in === 0) break;
+      }
+      return true;
+    };
+    Deflate$1.prototype.onData = function(chunk) {
+      this.chunks.push(chunk);
+    };
+    Deflate$1.prototype.onEnd = function(status) {
+      if (status === Z_OK$2) {
+        this.result = common.flattenChunks(this.chunks);
+      }
+      this.chunks = [];
+      this.err = status;
+      this.msg = this.strm.msg;
+    };
+    Deflate_1$1 = Deflate$1;
+    deflate_2 = deflate$1;
+    deflateRaw_1$1 = deflateRaw$1;
+    gzip_1$1 = gzip$1;
+    constants$1 = constants$2;
+    deflate_1$1 = {
+      Deflate: Deflate_1$1,
+      deflate: deflate_2,
+      deflateRaw: deflateRaw_1$1,
+      gzip: gzip_1$1,
+      constants: constants$1
+    };
+    BAD$1 = 16209;
+    TYPE$1 = 16191;
+    inffast = function inflate_fast(strm, start2) {
+      let _in;
+      let last;
+      let _out;
+      let beg;
+      let end2;
+      let dmax;
+      let wsize;
+      let whave;
+      let wnext;
+      let s_window;
+      let hold;
+      let bits;
+      let lcode;
+      let dcode;
+      let lmask;
+      let dmask;
+      let here;
+      let op;
+      let len;
+      let dist;
+      let from;
+      let from_source;
+      let input, output;
+      const state = strm.state;
+      _in = strm.next_in;
+      input = strm.input;
+      last = _in + (strm.avail_in - 5);
+      _out = strm.next_out;
+      output = strm.output;
+      beg = _out - (start2 - strm.avail_out);
+      end2 = _out + (strm.avail_out - 257);
+      dmax = state.dmax;
+      wsize = state.wsize;
+      whave = state.whave;
+      wnext = state.wnext;
+      s_window = state.window;
+      hold = state.hold;
+      bits = state.bits;
+      lcode = state.lencode;
+      dcode = state.distcode;
+      lmask = (1 << state.lenbits) - 1;
+      dmask = (1 << state.distbits) - 1;
+      top:
+        do {
+          if (bits < 15) {
+            hold += input[_in++] << bits;
+            bits += 8;
+            hold += input[_in++] << bits;
+            bits += 8;
+          }
+          here = lcode[hold & lmask];
+          dolen:
+            for (; ; ) {
+              op = here >>> 24;
+              hold >>>= op;
+              bits -= op;
+              op = here >>> 16 & 255;
+              if (op === 0) {
+                output[_out++] = here & 65535;
+              } else if (op & 16) {
+                len = here & 65535;
+                op &= 15;
+                if (op) {
+                  if (bits < op) {
+                    hold += input[_in++] << bits;
+                    bits += 8;
+                  }
+                  len += hold & (1 << op) - 1;
+                  hold >>>= op;
+                  bits -= op;
+                }
+                if (bits < 15) {
+                  hold += input[_in++] << bits;
+                  bits += 8;
+                  hold += input[_in++] << bits;
+                  bits += 8;
+                }
+                here = dcode[hold & dmask];
+                dodist:
+                  for (; ; ) {
+                    op = here >>> 24;
+                    hold >>>= op;
+                    bits -= op;
+                    op = here >>> 16 & 255;
+                    if (op & 16) {
+                      dist = here & 65535;
+                      op &= 15;
+                      if (bits < op) {
+                        hold += input[_in++] << bits;
+                        bits += 8;
+                        if (bits < op) {
+                          hold += input[_in++] << bits;
+                          bits += 8;
+                        }
+                      }
+                      dist += hold & (1 << op) - 1;
+                      if (dist > dmax) {
+                        strm.msg = "invalid distance too far back";
+                        state.mode = BAD$1;
+                        break top;
+                      }
+                      hold >>>= op;
+                      bits -= op;
+                      op = _out - beg;
+                      if (dist > op) {
+                        op = dist - op;
+                        if (op > whave) {
+                          if (state.sane) {
+                            strm.msg = "invalid distance too far back";
+                            state.mode = BAD$1;
+                            break top;
+                          }
+                        }
+                        from = 0;
+                        from_source = s_window;
+                        if (wnext === 0) {
+                          from += wsize - op;
+                          if (op < len) {
+                            len -= op;
+                            do {
+                              output[_out++] = s_window[from++];
+                            } while (--op);
+                            from = _out - dist;
+                            from_source = output;
+                          }
+                        } else if (wnext < op) {
+                          from += wsize + wnext - op;
+                          op -= wnext;
+                          if (op < len) {
+                            len -= op;
+                            do {
+                              output[_out++] = s_window[from++];
+                            } while (--op);
+                            from = 0;
+                            if (wnext < len) {
+                              op = wnext;
+                              len -= op;
+                              do {
+                                output[_out++] = s_window[from++];
+                              } while (--op);
+                              from = _out - dist;
+                              from_source = output;
+                            }
+                          }
+                        } else {
+                          from += wnext - op;
+                          if (op < len) {
+                            len -= op;
+                            do {
+                              output[_out++] = s_window[from++];
+                            } while (--op);
+                            from = _out - dist;
+                            from_source = output;
+                          }
+                        }
+                        while (len > 2) {
+                          output[_out++] = from_source[from++];
+                          output[_out++] = from_source[from++];
+                          output[_out++] = from_source[from++];
+                          len -= 3;
+                        }
+                        if (len) {
+                          output[_out++] = from_source[from++];
+                          if (len > 1) {
+                            output[_out++] = from_source[from++];
+                          }
+                        }
+                      } else {
+                        from = _out - dist;
+                        do {
+                          output[_out++] = output[from++];
+                          output[_out++] = output[from++];
+                          output[_out++] = output[from++];
+                          len -= 3;
+                        } while (len > 2);
+                        if (len) {
+                          output[_out++] = output[from++];
+                          if (len > 1) {
+                            output[_out++] = output[from++];
+                          }
+                        }
+                      }
+                    } else if ((op & 64) === 0) {
+                      here = dcode[(here & 65535) + (hold & (1 << op) - 1)];
+                      continue dodist;
+                    } else {
+                      strm.msg = "invalid distance code";
+                      state.mode = BAD$1;
+                      break top;
+                    }
+                    break;
+                  }
+              } else if ((op & 64) === 0) {
+                here = lcode[(here & 65535) + (hold & (1 << op) - 1)];
+                continue dolen;
+              } else if (op & 32) {
+                state.mode = TYPE$1;
+                break top;
+              } else {
+                strm.msg = "invalid literal/length code";
+                state.mode = BAD$1;
+                break top;
+              }
+              break;
+            }
+        } while (_in < last && _out < end2);
+      len = bits >> 3;
+      _in -= len;
+      bits -= len << 3;
+      hold &= (1 << bits) - 1;
+      strm.next_in = _in;
+      strm.next_out = _out;
+      strm.avail_in = _in < last ? 5 + (last - _in) : 5 - (_in - last);
+      strm.avail_out = _out < end2 ? 257 + (end2 - _out) : 257 - (_out - end2);
+      state.hold = hold;
+      state.bits = bits;
+      return;
+    };
+    MAXBITS = 15;
+    ENOUGH_LENS$1 = 852;
+    ENOUGH_DISTS$1 = 592;
+    CODES$1 = 0;
+    LENS$1 = 1;
+    DISTS$1 = 2;
+    lbase = new Uint16Array([
+      /* Length codes 257..285 base */
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      13,
+      15,
+      17,
+      19,
+      23,
+      27,
+      31,
+      35,
+      43,
+      51,
+      59,
+      67,
+      83,
+      99,
+      115,
+      131,
+      163,
+      195,
+      227,
+      258,
+      0,
+      0
+    ]);
+    lext = new Uint8Array([
+      /* Length codes 257..285 extra */
+      16,
+      16,
+      16,
+      16,
+      16,
+      16,
+      16,
+      16,
+      17,
+      17,
+      17,
+      17,
+      18,
+      18,
+      18,
+      18,
+      19,
+      19,
+      19,
+      19,
+      20,
+      20,
+      20,
+      20,
+      21,
+      21,
+      21,
+      21,
+      16,
+      72,
+      78
+    ]);
+    dbase = new Uint16Array([
+      /* Distance codes 0..29 base */
+      1,
+      2,
+      3,
+      4,
+      5,
+      7,
+      9,
+      13,
+      17,
+      25,
+      33,
+      49,
+      65,
+      97,
+      129,
+      193,
+      257,
+      385,
+      513,
+      769,
+      1025,
+      1537,
+      2049,
+      3073,
+      4097,
+      6145,
+      8193,
+      12289,
+      16385,
+      24577,
+      0,
+      0
+    ]);
+    dext = new Uint8Array([
+      /* Distance codes 0..29 extra */
+      16,
+      16,
+      16,
+      16,
+      17,
+      17,
+      18,
+      18,
+      19,
+      19,
+      20,
+      20,
+      21,
+      21,
+      22,
+      22,
+      23,
+      23,
+      24,
+      24,
+      25,
+      25,
+      26,
+      26,
+      27,
+      27,
+      28,
+      28,
+      29,
+      29,
+      64,
+      64
+    ]);
+    inflate_table = (type, lens, lens_index, codes, table, table_index, work, opts) => {
+      const bits = opts.bits;
+      let len = 0;
+      let sym = 0;
+      let min = 0, max = 0;
+      let root = 0;
+      let curr = 0;
+      let drop = 0;
+      let left = 0;
+      let used = 0;
+      let huff = 0;
+      let incr;
+      let fill;
+      let low;
+      let mask;
+      let next;
+      let base = null;
+      let match;
+      const count = new Uint16Array(MAXBITS + 1);
+      const offs = new Uint16Array(MAXBITS + 1);
+      let extra = null;
+      let here_bits, here_op, here_val;
+      for (len = 0; len <= MAXBITS; len++) {
+        count[len] = 0;
+      }
+      for (sym = 0; sym < codes; sym++) {
+        count[lens[lens_index + sym]]++;
+      }
+      root = bits;
+      for (max = MAXBITS; max >= 1; max--) {
+        if (count[max] !== 0) {
+          break;
+        }
+      }
+      if (root > max) {
+        root = max;
+      }
+      if (max === 0) {
+        table[table_index++] = 1 << 24 | 64 << 16 | 0;
+        table[table_index++] = 1 << 24 | 64 << 16 | 0;
+        opts.bits = 1;
+        return 0;
+      }
+      for (min = 1; min < max; min++) {
+        if (count[min] !== 0) {
+          break;
+        }
+      }
+      if (root < min) {
+        root = min;
+      }
+      left = 1;
+      for (len = 1; len <= MAXBITS; len++) {
+        left <<= 1;
+        left -= count[len];
+        if (left < 0) {
+          return -1;
+        }
+      }
+      if (left > 0 && (type === CODES$1 || max !== 1)) {
+        return -1;
+      }
+      offs[1] = 0;
+      for (len = 1; len < MAXBITS; len++) {
+        offs[len + 1] = offs[len] + count[len];
+      }
+      for (sym = 0; sym < codes; sym++) {
+        if (lens[lens_index + sym] !== 0) {
+          work[offs[lens[lens_index + sym]]++] = sym;
+        }
+      }
+      if (type === CODES$1) {
+        base = extra = work;
+        match = 20;
+      } else if (type === LENS$1) {
+        base = lbase;
+        extra = lext;
+        match = 257;
+      } else {
+        base = dbase;
+        extra = dext;
+        match = 0;
+      }
+      huff = 0;
+      sym = 0;
+      len = min;
+      next = table_index;
+      curr = root;
+      drop = 0;
+      low = -1;
+      used = 1 << root;
+      mask = used - 1;
+      if (type === LENS$1 && used > ENOUGH_LENS$1 || type === DISTS$1 && used > ENOUGH_DISTS$1) {
+        return 1;
+      }
+      for (; ; ) {
+        here_bits = len - drop;
+        if (work[sym] + 1 < match) {
+          here_op = 0;
+          here_val = work[sym];
+        } else if (work[sym] >= match) {
+          here_op = extra[work[sym] - match];
+          here_val = base[work[sym] - match];
+        } else {
+          here_op = 32 + 64;
+          here_val = 0;
+        }
+        incr = 1 << len - drop;
+        fill = 1 << curr;
+        min = fill;
+        do {
+          fill -= incr;
+          table[next + (huff >> drop) + fill] = here_bits << 24 | here_op << 16 | here_val | 0;
+        } while (fill !== 0);
+        incr = 1 << len - 1;
+        while (huff & incr) {
+          incr >>= 1;
+        }
+        if (incr !== 0) {
+          huff &= incr - 1;
+          huff += incr;
+        } else {
+          huff = 0;
+        }
+        sym++;
+        if (--count[len] === 0) {
+          if (len === max) {
+            break;
+          }
+          len = lens[lens_index + work[sym]];
+        }
+        if (len > root && (huff & mask) !== low) {
+          if (drop === 0) {
+            drop = root;
+          }
+          next += min;
+          curr = len - drop;
+          left = 1 << curr;
+          while (curr + drop < max) {
+            left -= count[curr + drop];
+            if (left <= 0) {
+              break;
+            }
+            curr++;
+            left <<= 1;
+          }
+          used += 1 << curr;
+          if (type === LENS$1 && used > ENOUGH_LENS$1 || type === DISTS$1 && used > ENOUGH_DISTS$1) {
+            return 1;
+          }
+          low = huff & mask;
+          table[low] = root << 24 | curr << 16 | next - table_index | 0;
+        }
+      }
+      if (huff !== 0) {
+        table[next + huff] = len - drop << 24 | 64 << 16 | 0;
+      }
+      opts.bits = root;
+      return 0;
+    };
+    inftrees = inflate_table;
+    CODES = 0;
+    LENS = 1;
+    DISTS = 2;
+    ({
+      Z_FINISH: Z_FINISH$1,
+      Z_BLOCK,
+      Z_TREES,
+      Z_OK: Z_OK$1,
+      Z_STREAM_END: Z_STREAM_END$1,
+      Z_NEED_DICT: Z_NEED_DICT$1,
+      Z_STREAM_ERROR: Z_STREAM_ERROR$1,
+      Z_DATA_ERROR: Z_DATA_ERROR$1,
+      Z_MEM_ERROR: Z_MEM_ERROR$1,
+      Z_BUF_ERROR,
+      Z_DEFLATED
+    } = constants$2);
+    HEAD = 16180;
+    FLAGS = 16181;
+    TIME = 16182;
+    OS = 16183;
+    EXLEN = 16184;
+    EXTRA = 16185;
+    NAME = 16186;
+    COMMENT = 16187;
+    HCRC = 16188;
+    DICTID = 16189;
+    DICT = 16190;
+    TYPE = 16191;
+    TYPEDO = 16192;
+    STORED = 16193;
+    COPY_ = 16194;
+    COPY = 16195;
+    TABLE = 16196;
+    LENLENS = 16197;
+    CODELENS = 16198;
+    LEN_ = 16199;
+    LEN = 16200;
+    LENEXT = 16201;
+    DIST = 16202;
+    DISTEXT = 16203;
+    MATCH = 16204;
+    LIT = 16205;
+    CHECK = 16206;
+    LENGTH = 16207;
+    DONE = 16208;
+    BAD = 16209;
+    MEM = 16210;
+    SYNC = 16211;
+    ENOUGH_LENS = 852;
+    ENOUGH_DISTS = 592;
+    MAX_WBITS = 15;
+    DEF_WBITS = MAX_WBITS;
+    zswap32 = (q) => {
+      return (q >>> 24 & 255) + (q >>> 8 & 65280) + ((q & 65280) << 8) + ((q & 255) << 24);
+    };
+    inflateStateCheck = (strm) => {
+      if (!strm) {
+        return 1;
+      }
+      const state = strm.state;
+      if (!state || state.strm !== strm || state.mode < HEAD || state.mode > SYNC) {
+        return 1;
+      }
+      return 0;
+    };
+    inflateResetKeep = (strm) => {
+      if (inflateStateCheck(strm)) {
+        return Z_STREAM_ERROR$1;
+      }
+      const state = strm.state;
+      strm.total_in = strm.total_out = state.total = 0;
+      strm.msg = "";
+      if (state.wrap) {
+        strm.adler = state.wrap & 1;
+      }
+      state.mode = HEAD;
+      state.last = 0;
+      state.havedict = 0;
+      state.flags = -1;
+      state.dmax = 32768;
+      state.head = null;
+      state.hold = 0;
+      state.bits = 0;
+      state.lencode = state.lendyn = new Int32Array(ENOUGH_LENS);
+      state.distcode = state.distdyn = new Int32Array(ENOUGH_DISTS);
+      state.sane = 1;
+      state.back = -1;
+      return Z_OK$1;
+    };
+    inflateReset = (strm) => {
+      if (inflateStateCheck(strm)) {
+        return Z_STREAM_ERROR$1;
+      }
+      const state = strm.state;
+      state.wsize = 0;
+      state.whave = 0;
+      state.wnext = 0;
+      return inflateResetKeep(strm);
+    };
+    inflateReset2 = (strm, windowBits) => {
+      let wrap;
+      if (inflateStateCheck(strm)) {
+        return Z_STREAM_ERROR$1;
+      }
+      const state = strm.state;
+      if (windowBits < 0) {
+        wrap = 0;
+        windowBits = -windowBits;
+      } else {
+        wrap = (windowBits >> 4) + 5;
+        if (windowBits < 48) {
+          windowBits &= 15;
+        }
+      }
+      if (windowBits && (windowBits < 8 || windowBits > 15)) {
+        return Z_STREAM_ERROR$1;
+      }
+      if (state.window !== null && state.wbits !== windowBits) {
+        state.window = null;
+      }
+      state.wrap = wrap;
+      state.wbits = windowBits;
+      return inflateReset(strm);
+    };
+    inflateInit2 = (strm, windowBits) => {
+      if (!strm) {
+        return Z_STREAM_ERROR$1;
+      }
+      const state = new InflateState();
+      strm.state = state;
+      state.strm = strm;
+      state.window = null;
+      state.mode = HEAD;
+      const ret = inflateReset2(strm, windowBits);
+      if (ret !== Z_OK$1) {
+        strm.state = null;
+      }
+      return ret;
+    };
+    inflateInit = (strm) => {
+      return inflateInit2(strm, DEF_WBITS);
+    };
+    virgin = true;
+    fixedtables = (state) => {
+      if (virgin) {
+        lenfix = new Int32Array(512);
+        distfix = new Int32Array(32);
+        let sym = 0;
+        while (sym < 144) {
+          state.lens[sym++] = 8;
+        }
+        while (sym < 256) {
+          state.lens[sym++] = 9;
+        }
+        while (sym < 280) {
+          state.lens[sym++] = 7;
+        }
+        while (sym < 288) {
+          state.lens[sym++] = 8;
+        }
+        inftrees(LENS, state.lens, 0, 288, lenfix, 0, state.work, { bits: 9 });
+        sym = 0;
+        while (sym < 32) {
+          state.lens[sym++] = 5;
+        }
+        inftrees(DISTS, state.lens, 0, 32, distfix, 0, state.work, { bits: 5 });
+        virgin = false;
+      }
+      state.lencode = lenfix;
+      state.lenbits = 9;
+      state.distcode = distfix;
+      state.distbits = 5;
+    };
+    updatewindow = (strm, src, end2, copy) => {
+      let dist;
+      const state = strm.state;
+      if (state.window === null) {
+        state.wsize = 1 << state.wbits;
+        state.wnext = 0;
+        state.whave = 0;
+        state.window = new Uint8Array(state.wsize);
+      }
+      if (copy >= state.wsize) {
+        state.window.set(src.subarray(end2 - state.wsize, end2), 0);
+        state.wnext = 0;
+        state.whave = state.wsize;
+      } else {
+        dist = state.wsize - state.wnext;
+        if (dist > copy) {
+          dist = copy;
+        }
+        state.window.set(src.subarray(end2 - copy, end2 - copy + dist), state.wnext);
+        copy -= dist;
+        if (copy) {
+          state.window.set(src.subarray(end2 - copy, end2), 0);
+          state.wnext = copy;
+          state.whave = state.wsize;
+        } else {
+          state.wnext += dist;
+          if (state.wnext === state.wsize) {
+            state.wnext = 0;
+          }
+          if (state.whave < state.wsize) {
+            state.whave += dist;
+          }
+        }
+      }
+      return 0;
+    };
+    inflate$2 = (strm, flush) => {
+      let state;
+      let input, output;
+      let next;
+      let put;
+      let have, left;
+      let hold;
+      let bits;
+      let _in, _out;
+      let copy;
+      let from;
+      let from_source;
+      let here = 0;
+      let here_bits, here_op, here_val;
+      let last_bits, last_op, last_val;
+      let len;
+      let ret;
+      const hbuf = new Uint8Array(4);
+      let opts;
+      let n;
+      const order = (
+        /* permutation of code lengths */
+        new Uint8Array([16, 17, 18, 0, 8, 7, 9, 6, 10, 5, 11, 4, 12, 3, 13, 2, 14, 1, 15])
+      );
+      if (inflateStateCheck(strm) || !strm.output || !strm.input && strm.avail_in !== 0) {
+        return Z_STREAM_ERROR$1;
+      }
+      state = strm.state;
+      if (state.mode === TYPE) {
+        state.mode = TYPEDO;
+      }
+      put = strm.next_out;
+      output = strm.output;
+      left = strm.avail_out;
+      next = strm.next_in;
+      input = strm.input;
+      have = strm.avail_in;
+      hold = state.hold;
+      bits = state.bits;
+      _in = have;
+      _out = left;
+      ret = Z_OK$1;
+      inf_leave:
+        for (; ; ) {
+          switch (state.mode) {
+            case HEAD:
+              if (state.wrap === 0) {
+                state.mode = TYPEDO;
+                break;
+              }
+              while (bits < 16) {
+                if (have === 0) {
+                  break inf_leave;
+                }
+                have--;
+                hold += input[next++] << bits;
+                bits += 8;
+              }
+              if (state.wrap & 2 && hold === 35615) {
+                if (state.wbits === 0) {
+                  state.wbits = 15;
+                }
+                state.check = 0;
+                hbuf[0] = hold & 255;
+                hbuf[1] = hold >>> 8 & 255;
+                state.check = crc32_1(state.check, hbuf, 2, 0);
+                hold = 0;
+                bits = 0;
+                state.mode = FLAGS;
+                break;
+              }
+              if (state.head) {
+                state.head.done = false;
+              }
+              if (!(state.wrap & 1) || /* check if zlib header allowed */
+              (((hold & 255) << 8) + (hold >> 8)) % 31) {
+                strm.msg = "incorrect header check";
+                state.mode = BAD;
+                break;
+              }
+              if ((hold & 15) !== Z_DEFLATED) {
+                strm.msg = "unknown compression method";
+                state.mode = BAD;
+                break;
+              }
+              hold >>>= 4;
+              bits -= 4;
+              len = (hold & 15) + 8;
+              if (state.wbits === 0) {
+                state.wbits = len;
+              }
+              if (len > 15 || len > state.wbits) {
+                strm.msg = "invalid window size";
+                state.mode = BAD;
+                break;
+              }
+              state.dmax = 1 << state.wbits;
+              state.flags = 0;
+              strm.adler = state.check = 1;
+              state.mode = hold & 512 ? DICTID : TYPE;
+              hold = 0;
+              bits = 0;
+              break;
+            case FLAGS:
+              while (bits < 16) {
+                if (have === 0) {
+                  break inf_leave;
+                }
+                have--;
+                hold += input[next++] << bits;
+                bits += 8;
+              }
+              state.flags = hold;
+              if ((state.flags & 255) !== Z_DEFLATED) {
+                strm.msg = "unknown compression method";
+                state.mode = BAD;
+                break;
+              }
+              if (state.flags & 57344) {
+                strm.msg = "unknown header flags set";
+                state.mode = BAD;
+                break;
+              }
+              if (state.head) {
+                state.head.text = hold >> 8 & 1;
+              }
+              if (state.flags & 512 && state.wrap & 4) {
+                hbuf[0] = hold & 255;
+                hbuf[1] = hold >>> 8 & 255;
+                state.check = crc32_1(state.check, hbuf, 2, 0);
+              }
+              hold = 0;
+              bits = 0;
+              state.mode = TIME;
+            /* falls through */
+            case TIME:
+              while (bits < 32) {
+                if (have === 0) {
+                  break inf_leave;
+                }
+                have--;
+                hold += input[next++] << bits;
+                bits += 8;
+              }
+              if (state.head) {
+                state.head.time = hold;
+              }
+              if (state.flags & 512 && state.wrap & 4) {
+                hbuf[0] = hold & 255;
+                hbuf[1] = hold >>> 8 & 255;
+                hbuf[2] = hold >>> 16 & 255;
+                hbuf[3] = hold >>> 24 & 255;
+                state.check = crc32_1(state.check, hbuf, 4, 0);
+              }
+              hold = 0;
+              bits = 0;
+              state.mode = OS;
+            /* falls through */
+            case OS:
+              while (bits < 16) {
+                if (have === 0) {
+                  break inf_leave;
+                }
+                have--;
+                hold += input[next++] << bits;
+                bits += 8;
+              }
+              if (state.head) {
+                state.head.xflags = hold & 255;
+                state.head.os = hold >> 8;
+              }
+              if (state.flags & 512 && state.wrap & 4) {
+                hbuf[0] = hold & 255;
+                hbuf[1] = hold >>> 8 & 255;
+                state.check = crc32_1(state.check, hbuf, 2, 0);
+              }
+              hold = 0;
+              bits = 0;
+              state.mode = EXLEN;
+            /* falls through */
+            case EXLEN:
+              if (state.flags & 1024) {
+                while (bits < 16) {
+                  if (have === 0) {
+                    break inf_leave;
+                  }
+                  have--;
+                  hold += input[next++] << bits;
+                  bits += 8;
+                }
+                state.length = hold;
+                if (state.head) {
+                  state.head.extra_len = hold;
+                }
+                if (state.flags & 512 && state.wrap & 4) {
+                  hbuf[0] = hold & 255;
+                  hbuf[1] = hold >>> 8 & 255;
+                  state.check = crc32_1(state.check, hbuf, 2, 0);
+                }
+                hold = 0;
+                bits = 0;
+              } else if (state.head) {
+                state.head.extra = null;
+              }
+              state.mode = EXTRA;
+            /* falls through */
+            case EXTRA:
+              if (state.flags & 1024) {
+                copy = state.length;
+                if (copy > have) {
+                  copy = have;
+                }
+                if (copy) {
+                  if (state.head) {
+                    len = state.head.extra_len - state.length;
+                    if (!state.head.extra) {
+                      state.head.extra = new Uint8Array(state.head.extra_len);
+                    }
+                    state.head.extra.set(
+                      input.subarray(
+                        next,
+                        // extra field is limited to 65536 bytes
+                        // - no need for additional size check
+                        next + copy
+                      ),
+                      /*len + copy > state.head.extra_max - len ? state.head.extra_max : copy,*/
+                      len
+                    );
+                  }
+                  if (state.flags & 512 && state.wrap & 4) {
+                    state.check = crc32_1(state.check, input, copy, next);
+                  }
+                  have -= copy;
+                  next += copy;
+                  state.length -= copy;
+                }
+                if (state.length) {
+                  break inf_leave;
+                }
+              }
+              state.length = 0;
+              state.mode = NAME;
+            /* falls through */
+            case NAME:
+              if (state.flags & 2048) {
+                if (have === 0) {
+                  break inf_leave;
+                }
+                copy = 0;
+                do {
+                  len = input[next + copy++];
+                  if (state.head && len && state.length < 65536) {
+                    state.head.name += String.fromCharCode(len);
+                  }
+                } while (len && copy < have);
+                if (state.flags & 512 && state.wrap & 4) {
+                  state.check = crc32_1(state.check, input, copy, next);
+                }
+                have -= copy;
+                next += copy;
+                if (len) {
+                  break inf_leave;
+                }
+              } else if (state.head) {
+                state.head.name = null;
+              }
+              state.length = 0;
+              state.mode = COMMENT;
+            /* falls through */
+            case COMMENT:
+              if (state.flags & 4096) {
+                if (have === 0) {
+                  break inf_leave;
+                }
+                copy = 0;
+                do {
+                  len = input[next + copy++];
+                  if (state.head && len && state.length < 65536) {
+                    state.head.comment += String.fromCharCode(len);
+                  }
+                } while (len && copy < have);
+                if (state.flags & 512 && state.wrap & 4) {
+                  state.check = crc32_1(state.check, input, copy, next);
+                }
+                have -= copy;
+                next += copy;
+                if (len) {
+                  break inf_leave;
+                }
+              } else if (state.head) {
+                state.head.comment = null;
+              }
+              state.mode = HCRC;
+            /* falls through */
+            case HCRC:
+              if (state.flags & 512) {
+                while (bits < 16) {
+                  if (have === 0) {
+                    break inf_leave;
+                  }
+                  have--;
+                  hold += input[next++] << bits;
+                  bits += 8;
+                }
+                if (state.wrap & 4 && hold !== (state.check & 65535)) {
+                  strm.msg = "header crc mismatch";
+                  state.mode = BAD;
+                  break;
+                }
+                hold = 0;
+                bits = 0;
+              }
+              if (state.head) {
+                state.head.hcrc = state.flags >> 9 & 1;
+                state.head.done = true;
+              }
+              strm.adler = state.check = 0;
+              state.mode = TYPE;
+              break;
+            case DICTID:
+              while (bits < 32) {
+                if (have === 0) {
+                  break inf_leave;
+                }
+                have--;
+                hold += input[next++] << bits;
+                bits += 8;
+              }
+              strm.adler = state.check = zswap32(hold);
+              hold = 0;
+              bits = 0;
+              state.mode = DICT;
+            /* falls through */
+            case DICT:
+              if (state.havedict === 0) {
+                strm.next_out = put;
+                strm.avail_out = left;
+                strm.next_in = next;
+                strm.avail_in = have;
+                state.hold = hold;
+                state.bits = bits;
+                return Z_NEED_DICT$1;
+              }
+              strm.adler = state.check = 1;
+              state.mode = TYPE;
+            /* falls through */
+            case TYPE:
+              if (flush === Z_BLOCK || flush === Z_TREES) {
+                break inf_leave;
+              }
+            /* falls through */
+            case TYPEDO:
+              if (state.last) {
+                hold >>>= bits & 7;
+                bits -= bits & 7;
+                state.mode = CHECK;
+                break;
+              }
+              while (bits < 3) {
+                if (have === 0) {
+                  break inf_leave;
+                }
+                have--;
+                hold += input[next++] << bits;
+                bits += 8;
+              }
+              state.last = hold & 1;
+              hold >>>= 1;
+              bits -= 1;
+              switch (hold & 3) {
+                case 0:
+                  state.mode = STORED;
+                  break;
+                case 1:
+                  fixedtables(state);
+                  state.mode = LEN_;
+                  if (flush === Z_TREES) {
+                    hold >>>= 2;
+                    bits -= 2;
+                    break inf_leave;
+                  }
+                  break;
+                case 2:
+                  state.mode = TABLE;
+                  break;
+                case 3:
+                  strm.msg = "invalid block type";
+                  state.mode = BAD;
+              }
+              hold >>>= 2;
+              bits -= 2;
+              break;
+            case STORED:
+              hold >>>= bits & 7;
+              bits -= bits & 7;
+              while (bits < 32) {
+                if (have === 0) {
+                  break inf_leave;
+                }
+                have--;
+                hold += input[next++] << bits;
+                bits += 8;
+              }
+              if ((hold & 65535) !== (hold >>> 16 ^ 65535)) {
+                strm.msg = "invalid stored block lengths";
+                state.mode = BAD;
+                break;
+              }
+              state.length = hold & 65535;
+              hold = 0;
+              bits = 0;
+              state.mode = COPY_;
+              if (flush === Z_TREES) {
+                break inf_leave;
+              }
+            /* falls through */
+            case COPY_:
+              state.mode = COPY;
+            /* falls through */
+            case COPY:
+              copy = state.length;
+              if (copy) {
+                if (copy > have) {
+                  copy = have;
+                }
+                if (copy > left) {
+                  copy = left;
+                }
+                if (copy === 0) {
+                  break inf_leave;
+                }
+                output.set(input.subarray(next, next + copy), put);
+                have -= copy;
+                next += copy;
+                left -= copy;
+                put += copy;
+                state.length -= copy;
+                break;
+              }
+              state.mode = TYPE;
+              break;
+            case TABLE:
+              while (bits < 14) {
+                if (have === 0) {
+                  break inf_leave;
+                }
+                have--;
+                hold += input[next++] << bits;
+                bits += 8;
+              }
+              state.nlen = (hold & 31) + 257;
+              hold >>>= 5;
+              bits -= 5;
+              state.ndist = (hold & 31) + 1;
+              hold >>>= 5;
+              bits -= 5;
+              state.ncode = (hold & 15) + 4;
+              hold >>>= 4;
+              bits -= 4;
+              if (state.nlen > 286 || state.ndist > 30) {
+                strm.msg = "too many length or distance symbols";
+                state.mode = BAD;
+                break;
+              }
+              state.have = 0;
+              state.mode = LENLENS;
+            /* falls through */
+            case LENLENS:
+              while (state.have < state.ncode) {
+                while (bits < 3) {
+                  if (have === 0) {
+                    break inf_leave;
+                  }
+                  have--;
+                  hold += input[next++] << bits;
+                  bits += 8;
+                }
+                state.lens[order[state.have++]] = hold & 7;
+                hold >>>= 3;
+                bits -= 3;
+              }
+              while (state.have < 19) {
+                state.lens[order[state.have++]] = 0;
+              }
+              state.lencode = state.lendyn;
+              state.lenbits = 7;
+              opts = { bits: state.lenbits };
+              ret = inftrees(CODES, state.lens, 0, 19, state.lencode, 0, state.work, opts);
+              state.lenbits = opts.bits;
+              if (ret) {
+                strm.msg = "invalid code lengths set";
+                state.mode = BAD;
+                break;
+              }
+              state.have = 0;
+              state.mode = CODELENS;
+            /* falls through */
+            case CODELENS:
+              while (state.have < state.nlen + state.ndist) {
+                for (; ; ) {
+                  here = state.lencode[hold & (1 << state.lenbits) - 1];
+                  here_bits = here >>> 24;
+                  here_op = here >>> 16 & 255;
+                  here_val = here & 65535;
+                  if (here_bits <= bits) {
+                    break;
+                  }
+                  if (have === 0) {
+                    break inf_leave;
+                  }
+                  have--;
+                  hold += input[next++] << bits;
+                  bits += 8;
+                }
+                if (here_val < 16) {
+                  hold >>>= here_bits;
+                  bits -= here_bits;
+                  state.lens[state.have++] = here_val;
+                } else {
+                  if (here_val === 16) {
+                    n = here_bits + 2;
+                    while (bits < n) {
+                      if (have === 0) {
+                        break inf_leave;
+                      }
+                      have--;
+                      hold += input[next++] << bits;
+                      bits += 8;
+                    }
+                    hold >>>= here_bits;
+                    bits -= here_bits;
+                    if (state.have === 0) {
+                      strm.msg = "invalid bit length repeat";
+                      state.mode = BAD;
+                      break;
+                    }
+                    len = state.lens[state.have - 1];
+                    copy = 3 + (hold & 3);
+                    hold >>>= 2;
+                    bits -= 2;
+                  } else if (here_val === 17) {
+                    n = here_bits + 3;
+                    while (bits < n) {
+                      if (have === 0) {
+                        break inf_leave;
+                      }
+                      have--;
+                      hold += input[next++] << bits;
+                      bits += 8;
+                    }
+                    hold >>>= here_bits;
+                    bits -= here_bits;
+                    len = 0;
+                    copy = 3 + (hold & 7);
+                    hold >>>= 3;
+                    bits -= 3;
+                  } else {
+                    n = here_bits + 7;
+                    while (bits < n) {
+                      if (have === 0) {
+                        break inf_leave;
+                      }
+                      have--;
+                      hold += input[next++] << bits;
+                      bits += 8;
+                    }
+                    hold >>>= here_bits;
+                    bits -= here_bits;
+                    len = 0;
+                    copy = 11 + (hold & 127);
+                    hold >>>= 7;
+                    bits -= 7;
+                  }
+                  if (state.have + copy > state.nlen + state.ndist) {
+                    strm.msg = "invalid bit length repeat";
+                    state.mode = BAD;
+                    break;
+                  }
+                  while (copy--) {
+                    state.lens[state.have++] = len;
+                  }
+                }
+              }
+              if (state.mode === BAD) {
+                break;
+              }
+              if (state.lens[256] === 0) {
+                strm.msg = "invalid code -- missing end-of-block";
+                state.mode = BAD;
+                break;
+              }
+              state.lenbits = 9;
+              opts = { bits: state.lenbits };
+              ret = inftrees(LENS, state.lens, 0, state.nlen, state.lencode, 0, state.work, opts);
+              state.lenbits = opts.bits;
+              if (ret) {
+                strm.msg = "invalid literal/lengths set";
+                state.mode = BAD;
+                break;
+              }
+              state.distbits = 6;
+              state.distcode = state.distdyn;
+              opts = { bits: state.distbits };
+              ret = inftrees(DISTS, state.lens, state.nlen, state.ndist, state.distcode, 0, state.work, opts);
+              state.distbits = opts.bits;
+              if (ret) {
+                strm.msg = "invalid distances set";
+                state.mode = BAD;
+                break;
+              }
+              state.mode = LEN_;
+              if (flush === Z_TREES) {
+                break inf_leave;
+              }
+            /* falls through */
+            case LEN_:
+              state.mode = LEN;
+            /* falls through */
+            case LEN:
+              if (have >= 6 && left >= 258) {
+                strm.next_out = put;
+                strm.avail_out = left;
+                strm.next_in = next;
+                strm.avail_in = have;
+                state.hold = hold;
+                state.bits = bits;
+                inffast(strm, _out);
+                put = strm.next_out;
+                output = strm.output;
+                left = strm.avail_out;
+                next = strm.next_in;
+                input = strm.input;
+                have = strm.avail_in;
+                hold = state.hold;
+                bits = state.bits;
+                if (state.mode === TYPE) {
+                  state.back = -1;
+                }
+                break;
+              }
+              state.back = 0;
+              for (; ; ) {
+                here = state.lencode[hold & (1 << state.lenbits) - 1];
+                here_bits = here >>> 24;
+                here_op = here >>> 16 & 255;
+                here_val = here & 65535;
+                if (here_bits <= bits) {
+                  break;
+                }
+                if (have === 0) {
+                  break inf_leave;
+                }
+                have--;
+                hold += input[next++] << bits;
+                bits += 8;
+              }
+              if (here_op && (here_op & 240) === 0) {
+                last_bits = here_bits;
+                last_op = here_op;
+                last_val = here_val;
+                for (; ; ) {
+                  here = state.lencode[last_val + ((hold & (1 << last_bits + last_op) - 1) >> last_bits)];
+                  here_bits = here >>> 24;
+                  here_op = here >>> 16 & 255;
+                  here_val = here & 65535;
+                  if (last_bits + here_bits <= bits) {
+                    break;
+                  }
+                  if (have === 0) {
+                    break inf_leave;
+                  }
+                  have--;
+                  hold += input[next++] << bits;
+                  bits += 8;
+                }
+                hold >>>= last_bits;
+                bits -= last_bits;
+                state.back += last_bits;
+              }
+              hold >>>= here_bits;
+              bits -= here_bits;
+              state.back += here_bits;
+              state.length = here_val;
+              if (here_op === 0) {
+                state.mode = LIT;
+                break;
+              }
+              if (here_op & 32) {
+                state.back = -1;
+                state.mode = TYPE;
+                break;
+              }
+              if (here_op & 64) {
+                strm.msg = "invalid literal/length code";
+                state.mode = BAD;
+                break;
+              }
+              state.extra = here_op & 15;
+              state.mode = LENEXT;
+            /* falls through */
+            case LENEXT:
+              if (state.extra) {
+                n = state.extra;
+                while (bits < n) {
+                  if (have === 0) {
+                    break inf_leave;
+                  }
+                  have--;
+                  hold += input[next++] << bits;
+                  bits += 8;
+                }
+                state.length += hold & (1 << state.extra) - 1;
+                hold >>>= state.extra;
+                bits -= state.extra;
+                state.back += state.extra;
+              }
+              state.was = state.length;
+              state.mode = DIST;
+            /* falls through */
+            case DIST:
+              for (; ; ) {
+                here = state.distcode[hold & (1 << state.distbits) - 1];
+                here_bits = here >>> 24;
+                here_op = here >>> 16 & 255;
+                here_val = here & 65535;
+                if (here_bits <= bits) {
+                  break;
+                }
+                if (have === 0) {
+                  break inf_leave;
+                }
+                have--;
+                hold += input[next++] << bits;
+                bits += 8;
+              }
+              if ((here_op & 240) === 0) {
+                last_bits = here_bits;
+                last_op = here_op;
+                last_val = here_val;
+                for (; ; ) {
+                  here = state.distcode[last_val + ((hold & (1 << last_bits + last_op) - 1) >> last_bits)];
+                  here_bits = here >>> 24;
+                  here_op = here >>> 16 & 255;
+                  here_val = here & 65535;
+                  if (last_bits + here_bits <= bits) {
+                    break;
+                  }
+                  if (have === 0) {
+                    break inf_leave;
+                  }
+                  have--;
+                  hold += input[next++] << bits;
+                  bits += 8;
+                }
+                hold >>>= last_bits;
+                bits -= last_bits;
+                state.back += last_bits;
+              }
+              hold >>>= here_bits;
+              bits -= here_bits;
+              state.back += here_bits;
+              if (here_op & 64) {
+                strm.msg = "invalid distance code";
+                state.mode = BAD;
+                break;
+              }
+              state.offset = here_val;
+              state.extra = here_op & 15;
+              state.mode = DISTEXT;
+            /* falls through */
+            case DISTEXT:
+              if (state.extra) {
+                n = state.extra;
+                while (bits < n) {
+                  if (have === 0) {
+                    break inf_leave;
+                  }
+                  have--;
+                  hold += input[next++] << bits;
+                  bits += 8;
+                }
+                state.offset += hold & (1 << state.extra) - 1;
+                hold >>>= state.extra;
+                bits -= state.extra;
+                state.back += state.extra;
+              }
+              if (state.offset > state.dmax) {
+                strm.msg = "invalid distance too far back";
+                state.mode = BAD;
+                break;
+              }
+              state.mode = MATCH;
+            /* falls through */
+            case MATCH:
+              if (left === 0) {
+                break inf_leave;
+              }
+              copy = _out - left;
+              if (state.offset > copy) {
+                copy = state.offset - copy;
+                if (copy > state.whave) {
+                  if (state.sane) {
+                    strm.msg = "invalid distance too far back";
+                    state.mode = BAD;
+                    break;
+                  }
+                }
+                if (copy > state.wnext) {
+                  copy -= state.wnext;
+                  from = state.wsize - copy;
+                } else {
+                  from = state.wnext - copy;
+                }
+                if (copy > state.length) {
+                  copy = state.length;
+                }
+                from_source = state.window;
+              } else {
+                from_source = output;
+                from = put - state.offset;
+                copy = state.length;
+              }
+              if (copy > left) {
+                copy = left;
+              }
+              left -= copy;
+              state.length -= copy;
+              do {
+                output[put++] = from_source[from++];
+              } while (--copy);
+              if (state.length === 0) {
+                state.mode = LEN;
+              }
+              break;
+            case LIT:
+              if (left === 0) {
+                break inf_leave;
+              }
+              output[put++] = state.length;
+              left--;
+              state.mode = LEN;
+              break;
+            case CHECK:
+              if (state.wrap) {
+                while (bits < 32) {
+                  if (have === 0) {
+                    break inf_leave;
+                  }
+                  have--;
+                  hold |= input[next++] << bits;
+                  bits += 8;
+                }
+                _out -= left;
+                strm.total_out += _out;
+                state.total += _out;
+                if (state.wrap & 4 && _out) {
+                  strm.adler = state.check = /*UPDATE_CHECK(state.check, put - _out, _out);*/
+                  state.flags ? crc32_1(state.check, output, _out, put - _out) : adler32_1(state.check, output, _out, put - _out);
+                }
+                _out = left;
+                if (state.wrap & 4 && (state.flags ? hold : zswap32(hold)) !== state.check) {
+                  strm.msg = "incorrect data check";
+                  state.mode = BAD;
+                  break;
+                }
+                hold = 0;
+                bits = 0;
+              }
+              state.mode = LENGTH;
+            /* falls through */
+            case LENGTH:
+              if (state.wrap && state.flags) {
+                while (bits < 32) {
+                  if (have === 0) {
+                    break inf_leave;
+                  }
+                  have--;
+                  hold += input[next++] << bits;
+                  bits += 8;
+                }
+                if (state.wrap & 4 && hold !== (state.total & 4294967295)) {
+                  strm.msg = "incorrect length check";
+                  state.mode = BAD;
+                  break;
+                }
+                hold = 0;
+                bits = 0;
+              }
+              state.mode = DONE;
+            /* falls through */
+            case DONE:
+              ret = Z_STREAM_END$1;
+              break inf_leave;
+            case BAD:
+              ret = Z_DATA_ERROR$1;
+              break inf_leave;
+            case MEM:
+              return Z_MEM_ERROR$1;
+            case SYNC:
+            /* falls through */
+            default:
+              return Z_STREAM_ERROR$1;
+          }
+        }
+      strm.next_out = put;
+      strm.avail_out = left;
+      strm.next_in = next;
+      strm.avail_in = have;
+      state.hold = hold;
+      state.bits = bits;
+      if (state.wsize || _out !== strm.avail_out && state.mode < BAD && (state.mode < CHECK || flush !== Z_FINISH$1)) {
+        if (updatewindow(strm, strm.output, strm.next_out, _out - strm.avail_out)) ;
+      }
+      _in -= strm.avail_in;
+      _out -= strm.avail_out;
+      strm.total_in += _in;
+      strm.total_out += _out;
+      state.total += _out;
+      if (state.wrap & 4 && _out) {
+        strm.adler = state.check = /*UPDATE_CHECK(state.check, strm.next_out - _out, _out);*/
+        state.flags ? crc32_1(state.check, output, _out, strm.next_out - _out) : adler32_1(state.check, output, _out, strm.next_out - _out);
+      }
+      strm.data_type = state.bits + (state.last ? 64 : 0) + (state.mode === TYPE ? 128 : 0) + (state.mode === LEN_ || state.mode === COPY_ ? 256 : 0);
+      if ((_in === 0 && _out === 0 || flush === Z_FINISH$1) && ret === Z_OK$1) {
+        ret = Z_BUF_ERROR;
+      }
+      return ret;
+    };
+    inflateEnd = (strm) => {
+      if (inflateStateCheck(strm)) {
+        return Z_STREAM_ERROR$1;
+      }
+      let state = strm.state;
+      if (state.window) {
+        state.window = null;
+      }
+      strm.state = null;
+      return Z_OK$1;
+    };
+    inflateGetHeader = (strm, head) => {
+      if (inflateStateCheck(strm)) {
+        return Z_STREAM_ERROR$1;
+      }
+      const state = strm.state;
+      if ((state.wrap & 2) === 0) {
+        return Z_STREAM_ERROR$1;
+      }
+      state.head = head;
+      head.done = false;
+      return Z_OK$1;
+    };
+    inflateSetDictionary = (strm, dictionary) => {
+      const dictLength = dictionary.length;
+      let state;
+      let dictid;
+      let ret;
+      if (inflateStateCheck(strm)) {
+        return Z_STREAM_ERROR$1;
+      }
+      state = strm.state;
+      if (state.wrap !== 0 && state.mode !== DICT) {
+        return Z_STREAM_ERROR$1;
+      }
+      if (state.mode === DICT) {
+        dictid = 1;
+        dictid = adler32_1(dictid, dictionary, dictLength, 0);
+        if (dictid !== state.check) {
+          return Z_DATA_ERROR$1;
+        }
+      }
+      ret = updatewindow(strm, dictionary, dictLength, dictLength);
+      if (ret) {
+        state.mode = MEM;
+        return Z_MEM_ERROR$1;
+      }
+      state.havedict = 1;
+      return Z_OK$1;
+    };
+    inflateReset_1 = inflateReset;
+    inflateReset2_1 = inflateReset2;
+    inflateResetKeep_1 = inflateResetKeep;
+    inflateInit_1 = inflateInit;
+    inflateInit2_1 = inflateInit2;
+    inflate_2$1 = inflate$2;
+    inflateEnd_1 = inflateEnd;
+    inflateGetHeader_1 = inflateGetHeader;
+    inflateSetDictionary_1 = inflateSetDictionary;
+    inflateInfo = "pako inflate (from Nodeca project)";
+    inflate_1$2 = {
+      inflateReset: inflateReset_1,
+      inflateReset2: inflateReset2_1,
+      inflateResetKeep: inflateResetKeep_1,
+      inflateInit: inflateInit_1,
+      inflateInit2: inflateInit2_1,
+      inflate: inflate_2$1,
+      inflateEnd: inflateEnd_1,
+      inflateGetHeader: inflateGetHeader_1,
+      inflateSetDictionary: inflateSetDictionary_1,
+      inflateInfo
+    };
+    gzheader = GZheader;
+    toString = Object.prototype.toString;
+    ({
+      Z_NO_FLUSH,
+      Z_FINISH,
+      Z_OK,
+      Z_STREAM_END,
+      Z_NEED_DICT,
+      Z_STREAM_ERROR,
+      Z_DATA_ERROR,
+      Z_MEM_ERROR
+    } = constants$2);
+    Inflate$1.prototype.push = function(data, flush_mode) {
+      const strm = this.strm;
+      const chunkSize = this.options.chunkSize;
+      const dictionary = this.options.dictionary;
+      let status, _flush_mode, last_avail_out;
+      if (this.ended) return false;
+      if (flush_mode === ~~flush_mode) _flush_mode = flush_mode;
+      else _flush_mode = flush_mode === true ? Z_FINISH : Z_NO_FLUSH;
+      if (toString.call(data) === "[object ArrayBuffer]") {
+        strm.input = new Uint8Array(data);
+      } else {
+        strm.input = data;
+      }
+      strm.next_in = 0;
+      strm.avail_in = strm.input.length;
+      for (; ; ) {
+        if (strm.avail_out === 0) {
+          strm.output = new Uint8Array(chunkSize);
+          strm.next_out = 0;
+          strm.avail_out = chunkSize;
+        }
+        status = inflate_1$2.inflate(strm, _flush_mode);
+        if (status === Z_NEED_DICT && dictionary) {
+          status = inflate_1$2.inflateSetDictionary(strm, dictionary);
+          if (status === Z_OK) {
+            status = inflate_1$2.inflate(strm, _flush_mode);
+          } else if (status === Z_DATA_ERROR) {
+            status = Z_NEED_DICT;
+          }
+        }
+        while (strm.avail_in > 0 && status === Z_STREAM_END && strm.state.wrap > 0 && data[strm.next_in] !== 0) {
+          inflate_1$2.inflateReset(strm);
+          status = inflate_1$2.inflate(strm, _flush_mode);
+        }
+        switch (status) {
+          case Z_STREAM_ERROR:
+          case Z_DATA_ERROR:
+          case Z_NEED_DICT:
+          case Z_MEM_ERROR:
+            this.onEnd(status);
+            this.ended = true;
+            return false;
+        }
+        last_avail_out = strm.avail_out;
+        if (strm.next_out) {
+          if (strm.avail_out === 0 || status === Z_STREAM_END) {
+            if (this.options.to === "string") {
+              let next_out_utf8 = strings.utf8border(strm.output, strm.next_out);
+              let tail = strm.next_out - next_out_utf8;
+              let utf8str = strings.buf2string(strm.output, next_out_utf8);
+              strm.next_out = tail;
+              strm.avail_out = chunkSize - tail;
+              if (tail) strm.output.set(strm.output.subarray(next_out_utf8, next_out_utf8 + tail), 0);
+              this.onData(utf8str);
+            } else {
+              this.onData(strm.output.length === strm.next_out ? strm.output : strm.output.subarray(0, strm.next_out));
+            }
+          }
+        }
+        if (status === Z_OK && last_avail_out === 0) continue;
+        if (status === Z_STREAM_END) {
+          status = inflate_1$2.inflateEnd(this.strm);
+          this.onEnd(status);
+          this.ended = true;
+          return true;
+        }
+        if (strm.avail_in === 0) break;
+      }
+      return true;
+    };
+    Inflate$1.prototype.onData = function(chunk) {
+      this.chunks.push(chunk);
+    };
+    Inflate$1.prototype.onEnd = function(status) {
+      if (status === Z_OK) {
+        if (this.options.to === "string") {
+          this.result = this.chunks.join("");
+        } else {
+          this.result = common.flattenChunks(this.chunks);
+        }
+      }
+      this.chunks = [];
+      this.err = status;
+      this.msg = this.strm.msg;
+    };
+    Inflate_1$1 = Inflate$1;
+    inflate_2 = inflate$1;
+    inflateRaw_1$1 = inflateRaw$1;
+    ungzip$1 = inflate$1;
+    constants = constants$2;
+    inflate_1$1 = {
+      Inflate: Inflate_1$1,
+      inflate: inflate_2,
+      inflateRaw: inflateRaw_1$1,
+      ungzip: ungzip$1,
+      constants
+    };
+    ({ Deflate, deflate, deflateRaw, gzip } = deflate_1$1);
+    ({ Inflate, inflate, inflateRaw, ungzip } = inflate_1$1);
+    Deflate_1 = Deflate;
+    deflate_1 = deflate;
+    deflateRaw_1 = deflateRaw;
+    gzip_1 = gzip;
+    Inflate_1 = Inflate;
+    inflate_1 = inflate;
+    inflateRaw_1 = inflateRaw;
+    ungzip_1 = ungzip;
+    constants_1 = constants$2;
+    pako = {
+      Deflate: Deflate_1,
+      deflate: deflate_1,
+      deflateRaw: deflateRaw_1,
+      gzip: gzip_1,
+      Inflate: Inflate_1,
+      inflate: inflate_1,
+      inflateRaw: inflateRaw_1,
+      ungzip: ungzip_1,
+      constants: constants_1
+    };
+  }
+});
+
+// node_modules/brotli/dec/streams.js
+var require_streams = __commonJS({
+  "node_modules/brotli/dec/streams.js"(exports) {
+    function BrotliInput(buffer) {
+      this.buffer = buffer;
+      this.pos = 0;
+    }
+    BrotliInput.prototype.read = function(buf, i, count) {
+      if (this.pos + count > this.buffer.length) {
+        count = this.buffer.length - this.pos;
+      }
+      for (var p = 0; p < count; p++)
+        buf[i + p] = this.buffer[this.pos + p];
+      this.pos += count;
+      return count;
+    };
+    exports.BrotliInput = BrotliInput;
+    function BrotliOutput(buf) {
+      this.buffer = buf;
+      this.pos = 0;
+    }
+    BrotliOutput.prototype.write = function(buf, count) {
+      if (this.pos + count > this.buffer.length)
+        throw new Error("Output buffer is not large enough");
+      this.buffer.set(buf.subarray(0, count), this.pos);
+      this.pos += count;
+      return count;
+    };
+    exports.BrotliOutput = BrotliOutput;
+  }
+});
+
+// node_modules/brotli/dec/bit_reader.js
+var require_bit_reader = __commonJS({
+  "node_modules/brotli/dec/bit_reader.js"(exports, module) {
+    var BROTLI_READ_SIZE = 4096;
+    var BROTLI_IBUF_SIZE = 2 * BROTLI_READ_SIZE + 32;
+    var BROTLI_IBUF_MASK = 2 * BROTLI_READ_SIZE - 1;
+    var kBitMask = new Uint32Array([
+      0,
+      1,
+      3,
+      7,
+      15,
+      31,
+      63,
+      127,
+      255,
+      511,
+      1023,
+      2047,
+      4095,
+      8191,
+      16383,
+      32767,
+      65535,
+      131071,
+      262143,
+      524287,
+      1048575,
+      2097151,
+      4194303,
+      8388607,
+      16777215
+    ]);
+    function BrotliBitReader(input) {
+      this.buf_ = new Uint8Array(BROTLI_IBUF_SIZE);
+      this.input_ = input;
+      this.reset();
+    }
+    BrotliBitReader.READ_SIZE = BROTLI_READ_SIZE;
+    BrotliBitReader.IBUF_MASK = BROTLI_IBUF_MASK;
+    BrotliBitReader.prototype.reset = function() {
+      this.buf_ptr_ = 0;
+      this.val_ = 0;
+      this.pos_ = 0;
+      this.bit_pos_ = 0;
+      this.bit_end_pos_ = 0;
+      this.eos_ = 0;
+      this.readMoreInput();
+      for (var i = 0; i < 4; i++) {
+        this.val_ |= this.buf_[this.pos_] << 8 * i;
+        ++this.pos_;
+      }
+      return this.bit_end_pos_ > 0;
+    };
+    BrotliBitReader.prototype.readMoreInput = function() {
+      if (this.bit_end_pos_ > 256) {
+        return;
+      } else if (this.eos_) {
+        if (this.bit_pos_ > this.bit_end_pos_)
+          throw new Error("Unexpected end of input " + this.bit_pos_ + " " + this.bit_end_pos_);
+      } else {
+        var dst = this.buf_ptr_;
+        var bytes_read = this.input_.read(this.buf_, dst, BROTLI_READ_SIZE);
+        if (bytes_read < 0) {
+          throw new Error("Unexpected end of input");
+        }
+        if (bytes_read < BROTLI_READ_SIZE) {
+          this.eos_ = 1;
+          for (var p = 0; p < 32; p++)
+            this.buf_[dst + bytes_read + p] = 0;
+        }
+        if (dst === 0) {
+          for (var p = 0; p < 32; p++)
+            this.buf_[(BROTLI_READ_SIZE << 1) + p] = this.buf_[p];
+          this.buf_ptr_ = BROTLI_READ_SIZE;
+        } else {
+          this.buf_ptr_ = 0;
+        }
+        this.bit_end_pos_ += bytes_read << 3;
+      }
+    };
+    BrotliBitReader.prototype.fillBitWindow = function() {
+      while (this.bit_pos_ >= 8) {
+        this.val_ >>>= 8;
+        this.val_ |= this.buf_[this.pos_ & BROTLI_IBUF_MASK] << 24;
+        ++this.pos_;
+        this.bit_pos_ = this.bit_pos_ - 8 >>> 0;
+        this.bit_end_pos_ = this.bit_end_pos_ - 8 >>> 0;
+      }
+    };
+    BrotliBitReader.prototype.readBits = function(n_bits) {
+      if (32 - this.bit_pos_ < n_bits) {
+        this.fillBitWindow();
+      }
+      var val = this.val_ >>> this.bit_pos_ & kBitMask[n_bits];
+      this.bit_pos_ += n_bits;
+      return val;
+    };
+    module.exports = BrotliBitReader;
+  }
+});
+
+// node_modules/base64-js/index.js
+var require_base64_js = __commonJS({
+  "node_modules/base64-js/index.js"(exports) {
+    "use strict";
+    exports.byteLength = byteLength;
+    exports.toByteArray = toByteArray;
+    exports.fromByteArray = fromByteArray;
+    var lookup = [];
+    var revLookup = [];
+    var Arr = typeof Uint8Array !== "undefined" ? Uint8Array : Array;
+    var code = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+    for (i = 0, len = code.length; i < len; ++i) {
+      lookup[i] = code[i];
+      revLookup[code.charCodeAt(i)] = i;
+    }
+    var i;
+    var len;
+    revLookup["-".charCodeAt(0)] = 62;
+    revLookup["_".charCodeAt(0)] = 63;
+    function getLens(b64) {
+      var len2 = b64.length;
+      if (len2 % 4 > 0) {
+        throw new Error("Invalid string. Length must be a multiple of 4");
+      }
+      var validLen = b64.indexOf("=");
+      if (validLen === -1) validLen = len2;
+      var placeHoldersLen = validLen === len2 ? 0 : 4 - validLen % 4;
+      return [validLen, placeHoldersLen];
+    }
+    function byteLength(b64) {
+      var lens = getLens(b64);
+      var validLen = lens[0];
+      var placeHoldersLen = lens[1];
+      return (validLen + placeHoldersLen) * 3 / 4 - placeHoldersLen;
+    }
+    function _byteLength(b64, validLen, placeHoldersLen) {
+      return (validLen + placeHoldersLen) * 3 / 4 - placeHoldersLen;
+    }
+    function toByteArray(b64) {
+      var tmp;
+      var lens = getLens(b64);
+      var validLen = lens[0];
+      var placeHoldersLen = lens[1];
+      var arr = new Arr(_byteLength(b64, validLen, placeHoldersLen));
+      var curByte = 0;
+      var len2 = placeHoldersLen > 0 ? validLen - 4 : validLen;
+      var i2;
+      for (i2 = 0; i2 < len2; i2 += 4) {
+        tmp = revLookup[b64.charCodeAt(i2)] << 18 | revLookup[b64.charCodeAt(i2 + 1)] << 12 | revLookup[b64.charCodeAt(i2 + 2)] << 6 | revLookup[b64.charCodeAt(i2 + 3)];
+        arr[curByte++] = tmp >> 16 & 255;
+        arr[curByte++] = tmp >> 8 & 255;
+        arr[curByte++] = tmp & 255;
+      }
+      if (placeHoldersLen === 2) {
+        tmp = revLookup[b64.charCodeAt(i2)] << 2 | revLookup[b64.charCodeAt(i2 + 1)] >> 4;
+        arr[curByte++] = tmp & 255;
+      }
+      if (placeHoldersLen === 1) {
+        tmp = revLookup[b64.charCodeAt(i2)] << 10 | revLookup[b64.charCodeAt(i2 + 1)] << 4 | revLookup[b64.charCodeAt(i2 + 2)] >> 2;
+        arr[curByte++] = tmp >> 8 & 255;
+        arr[curByte++] = tmp & 255;
+      }
+      return arr;
+    }
+    function tripletToBase64(num) {
+      return lookup[num >> 18 & 63] + lookup[num >> 12 & 63] + lookup[num >> 6 & 63] + lookup[num & 63];
+    }
+    function encodeChunk(uint8, start2, end2) {
+      var tmp;
+      var output = [];
+      for (var i2 = start2; i2 < end2; i2 += 3) {
+        tmp = (uint8[i2] << 16 & 16711680) + (uint8[i2 + 1] << 8 & 65280) + (uint8[i2 + 2] & 255);
+        output.push(tripletToBase64(tmp));
+      }
+      return output.join("");
+    }
+    function fromByteArray(uint8) {
+      var tmp;
+      var len2 = uint8.length;
+      var extraBytes = len2 % 3;
+      var parts = [];
+      var maxChunkLength = 16383;
+      for (var i2 = 0, len22 = len2 - extraBytes; i2 < len22; i2 += maxChunkLength) {
+        parts.push(encodeChunk(uint8, i2, i2 + maxChunkLength > len22 ? len22 : i2 + maxChunkLength));
+      }
+      if (extraBytes === 1) {
+        tmp = uint8[len2 - 1];
+        parts.push(
+          lookup[tmp >> 2] + lookup[tmp << 4 & 63] + "=="
+        );
+      } else if (extraBytes === 2) {
+        tmp = (uint8[len2 - 2] << 8) + uint8[len2 - 1];
+        parts.push(
+          lookup[tmp >> 10] + lookup[tmp >> 4 & 63] + lookup[tmp << 2 & 63] + "="
+        );
+      }
+      return parts.join("");
+    }
+  }
+});
+
+// node_modules/brotli/dec/dictionary.bin.js
+var require_dictionary_bin = __commonJS({
+  "node_modules/brotli/dec/dictionary.bin.js"(exports, module) {
+    module.exports = "W5/fcQLn5gKf2XUbAiQ1XULX+TZz6ADToDsgqk6qVfeC0e4m6OO2wcQ1J76ZBVRV1fRkEsdu//62zQsFEZWSTCnMhcsQKlS2qOhuVYYMGCkV0fXWEoMFbESXrKEZ9wdUEsyw9g4bJlEt1Y6oVMxMRTEVbCIwZzJzboK5j8m4YH02qgXYhv1V+PM435sLVxyHJihaJREEhZGqL03txGFQLm76caGO/ovxKvzCby/3vMTtX/459f0igi7WutnKiMQ6wODSoRh/8Lx1V3Q99MvKtwB6bHdERYRY0hStJoMjNeTsNX7bn+Y7e4EQ3bf8xBc7L0BsyfFPK43dGSXpL6clYC/I328h54/VYrQ5i0648FgbGtl837svJ35L3Mot/+nPlNpWgKx1gGXQYqX6n+bbZ7wuyCHKcUok12Xjqub7NXZGzqBx0SD+uziNf87t7ve42jxSKQoW3nyxVrWIGlFShhCKxjpZZ5MeGna0+lBkk+kaN8F9qFBAFgEogyMBdcX/T1W/WnMOi/7ycWUQloEBKGeC48MkiwqJkJO+12eQiOFHMmck6q/IjWW3RZlany23TBm+cNr/84/oi5GGmGBZWrZ6j+zykVozz5fT/QH/Da6WTbZYYPynVNO7kxzuNN2kxKKWche5WveitPKAecB8YcAHz/+zXLjcLzkdDSktNIDwZE9J9X+tto43oJy65wApM3mDzYtCwX9lM+N5VR3kXYo0Z3t0TtXfgBFg7gU8oN0Dgl7fZlUbhNll+0uuohRVKjrEd8egrSndy5/Tgd2gqjA4CAVuC7ESUmL3DZoGnfhQV8uwnpi8EGvAVVsowNRxPudck7+oqAUDkwZopWqFnW1riss0t1z6iCISVKreYGNvQcXv+1L9+jbP8cd/dPUiqBso2q+7ZyFBvENCkkVr44iyPbtOoOoCecWsiuqMSML5lv+vN5MzUr+Dnh73G7Q1YnRYJVYXHRJaNAOByiaK6CusgFdBPE40r0rvqXV7tksKO2DrHYXBTv8P5ysqxEx8VDXUDDqkPH6NNOV/a2WH8zlkXRELSa8P+heNyJBBP7PgsG1EtWtNef6/i+lcayzQwQCsduidpbKfhWUDgAEmyhGu/zVTacI6RS0zTABrOYueemnVa19u9fT23N/Ta6RvTpof5DWygqreCqrDAgM4LID1+1T/taU6yTFVLqXOv+/MuQOFnaF8vLMKD7tKWDoBdALgxF33zQccCcdHx8fKIVdW69O7qHtXpeGr9jbbpFA+qRMWr5hp0s67FPc7HAiLV0g0/peZlW7hJPYEhZyhpSwahnf93/tZgfqZWXFdmdXBzqxGHLrQKxoAY6fRoBhgCRPmmGueYZ5JexTVDKUIXzkG/fqp/0U3hAgQdJ9zumutK6nqWbaqvm1pgu03IYR+G+8s0jDBBz8cApZFSBeuWasyqo2OMDKAZCozS+GWSvL/HsE9rHxooe17U3s/lTE+VZAk4j3dp6uIGaC0JMiqR5CUsabPyM0dOYDR7Ea7ip4USZlya38YfPtvrX/tBlhHilj55nZ1nfN24AOAi9BVtz/Mbn8AEDJCqJgsVUa6nQnSxv2Fs7l/NlCzpfYEjmPrNyib/+t0ei2eEMjvNhLkHCZlci4WhBe7ePZTmzYqlY9+1pxtS4GB+5lM1BHT9tS270EWUDYFq1I0yY/fNiAk4bk9yBgmef/f2k6AlYQZHsNFnW8wBQxCd68iWv7/35bXfz3JZmfGligWAKRjIs3IpzxQ27vAglHSiOzCYzJ9L9A1CdiyFvyR66ucA4jKifu5ehwER26yV7HjKqn5Mfozo7Coxxt8LWWPT47BeMxX8p0Pjb7hZn+6bw7z3Lw+7653j5sI8CLu5kThpMlj1m4c2ch3jGcP1FsT13vuK3qjecKTZk2kHcOZY40UX+qdaxstZqsqQqgXz+QGF99ZJLqr3VYu4aecl1Ab5GmqS8k/GV5b95zxQ5d4EfXUJ6kTS/CXF/aiqKDOT1T7Jz5z0PwDUcwr9clLN1OJGCiKfqvah+h3XzrBOiLOW8wvn8gW6qE8vPxi+Efv+UH55T7PQFVMh6cZ1pZQlzJpKZ7P7uWvwPGJ6DTlR6wbyj3Iv2HyefnRo/dv7dNx+qaa0N38iBsR++Uil7Wd4afwDNsrzDAK4fXZwvEY/jdKuIKXlfrQd2C39dW7ntnRbIp9OtGy9pPBn/V2ASoi/2UJZfS+xuGLH8bnLuPlzdTNS6zdyk8Dt/h6sfOW5myxh1f+zf3zZ3MX/mO9cQPp5pOx967ZA6/pqHvclNfnUFF+rq+Vd7alKr6KWPcIDhpn6v2K6NlUu6LrKo8b/pYpU/Gazfvtwhn7tEOUuXht5rUJdSf6sLjYf0VTYDgwJ81yaqKTUYej/tbHckSRb/HZicwGJqh1mAHB/IuNs9dc9yuvF3D5Xocm3elWFdq5oEy70dYFit79yaLiNjPj5UUcVmZUVhQEhW5V2Z6Cm4HVH/R8qlamRYwBileuh07CbEce3TXa2JmXWBf+ozt319psboobeZhVnwhMZzOeQJzhpTDbP71Tv8HuZxxUI/+ma3XW6DFDDs4+qmpERwHGBd2edxwUKlODRdUWZ/g0GOezrbzOZauFMai4QU6GVHV6aPNBiBndHSsV4IzpvUiiYyg6OyyrL4Dj5q/Lw3N5kAwftEVl9rNd7Jk5PDij2hTH6wIXnsyXkKePxbmHYgC8A6an5Fob/KH5GtC0l4eFso+VpxedtJHdHpNm+Bvy4C79yVOkrZsLrQ3OHCeB0Ra+kBIRldUGlDCEmq2RwXnfyh6Dz+alk6eftI2n6sastRrGwbwszBeDRS/Fa/KwRJkCzTsLr/JCs5hOPE/MPLYdZ1F1fv7D+VmysX6NpOC8aU9F4Qs6HvDyUy9PvFGDKZ/P5101TYHFl8pjj6wm/qyS75etZhhfg0UEL4OYmHk6m6dO192AzoIyPSV9QedDA4Ml23rRbqxMPMxf7FJnDc5FTElVS/PyqgePzmwVZ26NWhRDQ+oaT7ly7ell4s3DypS1s0g+tOr7XHrrkZj9+x/mJBttrLx98lFIaRZzHz4aC7r52/JQ4VjHahY2/YVXZn/QC2ztQb/sY3uRlyc5vQS8nLPGT/n27495i8HPA152z7Fh5aFpyn1GPJKHuPL8Iw94DuW3KjkURAWZXn4EQy89xiKEHN1mk/tkM4gYDBxwNoYvRfE6LFqsxWJtPrDGbsnLMap3Ka3MUoytW0cvieozOmdERmhcqzG+3HmZv2yZeiIeQTKGdRT4HHNxekm1tY+/n06rGmFleqLscSERzctTKM6G9P0Pc1RmVvrascIxaO1CQCiYPE15bD7c3xSeW7gXxYjgxcrUlcbIvO0r+Yplhx0kTt3qafDOmFyMjgGxXu73rddMHpV1wMubyAGcf/v5dLr5P72Ta9lBF+fzMJrMycwv+9vnU3ANIl1cH9tfW7af8u0/HG0vV47jNFXzFTtaha1xvze/s8KMtCYucXc1nzfd/MQydUXn/b72RBt5wO/3jRcMH9BdhC/yctKBIveRYPrNpDWqBsO8VMmP+WvRaOcA4zRMR1PvSoO92rS7pYEv+fZfEfTMzEdM+6X5tLlyxExhqLRkms5EuLovLfx66de5fL2/yX02H52FPVwahrPqmN/E0oVXnsCKhbi/yRxX83nRbUKWhzYceXOntfuXn51NszJ6MO73pQf5Pl4in3ec4JU8hF7ppV34+mm9r1LY0ee/i1O1wpd8+zfLztE0cqBxggiBi5Bu95v9l3r9r/U5hweLn+TbfxowrWDqdJauKd8+q/dH8sbPkc9ttuyO94f7/XK/nHX46MPFLEb5qQlNPvhJ50/59t9ft3LXu7uVaWaO2bDrDCnRSzZyWvFKxO1+vT8MwwunR3bX0CkfPjqb4K9O19tn5X50PvmYpEwHtiW9WtzuV/s76B1zvLLNkViNd8ySxIl/3orfqP90TyTGaf7/rx8jQzeHJXdmh/N6YDvbvmTBwCdxfEQ1NcL6wNMdSIXNq7b1EUzRy1/Axsyk5p22GMG1b+GxFgbHErZh92wuvco0AuOLXct9hvw2nw/LqIcDRRmJmmZzcgUa7JpM/WV/S9IUfbF56TL2orzqwebdRD8nIYNJ41D/hz37Fo11p2Y21wzPcn713qVGhqtevStYfGH4n69OEJtPvbbLYWvscDqc3Hgnu166+tAyLnxrX0Y5zoYjV++1sI7t5kMr02KT/+uwtkc+rZLOf/qn/s3nYCf13Dg8/sB2diJgjGqjQ+TLhxbzyue2Ob7X6/9lUwW7a+lbznHzOYy8LKW1C/uRPbQY3KW/0gO9LXunHLvPL97afba9bFtc9hmz7GAttjVYlCvQAiOwAk/gC5+hkLEs6tr3AZKxLJtOEwk2dLxTYWsIB/j/ToWtIWzo906FrSG8iaqqqqqqiIiIiAgzMzMzNz+AyK+01/zi8n8S+Y1MjoRaQ80WU/G8MBlO+53VPXANrWm4wzGUVZUjjBJZVdhpcfkjsmcWaO+UEldXi1e+zq+HOsCpknYshuh8pOLISJun7TN0EIGW2xTnlOImeecnoGW4raxe2G1T3HEvfYUYMhG+gAFOAwh5nK8mZhwJMmN7r224QVsNFvZ87Z0qatvknklyPDK3Hy45PgVKXji52Wen4d4PlFVVYGnNap+fSpFbK90rYnhUc6n91Q3AY9E0tJOFrcfZtm/491XbcG/jsViUPPX76qmeuiz+qY1Hk7/1VPM405zWVuoheLUimpWYdVzCmUdKHebMdzgrYrb8mL2eeLSnRWHdonfZa8RsOU9F37w+591l5FLYHiOqWeHtE/lWrBHcRKp3uhtr8yXm8LU/5ms+NM6ZKsqu90cFZ4o58+k4rdrtB97NADFbwmEG7lXqvirhOTOqU14xuUF2myIjURcPHrPOQ4lmM3PeMg7bUuk0nnZi67bXsU6H8lhqIo8TaOrEafCO1ARK9PjC0QOoq2BxmMdgYB9G/lIb9++fqNJ2s7BHGFyBNmZAR8J3KCo012ikaSP8BCrf6VI0X5xdnbhHIO+B5rbOyB54zXkzfObyJ4ecwxfqBJMLFc7m59rNcw7hoHnFZ0b00zee+gTqvjm61Pb4xn0kcDX4jvHM0rBXZypG3DCKnD/Waa/ZtHmtFPgO5eETx+k7RrVg3aSwm2YoNXnCs3XPQDhNn+Fia6IlOOuIG6VJH7TP6ava26ehKHQa2T4N0tcZ9dPCGo3ZdnNltsHQbeYt5vPnJezV/cAeNypdml1vCHI8M81nSRP5Qi2+mI8v/sxiZru9187nRtp3f/42NemcONa+4eVC3PCZzc88aZh851CqSsshe70uPxeN/dmYwlwb3trwMrN1Gq8jbnApcVDx/yDPeYs5/7r62tsQ6lLg+DiFXTEhzR9dHqv0iT4tgj825W+H3XiRUNUZT2kR9Ri0+lp+UM3iQtS8uOE23Ly4KYtvqH13jghUntJRAewuzNLDXp8RxdcaA3cMY6TO2IeSFRXezeWIjCqyhsUdMYuCgYTZSKpBype1zRfq8FshvfBPc6BAQWl7/QxIDp3VGo1J3vn42OEs3qznws+YLRXbymyB19a9XBx6n/owcyxlEYyFWCi+kG9F+EyD/4yn80+agaZ9P7ay2Dny99aK2o91FkfEOY8hBwyfi5uwx2y5SaHmG+oq/zl1FX/8irOf8Y3vAcX/6uLP6A6nvMO24edSGPjQc827Rw2atX+z2bKq0CmW9mOtYnr5/AfDa1ZfPaXnKtlWborup7QYx+Or2uWb+N3N//2+yDcXMqIJdf55xl7/vsj4WoPPlxLxtVrkJ4w/tTe3mLdATOOYwxcq52w5Wxz5MbPdVs5O8/lhfE7dPj0bIiPQ3QV0iqm4m3YX8hRfc6jQ3fWepevMqUDJd86Z4vwM40CWHnn+WphsGHfieF02D3tmZvpWD+kBpNCFcLnZhcmmrhpGzzbdA+sQ1ar18OJD87IOKOFoRNznaHPNHUfUNhvY1iU+uhvEvpKHaUn3qK3exVVyX4joipp3um7FmYJWmA+WbIDshRpbVRx5/nqstCgy87FGbfVB8yDGCqS+2qCsnRwnSAN6zgzxfdB2nBT/vZ4/6uxb6oH8b4VBRxiIB93wLa47hG3w2SL/2Z27yOXJFwZpSJaBYyvajA7vRRYNKqljXKpt/CFD/tSMr18DKKbwB0xggBePatl1nki0yvqW5zchlyZmJ0OTxJ3D+fsYJs/mxYN5+Le5oagtcl+YsVvy8kSjI2YGvGjvmpkRS9W2dtXqWnVuxUhURm1lKtou/hdEq19VBp9OjGvHEQSmrpuf2R24mXGheil8KeiANY8fW1VERUfBImb64j12caBZmRViZHbeVMjCrPDg9A90IXrtnsYCuZtRQ0PyrKDjBNOsPfKsg1pA02gHlVr0OXiFhtp6nJqXVzcbfM0KnzC3ggOENPE9VBdmHKN6LYaijb4wXxJn5A0FSDF5j+h1ooZx885Jt3ZKzO5n7Z5WfNEOtyyPqQEnn7WLv5Fis3PdgMshjF1FRydbNyeBbyKI1oN1TRVrVK7kgsb/zjX4NDPIRMctVeaxVB38Vh1x5KbeJbU138AM5KzmZu3uny0ErygxiJF7GVXUrPzFxrlx1uFdAaZFDN9cvIb74qD9tzBMo7L7WIEYK+sla1DVMHpF0F7b3+Y6S+zjvLeDMCpapmJo1weBWuxKF3rOocih1gun4BoJh1kWnV/Jmiq6uOhK3VfKxEHEkafjLgK3oujaPzY6SXg8phhL4TNR1xvJd1Wa0aYFfPUMLrNBDCh4AuGRTbtKMc6Z1Udj8evY/ZpCuMAUefdo69DZUngoqE1P9A3PJfOf7WixCEj+Y6t7fYeHbbxUAoFV3M89cCKfma3fc1+jKRe7MFWEbQqEfyzO2x/wrO2VYH7iYdQ9BkPyI8/3kXBpLaCpU7eC0Yv/am/tEDu7HZpqg0EvHo0nf/R/gRzUWy33/HXMJQeu1GylKmOkXzlCfGFruAcPPhaGqZOtu19zsJ1SO2Jz4Ztth5cBX6mRQwWmDwryG9FUMlZzNckMdK+IoMJv1rOWnBamS2w2KHiaPMPLC15hCZm4KTpoZyj4E2TqC/P6r7/EhnDMhKicZZ1ZwxuC7DPzDGs53q8gXaI9kFTK+2LTq7bhwsTbrMV8Rsfua5lMS0FwbTitUVnVa1yTb5IX51mmYnUcP9wPr8Ji1tiYJeJV9GZTrQhF7vvdU2OTU42ogJ9FDwhmycI2LIg++03C6scYhUyUuMV5tkw6kGUoL+mjNC38+wMdWNljn6tGPpRES7veqrSn5TRuv+dh6JVL/iDHU1db4c9WK3++OrH3PqziF916UMUKn8G67nN60GfWiHrXYhUG3yVWmyYak59NHj8t1smG4UDiWz2rPHNrKnN4Zo1LBbr2/eF9YZ0n0blx2nG4X+EKFxvS3W28JESD+FWk61VCD3z/URGHiJl++7TdBwkCj6tGOH3qDb0QqcOF9Kzpj0HUb/KyFW3Yhj2VMKJqGZleFBH7vqvf7WqLC3XMuHV8q8a4sTFuxUtkD/6JIBvKaVjv96ndgruKZ1k/BHzqf2K9fLk7HGXANyLDd1vxkK/i055pnzl+zw6zLnwXlVYVtfmacJgEpRP1hbGgrYPVN6v2lG+idQNGmwcKXu/8xEj/P6qe/sB2WmwNp6pp8jaISMkwdleFXYK55NHWLTTbutSUqjBfDGWo/Yg918qQ+8BRZSAHZbfuNZz2O0sov1Ue4CWlVg3rFhM3Kljj9ksGd/NUhk4nH+a5UN2+1i8+NM3vRNp7uQ6sqexSCukEVlVZriHNqFi5rLm9TMWa4qm3idJqppQACol2l4VSuvWLfta4JcXy3bROPNbXOgdOhG47LC0CwW/dMlSx4Jf17aEU3yA1x9p+Yc0jupXgcMuYNku64iYOkGToVDuJvlbEKlJqsmiHbvNrIVZEH+yFdF8DbleZ6iNiWwMqvtMp/mSpwx5KxRrT9p3MAPTHGtMbfvdFhyj9vhaKcn3At8Lc16Ai+vBcSp1ztXi7rCJZx/ql7TXcclq6Q76UeKWDy9boS0WHIjUuWhPG8LBmW5y2rhuTpM5vsLt+HOLh1Yf0DqXa9tsfC+kaKt2htA0ai/L2i7RKoNjEwztkmRU0GfgW1TxUvPFhg0V7DdfWJk5gfrccpYv+MA9M0dkGTLECeYwUixRzjRFdmjG7zdZIl3XKB9YliNKI31lfa7i2JG5C8Ss+rHe0D7Z696/V3DEAOWHnQ9yNahMUl5kENWS6pHKKp2D1BaSrrHdE1w2qNxIztpXgUIrF0bm15YML4b6V1k+GpNysTahKMVrrS85lTVo9OGJ96I47eAy5rYWpRf/mIzeoYU1DKaQCTUVwrhHeyNoDqHel+lLxr9WKzhSYw7vrR6+V5q0pfi2k3L1zqkubY6rrd9ZLvSuWNf0uqnkY+FpTvFzSW9Fp0b9l8JA7THV9eCi/PY/SCZIUYx3BU2alj7Cm3VV6eYpios4b6WuNOJdYXUK3zTqj5CVG2FqYM4Z7CuIU0qO05XR0d71FHM0YhZmJmTRfLlXEumN82BGtzdX0S19t1e+bUieK8zRmqpa4Qc5TSjifmaQsY2ETLjhI36gMR1+7qpjdXXHiceUekfBaucHShAOiFXmv3sNmGQyU5iVgnoocuonQXEPTFwslHtS8R+A47StI9wj0iSrtbi5rMysczFiImsQ+bdFClnFjjpXXwMy6O7qfjOr8Fb0a7ODItisjnn3EQO16+ypd1cwyaAW5Yzxz5QknfMO7643fXW/I9y3U2xH27Oapqr56Z/tEzglj6IbT6HEHjopiXqeRbe5mQQvxtcbDOVverN0ZgMdzqRYRjaXtMRd56Q4cZSmdPvZJdSrhJ1D9zNXPqAEqPIavPdfubt5oke2kmv0dztIszSv2VYuoyf1UuopbsYb+uX9h6WpwjpgtZ6fNNawNJ4q8O3CFoSbioAaOSZMx2GYaPYB+rEb6qjQiNRFQ76TvwNFVKD+BhH9VhcKGsXzmMI7BptU/CNWolM7YzROvpFAntsiWJp6eR2d3GarcYShVYSUqhmYOWj5E96NK2WvmYNTeY7Zs4RUEdv9h9QT4EseKt6LzLrqEOs3hxAY1MaNWpSa6zZx8F3YOVeCYMS88W+CYHDuWe4yoc6YK+djDuEOrBR5lvh0r+Q9uM88lrjx9x9AtgpQVNE8r+3O6Gvw59D+kBF/UMXyhliYUtPjmvXGY6Dk3x+kEOW+GtdMVC4EZTqoS/jmR0P0LS75DOc/w2vnri97M4SdbZ8qeU7gg8DVbERkU5geaMQO3mYrSYyAngeUQqrN0C0/vsFmcgWNXNeidsTAj7/4MncJR0caaBUpbLK1yBCBNRjEv6KvuVSdpPnEMJdsRRtqJ+U8tN1gXA4ePHc6ZT0eviI73UOJF0fEZ8YaneAQqQdGphNvwM4nIqPnXxV0xA0fnCT+oAhJuyw/q8jO0y8CjSteZExwBpIN6SvNp6A5G/abi6egeND/1GTguhuNjaUbbnSbGd4L8937Ezm34Eyi6n1maeOBxh3PI0jzJDf5mh/BsLD7F2GOKvlA/5gtvxI3/eV4sLfKW5Wy+oio+es/u6T8UU+nsofy57Icb/JlZHPFtCgd/x+bwt3ZT+xXTtTtTrGAb4QehC6X9G+8YT+ozcLxDsdCjsuOqwPFnrdLYaFc92Ui0m4fr39lYmlCaqTit7G6O/3kWDkgtXjNH4BiEm/+jegQnihOtfffn33WxsFjhfMd48HT+f6o6X65j7XR8WLSHMFkxbvOYsrRsF1bowDuSQ18Mkxk4qz2zoGPL5fu9h2Hqmt1asl3Q3Yu3szOc+spiCmX4AETBM3pLoTYSp3sVxahyhL8eC4mPN9k2x3o0xkiixIzM3CZFzf5oR4mecQ5+ax2wCah3/crmnHoqR0+KMaOPxRif1oEFRFOO/kTPPmtww+NfMXxEK6gn6iU32U6fFruIz8Q4WgljtnaCVTBgWx7diUdshC9ZEa5yKpRBBeW12r/iNc/+EgNqmhswNB8SBoihHXeDF7rrWDLcmt3V8GYYN7pXRy4DZjj4DJuUBL5iC3DQAaoo4vkftqVTYRGLS3mHZ7gdmdTTqbgNN/PTdTCOTgXolc88MhXAEUMdX0iy1JMuk5wLsgeu0QUYlz2S4skTWwJz6pOm/8ihrmgGfFgri+ZWUK2gAPHgbWa8jaocdSuM4FJYoKicYX/ZSENkg9Q1ZzJfwScfVnR2DegOGwCvmogaWJCLQepv9WNlU6QgsmOwICquU28Mlk3d9W5E81lU/5Ez0LcX6lwKMWDNluNKfBDUy/phJgBcMnfkh9iRxrdOzgs08JdPB85Lwo+GUSb4t3nC+0byqMZtO2fQJ4U2zGIr49t/28qmmGv2RanDD7a3FEcdtutkW8twwwlUSpb8QalodddbBfNHKDQ828BdE7OBgFdiKYohLawFYqpybQoxATZrheLhdI7+0Zlu9Q1myRcd15r9UIm8K2LGJxqTegntqNVMKnf1a8zQiyUR1rxoqjiFxeHxqFcYUTHfDu7rhbWng6qOxOsI+5A1p9mRyEPdVkTlE24vY54W7bWc6jMgZvNXdfC9/9q7408KDsbdL7Utz7QFSDetz2picArzrdpL8OaCHC9V26RroemtDZ5yNM/KGkWMyTmfnInEvwtSD23UcFcjhaE3VKzkoaEMKGBft4XbIO6forTY1lmGQwVmKicBCiArDzE+1oIxE08fWeviIOD5TznqH+OoHadvoOP20drMPe5Irg3XBQziW2XDuHYzjqQQ4wySssjXUs5H+t3FWYMHppUnBHMx/nYIT5d7OmjDbgD9F6na3m4l7KdkeSO3kTEPXafiWinogag7b52taiZhL1TSvBFmEZafFq2H8khQaZXuitCewT5FBgVtPK0j4xUHPfUz3Q28eac1Z139DAP23dgki94EC8vbDPTQC97HPPSWjUNG5tWKMsaxAEMKC0665Xvo1Ntd07wCLNf8Q56mrEPVpCxlIMVlQlWRxM3oAfpgIc+8KC3rEXUog5g06vt7zgXY8grH7hhwVSaeuvC06YYRAwpbyk/Unzj9hLEZNs2oxPQB9yc+GnL6zTgq7rI++KDJwX2SP8Sd6YzTuw5lV/kU6eQxRD12omfQAW6caTR4LikYkBB1CMOrvgRr/VY75+NSB40Cni6bADAtaK+vyxVWpf9NeKJxN2KYQ8Q2xPB3K1s7fuhvWbr2XpgW044VD6DRs0qXoqKf1NFsaGvKJc47leUV3pppP/5VTKFhaGuol4Esfjf5zyCyUHmHthChcYh4hYLQF+AFWsuq4t0wJyWgdwQVOZiV0efRHPoK5+E1vjz9wTJmVkITC9oEstAsyZSgE/dbicwKr89YUxKZI+owD205Tm5lnnmDRuP/JnzxX3gMtlrcX0UesZdxyQqYQuEW4R51vmQ5xOZteUd8SJruMlTUzhtVw/Nq7eUBcqN2/HVotgfngif60yKEtoUx3WYOZlVJuJOh8u59fzSDPFYtQgqDUAGyGhQOAvKroXMcOYY0qjnStJR/G3aP+Jt1sLVlGV8POwr/6OGsqetnyF3TmTqZjENfnXh51oxe9qVUw2M78EzAJ+IM8lZ1MBPQ9ZWSVc4J3mWSrLKrMHReA5qdGoz0ODRsaA+vwxXA2cAM4qlfzBJA6581m4hzxItQw5dxrrBL3Y6kCbUcFxo1S8jyV44q//+7ASNNudZ6xeaNOSIUffqMn4A9lIjFctYn2gpEPAb3f7p3iIBN8H14FUGQ9ct2hPsL+cEsTgUrR47uJVN4n4wt/wgfwwHuOnLd4yobkofy8JvxSQTA7rMpDIc608SlZFJfZYcmbT0tAHpPE8MrtQ42siTUNWxqvWZOmvu9f0JPoQmg+6l7sZWwyfi6PXkxJnwBraUG0MYG4zYHQz3igy/XsFkx5tNQxw43qvI9dU3f0DdhOUlHKjmi1VAr2Kiy0HZwD8VeEbhh0OiDdMYspolQsYdSwjCcjeowIXNZVUPmL2wwIkYhmXKhGozdCJ4lRKbsf4NBh/XnQoS92NJEWOVOFs2YhN8c5QZFeK0pRdAG40hqvLbmoSA8xQmzOOEc7wLcme9JOsjPCEgpCwUs9E2DohMHRhUeyGIN6TFvrbny8nDuilsDpzrH5mS76APoIEJmItS67sQJ+nfwddzmjPxcBEBBCw0kWDwd0EZCkNeOD7NNQhtBm7KHL9mRxj6U1yWU2puzlIDtpYxdH4ZPeXBJkTGAJfUr/oTCz/iypY6uXaR2V1doPxJYlrw2ghH0D5gbrhFcIxzYwi4a/4hqVdf2DdxBp6vGYDjavxMAAoy+1+3aiO6S3W/QAKNVXagDtvsNtx7Ks+HKgo6U21B+QSZgIogV5Bt+BnXisdVfy9VyXV+2P5fMuvdpAjM1o/K9Z+XnE4EOCrue+kcdYHqAQ0/Y/OmNlQ6OI33jH/uD1RalPaHpJAm2av0/xtpqdXVKNDrc9F2izo23Wu7firgbURFDNX9eGGeYBhiypyXZft2j3hTvzE6PMWKsod//rEILDkzBXfi7xh0eFkfb3/1zzPK/PI5Nk3FbZyTl4mq5BfBoVoqiPHO4Q4QKZAlrQ3MdNfi3oxIjvsM3kAFv3fdufurqYR3PSwX/mpGy/GFI/B2MNPiNdOppWVbs/gjF3YH+QA9jMhlAbhvasAHstB0IJew09iAkmXHl1/TEj+jvHOpOGrPRQXbPADM+Ig2/OEcUcpgPTItMtW4DdqgfYVI/+4hAFWYjUGpOP/UwNuB7+BbKOcALbjobdgzeBQfjgNSp2GOpxzGLj70Vvq5cw2AoYENwKLUtJUX8sGRox4dVa/TN4xKwaKcl9XawQR/uNus700Hf17pyNnezrUgaY9e4MADhEDBpsJT6y1gDJs1q6wlwGhuUzGR7C8kgpjPyHWwsvrf3yn1zJEIRa5eSxoLAZOCR9xbuztxFRJW9ZmMYfCFJ0evm9F2fVnuje92Rc4Pl6A8bluN8MZyyJGZ0+sNSb//DvAFxC2BqlEsFwccWeAl6CyBcQV1bx4mQMBP1Jxqk1EUADNLeieS2dUFbQ/c/kvwItbZ7tx0st16viqd53WsRmPTKv2AD8CUnhtPWg5aUegNpsYgasaw2+EVooeNKmrW3MFtj76bYHJm5K9gpAXZXsE5U8DM8XmVOSJ1F1WnLy6nQup+jx52bAb+rCq6y9WXl2B2oZDhfDkW7H3oYfT/4xx5VncBuxMXP2lNfhUVQjSSzSRbuZFE4vFawlzveXxaYKVs8LpvAb8IRYF3ZHiRnm0ADeNPWocwxSzNseG7NrSEVZoHdKWqaGEBz1N8Pt7kFbqh3LYmAbm9i1IChIpLpM5AS6mr6OAPHMwwznVy61YpBYX8xZDN/a+lt7n+x5j4bNOVteZ8lj3hpAHSx1VR8vZHec4AHO9XFCdjZ9eRkSV65ljMmZVzaej2qFn/qt1lvWzNZEfHxK3qOJrHL6crr0CRzMox5f2e8ALBB4UGFZKA3tN6F6IXd32GTJXGQ7DTi9j/dNcLF9jCbDcWGKxoKTYblIwbLDReL00LRcDPMcQuXLMh5YzgtfjkFK1DP1iDzzYYVZz5M/kWYRlRpig1htVRjVCknm+h1M5LiEDXOyHREhvzCGpFZjHS0RsK27o2avgdilrJkalWqPW3D9gmwV37HKmfM3F8YZj2ar+vHFvf3B8CRoH4kDHIK9mrAg+owiEwNjjd9V+FsQKYR8czJrUkf7Qoi2YaW6EVDZp5zYlqiYtuXOTHk4fAcZ7qBbdLDiJq0WNV1l2+Hntk1mMWvxrYmc8kIx8G3rW36J6Ra4lLrTOCgiOihmow+YnzUT19jbV2B3RWqSHyxkhmgsBqMYWvOcUom1jDQ436+fcbu3xf2bbeqU/ca+C4DOKE+e3qvmeMqW3AxejfzBRFVcwVYPq4L0APSWWoJu+5UYX4qg5U6YTioqQGPG9XrnuZ/BkxuYpe6Li87+18EskyQW/uA+uk2rpHpr6hut2TlVbKgWkFpx+AZffweiw2+VittkEyf/ifinS/0ItRL2Jq3tQOcxPaWO2xrG68GdFoUpZgFXaP2wYVtRc6xYCfI1CaBqyWpg4bx8OHBQwsV4XWMibZZ0LYjWEy2IxQ1mZrf1/UNbYCJplWu3nZ4WpodIGVA05d+RWSS+ET9tH3RfGGmNI1cIY7evZZq7o+a0bjjygpmR3mVfalkT/SZGT27Q8QGalwGlDOS9VHCyFAIL0a1Q7JiW3saz9gqY8lqKynFrPCzxkU4SIfLc9VfCI5edgRhDXs0edO992nhTKHriREP1NJC6SROMgQ0xO5kNNZOhMOIT99AUElbxqeZF8A3xrfDJsWtDnUenAHdYWSwAbYjFqQZ+D5gi3hNK8CSxU9i6f6ClL9IGlj1OPMQAsr84YG6ijsJpCaGWj75c3yOZKBB9mNpQNPUKkK0D6wgLH8MGoyRxTX6Y05Q4AnYNXMZwXM4eij/9WpsM/9CoRnFQXGR6MEaY+FXvXEO3RO0JaStk6OXuHVATHJE+1W+TU3bSZ2ksMtqjO0zfSJCdBv7y2d8DMx6TfVme3q0ZpTKMMu4YL/t7ciTNtdDkwPogh3Cnjx7qk08SHwf+dksZ7M2vCOlfsF0hQ6J4ehPCaHTNrM/zBSOqD83dBEBCW/F/LEmeh0nOHd7oVl3/Qo/9GUDkkbj7yz+9cvvu+dDAtx8NzCDTP4iKdZvk9MWiizvtILLepysflSvTLFBZ37RLwiriqyRxYv/zrgFd/9XVHh/OmzBvDX4mitMR/lUavs2Vx6cR94lzAkplm3IRNy4TFfu47tuYs9EQPIPVta4P64tV+sZ7n3ued3cgEx2YK+QL5+xms6osk8qQbTyuKVGdaX9FQqk6qfDnT5ykxk0VK7KZ62b6DNDUfQlqGHxSMKv1P0XN5BqMeKG1P4Wp5QfZDUCEldppoX0U6ss2jIko2XpURKCIhfaOqLPfShdtS37ZrT+jFRSH2xYVV1rmT/MBtRQhxiO4MQ3iAGlaZi+9PWBEIXOVnu9jN1f921lWLZky9bqbM3J2MAAI9jmuAx3gyoEUa6P2ivs0EeNv/OR+AX6q5SW6l5HaoFuS6jr6yg9limu+P0KYKzfMXWcQSfTXzpOzKEKpwI3YGXZpSSy2LTlMgfmFA3CF6R5c9xWEtRuCg2ZPUQ2Nb6dRFTNd4TfGHrnEWSKHPuRyiJSDAZ+KX0VxmSHjGPbQTLVpqixia2uyhQ394gBMt7C3ZAmxn/DJS+l1fBsAo2Eir/C0jG9csd4+/tp12pPc/BVJGaK9mfvr7M/CeztrmCO5qY06Edi4xAGtiEhnWAbzLy2VEyazE1J5nPmgU4RpW4Sa0TnOT6w5lgt3/tMpROigHHmexBGAMY0mdcDbDxWIz41NgdD6oxgHsJRgr5RnT6wZAkTOcStU4NMOQNemSO7gxGahdEsC+NRVGxMUhQmmM0llWRbbmFGHzEqLM4Iw0H7577Kyo+Zf+2cUFIOw93gEY171vQaM0HLwpjpdRR6Jz7V0ckE7XzYJ0TmY9znLdzkva0vNrAGGT5SUZ5uaHDkcGvI0ySpwkasEgZPMseYcu85w8HPdSNi+4T6A83iAwDbxgeFcB1ZM2iGXzFcEOUlYVrEckaOyodfvaYSQ7GuB4ISE0nYJc15X/1ciDTPbPCgYJK55VkEor4LvzL9S2WDy4xj+6FOqVyTAC2ZNowheeeSI5hA/02l8UYkv4nk9iaVn+kCVEUstgk5Hyq+gJm6R9vG3rhuM904he/hFmNQaUIATB1y3vw+OmxP4X5Yi6A5I5jJufHCjF9+AGNwnEllZjUco6XhsO5T5+R3yxz5yLVOnAn0zuS+6zdj0nTJbEZCbXJdtpfYZfCeCOqJHoE2vPPFS6eRLjIJlG69X93nfR0mxSFXzp1Zc0lt/VafDaImhUMtbnqWVb9M4nGNQLN68BHP7AR8Il9dkcxzmBv8PCZlw9guY0lurbBsmNYlwJZsA/B15/HfkbjbwPddaVecls/elmDHNW2r4crAx43feNkfRwsaNq/yyJ0d/p5hZ6AZajz7DBfUok0ZU62gCzz7x8eVfJTKA8IWn45vINLSM1q+HF9CV9qF3zP6Ml21kPPL3CXzkuYUlnSqT+Ij4tI/od5KwIs+tDajDs64owN7tOAd6eucGz+KfO26iNcBFpbWA5732bBNWO4kHNpr9D955L61bvHCF/mwSrz6eQaDjfDEANqGMkFc+NGxpKZzCD2sj/JrHd+zlPQ8Iz7Q+2JVIiVCuCKoK/hlAEHzvk/Piq3mRL1rT/fEh9hoT5GJmeYswg1otiKydizJ/fS2SeKHVu6Z3JEHjiW8NaTQgP5xdBli8nC57XiN9hrquBu99hn9zqwo92+PM2JXtpeVZS0PdqR5mDyDreMMtEws+CpwaRyyzoYtfcvt9PJIW0fJVNNi/FFyRsea7peLvJrL+5b4GOXJ8tAr+ATk9f8KmiIsRhqRy0vFzwRV3Z5dZ3QqIU8JQ/uQpkJbjMUMFj2F9sCFeaBjI4+fL/oN3+LQgjI4zuAfQ+3IPIPFQBccf0clJpsfpnBxD84atwtupkGqKvrH7cGNl/QcWcSi6wcVDML6ljOgYbo+2BOAWNNjlUBPiyitUAwbnhFvLbnqw42kR3Yp2kv2dMeDdcGOX5kT4S6M44KHEB/SpCfl7xgsUvs+JNY9G3O2X/6FEt9FyAn57lrbiu+tl83sCymSvq9eZbe9mchL7MTf/Ta78e80zSf0hYY5eUU7+ff14jv7Xy8qjzfzzzvaJnrIdvFb5BLWKcWGy5/w7+vV2cvIfwHqdTB+RuJK5oj9mbt0Hy94AmjMjjwYNZlNS6uiyxNnwNyt3gdreLb64p/3+08nXkb92LTkkRgFOwk1oGEVllcOj5lv1hfAZywDows0944U8vUFw+A/nuVq/UCygsrmWIBnHyU01d0XJPwriEOvx/ISK6Pk4y2w0gmojZs7lU8TtakBAdne4v/aNxmMpK4VcGMp7si0yqsiolXRuOi1Z1P7SqD3Zmp0CWcyK4Ubmp2SXiXuI5nGLCieFHKHNRIlcY3Pys2dwMTYCaqlyWSITwr2oGXvyU3h1Pf8eQ3w1bnD7ilocVjYDkcXR3Oo1BXgMLTUjNw2xMVwjtp99NhSVc5aIWrDQT5DHPKtCtheBP4zHcw4dz2eRdTMamhlHhtfgqJJHI7NGDUw1XL8vsSeSHyKqDtqoAmrQqsYwvwi7HW3ojWyhIa5oz5xJTaq14NAzFLjVLR12rRNUQ6xohDnrWFb5bG9yf8aCD8d5phoackcNJp+Dw3Due3RM+5Rid7EuIgsnwgpX0rUWh/nqPtByMhMZZ69NpgvRTKZ62ViZ+Q7Dp5r4K0d7EfJuiy06KuIYauRh5Ecrhdt2QpTS1k1AscEHvapNbU3HL1F2TFyR33Wxb5MvH5iZsrn3SDcsxlnnshO8PLwmdGN+paWnQuORtZGX37uhFT64SeuPsx8UOokY6ON85WdQ1dki5zErsJGazcBOddWJEKqNPiJpsMD1GrVLrVY+AOdPWQneTyyP1hRX/lMM4ZogGGOhYuAdr7F/DOiAoc++cn5vlf0zkMUJ40Z1rlgv9BelPqVOpxKeOpzKdF8maK+1Vv23MO9k/8+qpLoxrIGH2EDQlnGmH8CD31G8QqlyQIcpmR5bwmSVw9/Ns6IHgulCRehvZ/+VrM60Cu/r3AontFfrljew74skYe2uyn7JKQtFQBQRJ9ryGic/zQOsbS4scUBctA8cPToQ3x6ZBQu6DPu5m1bnCtP8TllLYA0UTQNVqza5nfew3Mopy1GPUwG5jsl0OVXniPmAcmLqO5HG8Hv3nSLecE9oOjPDXcsTxoCBxYyzBdj4wmnyEV4kvFDunipS8SSkvdaMnTBN9brHUR8xdmmEAp/Pdqk9uextp1t+JrtXwpN/MG2w/qhRMpSNxQ1uhg/kKO30eQ/FyHUDkWHT8V6gGRU4DhDMxZu7xXij9Ui6jlpWmQCqJg3FkOTq3WKneCRYZxBXMNAVLQgHXSCGSqNdjebY94oyIpVjMYehAiFx/tqzBXFHZaL5PeeD74rW5OysFoUXY8sebUZleFTUa/+zBKVTFDopTReXNuZq47QjkWnxjirCommO4L/GrFtVV21EpMyw8wyThL5Y59d88xtlx1g1ttSICDwnof6lt/6zliPzgVUL8jWBjC0o2D6Kg+jNuThkAlaDJsq/AG2aKA//A76avw2KNqtv223P+Wq3StRDDNKFFgtsFukYt1GFDWooFVXitaNhb3RCyJi4cMeNjROiPEDb4k+G3+hD8tsg+5hhmSc/8t2JTSwYoCzAI75doq8QTHe+E/Tw0RQSUDlU+6uBeNN3h6jJGX/mH8oj0i3caCNsjvTnoh73BtyZpsflHLq6AfwJNCDX4S98h4+pCOhGKDhV3rtkKHMa3EG4J9y8zFWI4UsfNzC/Rl5midNn7gwoN9j23HGCQQ+OAZpTTPMdiVow740gIyuEtd0qVxMyNXhHcnuXRKdw5wDUSL358ktjMXmAkvIB73BLa1vfF9BAUZInPYJiwxqFWQQBVk7gQH4ojfUQ/KEjn+A/WR6EEe4CtbpoLe1mzHkajgTIoE0SLDHVauKhrq12zrAXBGbPPWKCt4DGedq3JyGRbmPFW32bE7T20+73BatV/qQhhBWfWBFHfhYWXjALts38FemnoT+9bn1jDBMcUMmYgSc0e7GQjv2MUBwLU8ionCpgV+Qrhg7iUIfUY6JFxR0Y+ZTCPM+rVuq0GNLyJXX6nrUTt8HzFBRY1E/FIm2EeVA9NcXrj7S6YYIChVQCWr/m2fYUjC4j0XLkzZ8GCSLfmkW3PB/xq+nlXsKVBOj7vTvqKCOMq7Ztqr3cQ+N8gBnPaAps+oGwWOkbuxnRYj/x/WjiDclVrs22xMK4qArE1Ztk1456kiJriw6abkNeRHogaPRBgbgF9Z8i/tbzWELN4CvbqtrqV9TtGSnmPS2F9kqOIBaazHYaJ9bi3AoDBvlZasMluxt0BDXfhp02Jn411aVt6S4TUB8ZgFDkI6TP6gwPY85w+oUQSsjIeXVminrwIdK2ZAawb8Se6XOJbOaliQxHSrnAeONDLuCnFejIbp4YDtBcQCwMsYiRZfHefuEJqJcwKTTJ8sx5hjHmJI1sPFHOr6W9AhZ2NAod38mnLQk1gOz2LCAohoQbgMbUK9RMEA3LkiF7Sr9tLZp6lkciIGhE2V546w3Mam53VtVkGbB9w0Yk2XiRnCmbpxmHr2k4eSC0RuNbjNsUfDIfc8DZvRvgUDe1IlKdZTzcT4ZGEb53dp8VtsoZlyXzLHOdAbsp1LPTVaHvLA0GYDFMbAW/WUBfUAdHwqLFAV+3uHvYWrCfhUOR2i89qvCBoOb48usAGdcF2M4aKn79k/43WzBZ+xR1L0uZfia70XP9soQReeuhZiUnXFDG1T8/OXNmssTSnYO+3kVLAgeiY719uDwL9FQycgLPessNihMZbAKG7qwPZyG11G1+ZA3jAX2yddpYfmaKBlmfcK/V0mwIRUDC0nJSOPUl2KB8h13F4dlVZiRhdGY5farwN+f9hEb1cRi41ZcGDn6Xe9MMSTOY81ULJyXIHSWFIQHstVYLiJEiUjktlHiGjntN5/btB8Fu+vp28zl2fZXN+dJDyN6EXhS+0yzqpl/LSJNEUVxmu7BsNdjAY0jVsAhkNuuY0E1G48ej25mSt+00yPbQ4SRCVkIwb6ISvYtmJRPz9Zt5dk76blf+lJwAPH5KDF+vHAmACLoCdG2Adii6dOHnNJnTmZtoOGO8Q1jy1veMw6gbLFToQmfJa7nT7Al89mRbRkZZQxJTKgK5Kc9INzmTJFp0tpAPzNmyL/F08bX3nhCumM/cR/2RPn9emZ3VljokttZD1zVWXlUIqEU7SLk5I0lFRU0AcENXBYazNaVzsVHA/sD3o9hm42wbHIRb/BBQTKzAi8s3+bMtpOOZgLdQzCYPfX3UUxKd1WYVkGH7lh/RBBgMZZwXzU9+GYxdBqlGs0LP+DZ5g2BWNh6FAcR944B+K/JTWI3t9YyVyRhlP4CCoUk/mmF7+r2pilVBjxXBHFaBfBtr9hbVn2zDuI0kEOG3kBx8CGdPOjX1ph1POOZJUO1JEGG0jzUy2tK4X0CgVNYhmkqqQysRNtKuPdCJqK3WW57kaV17vXgiyPrl4KEEWgiGF1euI4QkSFHFf0TDroQiLNKJiLbdhH0YBhriRNCHPxSqJmNNoketaioohqMglh6wLtEGWSM1EZbQg72h0UJAIPVFCAJOThpQGGdKfFovcwEeiBuZHN2Ob4uVM7+gwZLz1D9E7ta4RmMZ24OBBAg7Eh6dLXGofZ4U2TFOCQMKjwhVckjrydRS+YaqCw1kYt6UexuzbNEDyYLTZnrY1PzsHZJT4U+awO2xlqTSYu6n/U29O2wPXgGOEKDMSq+zTUtyc8+6iLp0ivav4FKx+xxVy4FxhIF/pucVDqpsVe2jFOfdZhTzLz2QjtzvsTCvDPU7bzDH2eXVKUV9TZ+qFtaSSxnYgYdXKwVreIgvWhT9eGDB2OvnWyPLfIIIfNnfIxU8nW7MbcH05nhlsYtaW9EZRsxWcKdEqInq1DiZPKCz7iGmAU9/ccnnQud2pNgIGFYOTAWjhIrd63aPDgfj8/sdlD4l+UTlcxTI9jbaMqqN0gQxSHs60IAcW3cH4p3V1aSciTKB29L1tz2eUQhRiTgTvmqc+sGtBNh4ky0mQJGsdycBREP+fAaSs1EREDVo5gvgi5+aCN7NECw30owbCc1mSpjiahyNVwJd1jiGgzSwfTpzf2c5XJvG/g1n0fH88KHNnf+u7ZiRMlXueSIsloJBUtW9ezvsx9grfsX/FNxnbxU1Lvg0hLxixypHKGFAaPu0xCD8oDTeFSyfRT6s8109GMUZL8m2xXp8X2dpPCWWdX84iga4BrTlOfqox4shqEgh/Ht4qRst52cA1xOIUuOxgfUivp6v5f8IVyaryEdpVk72ERAwdT4aoY1usBgmP+0m06Q216H/nubtNYxHaOIYjcach3A8Ez/zc0KcShhel0HCYjFsA0FjYqyJ5ZUH1aZw3+zWC0hLpM6GDfcAdn9fq2orPmZbW6XXrf+Krc9RtvII5jeD3dFoT1KwZJwxfUMvc5KLfn8rROW23Jw89sJ2a5dpB3qWDUBWF2iX8OCuKprHosJ2mflBR+Wqs86VvgI/XMnsqb97+VlKdPVysczPj8Jhzf+WCvGBHijAqYlavbF60soMWlHbvKT+ScvhprgeTln51xX0sF+Eadc/l2s2a5BgkVbHYyz0E85p0LstqH+gEGiR84nBRRFIn8hLSZrGwqjZ3E29cuGi+5Z5bp7EM8MWFa9ssS/vy4VrDfECSv7DSU84DaP0sXI3Ap4lWznQ65nQoTKRWU30gd7Nn8ZowUvGIx4aqyXGwmA/PB4qN8msJUODezUHEl0VP9uo+cZ8vPFodSIB4C7lQYjEFj8yu49C2KIV3qxMFYTevG8KqAr0TPlkbzHHnTpDpvpzziAiNFh8xiT7C/TiyH0EguUw4vxAgpnE27WIypV+uFN2zW7xniF/n75trs9IJ5amB1zXXZ1LFkJ6GbS/dFokzl4cc2mamVwhL4XU0Av5gDWAl+aEWhAP7t2VIwU+EpvfOPDcLASX7H7lZpXA2XQfbSlD4qU18NffNPoAKMNSccBfO9YVVgmlW4RydBqfHAV7+hrZ84WJGho6bNT0YMhxxLdOx/dwGj0oyak9aAkNJ8lRJzUuA8sR+fPyiyTgUHio5+Pp+YaKlHrhR41jY5NESPS3x+zTMe0S2HnLOKCOQPpdxKyviBvdHrCDRqO+l96HhhNBLXWv4yEMuEUYo8kXnYJM8oIgVM4XJ+xXOev4YbWeqsvgq0lmw4/PiYr9sYLt+W5EAuYSFnJEan8CwJwbtASBfLBBpJZiRPor/aCJBZsM+MhvS7ZepyHvU8m5WSmaZnxuLts8ojl6KkS8oSAHkq5GWlCB/NgJ5W3rO2Cj1MK7ahxsCrbTT3a0V/QQH+sErxV4XUWDHx0kkFy25bPmBMBQ6BU3HoHhhYcJB9JhP6NXUWKxnE0raXHB6U9KHpWdQCQI72qevp5fMzcm+AvC85rsynVQhruDA9fp9COe7N56cg1UKGSas89vrN+WlGLYTwi5W+0xYdKEGtGCeNJwXKDU0XqU5uQYnWsMwTENLGtbQMvoGjIFIEMzCRal4rnBAg7D/CSn8MsCvS+FDJJAzoiioJEhZJgAp9n2+1Yznr7H+6eT4YkJ9Mpj60ImcW4i4iHDLn9RydB8dx3QYm3rsX6n4VRrZDsYK6DCGwkwd5n3/INFEpk16fYpP6JtMQpqEMzcOfQGAHXBTEGzuLJ03GYQL9bmV2/7ExDlRf+Uvf1sM2frRtCWmal12pMgtonvSCtR4n1CLUZRdTHDHP1Otwqd+rcdlavnKjUB/OYXQHUJzpNyFoKpQK+2OgrEKpGyIgIBgn2y9QHnTJihZOpEvOKIoHAMGAXHmj21Lym39Mbiow4IF+77xNuewziNVBxr6KD5e+9HzZSBIlUa/AmsDFJFXeyrQakR3FwowTGcADJHcEfhGkXYNGSYo4dh4bxwLM+28xjiqkdn0/3R4UEkvcBrBfn/SzBc1XhKM2VPlJgKSorjDac96V2UnQYXl1/yZPT4DVelgO+soMjexXwYO58VLl5xInQUZI8jc3H2CPnCNb9X05nOxIy4MlecasTqGK6s2az4RjpF2cQP2G28R+7wDPsZDZC/kWtjdoHC7SpdPmqQrUAhMwKVuxCmYTiD9q/O7GHtZvPSN0CAUQN/rymXZNniYLlJDE70bsk6Xxsh4kDOdxe7A2wo7P9F5YvqqRDI6brf79yPCSp4I0jVoO4YnLYtX5nzspR5WB4AKOYtR1ujXbOQpPyYDvfRE3FN5zw0i7reehdi7yV0YDRKRllGCGRk5Yz+Uv1fYl2ZwrnGsqsjgAVo0xEUba8ohjaNMJNwTwZA/wBDWFSCpg1eUH8MYL2zdioxRTqgGQrDZxQyNzyBJPXZF0+oxITJAbj7oNC5JwgDMUJaM5GqlGCWc//KCIrI+aclEe4IA0uzv7cuj6GCdaJONpi13O544vbtIHBF+A+JeDFUQNy61Gki3rtyQ4aUywn6ru314/dkGiP8Iwjo0J/2Txs49ZkwEl4mx+iYUUO55I6pJzU4P+7RRs+DXZkyKUYZqVWrPF4I94m4Wx1tXeE74o9GuX977yvJ/jkdak8+AmoHVjI15V+WwBdARFV2IPirJgVMdsg1Pez2VNHqa7EHWdTkl3XTcyjG9BiueWFvQfXI8aWSkuuRmqi/HUuzqyvLJfNfs0txMqldYYflWB1BS31WkuPJGGwXUCpjiQSktkuBMWwHjSkQxeehqw1Kgz0Trzm7QbtgxiEPDVmWCNCAeCfROTphd1ZNOhzLy6XfJyG6Xgd5MCAZw4xie0Sj5AnY1/akDgNS9YFl3Y06vd6FAsg2gVQJtzG7LVq1OH2frbXNHWH/NY89NNZ4QUSJqL2yEcGADbT38X0bGdukqYlSoliKOcsSTuqhcaemUeYLLoI8+MZor2RxXTRThF1LrHfqf/5LcLAjdl4EERgUysYS2geE+yFdasU91UgUDsc2cSQ1ZoT9+uLOwdgAmifwQqF028INc2IQEDfTmUw3eZxvz7Ud1z3xc1PQfeCvfKsB9jOhRj7rFyb9XcDWLcYj0bByosychMezMLVkFiYcdBBQtvI6K0KRuOZQH2kBsYHJaXTkup8F0eIhO1/GcIwWKpr2mouB7g5TUDJNvORXPXa/mU8bh27TAZYBe2sKx4NSv5OjnHIWD2RuysCzBlUfeNXhDd2jxnHoUlheJ3jBApzURy0fwm2FwwsSU0caQGl0Kv8hopRQE211NnvtLRsmCNrhhpEDoNiZEzD2QdJWKbRRWnaFedXHAELSN0t0bfsCsMf0ktfBoXBoNA+nZN9+pSlmuzspFevmsqqcMllzzvkyXrzoA+Ryo1ePXpdGOoJvhyru+EBRsmOp7MXZ0vNUMUqHLUoKglg1p73sWeZmPc+KAw0pE2zIsFFE5H4192KwDvDxdxEYoDBDNZjbg2bmADTeUKK57IPD4fTYF4c6EnXx/teYMORBDtIhPJneiZny7Nv/zG+YmekIKCoxr6kauE2bZtBLufetNG0BtBY7f+/ImUypMBvdWu/Q7vTMRzw5aQGZWuc1V0HEsItFYMIBnoKGZ0xcarba/TYZq50kCaflFysYjA4EDKHqGdpYWdKYmm+a7TADmW35yfnOYpZYrkpVEtiqF0EujI00aeplNs2k+qyFZNeE3CDPL9P6b4PQ/kataHkVpLSEVGK7EX6rAa7IVNrvZtFvOA6okKvBgMtFDAGZOx88MeBcJ8AR3AgUUeIznAN6tjCUipGDZONm1FjWJp4A3QIzSaIOmZ7DvF/ysYYbM/fFDOV0jntAjRdapxJxL0eThpEhKOjCDDq2ks+3GrwxqIFKLe1WdOzII8XIOPGnwy6LKXVfpSDOTEfaRsGujhpS4hBIsMOqHbl16PJxc4EkaVu9wpEYlF/84NSv5Zum4drMfp9yXbzzAOJqqS4YkI4cBrFrC7bMPiCfgI3nNZAqkk3QOZqR+yyqx+nDQKBBBZ7QKrfGMCL+XpqFaBJU0wpkBdAhbR4hJsmT5aynlvkouoxm/NjD5oe6BzVIO9uktM+/5dEC5P7vZvarmuO/lKXz4sBabVPIATuKTrwbJP8XUkdM6uEctHKXICUJGjaZIWRbZp8czquQYfY6ynBUCfIU+gG6wqSIBmYIm9pZpXdaL121V7q0VjDjmQnXvMe7ysoEZnZL15B0SpxS1jjd83uNIOKZwu5MPzg2NhOx3xMOPYwEn2CUzbSrwAs5OAtrz3GAaUkJOU74XwjaYUmGJdZBS1NJVkGYrToINLKDjxcuIlyfVsKQSG/G4DyiO2SlQvJ0d0Ot1uOG5IFSAkq+PRVMgVMDvOIJMdqjeCFKUGRWBW9wigYvcbU7CQL/7meF2KZAaWl+4y9uhowAX7elogAvItAAxo2+SFxGRsHGEW9BnhlTuWigYxRcnVUBRQHV41LV+Fr5CJYV7sHfeywswx4XMtUx6EkBhR+q8AXXUA8uPJ73Pb49i9KG9fOljvXeyFj9ixgbo6CcbAJ7WHWqKHy/h+YjBwp6VcN7M89FGzQ04qbrQtgrOFybg3gQRTYG5xn73ArkfQWjCJROwy3J38Dx/D7jOa6BBNsitEw1wGq780EEioOeD+ZGp2J66ADiVGMayiHYucMk8nTK2zzT9CnEraAk95kQjy4k0GRElLL5YAKLQErJ5rp1eay9O4Fb6yJGm9U4FaMwPGxtKD6odIIHKoWnhKo1U8KIpFC+MVn59ZXmc7ZTBZfsg6FQ8W10YfTr4u0nYrpHZbZ1jXiLmooF0cOm0+mPnJBXQtepc7n0BqOipNCqI6yyloTeRShNKH04FIo0gcMk0H/xThyN4pPAWjDDkEp3lNNPRNVfpMI44CWRlRgViP64eK0JSRp0WUvCWYumlW/c58Vcz/yMwVcW5oYb9+26TEhwvbxiNg48hl1VI1UXTU//Eta+BMKnGUivctfL5wINDD0giQL1ipt6U7C9cd4+lgqY2lMUZ02Uv6Prs+ZEZer7ZfWBXVghlfOOrClwsoOFKzWEfz6RZu1eCs+K8fLvkts5+BX0gyrFYve0C3qHrn5U/Oh6D/CihmWIrY7HUZRhJaxde+tldu6adYJ+LeXupQw0XExC36RETdNFxcq9glMu4cNQSX9cqR/GQYp+IxUkIcNGWVU7ZtGa6P3XAyodRt0XeS3Tp01AnCh0ZbUh4VrSZeV9RWfSoWyxnY3hzcZ30G/InDq4wxRrEejreBxnhIQbkxenxkaxl+k7eLUQkUR6vKJ2iDFNGX3WmVA1yaOH+mvhBd+sE6vacQzFobwY5BqEAFmejwW5ne7HtVNolOUgJc8CsUxmc/LBi8N5mu9VsIA5HyErnS6zeCz7VLI9+n/hbT6hTokMXTVyXJRKSG2hd2labXTbtmK4fNH3IZBPreSA4FMeVouVN3zG5x9CiGpLw/3pceo4qGqp+rVp+z+7yQ98oEf+nyH4F3+J9IheDBa94Wi63zJbLBCIZm7P0asHGpIJt3PzE3m0S4YIWyXBCVXGikj8MudDPB/6Nm2v4IxJ5gU0ii0guy5SUHqGUYzTP0jIJU5E82RHUXtX4lDdrihBLdP1YaG1AGUC12rQKuIaGvCpMjZC9bWSCYnjDlvpWbkdXMTNeBHLKiuoozMGIvkczmP0aRJSJ8PYnLCVNhKHXBNckH79e8Z8Kc2wUej4sQZoH8qDRGkg86maW/ZQWGNnLcXmq3FlXM6ssR/3P6E/bHMvm6HLrv1yRixit25JsH3/IOr2UV4BWJhxXW5BJ6Xdr07n9kF3ZNAk6/Xpc5MSFmYJ2R7bdL8Kk7q1OU9Elg/tCxJ8giT27wSTySF0GOxg4PbYJdi/Nyia9Nn89CGDulfJemm1aiEr/eleGSN+5MRrVJ4K6lgyTTIW3i9cQ0dAi6FHt0YMbH3wDSAtGLSAccezzxHitt1QdhW36CQgPcA8vIIBh3/JNjf/Obmc2yzpk8edSlS4lVdwgW5vzbYEyFoF4GCBBby1keVNueHAH+evi+H7oOVfS3XuPQSNTXOONAbzJeSb5stwdQHl1ZjrGoE49I8+A9j3t+ahhQj74FCSWpZrj7wRSFJJnnwi1T9HL5qrCFW/JZq6P62XkMWTb+u4lGpKfmmwiJWx178GOG7KbrZGqyWwmuyKWPkNswkZ1q8uptUlviIi+AXh2bOOTOLsrtNkfqbQJeh24reebkINLkjut5r4d9GR/r8CBa9SU0UQhsnZp5cP+RqWCixRm7i4YRFbtZ4EAkhtNa6jHb6gPYQv7MKqkPLRmX3dFsK8XsRLVZ6IEVrCbmNDc8o5mqsogjAQfoC9Bc7R6gfw03m+lQpv6kTfhxscDIX6s0w+fBxtkhjXAXr10UouWCx3C/p/FYwJRS/AXRKkjOb5CLmK4XRe0+xeDDwVkJPZau52bzLEDHCqV0f44pPgKOkYKgTZJ33fmk3Tu8SdxJ02SHM8Fem5SMsWqRyi2F1ynfRJszcFKykdWlNqgDA/L9lKYBmc7Zu/q9ii1FPF47VJkqhirUob53zoiJtVVRVwMR34gV9iqcBaHbRu9kkvqk3yMpfRFG49pKKjIiq7h/VpRwPGTHoY4cg05X5028iHsLvUW/uz+kjPyIEhhcKUwCkJAwbR9pIEGOn8z6svAO8i89sJ3dL5qDWFYbS+HGPRMxYwJItFQN86YESeJQhn2urGiLRffQeLptDl8dAgb+Tp47UQPxWOw17OeChLN1WnzlkPL1T5O+O3Menpn4C3IY5LEepHpnPeZHbvuWfeVtPlkH4LZjPbBrkJT3NoRJzBt86CO0Xq59oQ+8dsm0ymRcmQyn8w71mhmcuEI5byuF+C88VPYly2sEzjlzAQ3vdn/1+Hzguw6qFNNbqenhZGbdiG6RwZaTG7jTA2X9RdXjDN9yj1uQpyO4Lx8KRAcZcbZMafp4wPOd5MdXoFY52V1A8M9hi3sso93+uprE0qYNMjkE22CvK4HuUxqN7oIz5pWuETq1lQAjqlSlqdD2Rnr/ggp/TVkQYjn9lMfYelk2sH5HPdopYo7MHwlV1or9Bxf+QCyLzm92vzG2wjiIjC/ZHEJzeroJl6bdFPTpZho5MV2U86fLQqxNlGIMqCGy+9WYhJ8ob1r0+Whxde9L2PdysETv97O+xVw+VNN1TZSQN5I6l9m5Ip6pLIqLm4a1B1ffH6gHyqT9p82NOjntRWGIofO3bJz5GhkvSWbsXueTAMaJDou99kGLqDlhwBZNEQ4mKPuDvVwSK4WmLluHyhA97pZiVe8g+JxmnJF8IkV/tCs4Jq/HgOoAEGR9tCDsDbDmi3OviUQpG5D8XmKcSAUaFLRXb2lmJTNYdhtYyfjBYZQmN5qT5CNuaD3BVnlkCk7bsMW3AtXkNMMTuW4HjUERSJnVQ0vsBGa1wo3Qh7115XGeTF3NTz8w0440AgU7c3bSXO/KMINaIWXd0oLpoq/0/QJxCQSJ9XnYy1W7TYLBJpHsVWD1ahsA7FjNvRd6mxCiHsm8g6Z0pnzqIpF1dHUtP2ITU5Z1hZHbu+L3BEEStBbL9XYvGfEakv1bmf+bOZGnoiuHEdlBnaChxYKNzB23b8sw8YyT7Ajxfk49eJIAvdbVkdFCe2J0gMefhQ0bIZxhx3fzMIysQNiN8PgOUKxOMur10LduigREDRMZyP4oGWrP1GFY4t6groASsZ421os48wAdnrbovNhLt7ScNULkwZ5AIZJTrbaKYTLjA1oJ3sIuN/aYocm/9uoQHEIlacF1s/TM1fLcPTL38O9fOsjMEIwoPKfvt7opuI9G2Hf/PR4aCLDQ7wNmIdEuXJ/QNL72k5q4NejAldPfe3UVVqzkys8YZ/jYOGOp6c+YzRCrCuq0M11y7TiN6qk7YXRMn/gukxrEimbMQjr3jwRM6dKVZ4RUfWQr8noPXLJq6yh5R3EH1IVOHESst/LItbG2D2vRsZRkAObzvQAAD3mb3/G4NzopI0FAiHfbpq0X72adg6SRj+8OHMShtFxxLZlf/nLgRLbClwl5WmaYSs+yEjkq48tY7Z2bE0N91mJwt+ua0NlRJIDh0HikF4UvSVorFj2YVu9YeS5tfvlVjPSoNu/Zu6dEUfBOT555hahBdN3Sa5Xuj2Rvau1lQNIaC944y0RWj9UiNDskAK1WoL+EfXcC6IbBXFRyVfX/WKXxPAwUyIAGW8ggZ08hcijKTt1YKnUO6QPvcrmDVAb0FCLIXn5id4fD/Jx4tw/gbXs7WF9b2RgXtPhLBG9vF5FEkdHAKrQHZAJC/HWvk7nvzzDzIXZlfFTJoC3JpGgLPBY7SQTjGlUvG577yNutZ1hTfs9/1nkSXK9zzKLRZ3VODeKUovJe0WCq1zVMYxCJMenmNzPIU2S8TA4E7wWmbNkxq9rI2dd6v0VpcAPVMxnDsvWTWFayyqvKZO7Z08a62i/oH2/jxf8rpmfO64in3FLiL1GX8IGtVE9M23yGsIqJbxDTy+LtaMWDaPqkymb5VrQdzOvqldeU0SUi6IirG8UZ3jcpRbwHa1C0Dww9G/SFX3gPvTJQE+kyz+g1BeMILKKO+olcHzctOWgzxYHnOD7dpCRtuZEXACjgqesZMasoPgnuDC4nUviAAxDc5pngjoAITIkvhKwg5d608pdrZcA+qn5TMT6Uo/QzBaOxBCLTJX3Mgk85rMfsnWx86oLxf7p2PX5ONqieTa/qM3tPw4ZXvlAp83NSD8F7+ZgctK1TpoYwtiU2h02HCGioH5tkVCqNVTMH5p00sRy2JU1qyDBP2CII/Dg4WDsIl+zgeX7589srx6YORRQMBfKbodbB743Tl4WLKOEnwWUVBsm94SOlCracU72MSyj068wdpYjyz1FwC2bjQnxnB6Mp/pZ+yyZXtguEaYB+kqhjQ6UUmwSFazOb+rhYjLaoiM+aN9/8KKn0zaCTFpN9eKwWy7/u4EHzO46TdFSNjMfn2iPSJwDPCFHc0I1+vjdAZw5ZjqR/uzi9Zn20oAa5JnLEk/EA3VRWE7J/XrupfFJPtCUuqHPpnlL7ISJtRpSVcB8qsZCm2QEkWoROtCKKxUh3yEcMbWYJwk6DlEBG0bZP6eg06FL3v6RPb7odGuwm7FN8fG4woqtB8e7M5klPpo97GoObNwt+ludTAmxyC5hmcFx+dIvEZKI6igFKHqLH01iY1o7903VzG9QGetyVx5RNmBYUU+zIuSva/yIcECUi4pRmE3VkF2avqulQEUY4yZ/wmNboBzPmAPey3+dSYtBZUjeWWT0pPwCz4Vozxp9xeClIU60qvEFMQCaPvPaA70WlOP9f/ey39macvpGCVa+zfa8gO44wbxpJUlC8GN/pRMTQtzY8Z8/hiNrU+Zq64ZfFGIkdj7m7abcK1EBtws1X4J/hnqvasPvvDSDYWN+QcQVGMqXalkDtTad5rYY0TIR1Eqox3czwPMjKPvF5sFv17Thujr1IZ1Ytl4VX1J0vjXKmLY4lmXipRAro0qVGEcXxEVMMEl54jQMd4J7RjgomU0j1ptjyxY+cLiSyXPfiEcIS2lWDK3ISAy6UZ3Hb5vnPncA94411jcy75ay6B6DSTzK6UTCZR9uDANtPBrvIDgjsfarMiwoax2OlLxaSoYn4iRgkpEGqEkwox5tyI8aKkLlfZ12lO11TxsqRMY89j5JaO55XfPJPDL1LGSnC88Re9Ai+Nu5bZjtwRrvFITUFHPR4ZmxGslQMecgbZO7nHk32qHxYkdvWpup07ojcMCaVrpFAyFZJJbNvBpZfdf39Hdo2kPtT7v0/f8R/B5Nz4f1t9/3zNM/7n6SUHfcWk5dfQFJvcJMgPolGCpOFb/WC0FGWU2asuQyT+rm88ZKZ78Cei/CAh939CH0JYbpZIPtxc2ufXqjS3pHH9lnWK4iJ7OjR/EESpCo2R3MYKyE7rHfhTvWho4cL1QdN4jFTyR6syMwFm124TVDDRXMNveI1Dp/ntwdz8k8kxw7iFSx6+Yx6O+1LzMVrN0BBzziZi9kneZSzgollBnVwBh6oSOPHXrglrOj+QmR/AESrhDpKrWT+8/AiMDxS/5wwRNuGQPLlJ9ovomhJWn8sMLVItQ8N/7IXvtD8kdOoHaw+vBSbFImQsv/OCAIui99E+YSIOMlMvBXkAt+NAZK8wB9Jf8CPtB+TOUOR+z71d/AFXpPBT6+A5FLjxMjLIEoJzrQfquvxEIi+WoUzGR1IzQFNvbYOnxb2PyQ0kGdyXKzW2axQL8lNAXPk6NEjqrRD1oZtKLlFoofrXw0dCNWASHzy+7PSzOUJ3XtaPZsxLDjr+o41fKuKWNmjiZtfkOzItvlV2MDGSheGF0ma04qE3TUEfqJMrXFm7DpK+27DSvCUVf7rbNoljPhha5W7KBqVq0ShUSTbRmuqPtQreVWH4JET5yMhuqMoSd4r/N8sDmeQiQQvi1tcZv7Moc7dT5X5AtCD6kNEGZOzVcNYlpX4AbTsLgSYYliiPyVoniuYYySxsBy5cgb3pD+EK0Gpb0wJg031dPgaL8JZt6sIvzNPEHfVPOjXmaXj4bd4voXzpZ5GApMhILgMbCEWZ2zwgdeQgjNHLbPIt+KqxRwWPLTN6HwZ0Ouijj4UF+Sg0Au8XuIKW0WxlexdrFrDcZJ8Shauat3X0XmHygqgL1nAu2hrJFb4wZXkcS+i36KMyU1yFvYv23bQUJi/3yQpqr/naUOoiEWOxckyq/gq43dFou1DVDaYMZK9tho7+IXXokBCs5GRfOcBK7g3A+jXQ39K4YA8PBRW4m5+yR0ZAxWJncjRVbITvIAPHYRt1EJ3YLiUbqIvoKHtzHKtUy1ddRUQ0AUO41vonZDUOW+mrszw+SW/6Q/IUgNpcXFjkM7F4CSSQ2ExZg85otsMs7kqsQD4OxYeBNDcSpifjMoLb7GEbGWTwasVObmB/bfPcUlq0wYhXCYEDWRW02TP5bBrYsKTGWjnWDDJ1F7zWai0zW/2XsCuvBQjPFcTYaQX3tSXRSm8hsAoDdjArK/OFp6vcWYOE7lizP0Yc+8p16i7/NiXIiiQTp7c7Xus925VEtlKAjUdFhyaiLT7VxDagprMFwix4wZ05u0qj7cDWFd0W9OYHIu3JbJKMXRJ1aYNovugg+QqRN7fNHSi26VSgBpn+JfMuPo3aeqPWik/wI5Rz3BWarPQX4i5+dM0npwVOsX+KsOhC7vDg+OJsz4Q5zlnIeflUWL6QYMbf9WDfLmosLF4Qev3mJiOuHjoor/dMeBpA9iKDkMjYBNbRo414HCxjsHrB4EXNbHzNMDHCLuNBG6Sf+J4MZ/ElVsDSLxjIiGsTPhw8BPjxbfQtskj+dyNMKOOcUYIRBEIqbazz3lmjlRQhplxq673VklMMY6597vu+d89ec/zq7Mi4gQvh87ehYbpOuZEXj5g/Q7S7BFDAAB9DzG35SC853xtWVcnZQoH54jeOqYLR9NDuwxsVthTV7V99n/B7HSbAytbEyVTz/5NhJ8gGIjG0E5j3griULUd5Rg7tQR+90hJgNQKQH2btbSfPcaTOfIexc1db1BxUOhM1vWCpLaYuKr3FdNTt/T3PWCpEUWDKEtzYrjpzlL/wri3MITKsFvtF8QVV/NhVo97aKIBgdliNc10dWdXVDpVtsNn+2UIolrgqdWA4EY8so0YvB4a+aLzMXiMAuOHQrXY0tr+CL10JbvZzgjJJuB1cRkdT7DUqTvnswVUp5kkUSFVtIIFYK05+tQxT6992HHNWVhWxUsD1PkceIrlXuUVRogwmfdhyrf6zzaL8+c0L7GXMZOteAhAVQVwdJh+7nrX7x4LaIIfz2F2v7Dg/uDfz2Fa+4gFm2zHAor8UqimJG3VTJtZEoFXhnDYXvxMJFc6ku2bhbCxzij2z5UNuK0jmp1mnvkVNUfR+SEmj1Lr94Lym75PO7Fs0MIr3GdsWXRXSfgLTVY0FLqba97u1In8NAcY7IC6TjWLigwKEIm43NxTdaVTv9mcKkzuzBkKd8x/xt1p/9BbP7Wyb4bpo1K1gnOpbLvKz58pWl3B55RJ/Z5mRDLPtNQg14jdOEs9+h/V5UVpwrAI8kGbX8KPVPDIMfIqKDjJD9UyDOPhjZ3vFAyecwyq4akUE9mDOtJEK1hpDyi6Ae87sWAClXGTiwPwN7PXWwjxaR79ArHRIPeYKTunVW24sPr/3HPz2IwH8oKH4OlWEmt4BLM6W5g4kMcYbLwj2usodD1088stZA7VOsUSpEVl4w7NMb1EUHMRxAxLF0CIV+0L3iZb+ekB1vSDSFjAZ3hfLJf7gFaXrOKn+mhR+rWw/eTXIcAgl4HvFuBg1LOmOAwJH3eoVEjjwheKA4icbrQCmvAtpQ0mXG0agYp5mj4Rb6mdQ+RV4QBPbxMqh9C7o8nP0Wko2ocnCHeRGhN1XVyT2b9ACsL+6ylUy+yC3QEnaKRIJK91YtaoSrcWZMMwxuM0E9J68Z+YyjA0g8p1PfHAAIROy6Sa04VXOuT6A351FOWhKfTGsFJ3RTJGWYPoLk5FVK4OaYR9hkJvezwF9vQN1126r6isMGXWTqFW+3HL3I/jurlIdDWIVvYY+s6yq7lrFSPAGRdnU7PVwY/SvWbZGpXzy3BQ2LmAJlrONUsZs4oGkly0V267xbD5KMY8woNNsmWG1VVgLCra8aQBBcI4DP2BlNwxhiCtHlaz6OWFoCW0vMR3ErrG7JyMjTSCnvRcsEHgmPnwA6iNpJ2DrFb4gLlhKJyZGaWkA97H6FFdwEcLT6DRQQL++fOkVC4cYGW1TG/3iK5dShRSuiBulmihqgjR45Vi03o2RbQbP3sxt90VxQ6vzdlGfkXmmKmjOi080JSHkLntjvsBJnv7gKscOaTOkEaRQqAnCA4HWtB4XnMtOhpRmH2FH8tTXrIjAGNWEmudQLCkcVlGTQ965Kh0H6ixXbgImQP6b42B49sO5C8pc7iRlgyvSYvcnH9FgQ3azLbQG2cUW96SDojTQStxkOJyOuDGTHAnnWkz29aEwN9FT8EJ4yhXOg+jLTrCPKeEoJ9a7lDXOjEr8AgX4BmnMQ668oW0zYPyQiVMPxKRHtpfnEEyaKhdzNVThlxxDQNdrHeZiUFb6NoY2KwvSb7BnRcpJy+/g/zAYx3fYSN5QEaVD2Y1VsNWxB0BSO12MRsRY8JLfAezRMz5lURuLUnG1ToKk6Q30FughqWN6gBNcFxP/nY/iv+iaUQOa+2Nuym46wtI/DvSfzSp1jEi4SdYBE7YhTiVV5cX9gwboVDMVgZp5YBQlHOQvaDNfcCoCJuYhf5kz5kwiIKPjzgpcRJHPbOhJajeoeRL53cuMahhV8Z7IRr6M4hW0JzT7mzaMUzQpm866zwM7Cs07fJYXuWvjAMkbe5O6V4bu71sOG6JQ4oL8zIeXHheFVavzxmlIyBkgc9IZlEDplMPr8xlcyss4pVUdwK1e7CK2kTsSdq7g5SHRAl3pYUB9Ko4fsh4qleOyJv1z3KFSTSvwEcRO/Ew8ozEDYZSqpfoVW9uhJfYrNAXR0Z3VmeoAD+rVWtwP/13sE/3ICX3HhDG3CMc476dEEC0K3umSAD4j+ZQLVdFOsWL2C1TH5+4KiSWH+lMibo+B55hR3Gq40G1n25sGcN0mEcoU2wN9FCVyQLBhYOu9aHVLWjEKx2JIUZi5ySoHUAI9b8hGzaLMxCZDMLhv8MkcpTqEwz9KFDpCpqQhVmsGQN8m24wyB82FAKNmjgfKRsXRmsSESovAwXjBIoMKSG51p6Um8b3i7GISs7kjTq/PZoioCfJzfKdJTN0Q45kQEQuh9H88M3yEs3DbtRTKALraM0YC8laiMiOOe6ADmTcCiREeAWZelBaEXRaSuj2lx0xHaRYqF65O0Lo5OCFU18A8cMDE4MLYm9w2QSr9NgQAIcRxZsNpA7UJR0e71JL+VU+ISWFk5I97lra8uGg7GlQYhGd4Gc6rxsLFRiIeGO4abP4S4ekQ1fiqDCy87GZHd52fn5aaDGuvOmIofrzpVwMvtbreZ/855OaXTRcNiNE0wzGZSxbjg26v8ko8L537v/XCCWP2MFaArJpvnkep0pA+O86MWjRAZPQRfznZiSIaTppy6m3p6HrNSsY7fDtz7Cl4V/DJAjQDoyiL2uwf1UHVd2AIrzBUSlJaTj4k6NL97a/GqhWKU9RUmjnYKpm2r+JYUcrkCuZKvcYvrg8pDoUKQywY9GDWg03DUFSirlUXBS5SWn/KAntnf0IdHGL/7mwXqDG+LZYjbEdQmqUqq4y54TNmWUP7IgcAw5816YBzwiNIJiE9M4lPCzeI/FGBeYy3p6IAmH4AjXXmvQ4Iy0Y82NTobcAggT2Cdqz6Mx4TdGoq9fn2etrWKUNFyatAHydQTVUQ2S5OWVUlugcNvoUrlA8cJJz9MqOa/W3iVno4zDHfE7zhoY5f5lRTVZDhrQbR8LS4eRLz8iPMyBL6o4PiLlp89FjdokQLaSBmKHUwWp0na5fE3v9zny2YcDXG/jfI9sctulHRbdkI5a4GOPJx4oAJQzVZ/yYAado8KNZUdEFs9ZPiBsausotXMNebEgr0dyopuqfScFJ3ODNPHgclACPdccwv0YJGQdsN2lhoV4HVGBxcEUeUX/alr4nqpcc1CCR3vR7g40zteQg/JvWmFlUE4mAiTpHlYGrB7w+U2KdSwQz2QJKBe/5eiixWipmfP15AFWrK8Sh1GBBYLgzki1wTMhGQmagXqJ2+FuqJ8f0XzXCVJFHQdMAw8xco11HhM347alrAu+wmX3pDFABOvkC+WPX0Uhg1Z5MVHKNROxaR84YV3s12UcM+70cJ460SzEaKLyh472vOMD3XnaK7zxZcXlWqenEvcjmgGNR2OKbI1s8U+iwiW+HotHalp3e1MGDy6BMVIvajnAzkFHbeVsgjmJUkrP9OAwnEHYXVBqYx3q7LvXjoVR0mY8h+ZaOnh053pdsGkmbqhyryN01eVHySr+CkDYkSMeZ1xjPNVM+gVLTDKu2VGsMUJqWO4TwPDP0VOg2/8ITbAUaMGb4LjL7L+Pi11lEVMXTYIlAZ/QHmTENjyx3kDkBdfcvvQt6tKk6jYFM4EG5UXDTaF5+1ZjRz6W7MdJPC+wTkbDUim4p5QQH3b9kGk2Bkilyeur8Bc20wm5uJSBO95GfYDI1EZipoRaH7uVveneqz43tlTZGRQ4a7CNmMHgXyOQQOL6WQkgMUTQDT8vh21aSdz7ERiZT1jK9F+v6wgFvuEmGngSvIUR2CJkc5tx1QygfZnAruONobB1idCLB1FCfO7N1ZdRocT8/Wye+EnDiO9pzqIpnLDl4bkaRKW+ekBVwHn46Shw1X0tclt/0ROijuUB4kIInrVJU4buWf4YITJtjOJ6iKdr1u+flgQeFH70GxKjhdgt/MrwfB4K/sXczQ+9zYcrD4dhY6qZhZ010rrxggWA8JaZyg2pYij8ieYEg1aZJkZK9O1Re7sB0iouf60rK0Gd+AYlp7soqCBCDGwfKeUQhCBn0E0o0GS6PdmjLi0TtCYZeqazqwN+yNINIA8Lk3iPDnWUiIPLGNcHmZDxfeK0iAdxm/T7LnN+gemRL61hHIc0NCAZaiYJR+OHnLWSe8sLrK905B5eEJHNlWq4RmEXIaFTmo49f8w61+NwfEUyuJAwVqZCLFcyHBKAcIVj3sNzfEOXzVKIndxHw+AR93owhbCxUZf6Gs8cz6/1VdrFEPrv330+9s6BtMVPJ3zl/Uf9rUi0Z/opexfdL3ykF76e999GPfVv8fJv/Y/+/5hEMon1tqNFyVRevV9y9/uIvsG3dbB8GRRrgaEXfhx+2xeOFt+cEn3RZanNxdEe2+B6MHpNbrRE53PlDifPvFcp4kO78ILR0T4xyW/WGPyBsqGdoA7zJJCu1TKbGfhnqgnRbxbB2B3UZoeQ2bz2sTVnUwokTcTU21RxN1PYPS3Sar7T0eRIsyCNowr9amwoMU/od9s2APtiKNL6ENOlyKADstAEWKA+sdKDhrJ6BOhRJmZ+QJbAaZ3/5Fq0/lumCgEzGEbu3yi0Y4I4EgVAjqxh4HbuQn0GrRhOWyAfsglQJAVL1y/6yezS2k8RE2MstJLh92NOB3GCYgFXznF4d25qiP4ZCyI4RYGesut6FXK6GwPpKK8WHEkhYui0AyEmr5Ml3uBFtPFdnioI8RiCooa7Z1G1WuyIi3nSNglutc+xY8BkeW3JJXPK6jd2VIMpaSxpVtFq+R+ySK9J6WG5Qvt+C+QH1hyYUOVK7857nFmyDBYgZ/o+AnibzNVqyYCJQvyDXDTK+iXdkA71bY7TL3bvuLxLBQ8kbTvTEY9aqkQ3+MiLWbEgjLzOH+lXgco1ERgzd80rDCymlpaRQbOYnKG/ODoFl46lzT0cjM5FYVvv0qLUbD5lyJtMUaC1pFlTkNONx6lliaX9o0i/1vws5bNKn5OuENQEKmLlcP4o2ZmJjD4zzd3Fk32uQ4uRWkPSUqb4LBe3EXHdORNB2BWsws5daRnMfNVX7isPSb1hMQdAJi1/qmDMfRUlCU74pmnzjbXfL8PVG8NsW6IQM2Ne23iCPIpryJjYbVnm5hCvKpMa7HLViNiNc+xTfDIaKm3jctViD8A1M9YPJNk003VVr4Zo2MuGW8vil8SLaGpPXqG7I4DLdtl8a4Rbx1Lt4w5Huqaa1XzZBtj208EJVGcmKYEuaeN27zT9EE6a09JerXdEbpaNgNqYJdhP1NdqiPKsbDRUi86XvvNC7rME5mrSQtrzAZVndtSjCMqd8BmaeGR4l4YFULGRBeXIV9Y4yxLFdyoUNpiy2IhePSWzBofYPP0eIa2q5JP4j9G8at/AqoSsLAUuRXtvgsqX/zYwsE+of6oSDbUOo4RMJw+DOUTJq+hnqwKim9Yy/napyZNTc2rCq6V9jHtJbxGPDwlzWj/Sk3zF/BHOlT/fSjSq7FqlPI1q6J+ru8Aku008SFINXZfOfnZNOvGPMtEmn2gLPt+H4QLA+/SYe4j398auzhKIp2Pok3mPC5q1IN1HgR+mnEfc4NeeHYwd2/kpszR3cBn7ni9NbIqhtSWFW8xbUJuUPVOeeXu3j0IGZmFNiwaNZ6rH4/zQ2ODz6tFxRLsUYZu1bfd1uIvfQDt4YD/efKYv8VF8bHGDgK22w2Wqwpi43vNCOXFJZCGMqWiPbL8mil6tsmOTXAWCyMCw73e2rADZj2IK6rqksM3EXF2cbLb4vjB14wa/yXK5vwU+05MzERJ5nXsXsW21o7M+gO0js2OyKciP5uF2iXyb2DiptwQeHeqygkrNsqVCSlldxBMpwHi1vfc8RKpP/4L3Lmpq6DZcvhDDfxTCE3splacTcOtXdK2g303dIWBVe2wD/Gvja1cClFQ67gw0t1ZUttsUgQ1Veky8oOpS6ksYEc4bqseCbZy766SvL3FodmnahlWJRgVCNjPxhL/fk2wyvlKhITH/VQCipOI0dNcRa5B1M5HmOBjTLeZQJy237e2mobwmDyJNHePhdDmiknvLKaDbShL+Is1XTCJuLQd2wmdJL7+mKvs294whXQD+vtd88KKk0DXP8B1Xu9J+xo69VOuFgexgTrcvI6SyltuLix9OPuE6/iRJYoBMEXxU4shQMf4Fjqwf1PtnJ/wWSZd29rhZjRmTGgiGTAUQqRz+nCdjeMfYhsBD5Lv60KILWEvNEHfmsDs2L0A252351eUoYxAysVaCJVLdH9QFWAmqJDCODUcdoo12+gd6bW2boY0pBVHWL6LQDK5bYWh1V8vFvi0cRpfwv7cJiMX3AZNJuTddHehTIdU0YQ/sQ1dLoF2xQPcCuHKiuCWOY30DHe1OwcClLAhqAKyqlnIbH/8u9ScJpcS4kgp6HKDUdiOgRaRGSiUCRBjzI5gSksMZKqy7Sd51aeg0tgJ+x0TH9YH2Mgsap9N7ENZdEB0bey2DMTrBA1hn56SErNHf3tKtqyL9b6yXEP97/rc+jgD2N1LNUH6RM9AzP3kSipr06RkKOolR7HO768jjWiH1X92jA7dkg7gcNcjqsZCgfqWw0tPXdLg20cF6vnQypg7gLtkazrHAodyYfENPQZsdfnjMZiNu4nJO97D1/sQE+3vNFzrSDOKw+keLECYf7RJwVHeP/j79833oZ0egonYB2FlFE5qj02B/LVOMJQlsB8uNg3Leg4qtZwntsOSNidR0abbZmAK4sCzvt8Yiuz2yrNCJoH5O8XvX/vLeR/BBYTWj0sOPYM/jyxRd5+/JziKAABaPcw/34UA3aj/gLZxZgRCWN6m4m3demanNgsx0P237/Q+Ew5VYnJPkyCY0cIVHoFn2Ay/e7U4P19APbPFXEHX94N6KhEMPG7iwB3+I+O1jd5n6VSgHegxgaSawO6iQCYFgDsPSMsNOcUj4q3sF6KzGaH/0u5PQoAj/8zq6Uc9MoNrGqhYeb2jQo0WlGlXjxtanZLS24/OIN5Gx/2g684BPDQpwlqnkFcxpmP/osnOXrFuu4PqifouQH0eF5qCkvITQbJw/Zvy5mAHWC9oU+cTiYhJmSfKsCyt1cGVxisKu+NymEQIAyaCgud/V09qT3nk/9s/SWsYtha7yNpzBIMM40rCSGaJ9u6lEkl00vXBiEt7p9P5IBCiavynEOv7FgLqPdeqxRiCwuFVMolSIUBcoyfUC2e2FJSAUgYdVGFf0b0Kn2EZlK97yyxrT2MVgvtRikfdaAW8RwEEfN+B7/eK8bBdp7URpbqn1xcrC6d2UjdsKbzCjBFqkKkoZt7Mrhg6YagE7spkqj0jOrWM+UGQ0MUlG2evP1uE1p2xSv4dMK0dna6ENcNUF+xkaJ7B764NdxLCpuvhblltVRAf7vK5qPttJ/9RYFUUSGcLdibnz6mf7WkPO3MkUUhR2mAOuGv8IWw5XG1ZvoVMnjSAZe6T7WYA99GENxoHkMiKxHlCuK5Gd0INrISImHQrQmv6F4mqU/TTQ8nHMDzCRivKySQ8dqkpQgnUMnwIkaAuc6/FGq1hw3b2Sba398BhUwUZSAIO8XZvnuLdY2n6hOXws+gq9BHUKcKFA6kz6FDnpxLPICa3qGhnc97bo1FT/XJk48LrkHJ2CAtBv0RtN97N21plfpXHvZ8gMJb7Zc4cfI6MbPwsW7AilCSXMFIEUEmir8XLEklA0ztYbGpTTGqttp5hpFTTIqUyaAIqvMT9A/x+Ji5ejA4Bhxb/cl1pUdOD6epd3yilIdO6j297xInoiBPuEDW2/UfslDyhGkQs7Wy253bVnlT+SWg89zYIK/9KXFl5fe+jow2rd5FXv8zDPrmfMXiUPt9QBO/iK4QGbX5j/7Rx1c1vzsY8ONbP3lVIaPrhL4+1QrECTN3nyKavGG0gBBtHvTKhGoBHgMXHStFowN+HKrPriYu+OZ05Frn8okQrPaaxoKP1ULCS/cmKFN3gcH7HQlVjraCeQmtjg1pSQxeuqXiSKgLpxc/1OiZsU4+n4lz4hpahGyWBURLi4642n1gn9qz9bIsaCeEPJ0uJmenMWp2tJmIwLQ6VSgDYErOeBCfSj9P4G/vI7oIF+l/n5fp956QgxGvur77ynawAu3G9MdFbJbu49NZnWnnFcQHjxRuhUYvg1U/e84N4JTecciDAKb/KYIFXzloyuE1eYXf54MmhjTq7B/yBToDzzpx3tJCTo3HCmVPYfmtBRe3mPYEE/6RlTIxbf4fSOcaKFGk4gbaUWe44hVk9SZzhW80yfW5QWBHxmtUzvMhfVQli4gZTktIOZd9mjJ5hsbmzttaHQB29Am3dZkmx3g/qvYocyhZ2PXAWsNQiIaf+Q8W/MWPIK7/TjvCx5q2XRp4lVWydMc2wIQkhadDB0xsnw/kSEyGjLKjI4coVIwtubTF3E7MJ6LS6UOsJKj82XVAVPJJcepfewbzE91ivXZvOvYfsmMevwtPpfMzGmC7WJlyW2j0jh7AF1JLmwEJSKYwIvu6DHc3YnyLH9ZdIBnQ+nOVDRiP+REpqv++typYHIvoJyICGA40d8bR7HR2k7do6UQTHF4oriYeIQbxKe4Th6+/l1BjUtS9hqORh3MbgvYrStXTfSwaBOmAVQZzpYNqsAmQyjY56MUqty3c/xH6GuhNvNaG9vGbG6cPtBM8UA3e8r51D0AR9kozKuGGSMgLz3nAHxDNnc7GTwpLj7/6HeWp1iksDeTjwCLpxejuMtpMnGJgsiku1sOACwQ9ukzESiDRN77YNESxR5LphOlcASXA5uIts1LnBIcn1J7BLWs49DMALSnuz95gdOrTZr0u1SeYHinno/pE58xYoXbVO/S+FEMMs5qyWkMnp8Q3ClyTlZP52Y9nq7b8fITPuVXUk9ohG5EFHw4gAEcjFxfKb3xuAsEjx2z1wxNbSZMcgS9GKyW3R6KwJONgtA64LTyxWm8Bvudp0M1FdJPEGopM4Fvg7G/hsptkhCfHFegv4ENwxPeXmYhxwZy7js+BeM27t9ODBMynVCLJ7RWcBMteZJtvjOYHb5lOnCLYWNEMKC59BA7covu1cANa2PXL05iGdufOzkgFqqHBOrgQVUmLEc+Mkz4Rq8O6WkNr7atNkH4M8d+SD1t/tSzt3oFql+neVs+AwEI5JaBJaxARtY2Z4mKoUqxds4UpZ0sv3zIbNoo0J4fihldQTX3XNcuNcZmcrB5LTWMdzeRuAtBk3cZHYQF6gTi3PNuDJ0nmR+4LPLoHvxQIxRgJ9iNNXqf2SYJhcvCtJiVWo85TsyFOuq7EyBPJrAdhEgE0cTq16FQXhYPJFqSfiVn0IQnPOy0LbU4BeG94QjdYNB0CiQ3QaxQqD2ebSMiNjaVaw8WaM4Z5WnzcVDsr4eGweSLa2DE3BWViaxhZFIcSTjgxNCAfelg+hznVOYoe5VqTYs1g7WtfTm3e4/WduC6p+qqAM8H4ZyrJCGpewThTDPe6H7CzX/zQ8Tm+r65HeZn+MsmxUciEWPlAVaK/VBaQBWfoG/aRL/jSZIQfep/89GjasWmbaWzeEZ2R1FOjvyJT37O9B8046SRSKVEnXWlBqbkb5XCS3qFeuE9xb9+frEknxWB5h1D/hruz2iVDEAS7+qkEz5Ot5agHJc7WCdY94Ws61sURcX5nG8UELGBAHZ3i+3VulAyT0nKNNz4K2LBHBWJcTBX1wzf+//u/j/9+//v87+9/l9Lbh/L/uyNYiTsWV2LwsjaA6MxTuzFMqmxW8Jw/+IppdX8t/Clgi1rI1SN0UC/r6tX/4lUc2VV1OQReSeCsjUpKZchw4XUcjHfw6ryCV3R8s6VXm67vp4n+lcPV9gJwmbKQEsmrJi9c2vkwrm8HFbVYNTaRGq8D91t9n5+U+aD/hNtN3HjC/nC/vUoGFSCkXP+NlRcmLUqLbiUBl4LYf1U/CCvwtd3ryCH8gUmGITAxiH1O5rnGTz7y1LuFjmnFGQ1UWuM7HwfXtWl2fPFKklYwNUpF2IL/TmaRETjQiM5SJacI+3Gv5MBU8lP5Io6gWkawpyzNEVGqOdx4YlO1dCvjbWFZWbCmeiFKPSlMKtKcMFLs/KQxtgAHi7NZNCQ32bBAW2mbHflVZ8wXKi1JKVHkW20bnYnl3dKWJeWJOiX3oKPBD6Zbi0ZvSIuWktUHB8qDR8DMMh1ZfkBL9FS9x5r0hBGLJ8pUCJv3NYH+Ae8p40mZWd5m5fhobFjQeQvqTT4VKWIYfRL0tfaXKiVl75hHReuTJEcqVlug+eOIIc4bdIydtn2K0iNZPsYWQvQio2qbO3OqAlPHDDOB7DfjGEfVF51FqqNacd6QmgFKJpMfLp5DHTv4wXlONKVXF9zTJpDV4m1sYZqJPhotcsliZM8yksKkCkzpiXt+EcRQvSQqmBS9WdWkxMTJXPSw94jqI3varCjQxTazjlMH8jTS8ilaW8014/vwA/LNa+YiFoyyx3s/KswP3O8QW1jtq45yTM/DX9a8M4voTVaO2ebvw1EooDw/yg6Y1faY+WwrdVs5Yt0hQ5EwRfYXSFxray1YvSM+kYmlpLG2/9mm1MfmbKHXr44Ih8nVKb1M537ZANUkCtdsPZ80JVKVKabVHCadaLXg+IV8i5GSwpZti0h6diTaKs9sdpUKEpd7jDUpYmHtiX33SKiO3tuydkaxA7pEc9XIQEOfWJlszj5YpL5bKeQyT7aZSBOamvSHl8xsWvgo26IP/bqk+0EJUz+gkkcvlUlyPp2kdKFtt7y5aCdks9ZJJcFp5ZWeaWKgtnXMN3ORwGLBE0PtkEIek5FY2aVssUZHtsWIvnljMVJtuVIjpZup/5VL1yPOHWWHkOMc6YySWMckczD5jUj2mlLVquFaMU8leGVaqeXis+aRRL8zm4WuBk6cyWfGMxgtr8useQEx7k/PvRoZyd9nde1GUCV84gMX8Ogu/BWezYPSR27llzQnA97oo0pYyxobYUJfsj+ysTm9zJ+S4pk0TGo9VTG0KjqYhTmALfoDZVKla2b5yhv241PxFaLJs3i05K0AAIdcGxCJZmT3ZdT7CliR7q+kur7WdQjygYtOWRL9B8E4s4LI8KpAj7bE0dg7DLOaX+MGeAi0hMMSSWZEz+RudXbZCsGYS0QqiXjH9XQbd8sCB+nIVTq7/T/FDS+zWY9q7Z2fdq1tdLb6v3hKKVDAw5gjj6o9r1wHFROdHc18MJp4SJ2Ucvu+iQ9EgkekW8VCM+psM6y+/2SBy8tNN4a3L1MzP+OLsyvESo5gS7IQOnIqMmviJBVc6zbVG1n8eXiA3j46kmvvtJlewwNDrxk4SbJOtP/TV/lIVK9ueShNbbMHfwnLTLLhbZuO79ec5XvfgRwLFK+w1r5ZWW15rVFZrE+wKqNRv5KqsLNfpGgnoUU6Y71NxEmN7MyqwqAQqoIULOw/LbuUB2+uE75gJt+kq1qY4LoxV+qR/zalupea3D5+WMeaRIn0sAI6DDWDh158fqUb4YhAxhREbUN0qyyJYkBU4V2KARXDT65gW3gRsiv7xSPYEKLwzgriWcWgPr0sbZnv7m1XHNFW6xPdGNZUdxFiUYlmXNjDVWuu7LCkX/nVkrXaJhiYktBISC2xgBXQnNEP+cptWl1eG62a7CPXrnrkTQ5BQASbEqUZWMDiZUisKyHDeLFOaJILUo5f6iDt4ZO8MlqaKLto0AmTHVVbkGuyPa1R/ywZsWRoRDoRdNMMHwYTsklMVnlAd2S0282bgMI8fiJpDh69OSL6K3qbo20KfpNMurnYGQSr/stFqZ7hYsxKlLnKAKhsmB8AIpEQ4bd/NrTLTXefsE6ChRmKWjXKVgpGoPs8GAicgKVw4K0qgDgy1A6hFq1WRat3fHF+FkU+b6H4NWpOU3KXTxrIb2qSHAb+qhm8hiSROi/9ofapjxhyKxxntPpge6KL5Z4+WBMYkAcE6+0Hd3Yh2zBsK2MV3iW0Y6cvOCroXlRb2MMJtdWx+3dkFzGh2Pe3DZ9QpSqpaR/rE1ImOrHqYYyccpiLC22amJIjRWVAherTfpQLmo6/K2pna85GrDuQPlH1Tsar8isAJbXLafSwOof4gg9RkAGm/oYpBQQiPUoyDk2BCQ1k+KILq48ErFo4WSRhHLq/y7mgw3+L85PpP6xWr6cgp9sOjYjKagOrxF148uhuaWtjet953fh1IQiEzgC+d2IgBCcUZqgTAICm2bR8oCjDLBsmg+ThyhfD+zBalsKBY1Ce54Y/t9cwfbLu9SFwEgphfopNA3yNxgyDafUM3mYTovZNgPGdd4ZFFOj1vtfFW3u7N+iHEN1HkeesDMXKPyoCDCGVMo4GCCD6PBhQ3dRZIHy0Y/3MaE5zU9mTCrwwnZojtE+qNpMSkJSpmGe0EzLyFelMJqhfFQ7a50uXxZ8pCc2wxtAKWgHoeamR2O7R+bq7IbPYItO0esdRgoTaY38hZLJ5y02oIVwoPokGIzxAMDuanQ1vn2WDQ00Rh6o5QOaCRu99fwDbQcN0XAuqkFpxT/cfz3slGRVokrNU0iqiMAJFEbKScZdmSkTUznC0U+MfwFOGdLgsewRyPKwBZYSmy6U325iUhBQNxbAC3FLKDV9VSOuQpOOukJ/GAmu/tyEbX9DgEp6dv1zoU0IqzpG6gssSjIYRVPGgU1QAQYRgIT8gEV0EXr1sqeh2I6rXjtmoCYyEDCe/PkFEi/Q48FuT29p557iN+LCwk5CK/CZ2WdAdfQZh2Z9QGrzPLSNRj5igUWzl9Vi0rCqH8G1Kp4QMLkuwMCAypdviDXyOIk0AHTM8HBYKh3b0/F+DxoNj4ZdoZfCpQVdnZarqoMaHWnMLNVcyevytGsrXQEoIbubqWYNo7NRHzdc0zvT21fWVirj7g36iy6pxogfvgHp1xH1Turbz8QyyHnXeBJicpYUctbzApwzZ1HT+FPEXMAgUZetgeGMwt4G+DHiDT2Lu+PT21fjJCAfV16a/Wu1PqOkUHSTKYhWW6PhhHUlNtWzFnA7MbY+r64vkwdpfNB2JfWgWXAvkzd42K4lN9x7Wrg4kIKgXCb4mcW595MCPJ/cTfPAMQMFWwnqwde4w8HZYJFpQwcSMhjVz4B8p6ncSCN1X4klxoIH4BN2J6taBMj6lHkAOs8JJAmXq5xsQtrPIPIIp/HG6i21xMGcFgqDXSRF0xQg14d2uy6HgKE13LSvQe52oShF5Jx1R6avyL4thhXQZHfC94oZzuPUBKFYf1VvDaxIrtV6dNGSx7DO0i1p6CzBkuAmEqyWceQY7F9+U0ObYDzoa1iKao/cOD/v6Q9gHrrr1uCeOk8fST9MG23Ul0KmM3r+Wn6Hi6WAcL7gEeaykicvgjzkjSwFsAXIR81Zx4QJ6oosVyJkCcT+4xAldCcihqvTf94HHUPXYp3REIaR4dhpQF6+FK1H0i9i7Pvh8owu3lO4PT1iuqu+DkL2Bj9+kdfGAg2TXw03iNHyobxofLE2ibjsYDPgeEQlRMR7afXbSGQcnPjI2D+sdtmuQ771dbASUsDndU7t58jrrNGRzISvwioAlHs5FA+cBE5Ccznkd8NMV6BR6ksnKLPZnMUawRDU1MZ/ib3xCdkTblHKu4blNiylH5n213yM0zubEie0o4JhzcfAy3H5qh2l17uLooBNLaO+gzonTH2uF8PQu9EyH+pjGsACTMy4cHzsPdymUSXYJOMP3yTkXqvO/lpvt0cX5ekDEu9PUfBeZODkFuAjXCaGdi6ew4qxJ8PmFfwmPpkgQjQlWqomFY6UkjmcnAtJG75EVR+NpzGpP1Ef5qUUbfowrC3zcSLX3BxgWEgEx/v9cP8H8u1Mvt9/rMDYf6sjwU1xSOPBgzFEeJLMRVFtKo5QHsUYT8ZRLCah27599EuqoC9PYjYO6aoAMHB8X1OHwEAYouHfHB3nyb2B+SnZxM/vw/bCtORjLMSy5aZoEpvgdGvlJfNPFUu/p7Z4VVK1hiI0/UTuB3ZPq4ohEbm7Mntgc1evEtknaosgZSwnDC2BdMmibpeg48X8Ixl+/8+xXdbshQXUPPvx8jT3fkELivHSmqbhblfNFShWAyQnJ3WBU6SMYSIpTDmHjdLVAdlADdz9gCplZw6mTiHqDwIsxbm9ErGusiVpg2w8Q3khKV/R9Oj8PFeF43hmW/nSd99nZzhyjCX3QOZkkB6BsH4H866WGyv9E0hVAzPYah2tkRfQZMmP2rinfOeQalge0ovhduBjJs9a1GBwReerceify49ctOh5/65ATYuMsAkVltmvTLBk4oHpdl6i+p8DoNj4Fb2vhdFYer2JSEilEwPd5n5zNoGBXEjreg/wh2NFnNRaIUHSOXa4eJRwygZoX6vnWnqVdCRT1ARxeFrNBJ+tsdooMwqnYhE7zIxnD8pZH+P0Nu1wWxCPTADfNWmqx626IBJJq6NeapcGeOmbtXvl0TeWG0Y7OGGV4+EHTtNBIT5Wd0Bujl7inXgZgfXTM5efD3qDTJ54O9v3Bkv+tdIRlq1kXcVD0BEMirmFxglNPt5pedb1AnxuCYMChUykwsTIWqT23XDpvTiKEru1cTcEMeniB+HQDehxPXNmkotFdwUPnilB/u4Nx5Xc6l8J9jH1EgKZUUt8t8cyoZleDBEt8oibDmJRAoMKJ5Oe9CSWS5ZMEJvacsGVdXDWjp/Ype5x0p9PXB2PAwt2LRD3d+ftNgpuyvxlP8pB84oB1i73vAVpwyrmXW72hfW6Dzn9Jkj4++0VQ4d0KSx1AsDA4OtXXDo63/w+GD+zC7w5SJaxsmnlYRQ4dgdjA7tTl2KNLnpJ+mvkoDxtt1a4oPaX3EVqj96o9sRKBQqU7ZOiupeAIyLMD+Y3YwHx30XWHB5CQiw7q3mj1EDlP2eBsZbz79ayUMbyHQ7s8gu4Lgip1LiGJj7NQj905/+rgUYKAA5qdrlHKIknWmqfuR+PB8RdBkDg/NgnlT89G72h2NvySnj7UyBwD+mi/IWs1xWbxuVwUIVXun5cMqBtFbrccI+DILjsVQg6eeq0itiRfedn89CvyFtpkxaauEvSANuZmB1p8FGPbU94J9medwsZ9HkUYjmI7OH5HuxendLbxTaYrPuIfE2ffXFKhoNBUp33HsFAXmCV/Vxpq5AYgFoRr5Ay93ZLRlgaIPjhZjXZZChT+aE5iWAXMX0oSFQEtwjiuhQQItTQX5IYrKfKB+queTNplR1Hoflo5/I6aPPmACwQCE2jTOYo5Dz1cs7Sod0KTG/3kEDGk3kUaUCON19xSJCab3kNpWZhSWkO8l+SpW70Wn3g0ciOIJO5JXma6dbos6jyisuxXwUUhj2+1uGhcvuliKtWwsUTw4gi1c/diEEpZHoKoxTBeMDmhPhKTx7TXWRakV8imJR355DcIHkR9IREHxohP4TbyR5LtFU24umRPRmEYHbpe1LghyxPx7YgUHjNbbQFRQhh4KeU1EabXx8FS3JAxp2rwRDoeWkJgWRUSKw6gGP5U2PuO9V4ZuiKXGGzFQuRuf+tkSSsbBtRJKhCi3ENuLlXhPbjTKD4djXVnfXFds6Zb+1XiUrRfyayGxJq1+SYBEfbKlgjiSmk0orgTqzSS+DZ5rTqsJbttiNtp+KMqGE2AHGFw6jQqM5vD6vMptmXV9OAjq49Uf/Lx9Opam+Hn5O9p8qoBBAQixzQZ4eNVkO9sPzJAMyR1y4/RCQQ1s0pV5KAU5sKLw3tkcFbI/JqrjCsK4Mw+W8aod4lioYuawUiCyVWBE/qPaFi5bnkgpfu/ae47174rI1fqQoTbW0HrU6FAejq7ByM0V4zkZTg02/YJK2N7hUQRCeZ4BIgSEqgD8XsjzG6LIsSbuHoIdz/LhFzbNn1clci1NHWJ0/6/O8HJMdIpEZbqi1RrrFfoo/rI/7ufm2MPG5lUI0IYJ4MAiHRTSOFJ2oTverFHYXThkYFIoyFx6rMYFgaOKM4xNWdlOnIcKb/suptptgTOTdVIf4YgdaAjJnIAm4qNNHNQqqAzvi53GkyRCEoseUBrHohZsjUbkR8gfKtc/+Oa72lwxJ8Mq6HDfDATbfbJhzeIuFQJSiw1uZprHlzUf90WgqG76zO0eCB1WdPv1IT6sNxxh91GEL2YpgC97ikFHyoaH92ndwduqZ6IYjkg20DX33MWdoZk7QkcKUCgisIYslOaaLyvIIqRKWQj16jE1DlQWJJaPopWTJjXfixEjRJJo8g4++wuQjbq+WVYjsqCuNIQW3YjnxKe2M5ZKEqq+cX7ZVgnkbsU3RWIyXA1rxv4kGersYJjD//auldXGmcEbcfTeF16Y1708FB1HIfmWv6dSFi6oD4E+RIjCsEZ+kY7dKnwReJJw3xCjKvi3kGN42rvyhUlIz0Bp+fNSV5xwFiuBzG296e5s/oHoFtUyUplmPulIPl+e1CQIQVtjlzLzzzbV+D/OVQtYzo5ixtMi5BmHuG4N/uKfJk5UIREp7+12oZlKtPBomXSzAY0KgtbPzzZoHQxujnREUgBU+O/jKKhgxVhRPtbqyHiUaRwRpHv7pgRPyUrnE7fYkVblGmfTY28tFCvlILC04Tz3ivkNWVazA+OsYrxvRM/hiNn8Fc4bQBeUZABGx5S/xFf9Lbbmk298X7iFg2yeimvsQqqJ+hYbt6uq+Zf9jC+Jcwiccd61NKQtFvGWrgJiHB5lwi6fR8KzYS7EaEHf/ka9EC7H8D+WEa3TEACHBkNSj/cXxFeq4RllC+fUFm2xtstYLL2nos1DfzsC9vqDDdRVcPA3Ho95aEQHvExVThXPqym65llkKlfRXbPTRiDepdylHjmV9YTWAEjlD9DdQnCem7Aj/ml58On366392214B5zrmQz/9ySG2mFqEwjq5sFl5tYJPw5hNz8lyZPUTsr5E0F2C9VMPnZckWP7+mbwp/BiN7f4kf7vtGnZF2JGvjK/sDX1RtcFY5oPQnE4lIAYV49U3C9SP0LCY/9i/WIFK9ORjzM9kG/KGrAuwFmgdEpdLaiqQNpCTGZVuAO65afkY1h33hrqyLjZy92JK3/twdj9pafFcwfXONmPQWldPlMe7jlP24Js0v9m8bIJ9TgS2IuRvE9ZVRaCwSJYOtAfL5H/YS4FfzKWKbek+GFulheyKtDNlBtrdmr+KU+ibHTdalzFUmMfxw3f36x+3cQbJLItSilW9cuvZEMjKw987jykZRlsH/UI+HlKfo2tLwemBEeBFtmxF2xmItA/dAIfQ+rXnm88dqvXa+GapOYVt/2waFimXFx3TC2MUiOi5/Ml+3rj/YU6Ihx2hXgiDXFsUeQkRAD6wF3SCPi2flk7XwKAA4zboqynuELD312EJ88lmDEVOMa1W/K/a8tGylZRMrMoILyoMQzzbDJHNZrhH77L9qSC42HVmKiZ5S0016UTp83gOhCwz9XItK9fgXfK3F5d7nZCBUekoLxrutQaPHa16Rjsa0gTrzyjqTnmcIcrxg6X6dkKiucudc0DD5W4pJPf0vuDW8r5/uw24YfMuxFRpD2ovT2mFX79xH6Jf+MVdv2TYqR6/955QgVPe3JCD/WjAYcLA9tpXgFiEjge2J5ljeI/iUzg91KQuHkII4mmHZxC3XQORLAC6G7uFn5LOmlnXkjFdoO976moNTxElS8HdxWoPAkjjocDR136m2l+f5t6xaaNgdodOvTu0rievnhNAB79WNrVs6EsPgkgfahF9gSFzzAd+rJSraw5Mllit7vUP5YxA843lUpu6/5jAR0RvH4rRXkSg3nE+O5GFyfe+L0s5r3k05FyghSFnKo4TTgs07qj4nTLqOYj6qaW9knJTDkF5OFMYbmCP+8H16Ty482OjvERV6OFyw043L9w3hoJi408sR+SGo1WviXUu8d7qS+ehKjpKwxeCthsm2LBFSFeetx0x4AaKPxtp3CxdWqCsLrB1s/j5TAhc1jNZsXWl6tjo/WDoewxzg8T8NnhZ1niUwL/nhfygLanCnRwaFGDyLw+sfZhyZ1UtYTp8TYB6dE7R3VsKKH95CUxJ8u8N+9u2/9HUNKHW3x3w5GQrfOPafk2w5qZq8MaHT0ebeY3wIsp3rN9lrpIsW9c1ws3VNV+JwNz0Lo9+V7zZr6GD56We6gWVIvtmam5GPPkVAbr74r6SwhuL+TRXtW/0pgyX16VNl4/EAD50TnUPuwrW6OcUO2VlWXS0inq872kk7GUlW6o/ozFKq+Sip6LcTtSDfDrPTcCHhx75H8BeRon+KG2wRwzfDgWhALmiWOMO6h3pm1UCZEPEjScyk7tdLx6WrdA2N1QTPENvNnhCQjW6kl057/qv7IwRryHrZBCwVSbLLnFRiHdTwk8mlYixFt1slEcPD7FVht13HyqVeyD55HOXrh2ElAxJyinGeoFzwKA91zfrdLvDxJSjzmImfvTisreI25EDcVfGsmxLVbfU8PGe/7NmWWKjXcdTJ11jAlVIY/Bv/mcxg/Q10vCHwKG1GW/XbJq5nxDhyLqiorn7Wd7VEVL8UgVzpHMjQ+Z8DUgSukiVwWAKkeTlVVeZ7t1DGnCgJVIdBPZAEK5f8CDyDNo7tK4/5DBjdD5MPV86TaEhGsLVFPQSI68KlBYy84FievdU9gWh6XZrugvtCZmi9vfd6db6V7FmoEcRHnG36VZH8N4aZaldq9zZawt1uBFgxYYx+Gs/qW1jwANeFy+LCoymyM6zgG7j8bGzUyLhvrbJkTYAEdICEb4kMKusKT9V3eIwMLsjdUdgijMc+7iKrr+TxrVWG0U+W95SGrxnxGrE4eaJFfgvAjUM4SAy8UaRwE9j6ZQH5qYAWGtXByvDiLSDfOD0yFA3UCMKSyQ30fyy1mIRg4ZcgZHLNHWl+c9SeijOvbOJxoQy7lTN2r3Y8p6ovxvUY74aOYbuVezryqXA6U+fcp6wSV9X5/OZKP18tB56Ua0gMyxJI7XyNT7IrqN8GsB9rL/kP5KMrjXxgqKLDa+V5OCH6a5hmOWemMUsea9vQl9t5Oce76PrTyTv50ExOqngE3PHPfSL//AItPdB7kGnyTRhVUUFNdJJ2z7RtktZwgmQzhBG/G7QsjZmJfCE7k75EmdIKH7xlnmDrNM/XbTT6FzldcH/rcRGxlPrv4qDScqE7JSmQABJWqRT/TUcJSwoQM+1jvDigvrjjH8oeK2in1S+/yO1j8xAws/T5u0VnIvAPqaE1atNuN0cuRliLcH2j0nTL4JpcR7w9Qya0JoaHgsOiALLCCzRkl1UUESz+ze/gIXHGtDwgYrK6pCFKJ1webSDog4zTlPkgXZqxlQDiYMjhDpwTtBW2WxthWbov9dt2X9XFLFmcF+eEc1UaQ74gqZiZsdj63pH1qcv3Vy8JYciogIVKsJ8Yy3J9w/GhjWVSQAmrS0BPOWK+RKV+0lWqXgYMnIFwpcZVD7zPSp547i9HlflB8gVnSTGmmq1ClO081OW/UH11pEQMfkEdDFzjLC1Cdo/BdL3s7cXb8J++Hzz1rhOUVZFIPehRiZ8VYu6+7Er7j5PSZu9g/GBdmNzJmyCD9wiswj9BZw+T3iBrg81re36ihMLjoVLoWc+62a1U/7qVX5CpvTVF7rocSAKwv4cBVqZm7lLDS/qoXs4fMs/VQi6BtVbNA3uSzKpQfjH1o3x4LrvkOn40zhm6hjduDglzJUwA0POabgdXIndp9fzhOo23Pe+Rk9GSLX0d71Poqry8NQDTzNlsa+JTNG9+UrEf+ngxCjGEsDCc0bz+udVRyHQI1jmEO3S+IOQycEq7XwB6z3wfMfa73m8PVRp+iOgtZfeSBl01xn03vMaQJkyj7vnhGCklsCWVRUl4y+5oNUzQ63B2dbjDF3vikd/3RUMifPYnX5Glfuk2FsV/7RqjI9yKTbE8wJY+74p7qXO8+dIYgjtLD/N8TJtRh04N9tXJA4H59IkMmLElgvr0Q5OCeVfdAt+5hkh4pQgfRMHpL74XatLQpPiOyHRs/OdmHtBf8nOZcxVKzdGclIN16lE7kJ+pVMjspOI+5+TqLRO6m0ZpNXJoZRv9MPDRcAfJUtNZHyig/s2wwReakFgPPJwCQmu1I30/tcBbji+Na53i1W1N+BqoY7Zxo+U/M9XyJ4Ok2SSkBtoOrwuhAY3a03Eu6l8wFdIG1cN+e8hopTkiKF093KuH/BcB39rMiGDLn6XVhGKEaaT/vqb/lufuAdpGExevF1+J9itkFhCfymWr9vGb3BTK4j598zRH7+e+MU9maruZqb0pkGxRDRE1CD4Z8LV4vhgPidk5w2Bq816g3nHw1//j3JStz7NR9HIWELO8TMn3QrP/zZp//+Dv9p429/ogv+GATR+n/UdF+ns9xNkXZQJXY4t9jMkJNUFygAtzndXwjss+yWH9HAnLQQfhAskdZS2l01HLWv7L7us5uTH409pqitvfSOQg/c+Zt7k879P3K9+WV68n7+3cZfuRd/dDPP/03rn+d+/nBvWfgDlt8+LzjqJ/vx3CnNOwiXhho778C96iD+1TBvRZYeP+EH81LE0vVwOOrmCLB3iKzI1x+vJEsrPH4uF0UB4TJ4X3uDfOCo3PYpYe0MF4bouh0DQ/l43fxUF7Y+dpWuvTSffB0yO2UQUETI/LwCZE3BvnevJ7c9zUlY3H58xzke6DNFDQG8n0WtDN4LAYN4nogKav1ezOfK/z+t6tsCTp+dhx4ymjWuCJk1dEUifDP+HyS4iP/Vg9B2jTo9L4NbiBuDS4nuuHW6H+JDQn2JtqRKGkEQPEYE7uzazXIkcxIAqUq1esasZBETlEZY7y7Jo+RoV/IsjY9eIMkUvr42Hc0xqtsavZvhz1OLwSxMOTuqzlhb0WbdOwBH9EYiyBjatz40bUxTHbiWxqJ0uma19qhPruvcWJlbiSSH48OLDDpaHPszvyct41ZfTu10+vjox6kOqK6v0K/gEPphEvMl/vwSv+A4Hhm36JSP9IXTyCZDm4kKsqD5ay8b1Sad/vaiyO5N/sDfEV6Z4q95E+yfjxpqBoBETW2C7xl4pIO2bDODDFurUPwE7EWC2Uplq+AHmBHvir2PSgkR12/Ry65O0aZtQPeXi9mTlF/Wj5GQ+vFkYyhXsLTjrBSP9hwk4GPqDP5rBn5/l8b0mLRAvRSzXHc293bs3s8EsdE3m2exxidWVB4joHR+S+dz5/W+v00K3TqN14CDBth8eWcsTbiwXPsygHdGid0PEdy6HHm2v/IUuV5RVapYmzGsX90mpnIdNGcOOq64Dbc5GUbYpD9M7S+6cLY//QmjxFLP5cuTFRm3vA5rkFZroFnO3bjHF35uU3s8mvL7Tp9nyTc4mymTJ5sLIp7umSnGkO23faehtz3mmTS7fbVx5rP7x3HXIjRNeq/A3xCs9JNB08c9S9BF2O3bOur0ItslFxXgRPdaapBIi4dRpKGxVz7ir69t/bc9qTxjvtOyGOfiLGDhR4fYywHv1WdOplxIV87TpLBy3Wc0QP0P9s4G7FBNOdITS/tep3o3h1TEa5XDDii7fWtqRzUEReP2fbxz7bHWWJdbIOxOUJZtItNZpTFRfj6vm9sYjRxQVO+WTdiOhdPeTJ+8YirPvoeL88l5iLYOHd3b/Imkq+1ZN1El3UikhftuteEYxf1Wujof8Pr4ICTu5ezZyZ4tHQMxlzUHLYO2VMOoNMGL/20S5i2o2obfk+8qqdR7xzbRDbgU0lnuIgz4LelQ5XS7xbLuSQtNS95v3ZUOdaUx/Qd8qxCt6xf2E62yb/HukLO6RyorV8KgYl5YNc75y+KvefrxY+lc/64y9kvWP0a0bDz/rojq+RWjO06WeruWqNFU7r3HPIcLWRql8ICZsz2Ls/qOm/CLn6++X+Qf7mGspYCrZod/lpl6Rw4xN/yuq8gqV4B6aHk1hVE1SfILxWu5gvXqbfARYQpspcxKp1F/c8XOPzkZvmoSw+vEqBLdrq1fr3wAPv5NnM9i8F+jdAuxkP5Z71c6uhK3enlnGymr7UsWZKC12qgUiG8XXGQ9mxnqz4GSIlybF9eXmbqj2sHX+a1jf0gRoONHRdRSrIq03Ty89eQ1GbV/Bk+du4+V15zls+vvERvZ4E7ZbnxWTVjDjb4o/k8jlw44pTIrUGxxuJvBeO+heuhOjpFsO6lVJ/aXnJDa/bM0Ql1cLbXE/Pbv3EZ3vj3iVrB5irjupZTzlnv677NrI9UNYNqbPgp/HZXS+lJmk87wec+7YOxTDo2aw2l3NfDr34VNlvqWJBknuK7oSlZ6/T10zuOoPZOeoIk81N+sL843WJ2Q4Z0fZ3scsqC/JV2fuhWi1jGURSKZV637lf53Xnnx16/vKEXY89aVJ0fv91jGdfG+G4+sniwHes4hS+udOr4RfhFhG/F5gUG35QaU+McuLmclb5ZWmR+sG5V6nf+PxYzlrnFGxpZaK8eqqVo0NfmAWoGfXDiT/FnUbWvzGDOTr8aktOZWg4BYvz5YH12ZbfCcGtNk+dDAZNGWvHov+PIOnY9Prjg8h/wLRrT69suaMVZ5bNuK00lSVpnqSX1NON/81FoP92rYndionwgOiA8WMf4vc8l15KqEEG4yAm2+WAN5Brfu1sq9suWYqgoajgOYt/JCk1gC8wPkK+XKCtRX6TAtgvrnuBgNRmn6I8lVDipOVB9kX6Oxkp4ZKyd1M6Gj8/v2U7k+YQBL95Kb9PQENucJb0JlW3b5tObN7m/Z1j1ev388d7o15zgXsI9CikAGAViR6lkJv7nb4Ak40M2G8TJ447kN+pvfHiOFjSUSP6PM+QfbAywKJCBaxSVxpizHseZUyUBhq59vFwrkyGoRiHbo0apweEZeSLuNiQ+HAekOnarFg00dZNXaPeoHPTRR0FmEyqYExOVaaaO8c0uFUh7U4e/UxdBmthlBDgg257Q33j1hA7HTxSeTTSuVnPZbgW1nodwmG16aKBDKxEetv7D9OjO0JhrbJTnoe+kcGoDJazFSO8/fUN9Jy/g4XK5PUkw2dgPDGpJqBfhe7GA+cjzfE/EGsMM+FV9nj9IAhrSfT/J3QE5TEIYyk5UjsI6ZZcCPr6A8FZUF4g9nnpVmjX90MLSQysIPD0nFzqwCcSJmIb5mYv2Cmk+C1MDFkZQyCBq4c/Yai9LJ6xYkGS/x2s5/frIW2vmG2Wrv0APpCdgCA9snFvfpe8uc0OwdRs4G9973PGEBnQB5qKrCQ6m6X/H7NInZ7y/1674/ZXOVp7OeuCRk8JFS516VHrnH1HkIUIlTIljjHaQtEtkJtosYul77cVwjk3gW1Ajaa6zWeyHGLlpk3VHE2VFzT2yI/EvlGUSz2H9zYE1s4nsKMtMqNyKNtL/59CpFJki5Fou6VXGm8vWATEPwrUVOLvoA8jLuwOzVBCgHB2Cr5V6OwEWtJEKokJkfc87h+sNHTvMb0KVTp5284QTPupoWvQVUwUeogZR3kBMESYo0mfukewRVPKh5+rzLQb7HKjFFIgWhj1w3yN/qCNoPI8XFiUgBNT1hCHBsAz8L7Oyt8wQWUFj92ONn/APyJFg8hzueqoJdNj57ROrFbffuS/XxrSXLTRgj5uxZjpgQYceeMc2wJrahReSKpm3QjHfqExTLAB2ipVumE8pqcZv8LYXQiPHHsgb5BMW8zM5pvQit+mQx8XGaVDcfVbLyMTlY8xcfmm/RSAT/H09UQol5gIz7rESDmnrQ4bURIB4iRXMDQwxgex1GgtDxKp2HayIkR+E/aDmCttNm2C6lytWdfOVzD6X2SpDWjQDlMRvAp1symWv4my1bPCD+E1EmGnMGWhNwmycJnDV2WrQNxO45ukEb08AAffizYKVULp15I4vbNK5DzWwCSUADfmKhfGSUqii1L2UsE8rB7mLuHuUJZOx4+WiizHBJ/hwboaBzhpNOVvgFTf5cJsHef7L1HCI9dOUUbb+YxUJWn6dYOLz+THi91kzY5dtO5c+grX7v0jEbsuoOGnoIreDIg/sFMyG+TyCLIcAWd1IZ1UNFxE8Uie13ucm40U2fcxC0u3WLvLOxwu+F7MWUsHsdtFQZ7W+nlfCASiAKyh8rnP3EyDByvtJb6Kax6/HkLzT9SyEyTMVM1zPtM0MJY14DmsWh4MgD15Ea9Hd00AdkTZ0EiG5NAGuIBzQJJ0JR0na+OB7lQA6UKxMfihIQ7GCCnVz694QvykWXTxpS2soDu+smru1UdIxSvAszBFD1c8c6ZOobA8bJiJIvuycgIXBQIXWwhyTgZDQxJTRXgEwRNAawGSXO0a1DKjdihLVNp/taE/xYhsgwe+VpKEEB4LlraQyE84gEihxCnbfoyOuJIEXy2FIYw+JjRusybKlU2g/vhTSGTydvCvXhYBdtAXtS2v7LkHtmXh/8fly1do8FI/D0f8UbzVb5h+KRhMGSAmR2mhi0YG/uj7wgxcfzCrMvdjitUIpXDX8ae2JcF/36qUWIMwN6JsjaRGNj+jEteGDcFyTUb8X/NHSucKMJp7pduxtD6KuxVlyxxwaeiC1FbGBESO84lbyrAugYxdl+2N8/6AgWpo/IeoAOcsG35IA/b3AuSyoa55L7llBLlaWlEWvuCFd8f8NfcTUgzJv6CbB+6ohWwodlk9nGWFpBAOaz5uEW5xBvmjnHFeDsb0mXwayj3mdYq5gxxNf3H3/tnCgHwjSrpSgVxLmiTtuszdRUFIsn6LiMPjL808vL1uQhDbM7aA43mISXReqjSskynIRcHCJ9qeFopJfx9tqyUoGbSwJex/0aDE3plBPGtNBYgWbdLom3+Q/bjdizR2/AS/c/dH/d3G7pyl1qDXgtOFtEqidwLqxPYtrNEveasWq3vPUUtqTeu8gpov4bdOQRI2kneFvRNMrShyVeEupK1PoLDPMSfWMIJcs267mGB8X9CehQCF0gIyhpP10mbyM7lwW1e6TGvHBV1sg/UyTghHPGRqMyaebC6pbB1WKNCQtlai1GGvmq9zUKaUzLaXsXEBYtHxmFbEZ2kJhR164LhWW2Tlp1dhsGE7ZgIWRBOx3Zcu2DxgH+G83WTPceKG0TgQKKiiNNOlWgvqNEbnrk6fVD+AqRam2OguZb0YWSTX88N+i/ELSxbaUUpPx4vJUzYg/WonSeA8xUK6u7DPHgpqWpEe6D4cXg5uK9FIYVba47V/nb+wyOtk+zG8RrS4EA0ouwa04iByRLSvoJA2FzaobbZtXnq8GdbfqEp5I2dpfpj59TCVif6+E75p665faiX8gS213RqBxTZqfHP46nF6NSenOneuT+vgbLUbdTH2/t0REFXZJOEB6DHvx6N6g9956CYrY/AYcm9gELJXYkrSi+0F0geKDZgOCIYkLU/+GOW5aGj8mvLFgtFH5+XC8hvAE3CvHRfl4ofM/Qwk4x2A+R+nyc9gNu/9Tem7XW4XRnyRymf52z09cTOdr+PG6+P/Vb4QiXlwauc5WB1z3o+IJjlbxI8MyWtSzT+k4sKVbhF3xa+vDts3NxXa87iiu+xRH9cAprnOL2h6vV54iQRXuOAj1s8nLFK8gZ70ThIQcWdF19/2xaJmT0efrkNDkWbpAQPdo92Z8+Hn/aLjbOzB9AI/k12fPs9HhUNDJ1u6ax2VxD3R6PywN7BrLJ26z6s3QoMp76qzzwetrDABKSGkfW5PwS1GvYNUbK6uRqxfyVGNyFB0E+OugMM8kKwmJmupuRWO8XkXXXQECyRVw9UyIrtCtcc4oNqXqr7AURBmKn6Khz3eBN96LwIJrAGP9mr/59uTOSx631suyT+QujDd4beUFpZ0kJEEnjlP+X/Kr2kCKhnENTg4BsMTOmMqlj2WMFLRUlVG0fzdCBgUta9odrJfpVdFomTi6ak0tFjXTcdqqvWBAzjY6hVrH9sbt3Z9gn+AVDpTcQImefbB4edirjzrsNievve4ZT4EUZWV3TxEsIW+9MT/RJoKfZZYSRGfC1CwPG/9rdMOM8qR/LUYvw5f/emUSoD7YSFuOoqchdUg2UePd1eCtFSKgxLSZ764oy4lvRCIH6bowPxZWwxNFctksLeil47pfevcBipkkBIc4ngZG+kxGZ71a72KQ7VaZ6MZOZkQJZXM6kb/Ac0/XkJx8dvyfJcWbI3zONEaEPIW8GbkYjsZcwy+eMoKrYjDmvEEixHzkCSCRPRzhOfJZuLdcbx19EL23MA8rnjTZZ787FGMnkqnpuzB5/90w1gtUSRaWcb0eta8198VEeZMUSfIhyuc4/nywFQ9uqn7jdqXh+5wwv+RK9XouNPbYdoEelNGo34KyySwigsrfCe0v/PlWPvQvQg8R0KgHO18mTVThhQrlbEQ0Kp/JxPdjHyR7E1QPw/ut0r+HDDG7BwZFm9IqEUZRpv2WpzlMkOemeLcAt5CsrzskLGaVOAxyySzZV/D2EY7ydNZMf8e8VhHcKGHAWNszf1EOq8fNstijMY4JXyATwTdncFFqcNDfDo+mWFvxJJpc4sEZtjXyBdoFcxbUmniCoKq5jydUHNjYJxMqN1KzYV62MugcELVhS3Bnd+TLLOh7dws/zSXWzxEb4Nj4aFun5x4kDWLK5TUF/yCXB/cZYvI9kPgVsG2jShtXkxfgT+xzjJofXqPEnIXIQ1lnIdmVzBOM90EXvJUW6a0nZ/7XjJGl8ToO3H/fdxnxmTNKBZxnkpXLVgLXCZywGT3YyS75w/PAH5I/jMuRspej8xZObU9kREbRA+kqjmKRFaKGWAmFQspC+QLbKPf0RaK3OXvBSWqo46p70ws/eZpu6jCtZUgQy6r4tHMPUdAgWGGUYNbuv/1a6K+MVFsd3T183+T8capSo6m0+Sh57fEeG/95dykGJBQMj09DSW2bY0mUonDy9a8trLnnL5B5LW3Nl8rJZNysO8Zb+80zXxqUGFpud3Qzwb7bf+8mq6x0TAnJU9pDQR9YQmZhlna2xuxJt0aCO/f1SU8gblOrbIyMsxTlVUW69VJPzYU2HlRXcqE2lLLxnObZuz2tT9CivfTAUYfmzJlt/lOPgsR6VN64/xQd4Jlk/RV7UKVv2Gx/AWsmTAuCWKhdwC+4HmKEKYZh2Xis4KsUR1BeObs1c13wqFRnocdmuheaTV30gvVXZcouzHKK5zwrN52jXJEuX6dGx3BCpV/++4f3hyaW/cQJLFKqasjsMuO3B3WlMq2gyYfdK1e7L2pO/tRye2mwzwZPfdUMrl5wdLqdd2Kv/wVtnpyWYhd49L6rsOV+8HXPrWH2Kup89l2tz6bf80iYSd+V4LROSOHeamvexR524q4r43rTmtFzQvArpvWfLYFZrbFspBsXNUqqenjxNNsFXatZvlIhk7teUPfK+YL32F8McTnjv0BZNppb+vshoCrtLXjIWq3EJXpVXIlG6ZNL0dh6qEm2WMwDjD3LfOfkGh1/czYc/0qhiD2ozNnH4882MVVt3JbVFkbwowNCO3KL5IoYW5wlVeGCViOuv1svZx7FbzxKzA4zGqBlRRaRWCobXaVq4yYCWbZf8eiJwt3OY+MFiSJengcFP2t0JMfzOiJ7cECvpx7neg1Rc5x+7myPJOXt2FohVRyXtD+/rDoTOyGYInJelZMjolecVHUhUNqvdZWg2J2t0jPmiLFeRD/8fOT4o+NGILb+TufCo9ceBBm3JLVn+MO2675n7qiEX/6W+188cYg3Zn5NSTjgOKfWFSAANa6raCxSoVU851oJLY11WIoYK0du0ec5E4tCnAPoKh71riTsjVIp3gKvBbEYQiNYrmH22oLQWA2AdwMnID6PX9b58dR2QKo4qag1D1Z+L/FwEKTR7osOZPWECPJIHQqPUsM5i/CH5YupVPfFA5pHUBcsesh8eO5YhyWnaVRPZn/BmdXVumZWPxMP5e28zm2uqHgFoT9CymHYNNrzrrjlXZM06HnzDxYNlI5b/QosxLmmrqDFqmogQdqk0WLkUceoAvQxHgkIyvWU69BPFr24VB6+lx75Rna6dGtrmOxDnvBojvi1/4dHjVeg8owofPe1cOnxU1ioh016s/Vudv9mhV9f35At+Sh28h1bpp8xhr09+vf47Elx3Ms6hyp6QvB3t0vnLbOhwo660cp7K0vvepabK7YJfxEWWfrC2YzJfYOjygPwfwd/1amTqa0hZ5ueebhWYVMubRTwIjj+0Oq0ohU3zfRfuL8gt59XsHdwKtxTQQ4Y2qz6gisxnm2UdlmpEkgOsZz7iEk6QOt8BuPwr+NR01LTqXmJo1C76o1N274twJvl+I069TiLpenK/miRxhyY8jvYV6W1WuSwhH9q7kuwnJMtm7IWcqs7HsnyHSqWXLSpYtZGaR1V3t0gauninFPZGtWskF65rtti48UV9uV9KM8kfDYs0pgB00S+TlzTXV6P8mxq15b9En8sz3jWSszcifZa/NuufPNnNTb031pptt0+sRSH/7UG8pzbsgtt3OG3ut7B9JzDMt2mTZuyRNIV8D54TuTrpNcHtgmMlYJeiY9XS83NYJicjRjtJSf9BZLsQv629QdDsKQhTK5CnXhpk7vMNkHzPhm0ExW/VCGApHfPyBagtZQTQmPHx7g5IXXsrQDPzIVhv2LB6Ih138iSDww1JNHrDvzUxvp73MsQBVhW8EbrReaVUcLB1R3PUXyaYG4HpJUcLVxMgDxcPkVRQpL7VTAGabDzbKcvg12t5P8TSGQkrj/gOrpnbiDHwluA73xbXts/L7u468cRWSWRtgTwlQnA47EKg0OiZDgFxAKQQUcsbGomITgeXUAAyKe03eA7Mp4gnyKQmm0LXJtEk6ddksMJCuxDmmHzmVhO+XaN2A54MIh3niw5CF7PwiXFZrnA8wOdeHLvvhdoqIDG9PDI7UnWWHq526T8y6ixJPhkuVKZnoUruOpUgOOp3iIKBjk+yi1vHo5cItHXb1PIKzGaZlRS0g5d3MV2pD8FQdGYLZ73aae/eEIUePMc4NFz8pIUfLCrrF4jVWH5gQneN3S8vANBmUXrEcKGn6hIUN95y1vpsvLwbGpzV9L0ZKTan6TDXM05236uLJcIEMKVAxKNT0K8WljuwNny3BNQRfzovA85beI9zr1AGNYnYCVkR1aGngWURUrgqR+gRrQhxW81l3CHevjvGEPzPMTxdsIfB9dfGRbZU0cg/1mcubtECX4tvaedmNAvTxCJtc2QaoUalGfENCGK7IS/O8CRpdOVca8EWCRwv2sSWE8CJPW5PCugjCXPd3h6U60cPD+bdhtXZuYB6stcoveE7Sm5MM2yvfUHXFSW7KzLmi7/EeEWL0wqcOH9MOSKjhCHHmw+JGLcYE/7SBZQCRggox0ZZTAxrlzNNXYXL5fNIjkdT4YMqVUz6p8YDt049v4OXGdg3qTrtLBUXOZf7ahPlZAY/O+7Sp0bvGSHdyQ8B1LOsplqMb9Se8VAE7gIdSZvxbRSrfl+Lk5Qaqi5QJceqjitdErcHXg/3MryljPSIAMaaloFm1cVwBJ8DNmkDqoGROSHFetrgjQ5CahuKkdH5pRPigMrgTtlFI8ufJPJSUlGgTjbBSvpRc0zypiUn6U5KZqcRoyrtzhmJ7/caeZkmVRwJQeLOG8LY6vP5ChpKhc8Js0El+n6FXqbx9ItdtLtYP92kKfaTLtCi8StLZdENJa9Ex1nOoz1kQ7qxoiZFKRyLf4O4CHRT0T/0W9F8epNKVoeyxUXhy3sQMMsJjQJEyMOjmOhMFgOmmlscV4eFi1CldU92yjwleirEKPW3bPAuEhRZV7JsKV3Lr5cETAiFuX5Nw5UlF7d2HZ96Bh0sgFIL5KGaKSoVYVlvdKpZJVP5+NZ7xDEkQhmDgsDKciazJCXJ6ZN2B3FY2f6VZyGl/t4aunGIAk/BHaS+i+SpdRfnB/OktOvyjinWNfM9Ksr6WwtCa1hCmeRI6icpFM4o8quCLsikU0tMoZI/9EqXRMpKGaWzofl4nQuVQm17d5fU5qXCQeCDqVaL9XJ9qJ08n3G3EFZS28SHEb3cdRBdtO0YcTzil3QknNKEe/smQ1fTb0XbpyNB5xAeuIlf+5KWlEY0DqJbsnzJlQxJPOVyHiKMx5Xu9FcEv1Fbg6Fhm4t+Jyy5JC1W3YO8dYLsO0PXPbxodBgttTbH3rt9Cp1lJIk2r3O1Zqu94eRbnIz2f50lWolYzuKsj4PMok4abHLO8NAC884hiXx5Fy5pWKO0bWL7uEGXaJCtznhP67SlQ4xjWIfgq6EpZ28QMtuZK7JC0RGbl9nA4XtFLug/NLMoH1pGt9IonAJqcEDLyH6TDROcbsmGPaGIxMo41IUAnQVPMPGByp4mOmh9ZQMkBAcksUK55LsZj7E5z5XuZoyWCKu6nHmDq22xI/9Z8YdxJy4kWpD16jLVrpwGLWfyOD0Wd+cBzFBxVaGv7S5k9qwh/5t/LQEXsRqI3Q9Rm3QIoaZW9GlsDaKOUyykyWuhNOprSEi0s1G4rgoiX1V743EELti+pJu5og6X0g6oTynUqlhH9k6ezyRi05NGZHz0nvp3HOJr7ebrAUFrDjbkFBObEvdQWkkUbL0pEvMU46X58vF9j9F3j6kpyetNUBItrEubW9ZvMPM4qNqLlsSBJqOH3XbNwv/cXDXNxN8iFLzUhteisYY+RlHYOuP29/Cb+L+xv+35Rv7xudnZ6ohK4cMPfCG8KI7dNmjNk/H4e84pOxn/sZHK9psfvj8ncA8qJz7O8xqbxESDivGJOZzF7o5PJLQ7g34qAWoyuA+x3btU98LT6ZyGyceIXjrqob2CAVql4VOTQPUQYvHV/g4zAuCZGvYQBtf0wmd5lilrvuEn1BXLny01B4h4SMDlYsnNpm9d7m9h578ufpef9Z4WplqWQvqo52fyUA7J24eZD5av6SyGIV9kpmHNqyvdfzcpEMw97BvknV2fq+MFHun9BT3Lsf8pbzvisWiIQvYkng+8Vxk1V+dli1u56kY50LRjaPdotvT5BwqtwyF+emo/z9J3yVUVGfKrxQtJMOAQWoQii/4dp9wgybSa5mkucmRLtEQZ/pz0tL/NVcgWAd95nEQ3Tg6tNbuyn3Iepz65L3huMUUBntllWuu4DbtOFSMSbpILV4fy6wlM0SOvi6CpLh81c1LreIvKd61uEWBcDw1lUBUW1I0Z+m/PaRlX+PQ/oxg0Ye6KUiIiTF4ADNk59Ydpt5/rkxmq9tV5Kcp/eQLUVVmBzQNVuytQCP6Ezd0G8eLxWyHpmZWJ3bAzkWTtg4lZlw42SQezEmiUPaJUuR/qklVA/87S4ArFCpALdY3QRdUw3G3XbWUp6aq9z0zUizcPa7351p9JXOZyfdZBFnqt90VzQndXB/mwf8LC9STj5kenVpNuqOQQP3mIRJj7eV21FxG8VAxKrEn3c+XfmZ800EPb9/5lIlijscUbB6da0RQaMook0zug1G0tKi/JBC4rw7/D3m4ARzAkzMcVrDcT2SyFtUdWAsFlsPDFqV3N+EjyXaoEePwroaZCiLqEzb8MW+PNE9TmTC01EzWli51PzZvUqkmyuROU+V6ik+Le/9qT6nwzUzf9tP68tYei0YaDGx6kAd7jn1cKqOCuYbiELH9zYqcc4MnRJjkeGiqaGwLImhyeKs+xKJMBlOJ05ow9gGCKZ1VpnMKoSCTbMS+X+23y042zOb5MtcY/6oBeAo1Vy89OTyhpavFP78jXCcFH0t7Gx24hMEOm2gsEfGabVpQgvFqbQKMsknFRRmuPHcZu0Su/WMFphZvB2r/EGbG72rpGGho3h+Msz0uGzJ7hNK2uqQiE1qmn0zgacKYYZBCqsxV+sjbpoVdSilW/b94n2xNb648VmNIoizqEWhBnsen+d0kbCPmRItfWqSBeOd9Wne3c6bcd6uvXOJ6WdiSsuXq0ndhqrQ4QoWUjCjYtZ0EAhnSOP1m44xkf0O7jXghrzSJWxP4a/t72jU29Vu2rvu4n7HfHkkmQOMGSS+NPeLGO5I73mC2B7+lMiBQQZRM9/9liLIfowupUFAbPBbR+lxDM6M8Ptgh1paJq5Rvs7yEuLQv/7d1oU2woFSb3FMPWQOKMuCuJ7pDDjpIclus5TeEoMBy2YdVB4fxmesaCeMNsEgTHKS5WDSGyNUOoEpcC2OFWtIRf0w27ck34/DjxRTVIcc9+kqZE6iMSiVDsiKdP/Xz5XfEhm/sBhO50p1rvJDlkyyxuJ9SPgs7YeUJBjXdeAkE+P9OQJm6SZnn1svcduI78dYmbkE2mtziPrcjVisXG78spLvbZaSFx/Rks9zP4LKn0Cdz/3JsetkT06A8f/yCgMO6Mb1Hme0JJ7b2wZz1qleqTuKBGokhPVUZ0dVu+tnQYNEY1fmkZSz6+EGZ5EzL7657mreZGR3jUfaEk458PDniBzsSmBKhDRzfXameryJv9/D5m6HIqZ0R+ouCE54Dzp4IJuuD1e4Dc5i+PpSORJfG23uVgqixAMDvchMR0nZdH5brclYwRoJRWv/rlxGRI5ffD5NPGmIDt7vDE1434pYdVZIFh89Bs94HGGJbTwrN8T6lh1HZFTOB4lWzWj6EVqxSMvC0/ljWBQ3F2kc/mO2b6tWonT2JEqEwFts8rz2h+oWNds9ceR2cb7zZvJTDppHaEhK5avWqsseWa2Dt5BBhabdWSktS80oMQrL4TvAM9b5HMmyDnO+OkkbMXfUJG7eXqTIG6lqSOEbqVR+qYdP7uWb57WEJqzyh411GAVsDinPs7KvUeXItlcMdOUWzXBH6zscymV1LLVCtc8IePojzXHF9m5b5zGwBRdzcyUJkiu938ApmAayRdJrX1PmVguWUvt2ThQ62czItTyWJMW2An/hdDfMK7SiFQlGIdAbltHz3ycoh7j9V7GxNWBpbtcSdqm4XxRwTawc3cbZ+xfSv9qQfEkDKfZTwCkqWGI/ur250ItXlMlh6vUNWEYIg9A3GzbgmbqvTN8js2YMo87CU5y6nZ4dbJLDQJj9fc7yM7tZzJDZFtqOcU8+mZjYlq4VmifI23iHb1ZoT9E+kT2dolnP1AfiOkt7PQCSykBiXy5mv637IegWSKj9IKrYZf4Lu9+I7ub+mkRdlvYzehh/jaJ9n7HUH5b2IbgeNdkY7wx1yVzxS7pbvky6+nmVUtRllEFfweUQ0/nG017WoUYSxs+j2B4FV/F62EtHlMWZXYrjGHpthnNb1x66LKZ0Qe92INWHdfR/vqp02wMS8r1G4dJqHok8KmQ7947G13a4YXbsGgHcBvRuVu1eAi4/A5+ZixmdSXM73LupB/LH7O9yxLTVXJTyBbI1S49TIROrfVCOb/czZ9pM4JsZx8kUz8dQGv7gUWKxXvTH7QM/3J2OuXXgciUhqY+cgtaOliQQVOYthBLV3xpESZT3rmfEYNZxmpBbb24CRao86prn+i9TNOh8VxRJGXJfXHATJHs1T5txgc/opYrY8XjlGQQbRcoxIBcnVsMjmU1ymmIUL4dviJXndMAJ0Yet+c7O52/p98ytlmAsGBaTAmMhimAnvp1TWNGM9BpuitGj+t810CU2UhorrjPKGtThVC8WaXw04WFnT5fTjqmPyrQ0tN3CkLsctVy2xr0ZWgiWVZ1OrlFjjxJYsOiZv2cAoOvE+7sY0I/TwWcZqMoyIKNOftwP7w++Rfg67ljfovKYa50if3fzE/8aPYVey/Nq35+nH2sLPh/fP5TsylSKGOZ4k69d2PnH43+kq++sRXHQqGArWdwhx+hpwQC6JgT2uxehYU4Zbw7oNb6/HLikPyJROGK2ouyr+vzseESp9G50T4AyFrSqOQ0rroCYP4sMDFBrHn342EyZTMlSyk47rHSq89Y9/nI3zG5lX16Z5lxphguLOcZUndL8wNcrkyjH82jqg8Bo8OYkynrxZvbFno5lUS3OPr8Ko3mX9NoRPdYOKKjD07bvgFgpZ/RF+YzkWvJ/Hs/tUbfeGzGWLxNAjfDzHHMVSDwB5SabQLsIZHiBp43FjGkaienYoDd18hu2BGwOK7U3o70K/WY/kuuKdmdrykIBUdG2mvE91L1JtTbh20mOLbk1vCAamu7utlXeGU2ooVikbU/actcgmsC1FKk2qmj3GWeIWbj4tGIxE7BLcBWUvvcnd/lYxsMV4F917fWeFB/XbINN3qGvIyTpCalz1lVewdIGqeAS/gB8Mi+sA+BqDiX3VGD2eUunTRbSY+AuDy4E3Qx3hAhwnSXX+B0zuj3eQ1miS8Vux2z/l6/BkWtjKGU72aJkOCWhGcSf3+kFkkB15vGOsQrSdFr6qTj0gBYiOlnBO41170gOWHSUoBVRU2JjwppYdhIFDfu7tIRHccSNM5KZOFDPz0TGMAjzzEpeLwTWp+kn201kU6NjbiMQJx83+LX1e1tZ10kuChJZ/XBUQ1dwaBHjTDJDqOympEk8X2M3VtVw21JksChA8w1tTefO3RJ1FMbqZ01bHHkudDB/OhLfe7P5GOHaI28ZXKTMuqo0hLWQ4HabBsGG7NbP1RiXtETz074er6w/OerJWEqjmkq2y51q1BVI+JUudnVa3ogBpzdhFE7fC7kybrAt2Z6RqDjATAUEYeYK45WMupBKQRtQlU+uNsjnzj6ZmGrezA+ASrWxQ6LMkHRXqXwNq7ftv28dUx/ZSJciDXP2SWJsWaN0FjPX9Yko6LobZ7aYW/IdUktI9apTLyHS8DyWPyuoZyxN1TK/vtfxk3HwWh6JczZC8Ftn0bIJay2g+n5wd7lm9rEsKO+svqVmi+c1j88hSCxbzrg4+HEP0Nt1/B6YW1XVm09T1CpAKjc9n18hjqsaFGdfyva1ZG0Xu3ip6N6JGpyTSqY5h4BOlpLPaOnyw45PdXTN+DtAKg7DLrLFTnWusoSBHk3s0d7YouJHq85/R09Tfc37ENXZF48eAYLnq9GLioNcwDZrC6FW6godB8JnqYUPvn0pWLfQz0lM0Yy8Mybgn84Ds3Q9bDP10bLyOV+qzxa4Rd9Dhu7cju8mMaONXK3UqmBQ9qIg7etIwEqM/kECk/Dzja4Bs1xR+Q/tCbc8IKrSGsTdJJ0vge7IG20W687uVmK6icWQ6cD3lwFzgNMGtFvO5qyJeKflGLAAcQZOrkxVwy3cWvqlGpvjmf9Qe6Ap20MPbV92DPV0OhFM4kz8Yr0ffC2zLWSQ1kqY6QdQrttR3kh1YLtQd1kCEv5hVoPIRWl5ERcUTttBIrWp6Xs5Ehh5OUUwI5aEBvuiDmUoENmnVw1FohCrbRp1A1E+XSlWVOTi7ADW+5Ohb9z1vK4qx5R5lPdGCPBJZ00mC+Ssp8VUbgpGAvXWMuWQQRbCqI6Rr2jtxZxtfP7W/8onz+yz0Gs76LaT5HX9ecyiZCB/ZR/gFtMxPsDwohoeCRtiuLxE1GM1vUEUgBv86+eehL58/P56QFGQ/MqOe/vC76L63jzmeax4exd/OKTUvkXg+fOJUHych9xt/9goJMrapSgvXrj8+8vk/N80f22Sewj6cyGqt1B6mztoeklVHHraouhvHJaG/OuBz6DHKMpFmQULU1bRWlyYE0RPXYYkUycIemN7TLtgNCJX6BqdyxDKkegO7nJK5xQ7OVYDZTMf9bVHidtk6DQX9Et+V9M7esgbsYBdEeUpsB0Xvw2kd9+rI7V+m47u+O/tq7mw7262HU1WlS9uFzsV6JxIHNmUCy0QS9e077JGRFbG65z3/dOKB/Zk+yDdKpUmdXjn/aS3N5nv4fK7bMHHmPlHd4E2+iTbV5rpzScRnxk6KARuDTJ8Q1LpK2mP8gj1EbuJ9RIyY+EWK4hCiIDBAS1Tm2IEXAFfgKPgdL9O6mAa06wjCcUAL6EsxPQWO9VNegBPm/0GgkZbDxCynxujX/92vmGcjZRMAY45puak2sFLCLSwXpEsyy5fnF0jGJBhm+fNSHKKUUfy+276A7/feLOFxxUuHRNJI2Osenxyvf8DAGObT60pfTTlhEg9u/KKkhJqm5U1/+BEcSkpFDA5XeCqxwXmPac1jcuZ3JWQ+p0NdWzb/5v1ZvF8GtMTFFEdQjpLO0bwPb0BHNWnip3liDXI2fXf05jjvfJ0NpjLCUgfTh9CMFYVFKEd4Z/OG/2C+N435mnK+9t1gvCiVcaaH7rK4+PjCvpVNiz+t2QyqH1O8x3JKZVl6Q+Lp/XK8wMjVMslOq9FdSw5FtUs/CptXH9PW+wbWHgrV17R5jTVOtGtKFu3nb80T+E0tv9QkzW3J2dbaw/8ddAKZ0pxIaEqLjlPrji3VgJ3GvdFvlqD8075woxh4fVt0JZE0KVFsAvqhe0dqN9b35jtSpnYMXkU+vZq+IAHad3IHc2s/LYrnD1anfG46IFiMIr9oNbZDWvwthqYNqOigaKd/XlLU4XHfk/PXIjPsLy/9/kAtQ+/wKH+hI/IROWj5FPvTZAT9f7j4ZXQyG4M0TujMAFXYkKvEHv1xhySekgXGGqNxWeWKlf8dDAlLuB1cb/qOD+rk7cmwt+1yKpk9cudqBanTi6zTbXRtV8qylNtjyOVKy1HTz0GW9rjt6sSjAZcT5R+KdtyYb0zyqG9pSLuCw5WBwAn7fjBjKLLoxLXMI+52L9cLwIR2B6OllJZLHJ8vDxmWdtF+QJnmt1rsHPIWY20lftk8fYePkAIg6Hgn532QoIpegMxiWgAOfe5/U44APR8Ac0NeZrVh3gEhs12W+tVSiWiUQekf/YBECUy5fdYbA08dd7VzPAP9aiVcIB9k6tY7WdJ1wNV+bHeydNtmC6G5ICtFC1ZwmJU/j8hf0I8TRVKSiz5oYIa93EpUI78X8GYIAZabx47/n8LDAAJ0nNtP1rpROprqKMBRecShca6qXuTSI3jZBLOB3Vp381B5rCGhjSvh/NSVkYp2qIdP/Bg=";
+  }
+});
+
+// node_modules/brotli/dec/dictionary-browser.js
+var require_dictionary_browser = __commonJS({
+  "node_modules/brotli/dec/dictionary-browser.js"(exports) {
+    var base64 = require_base64_js();
+    exports.init = function() {
+      var BrotliDecompressBuffer = require_decode().BrotliDecompressBuffer;
+      var compressed = base64.toByteArray(require_dictionary_bin());
+      return BrotliDecompressBuffer(compressed);
+    };
+  }
+});
+
+// node_modules/brotli/dec/dictionary.js
+var require_dictionary = __commonJS({
+  "node_modules/brotli/dec/dictionary.js"(exports) {
+    var data = require_dictionary_browser();
+    exports.init = function() {
+      exports.dictionary = data.init();
+    };
+    exports.offsetsByLength = new Uint32Array([
+      0,
+      0,
+      0,
+      0,
+      0,
+      4096,
+      9216,
+      21504,
+      35840,
+      44032,
+      53248,
+      63488,
+      74752,
+      87040,
+      93696,
+      100864,
+      104704,
+      106752,
+      108928,
+      113536,
+      115968,
+      118528,
+      119872,
+      121280,
+      122016
+    ]);
+    exports.sizeBitsByLength = new Uint8Array([
+      0,
+      0,
+      0,
+      0,
+      10,
+      10,
+      11,
+      11,
+      10,
+      10,
+      10,
+      10,
+      10,
+      9,
+      9,
+      8,
+      7,
+      7,
+      8,
+      7,
+      7,
+      6,
+      6,
+      5,
+      5
+    ]);
+    exports.minDictionaryWordLength = 4;
+    exports.maxDictionaryWordLength = 24;
+  }
+});
+
+// node_modules/brotli/dec/huffman.js
+var require_huffman = __commonJS({
+  "node_modules/brotli/dec/huffman.js"(exports) {
+    function HuffmanCode(bits, value) {
+      this.bits = bits;
+      this.value = value;
+    }
+    exports.HuffmanCode = HuffmanCode;
+    var MAX_LENGTH = 15;
+    function GetNextKey(key, len) {
+      var step = 1 << len - 1;
+      while (key & step) {
+        step >>= 1;
+      }
+      return (key & step - 1) + step;
+    }
+    function ReplicateValue(table, i, step, end2, code) {
+      do {
+        end2 -= step;
+        table[i + end2] = new HuffmanCode(code.bits, code.value);
+      } while (end2 > 0);
+    }
+    function NextTableBitSize(count, len, root_bits) {
+      var left = 1 << len - root_bits;
+      while (len < MAX_LENGTH) {
+        left -= count[len];
+        if (left <= 0) break;
+        ++len;
+        left <<= 1;
+      }
+      return len - root_bits;
+    }
+    exports.BrotliBuildHuffmanTable = function(root_table, table, root_bits, code_lengths, code_lengths_size) {
+      var start_table = table;
+      var code;
+      var len;
+      var symbol;
+      var key;
+      var step;
+      var low;
+      var mask;
+      var table_bits;
+      var table_size;
+      var total_size;
+      var sorted;
+      var count = new Int32Array(MAX_LENGTH + 1);
+      var offset = new Int32Array(MAX_LENGTH + 1);
+      sorted = new Int32Array(code_lengths_size);
+      for (symbol = 0; symbol < code_lengths_size; symbol++) {
+        count[code_lengths[symbol]]++;
+      }
+      offset[1] = 0;
+      for (len = 1; len < MAX_LENGTH; len++) {
+        offset[len + 1] = offset[len] + count[len];
+      }
+      for (symbol = 0; symbol < code_lengths_size; symbol++) {
+        if (code_lengths[symbol] !== 0) {
+          sorted[offset[code_lengths[symbol]]++] = symbol;
+        }
+      }
+      table_bits = root_bits;
+      table_size = 1 << table_bits;
+      total_size = table_size;
+      if (offset[MAX_LENGTH] === 1) {
+        for (key = 0; key < total_size; ++key) {
+          root_table[table + key] = new HuffmanCode(0, sorted[0] & 65535);
+        }
+        return total_size;
+      }
+      key = 0;
+      symbol = 0;
+      for (len = 1, step = 2; len <= root_bits; ++len, step <<= 1) {
+        for (; count[len] > 0; --count[len]) {
+          code = new HuffmanCode(len & 255, sorted[symbol++] & 65535);
+          ReplicateValue(root_table, table + key, step, table_size, code);
+          key = GetNextKey(key, len);
+        }
+      }
+      mask = total_size - 1;
+      low = -1;
+      for (len = root_bits + 1, step = 2; len <= MAX_LENGTH; ++len, step <<= 1) {
+        for (; count[len] > 0; --count[len]) {
+          if ((key & mask) !== low) {
+            table += table_size;
+            table_bits = NextTableBitSize(count, len, root_bits);
+            table_size = 1 << table_bits;
+            total_size += table_size;
+            low = key & mask;
+            root_table[start_table + low] = new HuffmanCode(table_bits + root_bits & 255, table - start_table - low & 65535);
+          }
+          code = new HuffmanCode(len - root_bits & 255, sorted[symbol++] & 65535);
+          ReplicateValue(root_table, table + (key >> root_bits), step, table_size, code);
+          key = GetNextKey(key, len);
+        }
+      }
+      return total_size;
+    };
+  }
+});
+
+// node_modules/brotli/dec/context.js
+var require_context = __commonJS({
+  "node_modules/brotli/dec/context.js"(exports) {
+    exports.lookup = new Uint8Array([
+      /* CONTEXT_UTF8, last byte. */
+      /* ASCII range. */
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      4,
+      4,
+      0,
+      0,
+      4,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      8,
+      12,
+      16,
+      12,
+      12,
+      20,
+      12,
+      16,
+      24,
+      28,
+      12,
+      12,
+      32,
+      12,
+      36,
+      12,
+      44,
+      44,
+      44,
+      44,
+      44,
+      44,
+      44,
+      44,
+      44,
+      44,
+      32,
+      32,
+      24,
+      40,
+      28,
+      12,
+      12,
+      48,
+      52,
+      52,
+      52,
+      48,
+      52,
+      52,
+      52,
+      48,
+      52,
+      52,
+      52,
+      52,
+      52,
+      48,
+      52,
+      52,
+      52,
+      52,
+      52,
+      48,
+      52,
+      52,
+      52,
+      52,
+      52,
+      24,
+      12,
+      28,
+      12,
+      12,
+      12,
+      56,
+      60,
+      60,
+      60,
+      56,
+      60,
+      60,
+      60,
+      56,
+      60,
+      60,
+      60,
+      60,
+      60,
+      56,
+      60,
+      60,
+      60,
+      60,
+      60,
+      56,
+      60,
+      60,
+      60,
+      60,
+      60,
+      24,
+      12,
+      28,
+      12,
+      0,
+      /* UTF8 continuation byte range. */
+      0,
+      1,
+      0,
+      1,
+      0,
+      1,
+      0,
+      1,
+      0,
+      1,
+      0,
+      1,
+      0,
+      1,
+      0,
+      1,
+      0,
+      1,
+      0,
+      1,
+      0,
+      1,
+      0,
+      1,
+      0,
+      1,
+      0,
+      1,
+      0,
+      1,
+      0,
+      1,
+      0,
+      1,
+      0,
+      1,
+      0,
+      1,
+      0,
+      1,
+      0,
+      1,
+      0,
+      1,
+      0,
+      1,
+      0,
+      1,
+      0,
+      1,
+      0,
+      1,
+      0,
+      1,
+      0,
+      1,
+      0,
+      1,
+      0,
+      1,
+      0,
+      1,
+      0,
+      1,
+      /* UTF8 lead byte range. */
+      2,
+      3,
+      2,
+      3,
+      2,
+      3,
+      2,
+      3,
+      2,
+      3,
+      2,
+      3,
+      2,
+      3,
+      2,
+      3,
+      2,
+      3,
+      2,
+      3,
+      2,
+      3,
+      2,
+      3,
+      2,
+      3,
+      2,
+      3,
+      2,
+      3,
+      2,
+      3,
+      2,
+      3,
+      2,
+      3,
+      2,
+      3,
+      2,
+      3,
+      2,
+      3,
+      2,
+      3,
+      2,
+      3,
+      2,
+      3,
+      2,
+      3,
+      2,
+      3,
+      2,
+      3,
+      2,
+      3,
+      2,
+      3,
+      2,
+      3,
+      2,
+      3,
+      2,
+      3,
+      /* CONTEXT_UTF8 second last byte. */
+      /* ASCII range. */
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      2,
+      2,
+      2,
+      2,
+      2,
+      2,
+      2,
+      2,
+      2,
+      2,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      2,
+      2,
+      2,
+      2,
+      2,
+      2,
+      2,
+      2,
+      2,
+      2,
+      2,
+      2,
+      2,
+      2,
+      2,
+      2,
+      2,
+      2,
+      2,
+      2,
+      2,
+      2,
+      2,
+      2,
+      2,
+      2,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      3,
+      3,
+      3,
+      3,
+      3,
+      3,
+      3,
+      3,
+      3,
+      3,
+      3,
+      3,
+      3,
+      3,
+      3,
+      3,
+      3,
+      3,
+      3,
+      3,
+      3,
+      3,
+      3,
+      3,
+      3,
+      3,
+      1,
+      1,
+      1,
+      1,
+      0,
+      /* UTF8 continuation byte range. */
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      /* UTF8 lead byte range. */
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      2,
+      2,
+      2,
+      2,
+      2,
+      2,
+      2,
+      2,
+      2,
+      2,
+      2,
+      2,
+      2,
+      2,
+      2,
+      2,
+      2,
+      2,
+      2,
+      2,
+      2,
+      2,
+      2,
+      2,
+      2,
+      2,
+      2,
+      2,
+      2,
+      2,
+      2,
+      2,
+      /* CONTEXT_SIGNED, second last byte. */
+      0,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      2,
+      2,
+      2,
+      2,
+      2,
+      2,
+      2,
+      2,
+      2,
+      2,
+      2,
+      2,
+      2,
+      2,
+      2,
+      2,
+      2,
+      2,
+      2,
+      2,
+      2,
+      2,
+      2,
+      2,
+      2,
+      2,
+      2,
+      2,
+      2,
+      2,
+      2,
+      2,
+      2,
+      2,
+      2,
+      2,
+      2,
+      2,
+      2,
+      2,
+      2,
+      2,
+      2,
+      2,
+      2,
+      2,
+      2,
+      2,
+      3,
+      3,
+      3,
+      3,
+      3,
+      3,
+      3,
+      3,
+      3,
+      3,
+      3,
+      3,
+      3,
+      3,
+      3,
+      3,
+      3,
+      3,
+      3,
+      3,
+      3,
+      3,
+      3,
+      3,
+      3,
+      3,
+      3,
+      3,
+      3,
+      3,
+      3,
+      3,
+      3,
+      3,
+      3,
+      3,
+      3,
+      3,
+      3,
+      3,
+      3,
+      3,
+      3,
+      3,
+      3,
+      3,
+      3,
+      3,
+      3,
+      3,
+      3,
+      3,
+      3,
+      3,
+      3,
+      3,
+      3,
+      3,
+      3,
+      3,
+      3,
+      3,
+      3,
+      3,
+      4,
+      4,
+      4,
+      4,
+      4,
+      4,
+      4,
+      4,
+      4,
+      4,
+      4,
+      4,
+      4,
+      4,
+      4,
+      4,
+      4,
+      4,
+      4,
+      4,
+      4,
+      4,
+      4,
+      4,
+      4,
+      4,
+      4,
+      4,
+      4,
+      4,
+      4,
+      4,
+      4,
+      4,
+      4,
+      4,
+      4,
+      4,
+      4,
+      4,
+      4,
+      4,
+      4,
+      4,
+      4,
+      4,
+      4,
+      4,
+      4,
+      4,
+      4,
+      4,
+      4,
+      4,
+      4,
+      4,
+      4,
+      4,
+      4,
+      4,
+      4,
+      4,
+      4,
+      4,
+      5,
+      5,
+      5,
+      5,
+      5,
+      5,
+      5,
+      5,
+      5,
+      5,
+      5,
+      5,
+      5,
+      5,
+      5,
+      5,
+      5,
+      5,
+      5,
+      5,
+      5,
+      5,
+      5,
+      5,
+      5,
+      5,
+      5,
+      5,
+      5,
+      5,
+      5,
+      5,
+      5,
+      5,
+      5,
+      5,
+      5,
+      5,
+      5,
+      5,
+      5,
+      5,
+      5,
+      5,
+      5,
+      5,
+      5,
+      5,
+      6,
+      6,
+      6,
+      6,
+      6,
+      6,
+      6,
+      6,
+      6,
+      6,
+      6,
+      6,
+      6,
+      6,
+      6,
+      7,
+      /* CONTEXT_SIGNED, last byte, same as the above values shifted by 3 bits. */
+      0,
+      8,
+      8,
+      8,
+      8,
+      8,
+      8,
+      8,
+      8,
+      8,
+      8,
+      8,
+      8,
+      8,
+      8,
+      8,
+      16,
+      16,
+      16,
+      16,
+      16,
+      16,
+      16,
+      16,
+      16,
+      16,
+      16,
+      16,
+      16,
+      16,
+      16,
+      16,
+      16,
+      16,
+      16,
+      16,
+      16,
+      16,
+      16,
+      16,
+      16,
+      16,
+      16,
+      16,
+      16,
+      16,
+      16,
+      16,
+      16,
+      16,
+      16,
+      16,
+      16,
+      16,
+      16,
+      16,
+      16,
+      16,
+      16,
+      16,
+      16,
+      16,
+      16,
+      16,
+      24,
+      24,
+      24,
+      24,
+      24,
+      24,
+      24,
+      24,
+      24,
+      24,
+      24,
+      24,
+      24,
+      24,
+      24,
+      24,
+      24,
+      24,
+      24,
+      24,
+      24,
+      24,
+      24,
+      24,
+      24,
+      24,
+      24,
+      24,
+      24,
+      24,
+      24,
+      24,
+      24,
+      24,
+      24,
+      24,
+      24,
+      24,
+      24,
+      24,
+      24,
+      24,
+      24,
+      24,
+      24,
+      24,
+      24,
+      24,
+      24,
+      24,
+      24,
+      24,
+      24,
+      24,
+      24,
+      24,
+      24,
+      24,
+      24,
+      24,
+      24,
+      24,
+      24,
+      24,
+      32,
+      32,
+      32,
+      32,
+      32,
+      32,
+      32,
+      32,
+      32,
+      32,
+      32,
+      32,
+      32,
+      32,
+      32,
+      32,
+      32,
+      32,
+      32,
+      32,
+      32,
+      32,
+      32,
+      32,
+      32,
+      32,
+      32,
+      32,
+      32,
+      32,
+      32,
+      32,
+      32,
+      32,
+      32,
+      32,
+      32,
+      32,
+      32,
+      32,
+      32,
+      32,
+      32,
+      32,
+      32,
+      32,
+      32,
+      32,
+      32,
+      32,
+      32,
+      32,
+      32,
+      32,
+      32,
+      32,
+      32,
+      32,
+      32,
+      32,
+      32,
+      32,
+      32,
+      32,
+      40,
+      40,
+      40,
+      40,
+      40,
+      40,
+      40,
+      40,
+      40,
+      40,
+      40,
+      40,
+      40,
+      40,
+      40,
+      40,
+      40,
+      40,
+      40,
+      40,
+      40,
+      40,
+      40,
+      40,
+      40,
+      40,
+      40,
+      40,
+      40,
+      40,
+      40,
+      40,
+      40,
+      40,
+      40,
+      40,
+      40,
+      40,
+      40,
+      40,
+      40,
+      40,
+      40,
+      40,
+      40,
+      40,
+      40,
+      40,
+      48,
+      48,
+      48,
+      48,
+      48,
+      48,
+      48,
+      48,
+      48,
+      48,
+      48,
+      48,
+      48,
+      48,
+      48,
+      56,
+      /* CONTEXT_LSB6, last byte. */
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      14,
+      15,
+      16,
+      17,
+      18,
+      19,
+      20,
+      21,
+      22,
+      23,
+      24,
+      25,
+      26,
+      27,
+      28,
+      29,
+      30,
+      31,
+      32,
+      33,
+      34,
+      35,
+      36,
+      37,
+      38,
+      39,
+      40,
+      41,
+      42,
+      43,
+      44,
+      45,
+      46,
+      47,
+      48,
+      49,
+      50,
+      51,
+      52,
+      53,
+      54,
+      55,
+      56,
+      57,
+      58,
+      59,
+      60,
+      61,
+      62,
+      63,
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      14,
+      15,
+      16,
+      17,
+      18,
+      19,
+      20,
+      21,
+      22,
+      23,
+      24,
+      25,
+      26,
+      27,
+      28,
+      29,
+      30,
+      31,
+      32,
+      33,
+      34,
+      35,
+      36,
+      37,
+      38,
+      39,
+      40,
+      41,
+      42,
+      43,
+      44,
+      45,
+      46,
+      47,
+      48,
+      49,
+      50,
+      51,
+      52,
+      53,
+      54,
+      55,
+      56,
+      57,
+      58,
+      59,
+      60,
+      61,
+      62,
+      63,
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      14,
+      15,
+      16,
+      17,
+      18,
+      19,
+      20,
+      21,
+      22,
+      23,
+      24,
+      25,
+      26,
+      27,
+      28,
+      29,
+      30,
+      31,
+      32,
+      33,
+      34,
+      35,
+      36,
+      37,
+      38,
+      39,
+      40,
+      41,
+      42,
+      43,
+      44,
+      45,
+      46,
+      47,
+      48,
+      49,
+      50,
+      51,
+      52,
+      53,
+      54,
+      55,
+      56,
+      57,
+      58,
+      59,
+      60,
+      61,
+      62,
+      63,
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      14,
+      15,
+      16,
+      17,
+      18,
+      19,
+      20,
+      21,
+      22,
+      23,
+      24,
+      25,
+      26,
+      27,
+      28,
+      29,
+      30,
+      31,
+      32,
+      33,
+      34,
+      35,
+      36,
+      37,
+      38,
+      39,
+      40,
+      41,
+      42,
+      43,
+      44,
+      45,
+      46,
+      47,
+      48,
+      49,
+      50,
+      51,
+      52,
+      53,
+      54,
+      55,
+      56,
+      57,
+      58,
+      59,
+      60,
+      61,
+      62,
+      63,
+      /* CONTEXT_MSB6, last byte. */
+      0,
+      0,
+      0,
+      0,
+      1,
+      1,
+      1,
+      1,
+      2,
+      2,
+      2,
+      2,
+      3,
+      3,
+      3,
+      3,
+      4,
+      4,
+      4,
+      4,
+      5,
+      5,
+      5,
+      5,
+      6,
+      6,
+      6,
+      6,
+      7,
+      7,
+      7,
+      7,
+      8,
+      8,
+      8,
+      8,
+      9,
+      9,
+      9,
+      9,
+      10,
+      10,
+      10,
+      10,
+      11,
+      11,
+      11,
+      11,
+      12,
+      12,
+      12,
+      12,
+      13,
+      13,
+      13,
+      13,
+      14,
+      14,
+      14,
+      14,
+      15,
+      15,
+      15,
+      15,
+      16,
+      16,
+      16,
+      16,
+      17,
+      17,
+      17,
+      17,
+      18,
+      18,
+      18,
+      18,
+      19,
+      19,
+      19,
+      19,
+      20,
+      20,
+      20,
+      20,
+      21,
+      21,
+      21,
+      21,
+      22,
+      22,
+      22,
+      22,
+      23,
+      23,
+      23,
+      23,
+      24,
+      24,
+      24,
+      24,
+      25,
+      25,
+      25,
+      25,
+      26,
+      26,
+      26,
+      26,
+      27,
+      27,
+      27,
+      27,
+      28,
+      28,
+      28,
+      28,
+      29,
+      29,
+      29,
+      29,
+      30,
+      30,
+      30,
+      30,
+      31,
+      31,
+      31,
+      31,
+      32,
+      32,
+      32,
+      32,
+      33,
+      33,
+      33,
+      33,
+      34,
+      34,
+      34,
+      34,
+      35,
+      35,
+      35,
+      35,
+      36,
+      36,
+      36,
+      36,
+      37,
+      37,
+      37,
+      37,
+      38,
+      38,
+      38,
+      38,
+      39,
+      39,
+      39,
+      39,
+      40,
+      40,
+      40,
+      40,
+      41,
+      41,
+      41,
+      41,
+      42,
+      42,
+      42,
+      42,
+      43,
+      43,
+      43,
+      43,
+      44,
+      44,
+      44,
+      44,
+      45,
+      45,
+      45,
+      45,
+      46,
+      46,
+      46,
+      46,
+      47,
+      47,
+      47,
+      47,
+      48,
+      48,
+      48,
+      48,
+      49,
+      49,
+      49,
+      49,
+      50,
+      50,
+      50,
+      50,
+      51,
+      51,
+      51,
+      51,
+      52,
+      52,
+      52,
+      52,
+      53,
+      53,
+      53,
+      53,
+      54,
+      54,
+      54,
+      54,
+      55,
+      55,
+      55,
+      55,
+      56,
+      56,
+      56,
+      56,
+      57,
+      57,
+      57,
+      57,
+      58,
+      58,
+      58,
+      58,
+      59,
+      59,
+      59,
+      59,
+      60,
+      60,
+      60,
+      60,
+      61,
+      61,
+      61,
+      61,
+      62,
+      62,
+      62,
+      62,
+      63,
+      63,
+      63,
+      63,
+      /* CONTEXT_{M,L}SB6, second last byte, */
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+    ]);
+    exports.lookupOffsets = new Uint16Array([
+      /* CONTEXT_LSB6 */
+      1024,
+      1536,
+      /* CONTEXT_MSB6 */
+      1280,
+      1536,
+      /* CONTEXT_UTF8 */
+      0,
+      256,
+      /* CONTEXT_SIGNED */
+      768,
+      512
+    ]);
+  }
+});
+
+// node_modules/brotli/dec/prefix.js
+var require_prefix = __commonJS({
+  "node_modules/brotli/dec/prefix.js"(exports) {
+    function PrefixCodeRange(offset, nbits) {
+      this.offset = offset;
+      this.nbits = nbits;
+    }
+    exports.kBlockLengthPrefixCode = [
+      new PrefixCodeRange(1, 2),
+      new PrefixCodeRange(5, 2),
+      new PrefixCodeRange(9, 2),
+      new PrefixCodeRange(13, 2),
+      new PrefixCodeRange(17, 3),
+      new PrefixCodeRange(25, 3),
+      new PrefixCodeRange(33, 3),
+      new PrefixCodeRange(41, 3),
+      new PrefixCodeRange(49, 4),
+      new PrefixCodeRange(65, 4),
+      new PrefixCodeRange(81, 4),
+      new PrefixCodeRange(97, 4),
+      new PrefixCodeRange(113, 5),
+      new PrefixCodeRange(145, 5),
+      new PrefixCodeRange(177, 5),
+      new PrefixCodeRange(209, 5),
+      new PrefixCodeRange(241, 6),
+      new PrefixCodeRange(305, 6),
+      new PrefixCodeRange(369, 7),
+      new PrefixCodeRange(497, 8),
+      new PrefixCodeRange(753, 9),
+      new PrefixCodeRange(1265, 10),
+      new PrefixCodeRange(2289, 11),
+      new PrefixCodeRange(4337, 12),
+      new PrefixCodeRange(8433, 13),
+      new PrefixCodeRange(16625, 24)
+    ];
+    exports.kInsertLengthPrefixCode = [
+      new PrefixCodeRange(0, 0),
+      new PrefixCodeRange(1, 0),
+      new PrefixCodeRange(2, 0),
+      new PrefixCodeRange(3, 0),
+      new PrefixCodeRange(4, 0),
+      new PrefixCodeRange(5, 0),
+      new PrefixCodeRange(6, 1),
+      new PrefixCodeRange(8, 1),
+      new PrefixCodeRange(10, 2),
+      new PrefixCodeRange(14, 2),
+      new PrefixCodeRange(18, 3),
+      new PrefixCodeRange(26, 3),
+      new PrefixCodeRange(34, 4),
+      new PrefixCodeRange(50, 4),
+      new PrefixCodeRange(66, 5),
+      new PrefixCodeRange(98, 5),
+      new PrefixCodeRange(130, 6),
+      new PrefixCodeRange(194, 7),
+      new PrefixCodeRange(322, 8),
+      new PrefixCodeRange(578, 9),
+      new PrefixCodeRange(1090, 10),
+      new PrefixCodeRange(2114, 12),
+      new PrefixCodeRange(6210, 14),
+      new PrefixCodeRange(22594, 24)
+    ];
+    exports.kCopyLengthPrefixCode = [
+      new PrefixCodeRange(2, 0),
+      new PrefixCodeRange(3, 0),
+      new PrefixCodeRange(4, 0),
+      new PrefixCodeRange(5, 0),
+      new PrefixCodeRange(6, 0),
+      new PrefixCodeRange(7, 0),
+      new PrefixCodeRange(8, 0),
+      new PrefixCodeRange(9, 0),
+      new PrefixCodeRange(10, 1),
+      new PrefixCodeRange(12, 1),
+      new PrefixCodeRange(14, 2),
+      new PrefixCodeRange(18, 2),
+      new PrefixCodeRange(22, 3),
+      new PrefixCodeRange(30, 3),
+      new PrefixCodeRange(38, 4),
+      new PrefixCodeRange(54, 4),
+      new PrefixCodeRange(70, 5),
+      new PrefixCodeRange(102, 5),
+      new PrefixCodeRange(134, 6),
+      new PrefixCodeRange(198, 7),
+      new PrefixCodeRange(326, 8),
+      new PrefixCodeRange(582, 9),
+      new PrefixCodeRange(1094, 10),
+      new PrefixCodeRange(2118, 24)
+    ];
+    exports.kInsertRangeLut = [
+      0,
+      0,
+      8,
+      8,
+      0,
+      16,
+      8,
+      16,
+      16
+    ];
+    exports.kCopyRangeLut = [
+      0,
+      8,
+      0,
+      8,
+      16,
+      0,
+      16,
+      8,
+      16
+    ];
+  }
+});
+
+// node_modules/brotli/dec/transform.js
+var require_transform = __commonJS({
+  "node_modules/brotli/dec/transform.js"(exports) {
+    var BrotliDictionary = require_dictionary();
+    var kIdentity = 0;
+    var kOmitLast1 = 1;
+    var kOmitLast2 = 2;
+    var kOmitLast3 = 3;
+    var kOmitLast4 = 4;
+    var kOmitLast5 = 5;
+    var kOmitLast6 = 6;
+    var kOmitLast7 = 7;
+    var kOmitLast8 = 8;
+    var kOmitLast9 = 9;
+    var kUppercaseFirst = 10;
+    var kUppercaseAll = 11;
+    var kOmitFirst1 = 12;
+    var kOmitFirst2 = 13;
+    var kOmitFirst3 = 14;
+    var kOmitFirst4 = 15;
+    var kOmitFirst5 = 16;
+    var kOmitFirst6 = 17;
+    var kOmitFirst7 = 18;
+    var kOmitFirst9 = 20;
+    function Transform(prefix, transform, suffix) {
+      this.prefix = new Uint8Array(prefix.length);
+      this.transform = transform;
+      this.suffix = new Uint8Array(suffix.length);
+      for (var i = 0; i < prefix.length; i++)
+        this.prefix[i] = prefix.charCodeAt(i);
+      for (var i = 0; i < suffix.length; i++)
+        this.suffix[i] = suffix.charCodeAt(i);
+    }
+    var kTransforms = [
+      new Transform("", kIdentity, ""),
+      new Transform("", kIdentity, " "),
+      new Transform(" ", kIdentity, " "),
+      new Transform("", kOmitFirst1, ""),
+      new Transform("", kUppercaseFirst, " "),
+      new Transform("", kIdentity, " the "),
+      new Transform(" ", kIdentity, ""),
+      new Transform("s ", kIdentity, " "),
+      new Transform("", kIdentity, " of "),
+      new Transform("", kUppercaseFirst, ""),
+      new Transform("", kIdentity, " and "),
+      new Transform("", kOmitFirst2, ""),
+      new Transform("", kOmitLast1, ""),
+      new Transform(", ", kIdentity, " "),
+      new Transform("", kIdentity, ", "),
+      new Transform(" ", kUppercaseFirst, " "),
+      new Transform("", kIdentity, " in "),
+      new Transform("", kIdentity, " to "),
+      new Transform("e ", kIdentity, " "),
+      new Transform("", kIdentity, '"'),
+      new Transform("", kIdentity, "."),
+      new Transform("", kIdentity, '">'),
+      new Transform("", kIdentity, "\n"),
+      new Transform("", kOmitLast3, ""),
+      new Transform("", kIdentity, "]"),
+      new Transform("", kIdentity, " for "),
+      new Transform("", kOmitFirst3, ""),
+      new Transform("", kOmitLast2, ""),
+      new Transform("", kIdentity, " a "),
+      new Transform("", kIdentity, " that "),
+      new Transform(" ", kUppercaseFirst, ""),
+      new Transform("", kIdentity, ". "),
+      new Transform(".", kIdentity, ""),
+      new Transform(" ", kIdentity, ", "),
+      new Transform("", kOmitFirst4, ""),
+      new Transform("", kIdentity, " with "),
+      new Transform("", kIdentity, "'"),
+      new Transform("", kIdentity, " from "),
+      new Transform("", kIdentity, " by "),
+      new Transform("", kOmitFirst5, ""),
+      new Transform("", kOmitFirst6, ""),
+      new Transform(" the ", kIdentity, ""),
+      new Transform("", kOmitLast4, ""),
+      new Transform("", kIdentity, ". The "),
+      new Transform("", kUppercaseAll, ""),
+      new Transform("", kIdentity, " on "),
+      new Transform("", kIdentity, " as "),
+      new Transform("", kIdentity, " is "),
+      new Transform("", kOmitLast7, ""),
+      new Transform("", kOmitLast1, "ing "),
+      new Transform("", kIdentity, "\n	"),
+      new Transform("", kIdentity, ":"),
+      new Transform(" ", kIdentity, ". "),
+      new Transform("", kIdentity, "ed "),
+      new Transform("", kOmitFirst9, ""),
+      new Transform("", kOmitFirst7, ""),
+      new Transform("", kOmitLast6, ""),
+      new Transform("", kIdentity, "("),
+      new Transform("", kUppercaseFirst, ", "),
+      new Transform("", kOmitLast8, ""),
+      new Transform("", kIdentity, " at "),
+      new Transform("", kIdentity, "ly "),
+      new Transform(" the ", kIdentity, " of "),
+      new Transform("", kOmitLast5, ""),
+      new Transform("", kOmitLast9, ""),
+      new Transform(" ", kUppercaseFirst, ", "),
+      new Transform("", kUppercaseFirst, '"'),
+      new Transform(".", kIdentity, "("),
+      new Transform("", kUppercaseAll, " "),
+      new Transform("", kUppercaseFirst, '">'),
+      new Transform("", kIdentity, '="'),
+      new Transform(" ", kIdentity, "."),
+      new Transform(".com/", kIdentity, ""),
+      new Transform(" the ", kIdentity, " of the "),
+      new Transform("", kUppercaseFirst, "'"),
+      new Transform("", kIdentity, ". This "),
+      new Transform("", kIdentity, ","),
+      new Transform(".", kIdentity, " "),
+      new Transform("", kUppercaseFirst, "("),
+      new Transform("", kUppercaseFirst, "."),
+      new Transform("", kIdentity, " not "),
+      new Transform(" ", kIdentity, '="'),
+      new Transform("", kIdentity, "er "),
+      new Transform(" ", kUppercaseAll, " "),
+      new Transform("", kIdentity, "al "),
+      new Transform(" ", kUppercaseAll, ""),
+      new Transform("", kIdentity, "='"),
+      new Transform("", kUppercaseAll, '"'),
+      new Transform("", kUppercaseFirst, ". "),
+      new Transform(" ", kIdentity, "("),
+      new Transform("", kIdentity, "ful "),
+      new Transform(" ", kUppercaseFirst, ". "),
+      new Transform("", kIdentity, "ive "),
+      new Transform("", kIdentity, "less "),
+      new Transform("", kUppercaseAll, "'"),
+      new Transform("", kIdentity, "est "),
+      new Transform(" ", kUppercaseFirst, "."),
+      new Transform("", kUppercaseAll, '">'),
+      new Transform(" ", kIdentity, "='"),
+      new Transform("", kUppercaseFirst, ","),
+      new Transform("", kIdentity, "ize "),
+      new Transform("", kUppercaseAll, "."),
+      new Transform("\xC2\xA0", kIdentity, ""),
+      new Transform(" ", kIdentity, ","),
+      new Transform("", kUppercaseFirst, '="'),
+      new Transform("", kUppercaseAll, '="'),
+      new Transform("", kIdentity, "ous "),
+      new Transform("", kUppercaseAll, ", "),
+      new Transform("", kUppercaseFirst, "='"),
+      new Transform(" ", kUppercaseFirst, ","),
+      new Transform(" ", kUppercaseAll, '="'),
+      new Transform(" ", kUppercaseAll, ", "),
+      new Transform("", kUppercaseAll, ","),
+      new Transform("", kUppercaseAll, "("),
+      new Transform("", kUppercaseAll, ". "),
+      new Transform(" ", kUppercaseAll, "."),
+      new Transform("", kUppercaseAll, "='"),
+      new Transform(" ", kUppercaseAll, ". "),
+      new Transform(" ", kUppercaseFirst, '="'),
+      new Transform(" ", kUppercaseAll, "='"),
+      new Transform(" ", kUppercaseFirst, "='")
+    ];
+    exports.kTransforms = kTransforms;
+    exports.kNumTransforms = kTransforms.length;
+    function ToUpperCase(p, i) {
+      if (p[i] < 192) {
+        if (p[i] >= 97 && p[i] <= 122) {
+          p[i] ^= 32;
+        }
+        return 1;
+      }
+      if (p[i] < 224) {
+        p[i + 1] ^= 32;
+        return 2;
+      }
+      p[i + 2] ^= 5;
+      return 3;
+    }
+    exports.transformDictionaryWord = function(dst, idx, word, len, transform) {
+      var prefix = kTransforms[transform].prefix;
+      var suffix = kTransforms[transform].suffix;
+      var t = kTransforms[transform].transform;
+      var skip = t < kOmitFirst1 ? 0 : t - (kOmitFirst1 - 1);
+      var i = 0;
+      var start_idx = idx;
+      var uppercase;
+      if (skip > len) {
+        skip = len;
+      }
+      var prefix_pos = 0;
+      while (prefix_pos < prefix.length) {
+        dst[idx++] = prefix[prefix_pos++];
+      }
+      word += skip;
+      len -= skip;
+      if (t <= kOmitLast9) {
+        len -= t;
+      }
+      for (i = 0; i < len; i++) {
+        dst[idx++] = BrotliDictionary.dictionary[word + i];
+      }
+      uppercase = idx - len;
+      if (t === kUppercaseFirst) {
+        ToUpperCase(dst, uppercase);
+      } else if (t === kUppercaseAll) {
+        while (len > 0) {
+          var step = ToUpperCase(dst, uppercase);
+          uppercase += step;
+          len -= step;
+        }
+      }
+      var suffix_pos = 0;
+      while (suffix_pos < suffix.length) {
+        dst[idx++] = suffix[suffix_pos++];
+      }
+      return idx - start_idx;
+    };
+  }
+});
+
+// node_modules/brotli/dec/decode.js
+var require_decode = __commonJS({
+  "node_modules/brotli/dec/decode.js"(exports) {
+    var BrotliInput = require_streams().BrotliInput;
+    var BrotliOutput = require_streams().BrotliOutput;
+    var BrotliBitReader = require_bit_reader();
+    var BrotliDictionary = require_dictionary();
+    var HuffmanCode = require_huffman().HuffmanCode;
+    var BrotliBuildHuffmanTable = require_huffman().BrotliBuildHuffmanTable;
+    var Context = require_context();
+    var Prefix = require_prefix();
+    var Transform = require_transform();
+    var kDefaultCodeLength = 8;
+    var kCodeLengthRepeatCode = 16;
+    var kNumLiteralCodes = 256;
+    var kNumInsertAndCopyCodes = 704;
+    var kNumBlockLengthCodes = 26;
+    var kLiteralContextBits = 6;
+    var kDistanceContextBits = 2;
+    var HUFFMAN_TABLE_BITS = 8;
+    var HUFFMAN_TABLE_MASK = 255;
+    var HUFFMAN_MAX_TABLE_SIZE = 1080;
+    var CODE_LENGTH_CODES = 18;
+    var kCodeLengthCodeOrder = new Uint8Array([
+      1,
+      2,
+      3,
+      4,
+      0,
+      5,
+      17,
+      6,
+      16,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      14,
+      15
+    ]);
+    var NUM_DISTANCE_SHORT_CODES = 16;
+    var kDistanceShortCodeIndexOffset = new Uint8Array([
+      3,
+      2,
+      1,
+      0,
+      3,
+      3,
+      3,
+      3,
+      3,
+      3,
+      2,
+      2,
+      2,
+      2,
+      2,
+      2
+    ]);
+    var kDistanceShortCodeValueOffset = new Int8Array([
+      0,
+      0,
+      0,
+      0,
+      -1,
+      1,
+      -2,
+      2,
+      -3,
+      3,
+      -1,
+      1,
+      -2,
+      2,
+      -3,
+      3
+    ]);
+    var kMaxHuffmanTableSize = new Uint16Array([
+      256,
+      402,
+      436,
+      468,
+      500,
+      534,
+      566,
+      598,
+      630,
+      662,
+      694,
+      726,
+      758,
+      790,
+      822,
+      854,
+      886,
+      920,
+      952,
+      984,
+      1016,
+      1048,
+      1080
+    ]);
+    function DecodeWindowBits(br) {
+      var n;
+      if (br.readBits(1) === 0) {
+        return 16;
+      }
+      n = br.readBits(3);
+      if (n > 0) {
+        return 17 + n;
+      }
+      n = br.readBits(3);
+      if (n > 0) {
+        return 8 + n;
+      }
+      return 17;
+    }
+    function DecodeVarLenUint8(br) {
+      if (br.readBits(1)) {
+        var nbits = br.readBits(3);
+        if (nbits === 0) {
+          return 1;
+        } else {
+          return br.readBits(nbits) + (1 << nbits);
+        }
+      }
+      return 0;
+    }
+    function MetaBlockLength() {
+      this.meta_block_length = 0;
+      this.input_end = 0;
+      this.is_uncompressed = 0;
+      this.is_metadata = false;
+    }
+    function DecodeMetaBlockLength(br) {
+      var out = new MetaBlockLength();
+      var size_nibbles;
+      var size_bytes;
+      var i;
+      out.input_end = br.readBits(1);
+      if (out.input_end && br.readBits(1)) {
+        return out;
+      }
+      size_nibbles = br.readBits(2) + 4;
+      if (size_nibbles === 7) {
+        out.is_metadata = true;
+        if (br.readBits(1) !== 0)
+          throw new Error("Invalid reserved bit");
+        size_bytes = br.readBits(2);
+        if (size_bytes === 0)
+          return out;
+        for (i = 0; i < size_bytes; i++) {
+          var next_byte = br.readBits(8);
+          if (i + 1 === size_bytes && size_bytes > 1 && next_byte === 0)
+            throw new Error("Invalid size byte");
+          out.meta_block_length |= next_byte << i * 8;
+        }
+      } else {
+        for (i = 0; i < size_nibbles; ++i) {
+          var next_nibble = br.readBits(4);
+          if (i + 1 === size_nibbles && size_nibbles > 4 && next_nibble === 0)
+            throw new Error("Invalid size nibble");
+          out.meta_block_length |= next_nibble << i * 4;
+        }
+      }
+      ++out.meta_block_length;
+      if (!out.input_end && !out.is_metadata) {
+        out.is_uncompressed = br.readBits(1);
+      }
+      return out;
+    }
+    function ReadSymbol(table, index, br) {
+      var start_index = index;
+      var nbits;
+      br.fillBitWindow();
+      index += br.val_ >>> br.bit_pos_ & HUFFMAN_TABLE_MASK;
+      nbits = table[index].bits - HUFFMAN_TABLE_BITS;
+      if (nbits > 0) {
+        br.bit_pos_ += HUFFMAN_TABLE_BITS;
+        index += table[index].value;
+        index += br.val_ >>> br.bit_pos_ & (1 << nbits) - 1;
+      }
+      br.bit_pos_ += table[index].bits;
+      return table[index].value;
+    }
+    function ReadHuffmanCodeLengths(code_length_code_lengths, num_symbols, code_lengths, br) {
+      var symbol = 0;
+      var prev_code_len = kDefaultCodeLength;
+      var repeat = 0;
+      var repeat_code_len = 0;
+      var space = 32768;
+      var table = [];
+      for (var i = 0; i < 32; i++)
+        table.push(new HuffmanCode(0, 0));
+      BrotliBuildHuffmanTable(table, 0, 5, code_length_code_lengths, CODE_LENGTH_CODES);
+      while (symbol < num_symbols && space > 0) {
+        var p = 0;
+        var code_len;
+        br.readMoreInput();
+        br.fillBitWindow();
+        p += br.val_ >>> br.bit_pos_ & 31;
+        br.bit_pos_ += table[p].bits;
+        code_len = table[p].value & 255;
+        if (code_len < kCodeLengthRepeatCode) {
+          repeat = 0;
+          code_lengths[symbol++] = code_len;
+          if (code_len !== 0) {
+            prev_code_len = code_len;
+            space -= 32768 >> code_len;
+          }
+        } else {
+          var extra_bits = code_len - 14;
+          var old_repeat;
+          var repeat_delta;
+          var new_len = 0;
+          if (code_len === kCodeLengthRepeatCode) {
+            new_len = prev_code_len;
+          }
+          if (repeat_code_len !== new_len) {
+            repeat = 0;
+            repeat_code_len = new_len;
+          }
+          old_repeat = repeat;
+          if (repeat > 0) {
+            repeat -= 2;
+            repeat <<= extra_bits;
+          }
+          repeat += br.readBits(extra_bits) + 3;
+          repeat_delta = repeat - old_repeat;
+          if (symbol + repeat_delta > num_symbols) {
+            throw new Error("[ReadHuffmanCodeLengths] symbol + repeat_delta > num_symbols");
+          }
+          for (var x = 0; x < repeat_delta; x++)
+            code_lengths[symbol + x] = repeat_code_len;
+          symbol += repeat_delta;
+          if (repeat_code_len !== 0) {
+            space -= repeat_delta << 15 - repeat_code_len;
+          }
+        }
+      }
+      if (space !== 0) {
+        throw new Error("[ReadHuffmanCodeLengths] space = " + space);
+      }
+      for (; symbol < num_symbols; symbol++)
+        code_lengths[symbol] = 0;
+    }
+    function ReadHuffmanCode(alphabet_size, tables, table, br) {
+      var table_size = 0;
+      var simple_code_or_skip;
+      var code_lengths = new Uint8Array(alphabet_size);
+      br.readMoreInput();
+      simple_code_or_skip = br.readBits(2);
+      if (simple_code_or_skip === 1) {
+        var i;
+        var max_bits_counter = alphabet_size - 1;
+        var max_bits = 0;
+        var symbols = new Int32Array(4);
+        var num_symbols = br.readBits(2) + 1;
+        while (max_bits_counter) {
+          max_bits_counter >>= 1;
+          ++max_bits;
+        }
+        for (i = 0; i < num_symbols; ++i) {
+          symbols[i] = br.readBits(max_bits) % alphabet_size;
+          code_lengths[symbols[i]] = 2;
+        }
+        code_lengths[symbols[0]] = 1;
+        switch (num_symbols) {
+          case 1:
+            break;
+          case 3:
+            if (symbols[0] === symbols[1] || symbols[0] === symbols[2] || symbols[1] === symbols[2]) {
+              throw new Error("[ReadHuffmanCode] invalid symbols");
+            }
+            break;
+          case 2:
+            if (symbols[0] === symbols[1]) {
+              throw new Error("[ReadHuffmanCode] invalid symbols");
+            }
+            code_lengths[symbols[1]] = 1;
+            break;
+          case 4:
+            if (symbols[0] === symbols[1] || symbols[0] === symbols[2] || symbols[0] === symbols[3] || symbols[1] === symbols[2] || symbols[1] === symbols[3] || symbols[2] === symbols[3]) {
+              throw new Error("[ReadHuffmanCode] invalid symbols");
+            }
+            if (br.readBits(1)) {
+              code_lengths[symbols[2]] = 3;
+              code_lengths[symbols[3]] = 3;
+            } else {
+              code_lengths[symbols[0]] = 2;
+            }
+            break;
+        }
+      } else {
+        var i;
+        var code_length_code_lengths = new Uint8Array(CODE_LENGTH_CODES);
+        var space = 32;
+        var num_codes = 0;
+        var huff = [
+          new HuffmanCode(2, 0),
+          new HuffmanCode(2, 4),
+          new HuffmanCode(2, 3),
+          new HuffmanCode(3, 2),
+          new HuffmanCode(2, 0),
+          new HuffmanCode(2, 4),
+          new HuffmanCode(2, 3),
+          new HuffmanCode(4, 1),
+          new HuffmanCode(2, 0),
+          new HuffmanCode(2, 4),
+          new HuffmanCode(2, 3),
+          new HuffmanCode(3, 2),
+          new HuffmanCode(2, 0),
+          new HuffmanCode(2, 4),
+          new HuffmanCode(2, 3),
+          new HuffmanCode(4, 5)
+        ];
+        for (i = simple_code_or_skip; i < CODE_LENGTH_CODES && space > 0; ++i) {
+          var code_len_idx = kCodeLengthCodeOrder[i];
+          var p = 0;
+          var v;
+          br.fillBitWindow();
+          p += br.val_ >>> br.bit_pos_ & 15;
+          br.bit_pos_ += huff[p].bits;
+          v = huff[p].value;
+          code_length_code_lengths[code_len_idx] = v;
+          if (v !== 0) {
+            space -= 32 >> v;
+            ++num_codes;
+          }
+        }
+        if (!(num_codes === 1 || space === 0))
+          throw new Error("[ReadHuffmanCode] invalid num_codes or space");
+        ReadHuffmanCodeLengths(code_length_code_lengths, alphabet_size, code_lengths, br);
+      }
+      table_size = BrotliBuildHuffmanTable(tables, table, HUFFMAN_TABLE_BITS, code_lengths, alphabet_size);
+      if (table_size === 0) {
+        throw new Error("[ReadHuffmanCode] BuildHuffmanTable failed: ");
+      }
+      return table_size;
+    }
+    function ReadBlockLength(table, index, br) {
+      var code;
+      var nbits;
+      code = ReadSymbol(table, index, br);
+      nbits = Prefix.kBlockLengthPrefixCode[code].nbits;
+      return Prefix.kBlockLengthPrefixCode[code].offset + br.readBits(nbits);
+    }
+    function TranslateShortCodes(code, ringbuffer, index) {
+      var val;
+      if (code < NUM_DISTANCE_SHORT_CODES) {
+        index += kDistanceShortCodeIndexOffset[code];
+        index &= 3;
+        val = ringbuffer[index] + kDistanceShortCodeValueOffset[code];
+      } else {
+        val = code - NUM_DISTANCE_SHORT_CODES + 1;
+      }
+      return val;
+    }
+    function MoveToFront(v, index) {
+      var value = v[index];
+      var i = index;
+      for (; i; --i) v[i] = v[i - 1];
+      v[0] = value;
+    }
+    function InverseMoveToFrontTransform(v, v_len) {
+      var mtf = new Uint8Array(256);
+      var i;
+      for (i = 0; i < 256; ++i) {
+        mtf[i] = i;
+      }
+      for (i = 0; i < v_len; ++i) {
+        var index = v[i];
+        v[i] = mtf[index];
+        if (index) MoveToFront(mtf, index);
+      }
+    }
+    function HuffmanTreeGroup(alphabet_size, num_htrees) {
+      this.alphabet_size = alphabet_size;
+      this.num_htrees = num_htrees;
+      this.codes = new Array(num_htrees + num_htrees * kMaxHuffmanTableSize[alphabet_size + 31 >>> 5]);
+      this.htrees = new Uint32Array(num_htrees);
+    }
+    HuffmanTreeGroup.prototype.decode = function(br) {
+      var i;
+      var table_size;
+      var next = 0;
+      for (i = 0; i < this.num_htrees; ++i) {
+        this.htrees[i] = next;
+        table_size = ReadHuffmanCode(this.alphabet_size, this.codes, next, br);
+        next += table_size;
+      }
+    };
+    function DecodeContextMap(context_map_size, br) {
+      var out = { num_htrees: null, context_map: null };
+      var use_rle_for_zeros;
+      var max_run_length_prefix = 0;
+      var table;
+      var i;
+      br.readMoreInput();
+      var num_htrees = out.num_htrees = DecodeVarLenUint8(br) + 1;
+      var context_map = out.context_map = new Uint8Array(context_map_size);
+      if (num_htrees <= 1) {
+        return out;
+      }
+      use_rle_for_zeros = br.readBits(1);
+      if (use_rle_for_zeros) {
+        max_run_length_prefix = br.readBits(4) + 1;
+      }
+      table = [];
+      for (i = 0; i < HUFFMAN_MAX_TABLE_SIZE; i++) {
+        table[i] = new HuffmanCode(0, 0);
+      }
+      ReadHuffmanCode(num_htrees + max_run_length_prefix, table, 0, br);
+      for (i = 0; i < context_map_size; ) {
+        var code;
+        br.readMoreInput();
+        code = ReadSymbol(table, 0, br);
+        if (code === 0) {
+          context_map[i] = 0;
+          ++i;
+        } else if (code <= max_run_length_prefix) {
+          var reps = 1 + (1 << code) + br.readBits(code);
+          while (--reps) {
+            if (i >= context_map_size) {
+              throw new Error("[DecodeContextMap] i >= context_map_size");
+            }
+            context_map[i] = 0;
+            ++i;
+          }
+        } else {
+          context_map[i] = code - max_run_length_prefix;
+          ++i;
+        }
+      }
+      if (br.readBits(1)) {
+        InverseMoveToFrontTransform(context_map, context_map_size);
+      }
+      return out;
+    }
+    function DecodeBlockType(max_block_type, trees2, tree_type, block_types, ringbuffers, indexes, br) {
+      var ringbuffer = tree_type * 2;
+      var index = tree_type;
+      var type_code = ReadSymbol(trees2, tree_type * HUFFMAN_MAX_TABLE_SIZE, br);
+      var block_type;
+      if (type_code === 0) {
+        block_type = ringbuffers[ringbuffer + (indexes[index] & 1)];
+      } else if (type_code === 1) {
+        block_type = ringbuffers[ringbuffer + (indexes[index] - 1 & 1)] + 1;
+      } else {
+        block_type = type_code - 2;
+      }
+      if (block_type >= max_block_type) {
+        block_type -= max_block_type;
+      }
+      block_types[tree_type] = block_type;
+      ringbuffers[ringbuffer + (indexes[index] & 1)] = block_type;
+      ++indexes[index];
+    }
+    function CopyUncompressedBlockToOutput(output, len, pos, ringbuffer, ringbuffer_mask, br) {
+      var rb_size = ringbuffer_mask + 1;
+      var rb_pos = pos & ringbuffer_mask;
+      var br_pos = br.pos_ & BrotliBitReader.IBUF_MASK;
+      var nbytes;
+      if (len < 8 || br.bit_pos_ + (len << 3) < br.bit_end_pos_) {
+        while (len-- > 0) {
+          br.readMoreInput();
+          ringbuffer[rb_pos++] = br.readBits(8);
+          if (rb_pos === rb_size) {
+            output.write(ringbuffer, rb_size);
+            rb_pos = 0;
+          }
+        }
+        return;
+      }
+      if (br.bit_end_pos_ < 32) {
+        throw new Error("[CopyUncompressedBlockToOutput] br.bit_end_pos_ < 32");
+      }
+      while (br.bit_pos_ < 32) {
+        ringbuffer[rb_pos] = br.val_ >>> br.bit_pos_;
+        br.bit_pos_ += 8;
+        ++rb_pos;
+        --len;
+      }
+      nbytes = br.bit_end_pos_ - br.bit_pos_ >> 3;
+      if (br_pos + nbytes > BrotliBitReader.IBUF_MASK) {
+        var tail = BrotliBitReader.IBUF_MASK + 1 - br_pos;
+        for (var x = 0; x < tail; x++)
+          ringbuffer[rb_pos + x] = br.buf_[br_pos + x];
+        nbytes -= tail;
+        rb_pos += tail;
+        len -= tail;
+        br_pos = 0;
+      }
+      for (var x = 0; x < nbytes; x++)
+        ringbuffer[rb_pos + x] = br.buf_[br_pos + x];
+      rb_pos += nbytes;
+      len -= nbytes;
+      if (rb_pos >= rb_size) {
+        output.write(ringbuffer, rb_size);
+        rb_pos -= rb_size;
+        for (var x = 0; x < rb_pos; x++)
+          ringbuffer[x] = ringbuffer[rb_size + x];
+      }
+      while (rb_pos + len >= rb_size) {
+        nbytes = rb_size - rb_pos;
+        if (br.input_.read(ringbuffer, rb_pos, nbytes) < nbytes) {
+          throw new Error("[CopyUncompressedBlockToOutput] not enough bytes");
+        }
+        output.write(ringbuffer, rb_size);
+        len -= nbytes;
+        rb_pos = 0;
+      }
+      if (br.input_.read(ringbuffer, rb_pos, len) < len) {
+        throw new Error("[CopyUncompressedBlockToOutput] not enough bytes");
+      }
+      br.reset();
+    }
+    function JumpToByteBoundary(br) {
+      var new_bit_pos = br.bit_pos_ + 7 & ~7;
+      var pad_bits = br.readBits(new_bit_pos - br.bit_pos_);
+      return pad_bits == 0;
+    }
+    function BrotliDecompressedSize(buffer) {
+      var input = new BrotliInput(buffer);
+      var br = new BrotliBitReader(input);
+      DecodeWindowBits(br);
+      var out = DecodeMetaBlockLength(br);
+      return out.meta_block_length;
+    }
+    exports.BrotliDecompressedSize = BrotliDecompressedSize;
+    function BrotliDecompressBuffer(buffer, output_size) {
+      var input = new BrotliInput(buffer);
+      if (output_size == null) {
+        output_size = BrotliDecompressedSize(buffer);
+      }
+      var output_buffer = new Uint8Array(output_size);
+      var output = new BrotliOutput(output_buffer);
+      BrotliDecompress(input, output);
+      if (output.pos < output.buffer.length) {
+        output.buffer = output.buffer.subarray(0, output.pos);
+      }
+      return output.buffer;
+    }
+    exports.BrotliDecompressBuffer = BrotliDecompressBuffer;
+    function BrotliDecompress(input, output) {
+      var i;
+      var pos = 0;
+      var input_end = 0;
+      var window_bits = 0;
+      var max_backward_distance;
+      var max_distance = 0;
+      var ringbuffer_size;
+      var ringbuffer_mask;
+      var ringbuffer;
+      var ringbuffer_end;
+      var dist_rb = [16, 15, 11, 4];
+      var dist_rb_idx = 0;
+      var prev_byte1 = 0;
+      var prev_byte2 = 0;
+      var hgroup = [new HuffmanTreeGroup(0, 0), new HuffmanTreeGroup(0, 0), new HuffmanTreeGroup(0, 0)];
+      var block_type_trees;
+      var block_len_trees;
+      var br;
+      var kRingBufferWriteAheadSlack = 128 + BrotliBitReader.READ_SIZE;
+      br = new BrotliBitReader(input);
+      window_bits = DecodeWindowBits(br);
+      max_backward_distance = (1 << window_bits) - 16;
+      ringbuffer_size = 1 << window_bits;
+      ringbuffer_mask = ringbuffer_size - 1;
+      ringbuffer = new Uint8Array(ringbuffer_size + kRingBufferWriteAheadSlack + BrotliDictionary.maxDictionaryWordLength);
+      ringbuffer_end = ringbuffer_size;
+      block_type_trees = [];
+      block_len_trees = [];
+      for (var x = 0; x < 3 * HUFFMAN_MAX_TABLE_SIZE; x++) {
+        block_type_trees[x] = new HuffmanCode(0, 0);
+        block_len_trees[x] = new HuffmanCode(0, 0);
+      }
+      while (!input_end) {
+        var meta_block_remaining_len = 0;
+        var is_uncompressed;
+        var block_length = [1 << 28, 1 << 28, 1 << 28];
+        var block_type = [0];
+        var num_block_types = [1, 1, 1];
+        var block_type_rb = [0, 1, 0, 1, 0, 1];
+        var block_type_rb_index = [0];
+        var distance_postfix_bits;
+        var num_direct_distance_codes;
+        var distance_postfix_mask;
+        var num_distance_codes;
+        var context_map = null;
+        var context_modes = null;
+        var num_literal_htrees;
+        var dist_context_map = null;
+        var num_dist_htrees;
+        var context_offset = 0;
+        var context_map_slice = null;
+        var literal_htree_index = 0;
+        var dist_context_offset = 0;
+        var dist_context_map_slice = null;
+        var dist_htree_index = 0;
+        var context_lookup_offset1 = 0;
+        var context_lookup_offset2 = 0;
+        var context_mode;
+        var htree_command;
+        for (i = 0; i < 3; ++i) {
+          hgroup[i].codes = null;
+          hgroup[i].htrees = null;
+        }
+        br.readMoreInput();
+        var _out = DecodeMetaBlockLength(br);
+        meta_block_remaining_len = _out.meta_block_length;
+        if (pos + meta_block_remaining_len > output.buffer.length) {
+          var tmp = new Uint8Array(pos + meta_block_remaining_len);
+          tmp.set(output.buffer);
+          output.buffer = tmp;
+        }
+        input_end = _out.input_end;
+        is_uncompressed = _out.is_uncompressed;
+        if (_out.is_metadata) {
+          JumpToByteBoundary(br);
+          for (; meta_block_remaining_len > 0; --meta_block_remaining_len) {
+            br.readMoreInput();
+            br.readBits(8);
+          }
+          continue;
+        }
+        if (meta_block_remaining_len === 0) {
+          continue;
+        }
+        if (is_uncompressed) {
+          br.bit_pos_ = br.bit_pos_ + 7 & ~7;
+          CopyUncompressedBlockToOutput(
+            output,
+            meta_block_remaining_len,
+            pos,
+            ringbuffer,
+            ringbuffer_mask,
+            br
+          );
+          pos += meta_block_remaining_len;
+          continue;
+        }
+        for (i = 0; i < 3; ++i) {
+          num_block_types[i] = DecodeVarLenUint8(br) + 1;
+          if (num_block_types[i] >= 2) {
+            ReadHuffmanCode(num_block_types[i] + 2, block_type_trees, i * HUFFMAN_MAX_TABLE_SIZE, br);
+            ReadHuffmanCode(kNumBlockLengthCodes, block_len_trees, i * HUFFMAN_MAX_TABLE_SIZE, br);
+            block_length[i] = ReadBlockLength(block_len_trees, i * HUFFMAN_MAX_TABLE_SIZE, br);
+            block_type_rb_index[i] = 1;
+          }
+        }
+        br.readMoreInput();
+        distance_postfix_bits = br.readBits(2);
+        num_direct_distance_codes = NUM_DISTANCE_SHORT_CODES + (br.readBits(4) << distance_postfix_bits);
+        distance_postfix_mask = (1 << distance_postfix_bits) - 1;
+        num_distance_codes = num_direct_distance_codes + (48 << distance_postfix_bits);
+        context_modes = new Uint8Array(num_block_types[0]);
+        for (i = 0; i < num_block_types[0]; ++i) {
+          br.readMoreInput();
+          context_modes[i] = br.readBits(2) << 1;
+        }
+        var _o1 = DecodeContextMap(num_block_types[0] << kLiteralContextBits, br);
+        num_literal_htrees = _o1.num_htrees;
+        context_map = _o1.context_map;
+        var _o2 = DecodeContextMap(num_block_types[2] << kDistanceContextBits, br);
+        num_dist_htrees = _o2.num_htrees;
+        dist_context_map = _o2.context_map;
+        hgroup[0] = new HuffmanTreeGroup(kNumLiteralCodes, num_literal_htrees);
+        hgroup[1] = new HuffmanTreeGroup(kNumInsertAndCopyCodes, num_block_types[1]);
+        hgroup[2] = new HuffmanTreeGroup(num_distance_codes, num_dist_htrees);
+        for (i = 0; i < 3; ++i) {
+          hgroup[i].decode(br);
+        }
+        context_map_slice = 0;
+        dist_context_map_slice = 0;
+        context_mode = context_modes[block_type[0]];
+        context_lookup_offset1 = Context.lookupOffsets[context_mode];
+        context_lookup_offset2 = Context.lookupOffsets[context_mode + 1];
+        htree_command = hgroup[1].htrees[0];
+        while (meta_block_remaining_len > 0) {
+          var cmd_code;
+          var range_idx;
+          var insert_code;
+          var copy_code;
+          var insert_length;
+          var copy_length;
+          var distance_code;
+          var distance;
+          var context;
+          var j;
+          var copy_dst;
+          br.readMoreInput();
+          if (block_length[1] === 0) {
+            DecodeBlockType(
+              num_block_types[1],
+              block_type_trees,
+              1,
+              block_type,
+              block_type_rb,
+              block_type_rb_index,
+              br
+            );
+            block_length[1] = ReadBlockLength(block_len_trees, HUFFMAN_MAX_TABLE_SIZE, br);
+            htree_command = hgroup[1].htrees[block_type[1]];
+          }
+          --block_length[1];
+          cmd_code = ReadSymbol(hgroup[1].codes, htree_command, br);
+          range_idx = cmd_code >> 6;
+          if (range_idx >= 2) {
+            range_idx -= 2;
+            distance_code = -1;
+          } else {
+            distance_code = 0;
+          }
+          insert_code = Prefix.kInsertRangeLut[range_idx] + (cmd_code >> 3 & 7);
+          copy_code = Prefix.kCopyRangeLut[range_idx] + (cmd_code & 7);
+          insert_length = Prefix.kInsertLengthPrefixCode[insert_code].offset + br.readBits(Prefix.kInsertLengthPrefixCode[insert_code].nbits);
+          copy_length = Prefix.kCopyLengthPrefixCode[copy_code].offset + br.readBits(Prefix.kCopyLengthPrefixCode[copy_code].nbits);
+          prev_byte1 = ringbuffer[pos - 1 & ringbuffer_mask];
+          prev_byte2 = ringbuffer[pos - 2 & ringbuffer_mask];
+          for (j = 0; j < insert_length; ++j) {
+            br.readMoreInput();
+            if (block_length[0] === 0) {
+              DecodeBlockType(
+                num_block_types[0],
+                block_type_trees,
+                0,
+                block_type,
+                block_type_rb,
+                block_type_rb_index,
+                br
+              );
+              block_length[0] = ReadBlockLength(block_len_trees, 0, br);
+              context_offset = block_type[0] << kLiteralContextBits;
+              context_map_slice = context_offset;
+              context_mode = context_modes[block_type[0]];
+              context_lookup_offset1 = Context.lookupOffsets[context_mode];
+              context_lookup_offset2 = Context.lookupOffsets[context_mode + 1];
+            }
+            context = Context.lookup[context_lookup_offset1 + prev_byte1] | Context.lookup[context_lookup_offset2 + prev_byte2];
+            literal_htree_index = context_map[context_map_slice + context];
+            --block_length[0];
+            prev_byte2 = prev_byte1;
+            prev_byte1 = ReadSymbol(hgroup[0].codes, hgroup[0].htrees[literal_htree_index], br);
+            ringbuffer[pos & ringbuffer_mask] = prev_byte1;
+            if ((pos & ringbuffer_mask) === ringbuffer_mask) {
+              output.write(ringbuffer, ringbuffer_size);
+            }
+            ++pos;
+          }
+          meta_block_remaining_len -= insert_length;
+          if (meta_block_remaining_len <= 0) break;
+          if (distance_code < 0) {
+            var context;
+            br.readMoreInput();
+            if (block_length[2] === 0) {
+              DecodeBlockType(
+                num_block_types[2],
+                block_type_trees,
+                2,
+                block_type,
+                block_type_rb,
+                block_type_rb_index,
+                br
+              );
+              block_length[2] = ReadBlockLength(block_len_trees, 2 * HUFFMAN_MAX_TABLE_SIZE, br);
+              dist_context_offset = block_type[2] << kDistanceContextBits;
+              dist_context_map_slice = dist_context_offset;
+            }
+            --block_length[2];
+            context = (copy_length > 4 ? 3 : copy_length - 2) & 255;
+            dist_htree_index = dist_context_map[dist_context_map_slice + context];
+            distance_code = ReadSymbol(hgroup[2].codes, hgroup[2].htrees[dist_htree_index], br);
+            if (distance_code >= num_direct_distance_codes) {
+              var nbits;
+              var postfix;
+              var offset;
+              distance_code -= num_direct_distance_codes;
+              postfix = distance_code & distance_postfix_mask;
+              distance_code >>= distance_postfix_bits;
+              nbits = (distance_code >> 1) + 1;
+              offset = (2 + (distance_code & 1) << nbits) - 4;
+              distance_code = num_direct_distance_codes + (offset + br.readBits(nbits) << distance_postfix_bits) + postfix;
+            }
+          }
+          distance = TranslateShortCodes(distance_code, dist_rb, dist_rb_idx);
+          if (distance < 0) {
+            throw new Error("[BrotliDecompress] invalid distance");
+          }
+          if (pos < max_backward_distance && max_distance !== max_backward_distance) {
+            max_distance = pos;
+          } else {
+            max_distance = max_backward_distance;
+          }
+          copy_dst = pos & ringbuffer_mask;
+          if (distance > max_distance) {
+            if (copy_length >= BrotliDictionary.minDictionaryWordLength && copy_length <= BrotliDictionary.maxDictionaryWordLength) {
+              var offset = BrotliDictionary.offsetsByLength[copy_length];
+              var word_id = distance - max_distance - 1;
+              var shift = BrotliDictionary.sizeBitsByLength[copy_length];
+              var mask = (1 << shift) - 1;
+              var word_idx = word_id & mask;
+              var transform_idx = word_id >> shift;
+              offset += word_idx * copy_length;
+              if (transform_idx < Transform.kNumTransforms) {
+                var len = Transform.transformDictionaryWord(ringbuffer, copy_dst, offset, copy_length, transform_idx);
+                copy_dst += len;
+                pos += len;
+                meta_block_remaining_len -= len;
+                if (copy_dst >= ringbuffer_end) {
+                  output.write(ringbuffer, ringbuffer_size);
+                  for (var _x = 0; _x < copy_dst - ringbuffer_end; _x++)
+                    ringbuffer[_x] = ringbuffer[ringbuffer_end + _x];
+                }
+              } else {
+                throw new Error("Invalid backward reference. pos: " + pos + " distance: " + distance + " len: " + copy_length + " bytes left: " + meta_block_remaining_len);
+              }
+            } else {
+              throw new Error("Invalid backward reference. pos: " + pos + " distance: " + distance + " len: " + copy_length + " bytes left: " + meta_block_remaining_len);
+            }
+          } else {
+            if (distance_code > 0) {
+              dist_rb[dist_rb_idx & 3] = distance;
+              ++dist_rb_idx;
+            }
+            if (copy_length > meta_block_remaining_len) {
+              throw new Error("Invalid backward reference. pos: " + pos + " distance: " + distance + " len: " + copy_length + " bytes left: " + meta_block_remaining_len);
+            }
+            for (j = 0; j < copy_length; ++j) {
+              ringbuffer[pos & ringbuffer_mask] = ringbuffer[pos - distance & ringbuffer_mask];
+              if ((pos & ringbuffer_mask) === ringbuffer_mask) {
+                output.write(ringbuffer, ringbuffer_size);
+              }
+              ++pos;
+              --meta_block_remaining_len;
+            }
+          }
+          prev_byte1 = ringbuffer[pos - 1 & ringbuffer_mask];
+          prev_byte2 = ringbuffer[pos - 2 & ringbuffer_mask];
+        }
+        pos &= 1073741823;
+      }
+      output.write(ringbuffer, pos & ringbuffer_mask);
+    }
+    exports.BrotliDecompress = BrotliDecompress;
+    BrotliDictionary.init();
+  }
+});
+
+// node_modules/brotli/decompress.js
+var require_decompress = __commonJS({
+  "node_modules/brotli/decompress.js"(exports, module) {
+    module.exports = require_decode().BrotliDecompressBuffer;
+  }
+});
+
+// danmu_api/utils/log-util.js
+function log(level, ...args) {
+  const levels = { error: 0, warn: 1, info: 2 };
+  const currentLevelValue = levels[globals.logLevel] !== void 0 ? levels[globals.logLevel] : 1;
+  if ((levels[level] || 0) > currentLevelValue) {
+    return;
+  }
+  const processedArgs = args.map((arg) => {
+    if (typeof arg === "object") {
+      const jsonString = JSON.stringify(arg);
+      return hideSensitiveInfo(jsonString);
+    } else {
+      return typeof arg === "string" ? hideSensitiveInfo(arg) : arg;
+    }
+  });
+  const message = processedArgs.map((arg) => typeof arg === "object" ? JSON.stringify(arg) : arg).join(" ");
+  const now = /* @__PURE__ */ new Date();
+  const shanghaiTime = new Date(now.getTime() + 8 * 60 * 60 * 1e3);
+  const timestamp = shanghaiTime.toISOString().replace("Z", "+08:00");
+  globals.logBuffer.push({ timestamp, level, message });
+  if (globals.logBuffer.length > globals.MAX_LOGS) globals.logBuffer.shift();
+  console[level](...processedArgs);
+}
+function hideSensitiveInfo(message) {
+  let processedMessage = message;
+  if (globals.originalEnvVars && globals.accessedEnvVars) {
+    for (const [envVar, originalValue] of Object.entries(globals.originalEnvVars)) {
+      const accessedValue = globals.accessedEnvVars[envVar];
+      if (originalValue && typeof originalValue === "string" && originalValue.length > 0 && accessedValue && typeof accessedValue === "string" && accessedValue.match(/^\*+$/) && accessedValue.length === originalValue.length) {
+        const mask = "*".repeat(originalValue.length);
+        const regex = new RegExp(originalValue.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "g");
+        processedMessage = processedMessage.replace(regex, mask);
+      }
+    }
+  }
+  return processedMessage;
+}
+
+// danmu_api/utils/zh-util.js
+function charPYStr() {
+  return "\u9515\u7691\u853C\u788D\u7231\u55F3\u5AD2\u7477\u66A7\u972D\u8C19\u94F5\u9E4C\u80AE\u8884\u5965\u5AAA\u9A9C\u9CCC\u575D\u7F62\u94AF\u6446\u8D25\u5457\u9881\u529E\u7ECA\u94A3\u5E2E\u7ED1\u9551\u8C24\u5265\u9971\u5B9D\u62A5\u9C8D\u9E28\u9F85\u8F88\u8D1D\u94A1\u72C8\u5907\u60EB\u9E4E\u8D32\u951B\u7EF7\u7B14\u6BD5\u6BD9\u5E01\u95ED\u835C\u54D4\u6ED7\u94CB\u7B5A\u8DF8\u8FB9\u7F16\u8D2C\u53D8\u8FA9\u8FAB\u82C4\u7F0F\u7B3E\u6807\u9AA0\u98D1\u98D9\u9556\u9573\u9CD4\u9CD6\u522B\u762A\u6FD2\u6EE8\u5BBE\u6448\u50A7\u7F24\u69DF\u6BA1\u8191\u9554\u9ACC\u9B13\u997C\u7980\u62E8\u94B5\u94C2\u9A73\u997D\u94B9\u9E41\u8865\u94B8\u8D22\u53C2\u8695\u6B8B\u60ED\u60E8\u707F\u9A96\u9EEA\u82CD\u8231\u4ED3\u6CA7\u5395\u4FA7\u518C\u6D4B\u607B\u5C42\u8BE7\u9538\u4FAA\u9497\u6400\u63BA\u8749\u998B\u8C17\u7F20\u94F2\u4EA7\u9610\u98A4\u5181\u8C04\u8C36\u8487\u5FCF\u5A75\u9AA3\u89C7\u7985\u9561\u573A\u5C1D\u957F\u507F\u80A0\u5382\u7545\u4F25\u82CC\u6005\u960A\u9CB3\u949E\u8F66\u5F7B\u7817\u5C18\u9648\u886C\u4F27\u8C0C\u6987\u789C\u9F80\u6491\u79F0\u60E9\u8BDA\u9A8B\u67A8\u67FD\u94D6\u94DB\u75F4\u8FDF\u9A70\u803B\u9F7F\u70BD\u996C\u9E31\u51B2\u51B2\u866B\u5BA0\u94F3\u7574\u8E0C\u7B79\u7EF8\u4FE6\u5E31\u96E0\u6A71\u53A8\u9504\u96CF\u7840\u50A8\u89E6\u5904\u520D\u7ECC\u8E70\u4F20\u948F\u75AE\u95EF\u521B\u6006\u9524\u7F0D\u7EAF\u9E51\u7EF0\u8F8D\u9F8A\u8F9E\u8BCD\u8D50\u9E5A\u806A\u8471\u56F1\u4ECE\u4E1B\u82C1\u9AA2\u679E\u51D1\u8F8F\u8E7F\u7A9C\u64BA\u9519\u9509\u9E7E\u8FBE\u54D2\u9791\u5E26\u8D37\u9A80\u7ED0\u62C5\u5355\u90F8\u63B8\u80C6\u60EE\u8BDE\u5F39\u6B9A\u8D55\u7605\u7BAA\u5F53\u6321\u515A\u8361\u6863\u8C20\u7800\u88C6\u6363\u5C9B\u7977\u5BFC\u76D7\u7118\u706F\u9093\u956B\u654C\u6DA4\u9012\u7F14\u7C74\u8BCB\u8C1B\u7EE8\u89CC\u955D\u98A0\u70B9\u57AB\u7535\u5DC5\u94BF\u766B\u9493\u8C03\u94EB\u9CB7\u8C0D\u53E0\u9CBD\u9489\u9876\u952D\u8BA2\u94E4\u4E22\u94E5\u4E1C\u52A8\u680B\u51BB\u5CBD\u9E2B\u7AA6\u728A\u72EC\u8BFB\u8D4C\u9540\u6E0E\u691F\u724D\u7B03\u9EE9\u953B\u65AD\u7F0E\u7C16\u5151\u961F\u5BF9\u603C\u9566\u5428\u987F\u949D\u7096\u8DB8\u593A\u5815\u94CE\u9E45\u989D\u8BB9\u6076\u997F\u8C14\u57A9\u960F\u8F6D\u9507\u9537\u9E57\u989A\u989B\u9CC4\u8BF6\u513F\u5C14\u9975\u8D30\u8FE9\u94D2\u9E38\u9C95\u53D1\u7F5A\u9600\u73D0\u77FE\u9492\u70E6\u8D29\u996D\u8BBF\u7EBA\u94AB\u9C82\u98DE\u8BFD\u5E9F\u8D39\u7EEF\u9544\u9CB1\u7EB7\u575F\u594B\u6124\u7CAA\u507E\u4E30\u67AB\u950B\u98CE\u75AF\u51AF\u7F1D\u8BBD\u51E4\u6CA3\u80A4\u8F90\u629A\u8F85\u8D4B\u590D\u8D1F\u8BA3\u5987\u7F1A\u51EB\u9A78\u7EC2\u7ECB\u8D59\u9EB8\u9C8B\u9CC6\u9486\u8BE5\u9499\u76D6\u8D45\u6746\u8D76\u79C6\u8D63\u5C34\u64C0\u7EC0\u5188\u521A\u94A2\u7EB2\u5C97\u6206\u9550\u777E\u8BF0\u7F1F\u9506\u6401\u9E3D\u9601\u94EC\u4E2A\u7EA5\u9549\u988D\u7ED9\u4E98\u8D53\u7EE0\u9CA0\u9F9A\u5BAB\u5DE9\u8D21\u94A9\u6C9F\u82DF\u6784\u8D2D\u591F\u8BDF\u7F11\u89CF\u86CA\u987E\u8BC2\u6BC2\u94B4\u9522\u9E2A\u9E44\u9E58\u5250\u6302\u9E39\u63B4\u5173\u89C2\u9986\u60EF\u8D2F\u8BD6\u63BC\u9E73\u9CCF\u5E7F\u72B7\u89C4\u5F52\u9F9F\u95FA\u8F68\u8BE1\u8D35\u523D\u5326\u523F\u59AB\u6867\u9C91\u9CDC\u8F8A\u6EDA\u886E\u7EF2\u9CA7\u9505\u56FD\u8FC7\u57DA\u5459\u5E3C\u6901\u8748\u94EA\u9A87\u97E9\u6C49\u961A\u7ED7\u9889\u53F7\u704F\u98A2\u9602\u9E64\u8D3A\u8BC3\u9616\u86CE\u6A2A\u8F70\u9E3F\u7EA2\u9EC9\u8BA7\u836D\u95F3\u9C8E\u58F6\u62A4\u6CAA\u6237\u6D52\u9E55\u54D7\u534E\u753B\u5212\u8BDD\u9A85\u6866\u94E7\u6000\u574F\u6B22\u73AF\u8FD8\u7F13\u6362\u5524\u75EA\u7115\u6DA3\u5942\u7F33\u953E\u9CA9\u9EC4\u8C0E\u9CC7\u6325\u8F89\u6BC1\u8D3F\u79FD\u4F1A\u70E9\u6C47\u8BB3\u8BF2\u7ED8\u8BD9\u835F\u54D5\u6D4D\u7F0B\u73F2\u6656\u8364\u6D51\u8BE8\u9984\u960D\u83B7\u8D27\u7978\u94AC\u956C\u51FB\u673A\u79EF\u9965\u8FF9\u8BA5\u9E21\u7EE9\u7F09\u6781\u8F91\u7EA7\u6324\u51E0\u84DF\u5242\u6D4E\u8BA1\u8BB0\u9645\u7EE7\u7EAA\u8BA6\u8BD8\u8360\u53FD\u54DC\u9AA5\u7391\u89CA\u9F51\u77F6\u7F81\u867F\u8DFB\u9701\u9C9A\u9CAB\u5939\u835A\u988A\u8D3E\u94BE\u4EF7\u9A7E\u90CF\u6D43\u94D7\u9553\u86F2\u6B7C\u76D1\u575A\u7B3A\u95F4\u8270\u7F04\u8327\u68C0\u78B1\u7877\u62E3\u6361\u7B80\u4FED\u51CF\u8350\u69DB\u9274\u8DF5\u8D31\u89C1\u952E\u8230\u5251\u996F\u6E10\u6E85\u6DA7\u8C0F\u7F23\u620B\u622C\u7751\u9E63\u7B15\u9CA3\u97AF\u5C06\u6D46\u848B\u6868\u5956\u8BB2\u9171\u7EDB\u7F30\u80F6\u6D47\u9A84\u5A07\u6405\u94F0\u77EB\u4FA5\u811A\u997A\u7F34\u7EDE\u8F7F\u8F83\u6322\u5CE4\u9E6A\u9C9B\u9636\u8282\u6D01\u7ED3\u8BEB\u5C4A\u7596\u988C\u9C92\u7D27\u9526\u4EC5\u8C28\u8FDB\u664B\u70EC\u5C3D\u52B2\u8346\u830E\u537A\u8369\u9991\u7F19\u8D46\u89D0\u9CB8\u60CA\u7ECF\u9888\u9759\u955C\u5F84\u75C9\u7ADE\u51C0\u522D\u6CFE\u8FF3\u5F2A\u80EB\u9753\u7EA0\u53A9\u65E7\u9604\u9E20\u9E6B\u9A79\u4E3E\u636E\u952F\u60E7\u5267\u8BB5\u5C66\u6989\u98D3\u949C\u9514\u7AAD\u9F83\u9E43\u7EE2\u9529\u954C\u96BD\u89C9\u51B3\u7EDD\u8C32\u73CF\u94A7\u519B\u9A8F\u76B2\u5F00\u51EF\u5240\u57B2\u5FFE\u607A\u94E0\u9534\u9F9B\u95F6\u94AA\u94D0\u9897\u58F3\u8BFE\u9A92\u7F02\u8F72\u94B6\u951E\u9894\u57A6\u6073\u9F88\u94FF\u62A0\u5E93\u88E4\u55BE\u5757\u4FA9\u90D0\u54D9\u810D\u5BBD\u72EF\u9ACB\u77FF\u65F7\u51B5\u8BD3\u8BF3\u909D\u5739\u7EA9\u8D36\u4E8F\u5CBF\u7AA5\u9988\u6E83\u532E\u8489\u6126\u8069\u7BD1\u9603\u951F\u9CB2\u6269\u9614\u86F4\u8721\u814A\u83B1\u6765\u8D56\u5D03\u5F95\u6D9E\u6FD1\u8D49\u7750\u94FC\u765E\u7C41\u84DD\u680F\u62E6\u7BEE\u9611\u5170\u6F9C\u8C30\u63FD\u89C8\u61D2\u7F06\u70C2\u6EE5\u5C9A\u6984\u6593\u9567\u8934\u7405\u9606\u9512\u635E\u52B3\u6D9D\u5520\u5D02\u94D1\u94F9\u75E8\u4E50\u9CD3\u956D\u5792\u7C7B\u6CEA\u8BD4\u7F27\u7BF1\u72F8\u79BB\u9CA4\u793C\u4E3D\u5389\u52B1\u783E\u5386\u6CA5\u96B6\u4FEA\u90E6\u575C\u82C8\u8385\u84E0\u5456\u9026\u9A8A\u7F21\u67A5\u680E\u8F79\u783A\u9502\u9E42\u75A0\u7C9D\u8DDE\u96F3\u9CA1\u9CE2\u4FE9\u8054\u83B2\u8FDE\u9570\u601C\u6D9F\u5E18\u655B\u8138\u94FE\u604B\u70BC\u7EC3\u8539\u5941\u6F4B\u740F\u6B93\u88E2\u88E3\u9CA2\u7CAE\u51C9\u4E24\u8F86\u8C05\u9B49\u7597\u8FBD\u9563\u7F2D\u948C\u9E69\u730E\u4E34\u90BB\u9CDE\u51DB\u8D41\u853A\u5EEA\u6AA9\u8F9A\u8E8F\u9F84\u94C3\u7075\u5CAD\u9886\u7EEB\u68C2\u86CF\u9CAE\u998F\u5218\u6D4F\u9A9D\u7EFA\u954F\u9E68\u9F99\u804B\u5499\u7B3C\u5784\u62E2\u9647\u830F\u6CF7\u73D1\u680A\u80E7\u783B\u697C\u5A04\u6402\u7BD3\u507B\u848C\u55BD\u5D5D\u9542\u7618\u8027\u877C\u9AC5\u82A6\u5362\u9885\u5E90\u7089\u63B3\u5364\u864F\u9C81\u8D42\u7984\u5F55\u9646\u5786\u64B8\u565C\u95FE\u6CF8\u6E0C\u680C\u6A79\u8F73\u8F82\u8F98\u6C07\u80EA\u9E2C\u9E6D\u823B\u9C88\u5CE6\u631B\u5B6A\u6EE6\u4E71\u8114\u5A08\u683E\u9E3E\u92AE\u62A1\u8F6E\u4F26\u4ED1\u6CA6\u7EB6\u8BBA\u56F5\u841D\u7F57\u903B\u9523\u7BA9\u9AA1\u9A86\u7EDC\u8366\u7321\u6CFA\u6924\u8136\u9559\u9A74\u5415\u94DD\u4FA3\u5C61\u7F15\u8651\u6EE4\u7EFF\u6988\u891B\u950A\u5452\u5988\u739B\u7801\u8682\u9A6C\u9A82\u5417\u551B\u5B37\u6769\u4E70\u9EA6\u5356\u8FC8\u8109\u52A2\u7792\u9992\u86EE\u6EE1\u8C29\u7F26\u9558\u98A1\u9CD7\u732B\u951A\u94C6\u8D38\u4E48\u6CA1\u9541\u95E8\u95F7\u4EEC\u626A\u7116\u61D1\u9494\u9530\u68A6\u772F\u8C1C\u5F25\u89C5\u5E42\u8288\u8C27\u7315\u7962\u7EF5\u7F05\u6E11\u817C\u9EFE\u5E99\u7F08\u7F2A\u706D\u60AF\u95FD\u95F5\u7F17\u9E23\u94ED\u8C2C\u8C1F\u84E6\u998D\u6B81\u9546\u8C0B\u4EA9\u94BC\u5450\u94A0\u7EB3\u96BE\u6320\u8111\u607C\u95F9\u94D9\u8BB7\u9981\u5185\u62DF\u817B\u94CC\u9CB5\u64B5\u8F87\u9CB6\u917F\u9E1F\u8311\u8885\u8042\u556E\u954A\u954D\u9667\u8616\u55EB\u989F\u8E51\u67E0\u72DE\u5B81\u62E7\u6CDE\u82CE\u549B\u804D\u94AE\u7EBD\u8113\u6D53\u519C\u4FAC\u54DD\u9A7D\u9495\u8BFA\u50A9\u759F\u6B27\u9E25\u6BB4\u5455\u6CA4\u8BB4\u6004\u74EF\u76D8\u8E52\u5E9E\u629B\u75B1\u8D54\u8F94\u55B7\u9E4F\u7EB0\u7F74\u94CD\u9A97\u8C1D\u9A88\u98D8\u7F25\u9891\u8D2B\u5AD4\u82F9\u51ED\u8BC4\u6CFC\u9887\u948B\u6251\u94FA\u6734\u8C31\u9564\u9568\u6816\u8110\u9F50\u9A91\u5C82\u542F\u6C14\u5F03\u8BAB\u8572\u9A90\u7EEE\u6864\u789B\u9880\u9883\u9CCD\u7275\u948E\u94C5\u8FC1\u7B7E\u8C26\u94B1\u94B3\u6F5C\u6D45\u8C34\u5811\u4F65\u8368\u60AD\u9A9E\u7F31\u6920\u94A4\u67AA\u545B\u5899\u8537\u5F3A\u62A2\u5AF1\u6A2F\u6217\u709D\u9516\u9535\u956A\u7F9F\u8DC4\u9539\u6865\u4E54\u4FA8\u7FD8\u7A8D\u8BEE\u8C2F\u835E\u7F32\u7857\u8DF7\u7A83\u60EC\u9532\u7BA7\u94A6\u4EB2\u5BDD\u9513\u8F7B\u6C22\u503E\u9877\u8BF7\u5E86\u63FF\u9CAD\u743C\u7A77\u8315\u86F1\u5DEF\u8D47\u866E\u9CC5\u8D8B\u533A\u8EAF\u9A71\u9F8B\u8BCE\u5C96\u9612\u89D1\u9E32\u98A7\u6743\u529D\u8BE0\u7EFB\u8F81\u94E8\u5374\u9E4A\u786E\u9615\u9619\u60AB\u8BA9\u9976\u6270\u7ED5\u835B\u5A06\u6861\u70ED\u97E7\u8BA4\u7EAB\u996A\u8F6B\u8363\u7ED2\u5D58\u877E\u7F1B\u94F7\u98A6\u8F6F\u9510\u86AC\u95F0\u6DA6\u6D12\u8428\u98D2\u9CC3\u8D5B\u4F1E\u6BF5\u7CC1\u4E27\u9A9A\u626B\u7F2B\u6DA9\u556C\u94EF\u7A51\u6740\u5239\u7EB1\u94E9\u9CA8\u7B5B\u6652\u917E\u5220\u95EA\u9655\u8D61\u7F2E\u8BAA\u59D7\u9A9F\u9490\u9CDD\u5892\u4F24\u8D4F\u57A7\u6B87\u89DE\u70E7\u7ECD\u8D4A\u6444\u6151\u8BBE\u538D\u6EE0\u7572\u7EC5\u5BA1\u5A76\u80BE\u6E17\u8BDC\u8C02\u6E16\u58F0\u7EF3\u80DC\u5E08\u72EE\u6E7F\u8BD7\u65F6\u8680\u5B9E\u8BC6\u9A76\u52BF\u9002\u91CA\u9970\u89C6\u8BD5\u8C25\u57D8\u83B3\u5F11\u8F7C\u8D33\u94C8\u9CA5\u5BFF\u517D\u7EF6\u67A2\u8F93\u4E66\u8D4E\u5C5E\u672F\u6811\u7AD6\u6570\u6445\u7EBE\u5E05\u95E9\u53CC\u8C01\u7A0E\u987A\u8BF4\u7855\u70C1\u94C4\u4E1D\u9972\u53AE\u9A77\u7F0C\u9536\u9E36\u8038\u6002\u9882\u8BBC\u8BF5\u64DE\u85AE\u998A\u98D5\u953C\u82CF\u8BC9\u8083\u8C21\u7A23\u867D\u968F\u7EE5\u5C81\u8C07\u5B59\u635F\u7B0B\u836A\u72F2\u7F29\u7410\u9501\u5522\u7743\u736D\u631E\u95FC\u94CA\u9CCE\u53F0\u6001\u949B\u9C90\u644A\u8D2A\u762B\u6EE9\u575B\u8C2D\u8C08\u53F9\u6619\u94BD\u952C\u9878\u6C64\u70EB\u50A5\u9967\u94F4\u9557\u6D9B\u7EE6\u8BA8\u97EC\u94FD\u817E\u8A8A\u9511\u9898\u4F53\u5C49\u7F07\u9E48\u9617\u6761\u7C9C\u9F86\u9CA6\u8D34\u94C1\u5385\u542C\u70C3\u94DC\u7EDF\u6078\u5934\u94AD\u79C3\u56FE\u948D\u56E2\u629F\u9893\u8715\u9968\u8131\u9E35\u9A6E\u9A7C\u692D\u7BA8\u9F0D\u889C\u5A32\u817D\u5F2F\u6E7E\u987D\u4E07\u7EA8\u7EFE\u7F51\u8F8B\u97E6\u8FDD\u56F4\u4E3A\u6F4D\u7EF4\u82C7\u4F1F\u4F2A\u7EAC\u8C13\u536B\u8BFF\u5E0F\u95F1\u6CA9\u6DA0\u73AE\u97EA\u709C\u9C94\u6E29\u95FB\u7EB9\u7A33\u95EE\u960C\u74EE\u631D\u8717\u6DA1\u7A9D\u5367\u83B4\u9F8C\u545C\u94A8\u4E4C\u8BEC\u65E0\u829C\u5434\u575E\u96FE\u52A1\u8BEF\u90AC\u5E91\u6003\u59A9\u9A9B\u9E49\u9E5C\u9521\u727A\u88AD\u4E60\u94E3\u620F\u7EC6\u9969\u960B\u73BA\u89CB\u867E\u8F96\u5CE1\u4FA0\u72ED\u53A6\u5413\u7856\u9C9C\u7EA4\u8D24\u8854\u95F2\u663E\u9669\u73B0\u732E\u53BF\u9985\u7FA1\u5BAA\u7EBF\u82CB\u83B6\u85D3\u5C98\u7303\u5A34\u9E47\u75EB\u869D\u7C7C\u8DF9\u53A2\u9576\u4E61\u8BE6\u54CD\u9879\u8297\u9977\u9AA7\u7F03\u98E8\u8427\u56A3\u9500\u6653\u5578\u54D3\u6F47\u9A81\u7EE1\u67AD\u7BAB\u534F\u631F\u643A\u80C1\u8C10\u5199\u6CFB\u8C22\u4EB5\u64B7\u7EC1\u7F2C\u950C\u8845\u5174\u9649\u8365\u51F6\u6C79\u9508\u7EE3\u9990\u9E3A\u865A\u5618\u987B\u8BB8\u53D9\u7EEA\u7EED\u8BE9\u987C\u8F69\u60AC\u9009\u7663\u7EDA\u8C16\u94C9\u955F\u5B66\u8C11\u6CF6\u9CD5\u52CB\u8BE2\u5BFB\u9A6F\u8BAD\u8BAF\u900A\u57D9\u6D54\u9C9F\u538B\u9E26\u9E2D\u54D1\u4E9A\u8BB6\u57AD\u5A05\u6860\u6C29\u9609\u70DF\u76D0\u4E25\u5CA9\u989C\u960E\u8273\u538C\u781A\u5F66\u8C1A\u9A8C\u53A3\u8D5D\u4FE8\u5156\u8C33\u6079\u95EB\u917D\u9B47\u990D\u9F39\u9E2F\u6768\u626C\u75A1\u9633\u75D2\u517B\u6837\u7080\u7476\u6447\u5C27\u9065\u7A91\u8C23\u836F\u8F7A\u9E5E\u9CD0\u7237\u9875\u4E1A\u53F6\u9765\u8C12\u90BA\u6654\u70E8\u533B\u94F1\u9890\u9057\u4EEA\u8681\u827A\u4EBF\u5FC6\u4E49\u8BE3\u8BAE\u8C0A\u8BD1\u5F02\u7ECE\u8BD2\u5453\u5CC4\u9974\u603F\u9A7F\u7F22\u8F76\u8D3B\u9487\u9552\u9571\u7617\u8223\u836B\u9634\u94F6\u996E\u9690\u94DF\u763E\u6A31\u5A74\u9E70\u5E94\u7F28\u83B9\u8424\u8425\u8367\u8747\u8D62\u9896\u8314\u83BA\u8426\u84E5\u6484\u5624\u6EE2\u6F46\u748E\u9E66\u763F\u988F\u7F42\u54DF\u62E5\u4F63\u75C8\u8E0A\u548F\u955B\u4F18\u5FE7\u90AE\u94C0\u72B9\u8BF1\u83B8\u94D5\u9C7F\u8206\u9C7C\u6E14\u5A31\u4E0E\u5C7F\u8BED\u72F1\u8A89\u9884\u9A6D\u4F1B\u4FE3\u8C00\u8C15\u84E3\u5D5B\u996B\u9608\u59AA\u7EA1\u89CE\u6B24\u94B0\u9E46\u9E6C\u9F89\u9E33\u6E0A\u8F95\u56ED\u5458\u5706\u7F18\u8FDC\u6A7C\u9E22\u9F0B\u7EA6\u8DC3\u94A5\u7CA4\u60A6\u9605\u94BA\u90E7\u5300\u9668\u8FD0\u8574\u915D\u6655\u97F5\u90D3\u82B8\u607D\u6120\u7EAD\u97EB\u6B92\u6C32\u6742\u707E\u8F7D\u6512\u6682\u8D5E\u74D2\u8DB1\u933E\u8D43\u810F\u9A75\u51FF\u67A3\u8D23\u62E9\u5219\u6CFD\u8D5C\u5567\u5E3B\u7BA6\u8D3C\u8C2E\u8D60\u7EFC\u7F2F\u8F67\u94E1\u95F8\u6805\u8BC8\u658B\u503A\u6BE1\u76CF\u65A9\u8F97\u5D2D\u6808\u6218\u7EFD\u8C35\u5F20\u6DA8\u5E10\u8D26\u80C0\u8D75\u8BCF\u948A\u86F0\u8F99\u9517\u8FD9\u8C2A\u8F84\u9E67\u8D1E\u9488\u4FA6\u8BCA\u9547\u9635\u6D48\u7F1C\u6862\u8F78\u8D48\u796F\u9E29\u6323\u7741\u72F0\u4E89\u5E27\u75C7\u90D1\u8BC1\u8BE4\u5CE5\u94B2\u94EE\u7B5D\u7EC7\u804C\u6267\u7EB8\u631A\u63B7\u5E1C\u8D28\u6EDE\u9A98\u6809\u6800\u8F75\u8F7E\u8D3D\u9E37\u86F3\u7D77\u8E2C\u8E2F\u89EF\u949F\u7EC8\u79CD\u80BF\u4F17\u953A\u8BCC\u8F74\u76B1\u663C\u9AA4\u7EA3\u7EC9\u732A\u8BF8\u8BDB\u70DB\u77A9\u5631\u8D2E\u94F8\u9A7B\u4F2B\u69E0\u94E2\u4E13\u7816\u8F6C\u8D5A\u556D\u9994\u989E\u6869\u5E84\u88C5\u5986\u58EE\u72B6\u9525\u8D58\u5760\u7F00\u9A93\u7F12\u8C06\u51C6\u7740\u6D4A\u8BFC\u956F\u5179\u8D44\u6E0D\u8C18\u7F01\u8F8E\u8D40\u7726\u9531\u9F87\u9CBB\u8E2A\u603B\u7EB5\u506C\u90B9\u8BF9\u9A7A\u9CB0\u8BC5\u7EC4\u955E\u94BB\u7F35\u8E9C\u9CDF\u7FF1\u5E76\u535C\u6C89\u4E11\u6DC0\u8FED\u6597\u8303\u5E72\u768B\u7845\u67DC\u540E\u4F19\u79F8\u6770\u8BC0\u5938\u91CC\u91CC\u51CC\u4E48\u9709\u637B\u51C4\u6266\u5723\u5C38\u62AC\u6D82\u6D3C\u5582\u6C61\u9528\u54B8\u874E\u5F5D\u6D8C\u6E38\u5401\u5FA1\u613F\u5CB3\u4E91\u7076\u624E\u672D\u7B51\u4E8E\u5FD7\u6CE8\u51CB\u8BA0\u8C2B\u90C4\u52D0\u51FC\u5742\u5785\u57B4\u57EF\u57DD\u82D8\u836C\u836E\u839C\u83BC\u83F0\u85C1\u63F8\u5412\u5423\u5494\u549D\u54B4\u5658\u567C\u56AF\u5E5E\u5C99\u5D74\u5F77\u5FBC\u72B8\u72CD\u9980\u9987\u9993\u9995\u6123\u61B7\u61D4\u4E2C\u6E86\u6EDF\u6EB7\u6F24\u6F74\u6FB9\u752F\u7E9F\u7ED4\u7EF1\u73C9\u67A7\u684A\u6849\u69D4\u6A65\u8F71\u8F77\u8D4D\u80B7\u80E8\u98DA\u7173\u7145\u7198\u610D\u6DFC\u781C\u78D9\u770D\u949A\u94B7\u94D8\u94DE\u9503\u950D\u950E\u950F\u9518\u951D\u952A\u952B\u953F\u9545\u954E\u9562\u9565\u9569\u9572\u7A06\u9E4B\u9E5B\u9E71\u75AC\u75B4\u75D6\u766F\u88E5\u8941\u8022\u98A5\u87A8\u9EB4\u9C85\u9C86\u9C87\u9C9E\u9CB4\u9CBA\u9CBC\u9CCA\u9CCB\u9CD8\u9CD9\u9792\u97B4\u9F44\u4E2C\u4E3A\u4EB8\u4F17\u4F2A\u4F59\u51A2\u51C0\u51CC\u51FC\u522C\u52CB\u52D0\u52DA\u5364\u53C6\u53C7\u542F\u5494\u54A4\u54B4\u54CC\u54D7\u551D\u5521\u5523\u553F\u556E\u5570\u5574\u5475\u567C\u56AF\u5785\u57A7\u57AF\u57B1\u57D9\u57DD\u5846\u5899\u58F8\u59AB\u59DC\u5A34\u5A73\u5C43\u5CBD\u5CC3\u5CE3\u5D04\u5D5A\u5D5B\u5D74\u5EBC\u5F5F\u5FA1\u610D\u616D\u61B7\u624E\u6266\u631C\u6326\u637B\u63F8\u65F8\u663D\u672D\u684A\u68BC\u68BE\u68C2\u69DA\u6A90\u6C61\u6C93\u6CA8\u6CA9\u6CB5\u6D49\u6D50\u6D55\u6D8C\u6DA2\u6E7F\u6E87\u6EEA\u6F24\u7145\u7173\u7198\u7266\u729F\u72CD\u72DD\u732C\u7399\u739A\u73B1\u73C9\u73CF\u73F0\u740E\u7487\u7572\u75B4\u7606\u7618\u766F\u772C\u7740\u7841\u7845\u7859\u785A\u7877\u78B9\u78D9\u794E\u79FE\u7B5C\u7B7E\u7B93\u7CC7\u7E9F\u7EAE\u7EB4\u7EBB\u7EBC\u7ED6\u7EE4\u7EE6\u7EEC\u7EF1\u7EF9\u7F0A\u7F10\u7F1E\u7F30\u7FD9\u7FDA\u80B7\u810F\u814C\u8158\u816D\u81DC\u8273\u8279\u8359\u839C\u83BC\u841A\u85C1\u866C\u8780\u87CF\u8885\u8886\u88AF\u88C8\u88E5\u8941\u8955\u89C3\u89CD\u8A5F\u8BB1\u8BBB\u8BC7\u8BD0\u8BEA\u8C1E\u8C25\u8C37\u8C6E\u8D20\u8D4D\u8D51\u8D52\u8D57\u8D5F\u8D6A\u8DD6\u8DF6\u8E0A\u8F6A\u8F80\u8F8C\u8F92\u90C1\u90C4\u9166\u9245\u9274\u948E\u9491\u9496\u9498\u94B5\u94BB\u94CF\u94DA\u94E6\u94FB\u9508\u950F\u951C\u9520\u9528\u9533\u953D\u9543\u9548\u9555\u955A\u9560\u9562\u956E\u9574\u95EC\u95F2\u95FF\u9607\u9613\u9618\u961B\u9655\u97B4\u97E8\u988B\u988E\u9892\u9895\u9899\u98A3\u98CF\u98D0\u98D4\u98D6\u98D7\u9964\u9965\u9966\u9973\u9978\u9979\u997B\u997E\u9982\u9983\u9989\u998C\u998E\u9A72\u9A83\u9A89\u9A8D\u9A8E\u9A94\u9A95\u9A99\u9AA6\u9C7D\u9C7E\u9C80\u9C84\u9C89\u9C8A\u9C8C\u9C8F\u9C93\u9C96\u9C97\u9C98\u9C99\u9C9D\u9CAA\u9CAC\u9CAF\u9CB9\u9CBE\u9CBF\u9CC0\u9CC1\u9CC2\u9CC8\u9CC9\u9CD1\u9CD2\u9CDB\u9CE0\u9CE1\u9CE3\u9E24\u9E27\u9E2E\u9E30\u9E34\u9E3B\u9E3C\u9E40\u9E47\u9E4D\u9E50\u9E52\u9E53\u9E54\u9E56\u9E5D\u9E5F\u9E60\u9E61\u9E62\u9E65\u9E6F\u9E72\u9E74\u9EE1\u9F0C\u9F17\u9F81\u9F82\u5FD7\u5236\u54A8\u53EA\u7CFB\u677E\u5C1D\u9762\u5E72\u62FC\u6076\u8D5E\u53D1\u50F5\u81F4\u5978\u83B7\u7EC3\u56DE\u7CFB\u8FF9\u53EA\u8F9F\u677F\u4F60";
+}
+function ftPYStr() {
+  return "\u9312\u769A\u85F9\u7919\u611B\u566F\u5B21\u74A6\u66D6\u9744\u8AF3\u92A8\u9D6A\u9AAF\u8956\u5967\u5ABC\u9A41\u9C32\u58E9\u7F77\u9200\u64FA\u6557\u5504\u9812\u8FA6\u7D46\u9211\u5E6B\u7D81\u938A\u8B17\u525D\u98FD\u5BF6\u5831\u9B91\u9D07\u9F59\u8F29\u8C9D\u92C7\u72FD\u5099\u618A\u9D6F\u8CC1\u931B\u7E43\u7B46\u7562\u6583\u5E63\u9589\u84FD\u55F6\u6F77\u924D\u7BF3\u8E55\u908A\u7DE8\u8CB6\u8B8A\u8FAF\u8FAE\u8290\u7DF6\u7C69\u6A19\u9A43\u98AE\u98C6\u93E2\u9463\u9C3E\u9C49\u5225\u765F\u7015\u6FF1\u8CD3\u64EF\u5110\u7E7D\u6AB3\u6BAF\u81CF\u944C\u9AD5\u9B22\u9905\u7A1F\u64A5\u7F3D\u9251\u99C1\u9911\u9238\u9D53\u88DC\u923D\u8CA1\u53C3\u8836\u6B98\u615A\u6158\u71E6\u9A42\u9EF2\u84BC\u8259\u5009\u6EC4\u5EC1\u5074\u518A\u6E2C\u60FB\u5C64\u8A6B\u9364\u5115\u91F5\u6519\u647B\u87EC\u995E\u8B92\u7E8F\u93DF\u7522\u95E1\u986B\u56C5\u8AC2\u8B96\u8546\u61FA\u5B0B\u9A4F\u8998\u79AA\u9414\u5834\u5617\u9577\u511F\u8178\u5EE0\u66A2\u5000\u8407\u60B5\u95B6\u9BE7\u9214\u8ECA\u5FB9\u7868\u5875\u9673\u896F\u5096\u8AF6\u6AEC\u78E3\u9F54\u6490\u7A31\u61F2\u8AA0\u9A01\u68D6\u6A89\u92EE\u943A\u7661\u9072\u99B3\u6065\u9F52\u71BE\u98ED\u9D1F\u6C96\u885D\u87F2\u5BF5\u9283\u7587\u8E8A\u7C4C\u7DA2\u5114\u5E6C\u8B8E\u6AE5\u5EDA\u92E4\u96DB\u790E\u5132\u89F8\u8655\u82BB\u7D40\u8E95\u50B3\u91E7\u7621\u95D6\u5275\u6134\u9318\u7D9E\u7D14\u9D89\u7DBD\u8F1F\u9F6A\u8FAD\u8A5E\u8CDC\u9DBF\u8070\u8525\u56EA\u5F9E\u53E2\u84EF\u9A44\u6A05\u6E4A\u8F33\u8EA5\u7AC4\u651B\u932F\u92BC\u9E7A\u9054\u5660\u97C3\u5E36\u8CB8\u99D8\u7D3F\u64D4\u55AE\u9132\u64A3\u81BD\u619A\u8A95\u5F48\u6BAB\u8CE7\u7649\u7C1E\u7576\u64CB\u9EE8\u8569\u6A94\u8B9C\u78AD\u8960\u6417\u5CF6\u79B1\u5C0E\u76DC\u71FE\u71C8\u9127\u9419\u6575\u6ECC\u905E\u7DE0\u7CF4\u8A46\u8AE6\u7D88\u89BF\u93D1\u985B\u9EDE\u588A\u96FB\u5DD4\u923F\u7672\u91E3\u8ABF\u929A\u9BDB\u8ADC\u758A\u9C08\u91D8\u9802\u9320\u8A02\u92CC\u4E1F\u92A9\u6771\u52D5\u68DF\u51CD\u5D20\u9D87\u7AC7\u72A2\u7368\u8B80\u8CED\u934D\u7006\u6ADD\u7258\u7BE4\u9EF7\u935B\u65B7\u7DDE\u7C6A\u514C\u968A\u5C0D\u61DF\u9413\u5678\u9813\u920D\u71C9\u8E89\u596A\u58AE\u9438\u9D5D\u984D\u8A1B\u60E1\u9913\u8AE4\u580A\u95BC\u8EDB\u92E8\u9354\u9D9A\u984E\u9853\u9C77\u8A92\u5152\u723E\u990C\u8CB3\u9087\u927A\u9D2F\u9B9E\u767C\u7F70\u95A5\u743A\u792C\u91E9\u7169\u8CA9\u98EF\u8A2A\u7D21\u9201\u9B74\u98DB\u8AB9\u5EE2\u8CBB\u7DCB\u9428\u9BE1\u7D1B\u58B3\u596E\u61A4\u7CDE\u50E8\u8C50\u6953\u92D2\u98A8\u760B\u99AE\u7E2B\u8AF7\u9CF3\u7043\u819A\u8F3B\u64AB\u8F14\u8CE6\u5FA9\u8CA0\u8A03\u5A66\u7E1B\u9CE7\u99D9\u7D31\u7D3C\u8CFB\u9EA9\u9B92\u9C12\u91D3\u8A72\u9223\u84CB\u8CC5\u687F\u8D95\u7A08\u8D1B\u5C37\u641F\u7D3A\u5CA1\u525B\u92FC\u7DB1\u5D17\u6207\u93AC\u776A\u8AA5\u7E1E\u92EF\u64F1\u9D3F\u95A3\u927B\u500B\u7D07\u9398\u6F41\u7D66\u4E99\u8CE1\u7D86\u9BC1\u9F94\u5BAE\u978F\u8CA2\u9264\u6E9D\u830D\u69CB\u8CFC\u5920\u8A6C\u7DF1\u89AF\u8831\u9867\u8A41\u8F42\u9237\u932E\u9D23\u9D60\u9DBB\u526E\u639B\u9D30\u6451\u95DC\u89C0\u9928\u6163\u8CAB\u8A7F\u645C\u9E1B\u9C25\u5EE3\u7377\u898F\u6B78\u9F9C\u95A8\u8ECC\u8A6D\u8CB4\u528A\u532D\u528C\u5AAF\u6A9C\u9BAD\u9C56\u8F25\u6EFE\u889E\u7DC4\u9BC0\u934B\u570B\u904E\u581D\u54BC\u5E57\u69E8\u87C8\u927F\u99ED\u97D3\u6F22\u95DE\u7D4E\u9821\u865F\u705D\u9865\u95A1\u9DB4\u8CC0\u8A36\u95D4\u8823\u6A6B\u8F5F\u9D3B\u7D05\u9ECC\u8A0C\u8452\u958E\u9C5F\u58FA\u8B77\u6EEC\u6236\u6EF8\u9D98\u5629\u83EF\u756B\u5283\u8A71\u9A4A\u6A3A\u93F5\u61F7\u58DE\u6B61\u74B0\u9084\u7DE9\u63DB\u559A\u7613\u7165\u6E19\u5950\u7E6F\u9370\u9BC7\u9EC3\u8B0A\u9C09\u63EE\u8F1D\u6BC0\u8CC4\u7A62\u6703\u71F4\u532F\u8AF1\u8AA8\u7E6A\u8A7C\u8588\u5666\u6FAE\u7E62\u743F\u6689\u8477\u6E3E\u8AE2\u991B\u95BD\u7372\u8CA8\u798D\u9225\u944A\u64CA\u6A5F\u7A4D\u9951\u8DE1\u8B4F\u96DE\u7E3E\u7DDD\u6975\u8F2F\u7D1A\u64E0\u5E7E\u858A\u5291\u6FDF\u8A08\u8A18\u969B\u7E7C\u7D00\u8A10\u8A70\u85BA\u5630\u568C\u9A65\u74A3\u89AC\u9F4F\u78EF\u7F88\u8806\u8E8B\u973D\u9C6D\u9BFD\u593E\u83A2\u9830\u8CC8\u9240\u50F9\u99D5\u90DF\u6D79\u92CF\u93B5\u87EF\u6BB2\u76E3\u5805\u7B8B\u9593\u8271\u7DD8\u7E6D\u6AA2\u583F\u9E7C\u63C0\u64BF\u7C21\u5109\u6E1B\u85A6\u6ABB\u9452\u8E10\u8CE4\u898B\u9375\u8266\u528D\u991E\u6F38\u6FFA\u6F97\u8AEB\u7E11\u6214\u6229\u77BC\u9DBC\u7B67\u9C39\u97C9\u5C07\u6F3F\u8523\u69F3\u734E\u8B1B\u91AC\u7D73\u97C1\u81A0\u6F86\u9A55\u5B0C\u652A\u9278\u77EF\u50E5\u8173\u9903\u7E73\u7D5E\u8F4E\u8F03\u649F\u5DA0\u9DE6\u9BAB\u968E\u7BC0\u6F54\u7D50\u8AA1\u5C46\u7664\u981C\u9B9A\u7DCA\u9326\u50C5\u8B39\u9032\u6649\u71FC\u76E1\u52C1\u834A\u8396\u5DF9\u85CE\u9949\u7E09\u8D10\u89B2\u9BE8\u9A5A\u7D93\u9838\u975C\u93E1\u5F91\u75D9\u7AF6\u51C8\u5244\u6D87\u9015\u5F33\u811B\u975A\u7CFE\u5EC4\u820A\u9B2E\u9CE9\u9DF2\u99D2\u8209\u64DA\u92F8\u61FC\u5287\u8A4E\u5C68\u6AF8\u98B6\u9245\u92E6\u7AB6\u9F5F\u9D51\u7D79\u9308\u942B\u96CB\u89BA\u6C7A\u7D55\u8B4E\u73A8\u921E\u8ECD\u99FF\u76B8\u958B\u51F1\u5274\u584F\u613E\u6137\u93A7\u9347\u9F95\u958C\u9227\u92AC\u9846\u6BBC\u8AB2\u9A0D\u7DD9\u8EFB\u9233\u9301\u9837\u58BE\u61C7\u9F66\u93D7\u6473\u5EAB\u8932\u56B3\u584A\u5108\u9136\u5672\u81BE\u5BEC\u736A\u9AD6\u7926\u66E0\u6CC1\u8A86\u8A91\u913A\u58D9\u7E8A\u8CBA\u8667\u5DCB\u7ABA\u994B\u6F70\u5331\u8562\u6192\u8075\u7C23\u95AB\u9315\u9BE4\u64F4\u95CA\u8810\u881F\u81D8\u840A\u4F86\u8CF4\u5D0D\u5FA0\u6DF6\u7028\u8CDA\u775E\u9338\u7669\u7C5F\u85CD\u6B04\u6514\u7C43\u95CC\u862D\u703E\u8B95\u652C\u89BD\u61F6\u7E9C\u721B\u6FEB\u5D50\u6B16\u6595\u946D\u8964\u746F\u95AC\u92C3\u6488\u52DE\u6F87\u562E\u5D97\u92A0\u9412\u7646\u6A02\u9C33\u9433\u58D8\u985E\u6DDA\u8A84\u7E32\u7C6C\u8C8D\u96E2\u9BC9\u79AE\u9E97\u53B2\u52F5\u792B\u6B77\u701D\u96B8\u5137\u9148\u58E2\u85F6\u849E\u863A\u56A6\u9090\u9A6A\u7E2D\u6AEA\u6ADF\u8F62\u792A\u92F0\u9E1D\u7658\u7CF2\u8E92\u9742\u9C7A\u9C67\u5006\u806F\u84EE\u9023\u942E\u6190\u6F23\u7C3E\u6582\u81C9\u93C8\u6200\u7149\u7DF4\u861E\u5969\u7032\u7489\u6BAE\u8933\u895D\u9C31\u7CE7\u6DBC\u5169\u8F1B\u8AD2\u9B4E\u7642\u907C\u9410\u7E5A\u91D5\u9DEF\u7375\u81E8\u9130\u9C57\u51DC\u8CC3\u85FA\u5EE9\u6A81\u8F54\u8EAA\u9F61\u9234\u9748\u5DBA\u9818\u7DBE\u6B1E\u87F6\u9BEA\u993E\u5289\u700F\u9A2E\u7DB9\u93A6\u9DDA\u9F8D\u807E\u56A8\u7C60\u58DF\u650F\u96B4\u8622\u7027\u74CF\u6AF3\u6727\u7931\u6A13\u5A41\u645F\u7C0D\u50C2\u851E\u560D\u5D81\u93E4\u763A\u802C\u87BB\u9ACF\u8606\u76E7\u9871\u5EEC\u7210\u64C4\u9E75\u865C\u9B6F\u8CC2\u797F\u9304\u9678\u58DA\u64FC\u5695\u95AD\u7018\u6DE5\u6AE8\u6AD3\u8F64\u8F05\u8F46\u6C0C\u81DA\u9E15\u9DFA\u826B\u9C78\u5DD2\u6523\u5B7F\u7064\u4E82\u81E0\u5B4C\u6B12\u9E1E\u947E\u6384\u8F2A\u502B\u4F96\u6DEA\u7DB8\u8AD6\u5707\u863F\u7F85\u908F\u947C\u7C6E\u9A3E\u99F1\u7D61\u7296\u7380\u6FFC\u6B0F\u8161\u93CD\u9A62\u5442\u92C1\u4FB6\u5C62\u7E37\u616E\u6FFE\u7DA0\u6ADA\u8938\u92DD\u5638\u5ABD\u746A\u78BC\u879E\u99AC\u7F75\u55CE\u561C\u5B24\u69AA\u8CB7\u9EA5\u8CE3\u9081\u8108\u52F1\u779E\u9945\u883B\u6EFF\u8B3E\u7E35\u93DD\u9859\u9C3B\u8C93\u9328\u925A\u8CBF\u9EBC\u6C92\u9382\u9580\u60B6\u5011\u636B\u71DC\u61E3\u9346\u9333\u5922\u7787\u8B0E\u5F4C\u8993\u51AA\u7F8B\u8B10\u737C\u79B0\u7DBF\u7DEC\u6FA0\u9766\u9EFD\u5EDF\u7DF2\u7E46\u6EC5\u61AB\u95A9\u9594\u7DE1\u9CF4\u9298\u8B2C\u8B28\u9A40\u9943\u6B7F\u93CC\u8B00\u755D\u926C\u5436\u9209\u7D0D\u96E3\u6493\u8166\u60F1\u9B27\u9403\u8A25\u9912\u5167\u64EC\u81A9\u922E\u9BE2\u6506\u8F26\u9BF0\u91C0\u9CE5\u8526\u88CA\u8076\u5699\u9477\u93B3\u9689\u8617\u56C1\u9862\u8EA1\u6AB8\u7370\u5BE7\u64F0\u6FD8\u82E7\u5680\u8079\u9215\u7D10\u81BF\u6FC3\u8FB2\u5102\u5665\u99D1\u91F9\u8AFE\u513A\u7627\u6B50\u9DD7\u6BC6\u5614\u6F1A\u8B33\u616A\u750C\u76E4\u8E63\u9F90\u62CB\u76B0\u8CE0\u8F61\u5674\u9D6C\u7D15\u7F86\u9239\u9A19\u8ADE\u99E2\u98C4\u7E39\u983B\u8CA7\u5B2A\u860B\u6191\u8A55\u6F51\u9817\u91D9\u64B2\u92EA\u6A38\u8B5C\u93F7\u9420\u68F2\u81CD\u9F4A\u9A0E\u8C48\u555F\u6C23\u68C4\u8A16\u8604\u9A0F\u7DBA\u69BF\u78E7\u980E\u980F\u9C2D\u727D\u91EC\u925B\u9077\u7C3D\u8B19\u9322\u9257\u6F5B\u6DFA\u8B74\u5879\u50C9\u8541\u6173\u9A2B\u7E7E\u69E7\u9210\u69CD\u55C6\u58BB\u8594\u5F37\u6436\u5B19\u6AA3\u6227\u7197\u9306\u93D8\u93F9\u7FA5\u8E4C\u936C\u6A4B\u55AC\u50D1\u7FF9\u7AC5\u8A9A\u8B59\u854E\u7E70\u78FD\u8E7A\u7ACA\u611C\u9365\u7BCB\u6B3D\u89AA\u5BE2\u92DF\u8F15\u6C2B\u50BE\u9803\u8ACB\u6176\u64B3\u9BD6\u74CA\u7AAE\u7162\u86FA\u5DF0\u8CD5\u87E3\u9C0D\u8DA8\u5340\u8EC0\u9A45\u9F72\u8A58\u5D87\u95C3\u89B7\u9D1D\u9874\u6B0A\u52F8\u8A6E\u7DA3\u8F07\u9293\u537B\u9D72\u78BA\u95CB\u95D5\u6128\u8B93\u9952\u64FE\u7E5E\u8558\u5B08\u6A48\u71B1\u97CC\u8A8D\u7D09\u98EA\u8ED4\u69AE\u7D68\u5DB8\u8811\u7E1F\u92A3\u9870\u8EDF\u92B3\u8706\u958F\u6F64\u7051\u85A9\u98AF\u9C13\u8CFD\u5098\u6BFF\u7CDD\u55AA\u9A37\u6383\u7E45\u6F80\u55C7\u92AB\u7A61\u6BBA\u524E\u7D17\u93A9\u9BCA\u7BE9\u66EC\u91C3\u522A\u9583\u965C\u8D0D\u7E55\u8A15\u59CD\u9A38\u91E4\u9C54\u5891\u50B7\u8CDE\u5770\u6BA4\u89F4\u71D2\u7D39\u8CD2\u651D\u61FE\u8A2D\u5399\u7044\u756C\u7D33\u5BE9\u5B38\u814E\u6EF2\u8A75\u8AD7\u700B\u8072\u7E69\u52DD\u5E2B\u7345\u6FD5\u8A69\u6642\u8755\u5BE6\u8B58\u99DB\u52E2\u9069\u91CB\u98FE\u8996\u8A66\u8B1A\u5852\u8494\u5F12\u8EFE\u8CB0\u9230\u9C23\u58FD\u7378\u7DAC\u6A1E\u8F38\u66F8\u8D16\u5C6C\u8853\u6A39\u8C4E\u6578\u6504\u7D13\u5E25\u9582\u96D9\u8AB0\u7A05\u9806\u8AAA\u78A9\u720D\u9460\u7D72\u98FC\u5EDD\u99DF\u7DE6\u9376\u9DE5\u8073\u616B\u980C\u8A1F\u8AA6\u64FB\u85EA\u993F\u98BC\u93AA\u8607\u8A34\u8085\u8B16\u7A4C\u96D6\u96A8\u7D8F\u6B72\u8AB6\u5B6B\u640D\u7B4D\u84C0\u733B\u7E2E\u7463\u9396\u55E9\u8127\u737A\u64BB\u95E5\u9248\u9C28\u81FA\u614B\u9226\u9B90\u6524\u8CAA\u7671\u7058\u58C7\u8B5A\u8AC7\u5606\u66C7\u926D\u931F\u9807\u6E6F\u71D9\u513B\u9933\u940B\u93DC\u6FE4\u7D73\u8A0E\u97DC\u92F1\u9A30\u8B04\u92BB\u984C\u9AD4\u5C5C\u7DF9\u9D5C\u95D0\u689D\u7CF6\u9F60\u9C37\u8CBC\u9435\u5EF3\u807D\u70F4\u9285\u7D71\u615F\u982D\u9204\u79BF\u5716\u91F7\u5718\u6476\u9839\u86FB\u98E9\u812B\u9D15\u99B1\u99DD\u6A62\u7C5C\u9F09\u896A\u5AA7\u8183\u5F4E\u7063\u9811\u842C\u7D08\u7DB0\u7DB2\u8F1E\u97CB\u9055\u570D\u70BA\u6FF0\u7DAD\u8466\u5049\u507D\u7DEF\u8B02\u885B\u8AC9\u5E43\u95C8\u6E88\u6F7F\u744B\u97D9\u7152\u9BAA\u6EAB\u805E\u7D0B\u7A69\u554F\u95BF\u7515\u64BE\u8778\u6E26\u7AA9\u81E5\u8435\u9F77\u55DA\u93A2\u70CF\u8AA3\u7121\u856A\u5433\u5862\u9727\u52D9\u8AA4\u9114\u5EE1\u61AE\u5AF5\u9A16\u9D61\u9DA9\u932B\u72A7\u8972\u7FD2\u9291\u6232\u7D30\u993C\u9B29\u74BD\u89A1\u8766\u8F44\u5CFD\u4FE0\u72F9\u5EC8\u5687\u7864\u9BAE\u7E96\u8CE2\u929C\u9591\u986F\u96AA\u73FE\u737B\u7E23\u9921\u7FA8\u61B2\u7DDA\u83A7\u859F\u861A\u5CF4\u736B\u5AFB\u9DF4\u7647\u8814\u79C8\u8E9A\u5EC2\u9472\u9109\u8A73\u97FF\u9805\u858C\u9909\u9A64\u7DD7\u9957\u856D\u56C2\u92B7\u66C9\u562F\u5635\u701F\u9A4D\u7D83\u689F\u7C2B\u5354\u633E\u651C\u8105\u8AE7\u5BEB\u7009\u8B1D\u893B\u64F7\u7D32\u7E88\u92C5\u91C1\u8208\u9658\u6ECE\u5147\u6D36\u92B9\u7E61\u9948\u9D42\u865B\u5653\u9808\u8A31\u6558\u7DD2\u7E8C\u8A61\u980A\u8ED2\u61F8\u9078\u766C\u7D62\u8AFC\u9249\u93C7\u5B78\u8B14\u6FA9\u9C48\u52DB\u8A62\u5C0B\u99B4\u8A13\u8A0A\u905C\u5864\u6F6F\u9C58\u58D3\u9D09\u9D28\u555E\u4E9E\u8A1D\u57E1\u5A6D\u690F\u6C2C\u95B9\u7159\u9E7D\u56B4\u5DD6\u984F\u95BB\u8277\u53AD\u786F\u5F65\u8AFA\u9A57\u53B4\u8D17\u513C\u5157\u8B9E\u61E8\u9586\u91C5\u9B58\u995C\u9F34\u9D26\u694A\u63DA\u760D\u967D\u7662\u990A\u6A23\u716C\u7464\u6416\u582F\u9059\u7AAF\u8B20\u85E5\u8EFA\u9DC2\u9C29\u723A\u9801\u696D\u8449\u9768\u8B01\u9134\u66C4\u71C1\u91AB\u92A5\u9824\u907A\u5100\u87FB\u85DD\u5104\u61B6\u7FA9\u8A63\u8B70\u8ABC\u8B6F\u7570\u7E79\u8A52\u56C8\u5DA7\u98F4\u61CC\u9A5B\u7E0A\u8EFC\u8CBD\u91D4\u93B0\u943F\u761E\u8264\u852D\u9670\u9280\u98F2\u96B1\u92A6\u766E\u6AFB\u5B30\u9DF9\u61C9\u7E93\u7469\u87A2\u71DF\u7192\u8805\u8D0F\u7A4E\u584B\u9DAF\u7E08\u93A3\u6516\u56B6\u7005\u7020\u74D4\u9E1A\u766D\u9826\u7F4C\u55B2\u64C1\u50AD\u7670\u8E34\u8A60\u93DE\u512A\u6182\u90F5\u923E\u7336\u8A98\u8555\u92AA\u9B77\u8F3F\u9B5A\u6F01\u5A1B\u8207\u5DBC\u8A9E\u7344\u8B7D\u9810\u99AD\u50B4\u4FC1\u8ADB\u8AED\u8577\u5D33\u98EB\u95BE\u5AD7\u7D06\u89A6\u6B5F\u923A\u9D52\u9DF8\u9F6C\u9D1B\u6DF5\u8F45\u5712\u54E1\u5713\u7DE3\u9060\u6ADE\u9CF6\u9EFF\u7D04\u8E8D\u9470\u7CB5\u6085\u95B1\u925E\u9116\u52FB\u9695\u904B\u860A\u919E\u6688\u97FB\u9106\u8553\u60F2\u614D\u7D1C\u97DE\u6B9E\u6C33\u96DC\u707D\u8F09\u6522\u66AB\u8D0A\u74DA\u8DB2\u93E8\u8D13\u81DF\u99D4\u947F\u68D7\u8CAC\u64C7\u5247\u6FA4\u8CFE\u5616\u5E58\u7C00\u8CCA\u8B56\u8D08\u7D9C\u7E52\u8ECB\u9358\u9598\u67F5\u8A50\u9F4B\u50B5\u6C08\u76DE\u65AC\u8F3E\u5D84\u68E7\u6230\u7DBB\u8B6B\u5F35\u6F32\u5E33\u8CEC\u8139\u8D99\u8A54\u91D7\u87C4\u8F4D\u937A\u9019\u8B2B\u8F12\u9DD3\u8C9E\u91DD\u5075\u8A3A\u93AE\u9663\u6E5E\u7E1D\u6968\u8EEB\u8CD1\u798E\u9D06\u6399\u775C\u7319\u722D\u5E40\u7665\u912D\u8B49\u8ACD\u5D22\u9266\u931A\u7B8F\u7E54\u8077\u57F7\u7D19\u646F\u64F2\u5E5F\u8CEA\u6EEF\u9A2D\u6ADB\u6894\u8EF9\u8F0A\u8D04\u9DD9\u8784\u7E36\u8E93\u8E91\u89F6\u9418\u7D42\u7A2E\u816B\u773E\u937E\u8B05\u8EF8\u76BA\u665D\u9A5F\u7D02\u7E10\u8C6C\u8AF8\u8A85\u71ED\u77DA\u56D1\u8CAF\u9444\u99D0\u4F47\u6AE7\u9296\u5C08\u78DA\u8F49\u8CFA\u56C0\u994C\u9873\u6A01\u838A\u88DD\u599D\u58EF\u72C0\u9310\u8D05\u589C\u7DB4\u9A05\u7E0B\u8AC4\u6E96\u8457\u6FC1\u8AD1\u9432\u8332\u8CC7\u6F2C\u8AEE\u7DC7\u8F1C\u8CB2\u7725\u9319\u9F5C\u9BD4\u8E64\u7E3D\u7E31\u50AF\u9112\u8ACF\u9A36\u9BEB\u8A5B\u7D44\u93C3\u9246\u7E98\u8EA6\u9C52\u7FFA\u4E26\u8514\u6C88\u919C\u6FB1\u53E0\u9B25\u7BC4\u5E79\u81EF\u77FD\u6AC3\u5F8C\u5925\u7A2D\u5091\u8A23\u8A87\u88E1\u88CF\u6DE9\u9EBD\u9EF4\u649A\u6DD2\u6261\u8056\u5C4D\u64E1\u5857\u7AAA\u9935\u6C59\u9341\u9E79\u880D\u5F5C\u6E67\u904A\u7C72\u79A6\u9858\u5DBD\u96F2\u7AC8\u7D2E\u5284\u7BC9\u65BC\u8A8C\u8A3B\u96D5\u8A01\u8B7E\u90E4\u731B\u6C39\u962A\u58DF\u5816\u57B5\u588A\u6ABE\u8552\u8464\u84E7\u8493\u83C7\u69C1\u6463\u54A4\u551A\u54E2\u565D\u5645\u6485\u5288\u8B14\u8946\u5DB4\u810A\u4EFF\u50E5\u7341\u9E85\u9918\u9937\u994A\u9962\u695E\u6035\u61CD\u723F\u6F35\u7069\u6DF7\u6FEB\u7026\u6DE1\u5BE7\u7CF8\u7D5D\u7DD4\u7449\u6898\u68EC\u6848\u6A70\u6AEB\u8EF2\u8EE4\u8CEB\u8181\u8156\u98C8\u7CCA\u7146\u6E9C\u6E63\u6E3A\u78B8\u6EFE\u7798\u9208\u9255\u92E3\u92B1\u92E5\u92F6\u9426\u9427\u9369\u9340\u9343\u9307\u9384\u9387\u93BF\u941D\u9465\u9479\u9454\u7A6D\u9D93\u9DA5\u9E0C\u7667\u5C59\u7602\u81D2\u8947\u7E48\u802E\u986C\u87CE\u9EAF\u9B81\u9B83\u9B8E\u9BD7\u9BDD\u9BF4\u9C5D\u9BFF\u9C20\u9C35\u9C45\u97BD\u97DD\u9F47\u4E2C\u7232\u56B2\u8846\u50DE\u9918\u51A2\u6DE8\u51CC\u51FC\u5257\u52F3\u52D0\u52E9\u6EF7\u9749\u9746\u5553\u5494\u5412\u54B4\u54CC\u8B41\u55CA\u5562\u5523\u553F\u9F67\u56C9\u563D\u5475\u567C\u56AF\u58E0\u57A7\u58B6\u58CB\u58CE\u57DD\u58EA\u7246\u58FC\u5B00\u59DC\u5AFA\u5AFF\u5C53\u5D2C\u5DA8\u5DA2\u5DAE\u5D94\u5D5B\u5D74\u5ECE\u5F60\u5FA1\u610D\u6196\u61B7\u624E\u6266\u6397\u648F\u637B\u63F8\u6698\u66E8\u672D\u684A\u6AAE\u68F6\u6AFA\u6A9F\u6A90\u6C61\u6C93\u6E22\u6F59\u6CB5\u6EAE\u6EFB\u6FDC\u6D8C\u6EB3\u6EBC\u6F0A\u6FA6\u6F24\u7145\u7173\u7198\u729B\u729F\u72CD\u736E\u875F\u74B5\u7452\u7472\u73C9\u73CF\u74AB\u74A1\u7487\u7572\u75FE\u762E\u763B\u766F\u77D3\u7740\u785C\u7845\u78D1\u7904\u7906\u78B9\u78D9\u7995\u7A60\u7C39\u7C64\u7C59\u9931\u7CF9\u7D18\u7D1D\u7D35\u7D16\u7D70\u7D8C\u7D5B\u7DD3\u979D\u7DAF\u7E15\u7DDA\u7E17\u7E6E\u7FFD\u7FEC\u80B7\u9AD2\u9183\u8195\u9F76\u81E2\u8C54\u8279\u8598\u839C\u84F4\u8600\u85C1\u866F\u87BF\u8828\u5ACB\u8918\u894F\u890C\u8949\u8941\u8974\u898E\u89A5\u8B8B\u8A12\u8A29\u8A57\u8A56\u8B78\u8ADD\u8AE1\u8C37\u8C76\u8C9F\u9F4E\u8D14\u8CD9\u8CF5\u8D07\u8D6C\u8DD6\u8E82\u8E0A\u8ED1\u8F08\u8F2C\u8F40\u9B31\u90C4\u91B1\u9245\u9451\u91FA\u9212\u935A\u9203\u9262\u947D\u9276\u928D\u929B\u92D9\u93FD\u9417\u9321\u9329\u6774\u9348\u9360\u93A1\u939B\u9394\u93F0\u93D0\u9481\u9436\u945E\u9588\u9592\u95D3\u95CD\u95E0\u95D2\u95E4\u965D\u97B4\u97CD\u9832\u71B2\u982E\u9834\u9852\u7E87\u98BA\u98AD\u98B8\u98BB\u98C0\u98E3\u98E2\u98E5\u98FF\u9904\u990E\u990F\u9916\u9915\u991C\u9936\u9941\u993A\u99B9\u99F0\u9A6B\u9A02\u99F8\u9A0C\u9A4C\u9A24\u9A66\u9B5B\u9B62\u9B68\u9B7A\u9B8B\u9B93\u9B8A\u9B8D\u9BB3\u9BA6\u9C02\u9B9C\u9C60\u9BBA\u9BB6\u9BD2\u9BD5\u9C3A\u9C0F\u9C68\u9BF7\u9C2E\u9C03\u9C01\u9C42\u9C1F\u9C1C\u9C3C\u9C6F\u9C64\u9C63\u9CF2\u9DAC\u9D1E\u9D12\u9DFD\u9D34\u9D43\u9D50\u9DF3\u9D7E\u9D6E\u9D8A\u9D77\u9DEB\u9DA1\u9DCA\u9DB2\u9DB9\u9DBA\u9DC1\u9DD6\u9E07\u9E0F\u9E18\u9EF6\u9F02\u9780\u9F55\u9F57\u5FD7\u5236\u8AEE\u53EA\u7CFB\u9B06\u5690\u9762\u4E7E\u62FC\u5641\u8B9A\u9AEE\u6BAD\u7DFB\u59E6\u7A6B\u934A\u8FF4\u4FC2\u8E5F\u96BB\u95E2\u95C6\u59B3";
+}
+var exceptionMap = /* @__PURE__ */ new Map([
+  ["\u5403", "\u5403"],
+  // 吃 -> 喫，但同源，不转换
+  ["\u6CE8", "\u6CE8"]
+  // 注 -> 註，但同源，不转换
+]);
+function traditionalized(cc) {
+  let str = "";
+  for (let i = 0; i < cc.length; i++) {
+    const char = cc.charAt(i);
+    if (exceptionMap.has(char)) {
+      str += char;
+      continue;
+    }
+    const index = charPYStr().indexOf(char);
+    if (index !== -1) {
+      str += ftPYStr().charAt(index);
+    } else {
+      str += char;
+    }
+  }
+  return str;
+}
+function simplized(cc) {
+  let str = "";
+  for (let i = 0; i < cc.length; i++) {
+    if (ftPYStr().indexOf(cc.charAt(i)) != -1)
+      str += charPYStr().charAt(ftPYStr().indexOf(cc.charAt(i)));
+    else
+      str += cc.charAt(i);
+  }
+  return str;
+}
+function isNonChinese(str) {
+  const chineseRegex = /[\u4e00-\u9fff]/;
+  return !chineseRegex.test(str);
+}
+
+// danmu_api/utils/common-util.js
+function printFirst200Chars(data) {
+  let dataToPrint;
+  if (typeof data === "string") {
+    dataToPrint = data;
+  } else if (Array.isArray(data)) {
+    dataToPrint = JSON.stringify(data);
+  } else if (typeof data === "object") {
+    dataToPrint = JSON.stringify(data);
+  } else {
+    log("error", "[Utils] [Common] Unsupported data type");
+    return;
+  }
+  log("info", "[Utils] [Common]", dataToPrint.slice(0, 200));
+}
+var extractEpisodeTitle = (title) => {
+  const match = title.match(/【(.*?)】/);
+  return match ? match[1] : null;
+};
+var extractAnimeTitle = (str) => str.split("(")[0].trim();
+function extractYear(animeTitle) {
+  const match = animeTitle.match(/\((\d{4})\)/);
+  return match ? parseInt(match[1]) : null;
+}
+function convertChineseNumber(chineseNumber) {
+  if (/^\d+$/.test(chineseNumber)) {
+    return Number(chineseNumber);
+  }
+  const digits = {
+    // 简体
+    "\u96F6": 0,
+    "\u4E00": 1,
+    "\u4E8C": 2,
+    "\u4E09": 3,
+    "\u56DB": 4,
+    "\u4E94": 5,
+    "\u516D": 6,
+    "\u4E03": 7,
+    "\u516B": 8,
+    "\u4E5D": 9,
+    // 繁体
+    "\u58F9": 1,
+    "\u8CB3": 2,
+    "\u53C3": 3,
+    "\u8086": 4,
+    "\u4F0D": 5,
+    "\u9678": 6,
+    "\u67D2": 7,
+    "\u634C": 8,
+    "\u7396": 9
+  };
+  const units = {
+    // 简体
+    "\u5341": 10,
+    "\u767E": 100,
+    "\u5343": 1e3,
+    // 繁体
+    "\u62FE": 10,
+    "\u4F70": 100,
+    "\u4EDF": 1e3
+  };
+  let result = 0;
+  let current = 0;
+  let lastUnit = 1;
+  for (let i = 0; i < chineseNumber.length; i++) {
+    const char = chineseNumber[i];
+    if (digits[char] !== void 0) {
+      current = digits[char];
+    } else if (units[char] !== void 0) {
+      const unit = units[char];
+      if (current === 0) current = 1;
+      if (unit >= lastUnit) {
+        result = current * unit;
+      } else {
+        result += current * unit;
+      }
+      lastUnit = unit;
+      current = 0;
+    }
+  }
+  if (current > 0) {
+    result += current;
+  }
+  return result;
+}
+function sanitizeSearchKeyword(str) {
+  if (!str) return "";
+  return String(str).replace(/[\u200B-\u200F\uFEFF]/g, "").trim();
+}
+function normalizeSpaces(str) {
+  if (!str) return "";
+  return String(str).replace(/[^\u4e00-\u9fa5\u3400-\u4DBF\u{20000}-\u{2EE5F}\u{30000}-\u{323AF}\u3040-\u30ff\uFF65-\uFF9F\uAC00-\uD7AFa-zA-Z0-9\uFF10-\uFF19\uFF21-\uFF3A\uFF41-\uFF5A\u2160-\u217F\u0400-\u04FF\u00C0-\u024F\u0370-\u03FF]/gu, "");
+}
+function strictTitleMatch(title, query) {
+  if (!title || !query) return false;
+  const t = normalizeSpaces(title);
+  const q = normalizeSpaces(query);
+  if (t === q) return true;
+  const separators = [" ", "(", "\uFF08", ":", "\uFF1A", "-", "\u2014", "\xB7", "\u7B2C", "S", "s", "\u5E74\u756A", "\u5408\u96C6"];
+  for (const sep of separators) {
+    if (t.startsWith(q + sep)) return true;
+  }
+  return false;
+}
+function getExplicitSeasonNumber(text) {
+  if (!text) return null;
+  const match = text.match(/(?:第\s*([0-9一二三四五六七八九十百千万]+)\s*[季期部])|(?:S(?:eason)?\s*(\d+))|(?:Part\s*(\d+))/i);
+  if (match) {
+    const numStr = match[1] || match[2] || match[3];
+    if (numStr) {
+      return convertChineseNumber(numStr);
+    }
+  }
+  return null;
+}
+function titleMatches(title, query, parsedSeason = null) {
+  if (title == null || query == null) return false;
+  const titleText = String(title);
+  const queryText = String(query);
+  if (!titleText || !queryText) return false;
+  if (globals.strictTitleMatch) return strictTitleMatch(titleText, queryText);
+  const tagFilter = globals.titleNoiseFilter || null;
+  const cleanTitle = tagFilter ? titleText.replace(tagFilter, "").trim() : titleText;
+  const t = normalizeSpaces(cleanTitle).toLowerCase();
+  const q = normalizeSpaces(queryText).toLowerCase();
+  let qList = [q];
+  try {
+    qList = [.../* @__PURE__ */ new Set([queryText, simplized(queryText), traditionalized(queryText)])].map((kw) => normalizeSpaces(kw).toLowerCase()).filter(Boolean);
+  } catch (e) {
+  }
+  const querySeason = parsedSeason !== null ? parsedSeason : getExplicitSeasonNumber(queryText);
+  if (querySeason !== null && parsedSeason === null) {
+    const seasonStripped = queryText.replace(/(?:season|s|第)\s*[0-9一二三四五六七八九十]+\s*(?:季|期|部(?!分))?/gi, "").trim();
+    if (seasonStripped && seasonStripped !== queryText) {
+      qList = [.../* @__PURE__ */ new Set([...qList, normalizeSpaces(seasonStripped).toLowerCase()])];
+    }
+  }
+  if (tagFilter) {
+    const tagStripped = queryText.replace(tagFilter, "").trim();
+    if (tagStripped && tagStripped !== queryText) {
+      qList = [.../* @__PURE__ */ new Set([...qList, normalizeSpaces(tagStripped).toLowerCase()])];
+    }
+  }
+  if (querySeason !== null) {
+    const titleSeason = getExplicitSeasonNumber(titleText);
+    if (querySeason > 1) {
+      if ((titleSeason || 1) !== querySeason) return false;
+    } else if (querySeason === 1) {
+      if (titleSeason !== null && titleSeason !== 1) return false;
+    }
+  }
+  if (qList.some((kw) => t.includes(kw))) return true;
+  const simMatch = qList.some((kw) => {
+    if (Math.abs(t.length - kw.length) > Math.max(t.length, kw.length) * 0.7 || /^[a-zA-Z0-9]+$/.test(kw)) {
+      return false;
+    }
+    let matchCount = 0;
+    let tIndex = 0;
+    for (const char of kw) {
+      const foundIdx = t.indexOf(char, tIndex);
+      if (foundIdx !== -1) {
+        matchCount++;
+        tIndex = foundIdx + 1;
+      }
+    }
+    return matchCount / kw.length > 0.8;
+  });
+  if (!simMatch) {
+    const yearStripped = queryText.replace(/[\(\（]\s*(?:19|20)\d{2}\s*[\)\）]|\b(?:19|20)\d{2}\b/g, "").trim();
+    if (yearStripped && yearStripped !== queryText) {
+      const cleanYear = tagFilter ? yearStripped.replace(tagFilter, "").trim() : yearStripped;
+      const yearQ = normalizeSpaces(cleanYear).toLowerCase();
+      const titleHasYear = /[\(\（]\s*(?:19|20)\d{2}\s*[\)\）]|\b(?:19|20)\d{2}\b/.test(titleText);
+      if (yearQ && t.includes(yearQ) && !titleHasYear) return true;
+    }
+  }
+  return false;
+}
+function validateType(value, expectedType) {
+  const fieldName = value?.constructor?.name;
+  if (expectedType === "array") {
+    if (!Array.isArray(value)) {
+      throw new TypeError(`${value} \u5FC5\u987B\u662F\u4E00\u4E2A\u6570\u7EC4\uFF0C\u4F46\u4F20\u5165\u7684\u662F ${fieldName}`);
+    }
+  } else if (expectedType === "boolean") {
+    if (typeof value !== "boolean" && typeof value !== "number") {
+      throw new TypeError(`${value} \u5FC5\u987B\u662F boolean \u6216 number\uFF0C\u4F46\u4F20\u5165\u7684\u662F ${fieldName}`);
+    }
+  } else if (typeof value !== expectedType) {
+    throw new TypeError(`${value} \u5FC5\u987B\u662F ${expectedType}\uFF0C\u4F46\u4F20\u5165\u7684\u662F ${fieldName}`);
+  }
+}
+function extractSeasonNumberFromAnimeTitle(animeTitle) {
+  if (!animeTitle) return { season: null, baseTitle: null };
+  const match = animeTitle.match(/^(.*?)\(\d{4}\)/);
+  const rawTitleWithoutYear = match ? match[1].trim() : animeTitle.split("(")[0].trim();
+  const titleWithoutYear = normalizeSpaces(rawTitleWithoutYear);
+  const explicitSeasonMatch = titleWithoutYear.match(/第\s*([0-9一二三四五六七八九十壹贰叁肆伍陆柒捌玖拾]+)\s*[季期部]/);
+  if (explicitSeasonMatch) {
+    return {
+      season: convertChineseNumber(explicitSeasonMatch[1]),
+      baseTitle: titleWithoutYear.replace(explicitSeasonMatch[0], "").trim()
+    };
+  }
+  const seasonMatch = titleWithoutYear.match(/(?:S(?:eason)?|Season)\s*(\d+)/i);
+  if (seasonMatch) {
+    return {
+      season: parseInt(seasonMatch[1], 10),
+      baseTitle: titleWithoutYear.replace(seasonMatch[0], "").trim()
+    };
+  }
+  const partMatch = titleWithoutYear.match(/Part\s*(\d+)/i);
+  if (partMatch) {
+    return {
+      season: parseInt(partMatch[1], 10),
+      baseTitle: titleWithoutYear.replace(partMatch[0], "").trim()
+    };
+  }
+  const trailingNumber = titleWithoutYear.match(/(?:^|\s|[^\d])(\d{1,2})$/);
+  if (trailingNumber) {
+    return {
+      season: parseInt(trailingNumber[1], 10),
+      baseTitle: titleWithoutYear.slice(0, titleWithoutYear.lastIndexOf(trailingNumber[1])).trim()
+    };
+  }
+  const trailingChinese = titleWithoutYear.match(/([一二三四五六七八九十壹贰叁肆伍陆柒捌玖拾]+)$/);
+  if (trailingChinese) {
+    return {
+      season: convertChineseNumber(trailingChinese[1]),
+      baseTitle: titleWithoutYear.replace(trailingChinese[0], "").trim()
+    };
+  }
+  return { season: null, baseTitle: titleWithoutYear };
+}
+function extractEpisodeNumberFromTitle(episodeTitle) {
+  if (!episodeTitle) return null;
+  const chineseMatch = episodeTitle.match(/第(\d+)集/);
+  if (chineseMatch) {
+    return parseInt(chineseMatch[1], 10);
+  }
+  const epMatch = episodeTitle.match(/[Ee][Pp]?(\d+)/);
+  if (epMatch) {
+    return parseInt(epMatch[1], 10);
+  }
+  const numberMatch = episodeTitle.match(/(?:^|\s)(\d+)(?:\s|$)/);
+  if (numberMatch) {
+    return parseInt(numberMatch[1], 10);
+  }
+  return null;
+}
+function extractAnimeInfo(animeTitle, episodeTitle) {
+  let { season, baseTitle } = extractSeasonNumberFromAnimeTitle(animeTitle);
+  let episode = extractEpisodeNumberFromTitle(episodeTitle);
+  return { baseTitle, season, episode };
+}
 
 // danmu_api/utils/offset-util.js
 var SOURCE_ALIASES = {
@@ -412,11 +8414,11 @@ function parseOffsetRules(env) {
       sources = null;
       all = false;
     }
-    const segments = pathPart.trim().split("/");
-    const anime = segments[0] || null;
+    const seMatch = pathPart.match(/^(.*?)\/([SE]\d+)(?:\/([SE]\d+))?$/i);
+    const anime = seMatch ? seMatch[1].trim() : pathPart.trim();
     if (!anime) return null;
-    const season = segments[1] ? normalizeSegment(segments[1]) : null;
-    const episode = segments[2] ? normalizeSegment(segments[2]) : null;
+    const season = seMatch ? normalizeSegment(seMatch[2]) : null;
+    const episode = seMatch && seMatch[3] ? normalizeSegment(seMatch[3]) : null;
     return { anime, season, episode, sources, all, offset, usePercent };
   }).filter(Boolean);
 }
@@ -445,7 +8447,7 @@ function resolveOffsetRule(rules, { anime, season, episode, source }) {
     let allMatch = null;
     let genericMatch = null;
     for (const rule of rules) {
-      if (rule.anime !== anime) continue;
+      if (normalizeSpaces(rule.anime) !== normalizeSpaces(anime)) continue;
       if (level.matchEpisode) {
         if (!rule.season || !rule.episode) continue;
         if (rule.season !== season || rule.episode !== episode) continue;
@@ -621,10 +8623,10 @@ var Envs = class {
    * @returns {Array} 源排序数组
    */
   static resolveSourceOrder() {
-    let sourceOrder = this.get("SOURCE_ORDER", "360,vod,renren,hanjutv", "string");
+    let sourceOrder = this.get("SOURCE_ORDER", "douban,360,renren,hanjutv", "string");
     const orderArr = sourceOrder.split(",").map((s) => s.trim()).filter((s) => this.ALLOWED_SOURCES.includes(s));
     this.accessedEnvVars.set("SOURCE_ORDER", orderArr);
-    return orderArr.length > 0 ? orderArr : ["360", "vod", "renren", "hanjutv"];
+    return orderArr.length > 0 ? orderArr : ["douban", "360", "renren", "hanjutv"];
   }
   /**
    * 解析平台排序
@@ -670,6 +8672,85 @@ var Envs = class {
     }).filter(Boolean);
   }
   /**
+   * 解析合并映射表
+   * 用于解析用户自定义的剧集/季度级别合并与乱序重排规则，以及阻断特定合并。
+   * 支持从全局强制合并到精确单集的路由干预，解决跨源集数错位问题。
+   * 格式: 
+   * 合并: 副源实体 -> 主源实体 | 路由规则
+   * 阻断: 副源实体 × 主源实体
+   * @returns {Array} 解析后的规则对象列表
+   */
+  static resolveCustomMergeRules() {
+    const raw = this.get("CUSTOM_MERGE_RULES", "", "string").trim();
+    if (!raw) return [];
+    const rules = [];
+    const ruleStrs = raw.split(";");
+    for (const rStr of ruleStrs) {
+      if (!rStr.trim()) continue;
+      try {
+        const parts = rStr.split("|");
+        const entities = parts[0];
+        const routesStr = parts[1] || "";
+        let secStr, primStr;
+        let action = "merge";
+        if (entities.includes("->")) {
+          [secStr, primStr] = entities.split("->").map((s) => s.trim());
+        } else if (entities.includes("\xD7")) {
+          [secStr, primStr] = entities.split("\xD7").map((s) => s.trim());
+          action = "block";
+        } else {
+          continue;
+        }
+        if (!secStr || !primStr) continue;
+        const parseEntity = (str) => {
+          const match = str.match(/^(.+?)(?:\/S(\d+))?@([a-zA-Z0-9_&]+)$/i);
+          if (match) {
+            return {
+              title: match[1].trim(),
+              season: match[2] ? parseInt(match[2], 10) : null,
+              source: match[3].toLowerCase()
+            };
+          }
+          return null;
+        };
+        const secEntity = parseEntity(secStr);
+        const primEntity = parseEntity(primStr);
+        if (!secEntity || !primEntity) continue;
+        const routes = [];
+        let hasRoutes = false;
+        if (action === "merge" && routesStr.trim()) {
+          hasRoutes = true;
+          const routeParts = routesStr.split(",");
+          for (const rp of routeParts) {
+            if (!rp.trim()) continue;
+            const [sPart, pPart] = rp.split(">").map((s) => s.trim());
+            if (!sPart || !pPart) continue;
+            const parseRange = (r) => {
+              const match = r.match(/^E(\d+)(?:~E(\d+))?$/i);
+              if (match) {
+                return {
+                  start: parseInt(match[1], 10),
+                  end: match[2] ? parseInt(match[2], 10) : parseInt(match[1], 10)
+                };
+              }
+              return null;
+            };
+            const sRange = parseRange(sPart);
+            const pRange = parseRange(pPart);
+            if (sRange && pRange) {
+              routes.push({ sec: sRange, prim: pRange });
+            }
+          }
+        }
+        rules.push({ action, secondary: secEntity, primary: primEntity, routes, hasRoutes });
+      } catch (e) {
+        console.warn(`[Envs] \u89E3\u6790\u5408\u5E76\u6620\u5C04\u8868\u89C4\u5219\u5931\u8D25: ${rStr}`, e);
+      }
+    }
+    this.accessedEnvVars.set("CUSTOM_MERGE_RULES", raw);
+    return rules;
+  }
+  /**
    * 解析剧集标题过滤正则
    * @description 过滤非正片内容，同时内置白名单防止误杀正片
    * @returns {RegExp} 过滤正则表达式
@@ -677,7 +8758,7 @@ var Envs = class {
   static resolveEpisodeTitleFilter() {
     const defaultFilter = (
       // [1] 基础物料与口语词防御，保护: 企划书, 预告犯, 被抢先了, 抢先一步, 化学反应, 一直拍, 单纯享
-      "(\u7279\u522B|\u60CA\u559C|\u7EB3\u51C9)?\u4F01\u5212(?!(\u4E66|\u6848|\u90E8))|\u5408\u4F19\u4EBA\u624B\u8BB0|\u8D85\u524D(\u8425\u4E1A|vlog)?|\u901F\u89C8|vlog|(?<!(Chain|Chemical|Nuclear|\u8FDE\u9501|\u5316\u5B66|\u6838|\u751F\u5316|\u751F\u7406|\u5E94\u6FC0))reaction|(?<!(\u5355))\u7EAF\u4EAB|\u52A0\u66F4(\u7248|\u7BC7)?|\u62A2\u5148(\u770B|\u7248|\u96C6|\u7BC7)?|(?<!(\u88AB|\u4E89|\u8C01))\u62A2[\u5148\u9C9C](?!(\u4E00\u6B65|\u624B|\u653B|\u4E86|\u544A|\u8A00|\u673A|\u8BDD))|\u62A2\u9C9C|\u9884\u544A(?!(\u51FD|\u4FE1|\u4E66|\u72AF))|(?<!(\u6B7B\u4EA1|\u6050\u6016|\u7075\u5F02|\u602A\u8C08))\u82B1\u7D6E(\u72EC\u5BB6)?|(?<!(\u4E00|\u76F4))\u76F4\u62CD|(\u5236\u4F5C|\u62CD\u6444|\u5E55\u540E|\u82B1\u7D6E|\u672A\u64AD|\u72EC\u5BB6|\u6F14\u5458|\u5BFC\u6F14|\u4E3B\u521B|\u6740\u9752|\u63A2\u73ED|\u6536\u5B98|\u5F00\u64AD|\u5148\u5BFC|\u5F69\u86CB|NG|\u56DE\u987E|\u9AD8\u5149|\u4E2A\u4EBA|\u4E3B\u521B)\u7279\u8F91|(?<!(\u884C\u52A8|\u8BA1\u5212|\u6E38\u620F|\u4EFB\u52A1|\u5371\u673A|\u795E\u79D8|\u9EC4\u91D1))\u5F69\u86CB|(?<!(\u5ACC\u7591\u4EBA|\u8BC1\u4EBA|\u5BB6\u5C5E|\u5F8B\u5E08|\u8B66\u65B9|\u51F6\u624B|\u6B7B\u8005))\u4E13\u8BBF|(?<!(\u8BC1\u4EBA))\u91C7\u8BBF(?!(\u5438\u8840\u9B3C|\u9B3C))|(\u6B63\u5F0F|\u89D2\u8272|\u5148\u5BFC|\u6982\u5FF5|\u9996\u66DD|\u5B9A\u6863|\u5267\u60C5|\u52A8\u753B|\u5BA3\u4F20|\u4E3B\u9898\u66F2|\u5370\u8C61)[\\s\\.]*[Pp\uFF30\uFF50][Vv\uFF36\uFF56]|(?<!(\u9E26|\u96EA|\u7EB8|\u76F8|\u7167|\u56FE|\u540D|\u5927))\u7247\u82B1|(?<!(\u9000\u5C45|\u56DE\u5F52|\u8D70\u5411|\u8F6C\u6218|\u9690\u8EAB|\u85CF\u8EAB|\u7684))\u5E55\u540E(?!(\u4E3B\u8C0B|\u4E3B\u4F7F|\u9ED1\u624B|\u771F\u51F6|\u73A9\u5BB6|\u8001\u677F|\u91D1\u4E3B|\u82F1\u96C4|\u529F\u81E3|\u63A8\u624B|\u5927\u4F6C|\u64CD\u7EB5|\u4EA4\u6613|\u7B56\u5212|\u535A\u5F08|BOSS|\u771F\u76F8))(\u6545\u4E8B|\u82B1\u7D6E|\u72EC\u5BB6)?|\u884D\u751F(?!(\u54C1|\u7269|\u517D))|\u756A\u5916(?!(\u5730|\u4EBA))|\u76F4\u64AD(\u966A\u770B|\u56DE\u987E)?|\u76F4\u64AD(?!(.*(\u4E8B\u4EF6|\u6740\u4EBA|\u81EA\u6740|\u8C0B\u6740|\u72AF\u7F6A|\u73B0\u573A|\u6E38\u620F|\u6311\u6218)))|\u672A\u64AD(\u7247\u6BB5)?|\u4F1A\u5458(\u4E13\u4EAB|\u52A0\u957F|\u5C0A\u4EAB|\u4E13\u5C5E|\u7248)?|(?<!(\u63D0\u53D6|\u5438\u6536|\u751F\u547D|\u9B54\u6CD5|\u4FEE\u62A4|\u7F8E\u767D))\u7CBE\u534E|\u770B\u70B9|\u901F\u770B|\u89E3\u8BFB(?!.*(\u5BC6\u6587|\u5BC6\u7801|\u5BC6\u7535|\u7535\u62A5|\u6863\u6848|\u4E66\u4FE1|\u9057\u4E66|\u7891\u6587|\u4EE3\u7801|\u4FE1\u53F7|\u6697\u53F7|\u8BAF\u606F|\u8C1C\u9898|\u4EBA\u5FC3|\u5507\u8BED|\u771F\u76F8|\u8C1C\u56E2|\u68A6\u5883))|(?<!(\u6848\u60C5|\u4EBA\u751F|\u6B7B\u524D|\u5386\u53F2|\u4E16\u7EAA))\u56DE\u987E|\u5F71\u8BC4|\u89E3\u8BF4|\u5410\u69FD|(?<!(\u5E74\u7EC8|\u5B63\u5EA6|\u5E93\u5B58|\u8D44\u4EA7|\u7269\u8D44|\u8D22\u52A1|\u6536\u83B7|\u6218\u5229))\u76D8\u70B9|\u62CD\u6444\u82B1\u7D6E|\u5236\u4F5C\u82B1\u7D6E|\u5E55\u540E\u82B1\u7D6E|\u672A\u64AD\u82B1\u7D6E|\u72EC\u5BB6\u82B1\u7D6E|\u82B1\u7D6E\u7279\u8F91|\u5148\u5BFC\u9884\u544A|\u7EC8\u6781\u9884\u544A|\u6B63\u5F0F\u9884\u544A|\u5B98\u65B9\u9884\u544A|\u5F69\u86CB\u7247\u6BB5|\u5220\u51CF\u7247\u6BB5|\u672A\u64AD\u7247\u6BB5|\u756A\u5916\u5F69\u86CB|\u7CBE\u5F69\u7247\u6BB5|\u7CBE\u5F69\u770B\u70B9|\u7CBE\u5F69\u96C6\u9526|\u770B\u70B9\u89E3\u6790|\u770B\u70B9\u9884\u544A|NG\u955C\u5934|NG\u82B1\u7D6E|\u756A\u5916\u7BC7|\u756A\u5916\u7279\u8F91|\u5236\u4F5C\u7279\u8F91|\u62CD\u6444\u7279\u8F91|\u5E55\u540E\u7279\u8F91|\u5BFC\u6F14\u7279\u8F91|\u6F14\u5458\u7279\u8F91|\u7247\u5C3E\u66F2|(?<!(\u751F\u547D|\u751F\u6D3B|\u60C5\u611F|\u7231\u60C5|\u4E00\u6BB5|\u5C0F|\u610F\u5916))\u63D2\u66F2|\u9AD8\u5149\u56DE\u987E|\u80CC\u666F\u97F3\u4E50|OST|\u97F3\u4E50MV|\u6B4C\u66F2MV|\u524D\u5B63\u56DE\u987E|\u5267\u60C5\u56DE\u987E|\u5F80\u671F\u56DE\u987E|\u5185\u5BB9\u603B\u7ED3|\u5267\u60C5\u76D8\u70B9|\u7CBE\u9009\u5408\u96C6|\u526A\u8F91\u5408\u96C6|\u6DF7\u526A\u89C6\u9891|\u72EC\u5BB6\u4E13\u8BBF|\u6F14\u5458\u8BBF\u8C08|\u5BFC\u6F14\u8BBF\u8C08|\u4E3B\u521B\u8BBF\u8C08|\u5A92\u4F53\u91C7\u8BBF|\u53D1\u5E03\u4F1A\u91C7\u8BBF|\u966A\u770B(\u8BB0)?|\u8BD5\u770B\u7248|\u77ED\u5267|\u7CBE\u7F16|(?<!(Love|Disney|One|C|Note|S\\d+|\\+|&|\\s))Plus|\u72EC\u5BB6\u7248|(?<!(\u5BFC\u6F14|\u52A0\u957F|\u5468\u5E74))\u7279\u522B\u7248(?!(\u56FE|\u753B))|\u77ED\u7247|(?<!(\u65B0\u95FB|\u7D27\u6025|\u4E34\u65F6|\u53EC\u5F00|\u7834\u574F|\u5927\u95F9|\u6F84\u6E05|\u9053\u6B49|\u65B0\u54C1|\u4EA7\u54C1|\u4E8B\u6545))\u53D1\u5E03\u4F1A|\u89E3\u5FE7\u5C40|\u8D70\u5FC3\u5C40|\u706B\u9505\u5C40|\u5DC5\u5CF0\u65F6\u523B|\u575E\u91CC\u90FD\u77E5\u9053|\u798F\u6301\u76EE\u6807\u575E\u6C11|\u798F\u5229(?!(\u9662|\u4F1A|\u4E3B\u4E49|\u8BFE))\u7BC7|(\u798F\u5229|\u52A0\u66F4|\u756A\u5916|\u5F69\u86CB|\u884D\u751F|\u7279\u522B|\u6536\u5B98|\u6E38\u620F|\u6574\u86CA|\u65E5\u5E38)\u7BC7|\u72EC\u5BB6(?!(\u8BB0\u5FC6|\u8BD5\u7231|\u62A5\u9053|\u79D8\u65B9|\u5360\u6709|\u5BA0\u7231|\u6069\u5BA0))|.{2,}(?<!(\u5E02|\u5206|\u8B66|\u603B|\u7701|\u536B|\u836F|\u653F|\u76D1|\u7ED3|\u5927|\u5F00|\u7834|\u5E03|\u50F5|\u56F0|\u9A97|\u8D4C|\u80DC|\u8D25|\u5B9A|\u4E71|\u5371|\u8FF7|\u8C1C|\u5165|\u6405|\u8BBE|\u4E2D|\u6B8B|\u5E73|\u548C|\u7EC8|\u53D8|\u5BF9|\u5B89|\u505A|\u4E66|\u753B|\u5BDF|\u52A1|\u6848|\u901A|\u4FE1|\u80B2|\u5546|\u8C61|\u6E90|\u4E1A|\u51B0))\u5C40(?!(\u957F|\u5EA7|\u52BF|\u9762|\u90E8|\u5185|\u5916|\u4E2D|\u9650|\u4FC3|\u6C14))|(?<!(\u91CD\u75C7|\u9694\u79BB|\u5B9E\u9A8C|\u5FC3\u7406|\u5BA1\u8BAF|\u5355\u5411|\u672F\u540E))\u89C2\u5BDF\u5BA4|\u4E0A\u73ED\u90A3\u70B9\u4E8B\u513F|\u5468top|\u8D5B\u6BB5|VLOG|(?<!(\u5927\u6848|\u8981\u6848|\u5211\u4FA6|\u4FA6\u67E5|\u7834\u6848|\u6863\u6848|\u98CE\u4E91|\u5386\u53F2|\u6218\u4E89|\u63A2\u6848|\u81EA\u7136|\u4EBA\u6587|\u79D1\u5B66|\u533B\u5B66|\u5730\u7406|\u5B87\u5B99|\u8D5B\u4E8B|\u4E16\u754C\u676F|\u5965\u8FD0))\u5168\u7EAA\u5F55|\u5F00\u64AD|\u5148\u5BFC|\u603B\u5BA3|\u5C55\u6F14|\u96C6\u9526|\u65C5\u884C\u65E5\u8BB0|\u7CBE\u5F69\u5206\u4EAB|\u5267\u60C5\u63ED\u79D8(?!(\u8005|\u4EBA))|(?:^|\u3011\\s*|\\]\\s*)(?:[SC]|SP|OP|ED|PV)\\d+(?:[\\s:\uFF1A\\.\\-]|$)"
+      "(\u7279\u522B|\u60CA\u559C|\u7EB3\u51C9)?\u4F01\u5212(?!(\u4E66|\u6848|\u90E8))|\u5408\u4F19\u4EBA\u624B\u8BB0|\u8D85\u524D(\u8425\u4E1A|vlog)?|\u901F\u89C8|vlog|(?<!(Chain|Chemical|Nuclear|\u8FDE\u9501|\u5316\u5B66|\u6838|\u751F\u5316|\u751F\u7406|\u5E94\u6FC0))reaction|(?<!(\u5355))\u7EAF\u4EAB|\u52A0\u66F4(\u7248|\u7BC7)?|\u62A2\u5148(\u770B|\u7248|\u96C6|\u7BC7)?|(?<!(\u88AB|\u4E89|\u8C01))\u62A2[\u5148\u9C9C](?!(\u4E00\u6B65|\u624B|\u653B|\u4E86|\u544A|\u8A00|\u673A|\u8BDD))|\u62A2\u9C9C|\u9884\u544A(?!(\u51FD|\u4FE1|\u4E66|\u72AF))|(?<!(\u6B7B\u4EA1|\u6050\u6016|\u7075\u5F02|\u602A\u8C08))\u82B1\u7D6E(\u72EC\u5BB6)?|(?<!(\u4E00|\u76F4))\u76F4\u62CD|(\u5236\u4F5C|\u62CD\u6444|\u5E55\u540E|\u82B1\u7D6E|\u672A\u64AD|\u72EC\u5BB6|\u6F14\u5458|\u5BFC\u6F14|\u4E3B\u521B|\u6740\u9752|\u63A2\u73ED|\u6536\u5B98|\u5F00\u64AD|\u5148\u5BFC|\u5F69\u86CB|NG|\u56DE\u987E|\u9AD8\u5149|\u4E2A\u4EBA|\u4E3B\u521B)\u7279\u8F91|(?<!(\u884C\u52A8|\u8BA1\u5212|\u6E38\u620F|\u4EFB\u52A1|\u5371\u673A|\u795E\u79D8|\u9EC4\u91D1))\u5F69\u86CB|(?<!(\u5ACC\u7591\u4EBA|\u8BC1\u4EBA|\u5BB6\u5C5E|\u5F8B\u5E08|\u8B66\u65B9|\u51F6\u624B|\u6B7B\u8005))\u4E13\u8BBF|(?<!(\u8BC1\u4EBA))\u91C7\u8BBF(?!(\u5438\u8840\u9B3C|\u9B3C))|(\u6B63\u5F0F|\u89D2\u8272|\u5148\u5BFC|\u6982\u5FF5|\u9996\u66DD|\u5B9A\u6863|\u5267\u60C5|\u52A8\u753B|\u5BA3\u4F20|\u4E3B\u9898\u66F2|\u5370\u8C61)[\\s\\.]*[Pp\uFF30\uFF50][Vv\uFF36\uFF56]|(?<!(\u9E26|\u96EA|\u7EB8|\u76F8|\u7167|\u56FE|\u540D|\u5927))\u7247\u82B1|(?<!(\u9000\u5C45|\u56DE\u5F52|\u8D70\u5411|\u8F6C\u6218|\u9690\u8EAB|\u85CF\u8EAB|\u7684))\u5E55\u540E(?!(\u4E3B\u8C0B|\u4E3B\u4F7F|\u9ED1\u624B|\u771F\u51F6|\u73A9\u5BB6|\u8001\u677F|\u91D1\u4E3B|\u82F1\u96C4|\u529F\u81E3|\u63A8\u624B|\u5927\u4F6C|\u64CD\u7EB5|\u4EA4\u6613|\u7B56\u5212|\u535A\u5F08|BOSS|\u771F\u76F8))(\u6545\u4E8B|\u82B1\u7D6E|\u72EC\u5BB6)?|\u884D\u751F(?!(\u54C1|\u7269|\u517D))|\u756A\u5916(?!(\u5730|\u4EBA))|\u76F4\u64AD(\u966A\u770B|\u56DE\u987E)|\u672A\u64AD(\u7247\u6BB5)?|\u4F1A\u5458(\u4E13\u4EAB|\u52A0\u957F|\u5C0A\u4EAB|\u4E13\u5C5E|\u7248)?|(?<!(\u63D0\u53D6|\u5438\u6536|\u751F\u547D|\u9B54\u6CD5|\u4FEE\u62A4|\u7F8E\u767D))\u7CBE\u534E|\u770B\u70B9|\u901F\u770B|\u89E3\u8BFB(?!.*(\u5BC6\u6587|\u5BC6\u7801|\u5BC6\u7535|\u7535\u62A5|\u6863\u6848|\u4E66\u4FE1|\u9057\u4E66|\u7891\u6587|\u4EE3\u7801|\u4FE1\u53F7|\u6697\u53F7|\u8BAF\u606F|\u8C1C\u9898|\u4EBA\u5FC3|\u5507\u8BED|\u771F\u76F8|\u8C1C\u56E2|\u68A6\u5883))|(?<!(\u6848\u60C5|\u4EBA\u751F|\u6B7B\u524D|\u5386\u53F2|\u4E16\u7EAA))\u56DE\u987E|\u5F71\u8BC4|\u89E3\u8BF4|\u5410\u69FD|(?<!(\u5E74\u7EC8|\u5B63\u5EA6|\u5E93\u5B58|\u8D44\u4EA7|\u7269\u8D44|\u8D22\u52A1|\u6536\u83B7|\u6218\u5229))\u76D8\u70B9|\u62CD\u6444\u82B1\u7D6E|\u5236\u4F5C\u82B1\u7D6E|\u5E55\u540E\u82B1\u7D6E|\u672A\u64AD\u82B1\u7D6E|\u72EC\u5BB6\u82B1\u7D6E|\u82B1\u7D6E\u7279\u8F91|\u5148\u5BFC\u9884\u544A|\u7EC8\u6781\u9884\u544A|\u6B63\u5F0F\u9884\u544A|\u5B98\u65B9\u9884\u544A|\u5F69\u86CB\u7247\u6BB5|\u5220\u51CF\u7247\u6BB5|\u672A\u64AD\u7247\u6BB5|\u756A\u5916\u5F69\u86CB|\u7CBE\u5F69\u7247\u6BB5|\u7CBE\u5F69\u770B\u70B9|\u7CBE\u5F69\u96C6\u9526|\u770B\u70B9\u89E3\u6790|\u770B\u70B9\u9884\u544A|NG\u955C\u5934|NG\u82B1\u7D6E|\u756A\u5916\u7BC7|\u756A\u5916\u7279\u8F91|\u5236\u4F5C\u7279\u8F91|\u62CD\u6444\u7279\u8F91|\u5E55\u540E\u7279\u8F91|\u5BFC\u6F14\u7279\u8F91|\u6F14\u5458\u7279\u8F91|\u7247\u5C3E\u66F2|(?<!(\u751F\u547D|\u751F\u6D3B|\u60C5\u611F|\u7231\u60C5|\u4E00\u6BB5|\u5C0F|\u610F\u5916))\u63D2\u66F2|\u9AD8\u5149\u56DE\u987E|\u80CC\u666F\u97F3\u4E50|OST|\u97F3\u4E50MV|\u6B4C\u66F2MV|\u524D\u5B63\u56DE\u987E|\u5267\u60C5\u56DE\u987E|\u5F80\u671F\u56DE\u987E|\u5185\u5BB9\u603B\u7ED3|\u5267\u60C5\u76D8\u70B9|\u7CBE\u9009\u5408\u96C6|\u526A\u8F91\u5408\u96C6|\u6DF7\u526A\u89C6\u9891|\u72EC\u5BB6\u4E13\u8BBF|\u6F14\u5458\u8BBF\u8C08|\u5BFC\u6F14\u8BBF\u8C08|\u4E3B\u521B\u8BBF\u8C08|\u5A92\u4F53\u91C7\u8BBF|\u53D1\u5E03\u4F1A\u91C7\u8BBF|\u966A\u770B(\u8BB0)?|\u8BD5\u770B\u7248|\u77ED\u5267|\u7CBE\u7F16|(?<!(Love|Disney|One|C|Note|S\\d+|\\+|&|\\s))Plus|\u72EC\u5BB6\u7248|(?<!(\u5BFC\u6F14|\u52A0\u957F|\u5468\u5E74))\u7279\u522B\u7248(?!(\u56FE|\u753B))|\u77ED\u7247|(?<!(\u65B0\u95FB|\u7D27\u6025|\u4E34\u65F6|\u53EC\u5F00|\u7834\u574F|\u5927\u95F9|\u6F84\u6E05|\u9053\u6B49|\u65B0\u54C1|\u4EA7\u54C1|\u4E8B\u6545))\u53D1\u5E03\u4F1A|\u89E3\u5FE7\u5C40|\u8D70\u5FC3\u5C40|\u706B\u9505\u5C40|\u5DC5\u5CF0\u65F6\u523B|\u575E\u91CC\u90FD\u77E5\u9053|\u798F\u6301\u76EE\u6807\u575E\u6C11|\u798F\u5229(?!(\u9662|\u4F1A|\u4E3B\u4E49|\u8BFE))\u7BC7|(\u798F\u5229|\u52A0\u66F4|\u756A\u5916|\u5F69\u86CB|\u884D\u751F|\u7279\u522B|\u6536\u5B98|\u6E38\u620F|\u6574\u86CA|\u65E5\u5E38)\u7BC7|\u72EC\u5BB6(?!(\u8BB0\u5FC6|\u8BD5\u7231|\u62A5\u9053|\u79D8\u65B9|\u5360\u6709|\u5BA0\u7231|\u6069\u5BA0))|.{2,}(?<!(\u5E02|\u5206|\u8B66|\u603B|\u7701|\u536B|\u836F|\u653F|\u76D1|\u7ED3|\u5927|\u5F00|\u7834|\u5E03|\u50F5|\u56F0|\u9A97|\u8D4C|\u80DC|\u8D25|\u5B9A|\u4E71|\u5371|\u8FF7|\u8C1C|\u5165|\u6405|\u8BBE|\u4E2D|\u6B8B|\u5E73|\u548C|\u7EC8|\u53D8|\u5BF9|\u5B89|\u505A|\u4E66|\u753B|\u5BDF|\u52A1|\u6848|\u901A|\u4FE1|\u80B2|\u5546|\u8C61|\u6E90|\u4E1A|\u51B0))\u5C40(?!(\u957F|\u5EA7|\u52BF|\u9762|\u90E8|\u5185|\u5916|\u4E2D|\u9650|\u4FC3|\u6C14))|(?<!(\u91CD\u75C7|\u9694\u79BB|\u5B9E\u9A8C|\u5FC3\u7406|\u5BA1\u8BAF|\u5355\u5411|\u672F\u540E))\u89C2\u5BDF\u5BA4|\u4E0A\u73ED\u90A3\u70B9\u4E8B\u513F|\u5468top|\u8D5B\u6BB5|VLOG|(?<!(\u5927\u6848|\u8981\u6848|\u5211\u4FA6|\u4FA6\u67E5|\u7834\u6848|\u6863\u6848|\u98CE\u4E91|\u5386\u53F2|\u6218\u4E89|\u63A2\u6848|\u81EA\u7136|\u4EBA\u6587|\u79D1\u5B66|\u533B\u5B66|\u5730\u7406|\u5B87\u5B99|\u8D5B\u4E8B|\u4E16\u754C\u676F|\u5965\u8FD0))\u5168\u7EAA\u5F55|\u5F00\u64AD|\u5148\u5BFC|\u603B\u5BA3|\u5C55\u6F14|\u96C6\u9526|\u65C5\u884C\u65E5\u8BB0|\u7CBE\u5F69\u5206\u4EAB|\u5267\u60C5\u63ED\u79D8(?!(\u8005|\u4EBA))|(?:^|\u3011\\s*|\\]\\s*)(?:[SC]|SP|OP|ED|PV)\\d+(?:[\\s:\uFF1A\\.\\-]|$)"
     );
     const customFilter = this.get("EPISODE_TITLE_FILTER", "", "string", false).trim();
     let keywords = customFilter || defaultFilter;
@@ -809,6 +8890,37 @@ var Envs = class {
     }
   }
   /**
+   * 解析剧名杂音清理规则
+   * 移除搜索关键词和源标题中的画质/配音/版本等杂音词。
+   * 支持完全自定义的正则表达式，默认为同时匹配中英文括号的常用杂音词。
+   * 未设置时使用默认规则，设为空值可禁用。
+   * @returns {RegExp|null} 全局正则，显式设为空时返回 null（禁用）
+   */
+  static resolveTitleNoiseFilter() {
+    const defaultPattern = "[\uFF08(](?:\u81FB\u5F69|\u771F\u5F69|\u9AD8\u6E05|\u6807\u6E05|\u8D85\u6E05|\u56FD\u914D|\u4E2D\u914D|\u65E5\u914D|\u7CA4\u8BED|\u539F\u58F0|\u53F0\u914D|\u65E0\u4FEE|\u672A\u5220\u51CF|\u5B8C\u6574\u7248)[\uFF09)]";
+    const raw = this.get("TITLE_NOISE_FILTER", "", "string").trim();
+    const hasKey = this.env && "TITLE_NOISE_FILTER" in this.env || typeof process !== "undefined" && "TITLE_NOISE_FILTER" in process.env;
+    if (!raw) {
+      if (hasKey) {
+        this.accessedEnvVars.set("TITLE_NOISE_FILTER", "");
+        return null;
+      }
+      this.accessedEnvVars.set("TITLE_NOISE_FILTER", defaultPattern);
+    } else {
+      this.accessedEnvVars.set("TITLE_NOISE_FILTER", raw);
+    }
+    try {
+      return new RegExp(raw || defaultPattern, "gi");
+    } catch (e) {
+      console.warn("Invalid TITLE_NOISE_FILTER regex, using default.");
+      try {
+        return new RegExp(defaultPattern, "gi");
+      } catch (e2) {
+        return null;
+      }
+    }
+  }
+  /**
    * 获取记录的原始环境变量 JSON
    * @returns {Map<any, any>} JSON 字符串
    */
@@ -857,8 +8969,9 @@ var Envs = class {
       "ADMIN_TOKEN": { category: "api", type: "text", description: "\u7CFB\u7EDF\u7BA1\u7406\u8BBF\u95EE\u4EE4\u724C" },
       "RATE_LIMIT_MAX_REQUESTS": { category: "api", type: "number", description: "\u9650\u6D41\u914D\u7F6E\uFF1A1\u5206\u949F\u5185\u6700\u5927\u8BF7\u6C42\u6B21\u6570\uFF0C0\u8868\u793A\u4E0D\u9650\u6D41\uFF0C\u9ED8\u8BA43", min: 0, max: 50 },
       // 源配置
-      "SOURCE_ORDER": { category: "source", type: "multi-select", options: this.ALLOWED_SOURCES, description: "\u6E90\u6392\u5E8F\u914D\u7F6E\uFF0C\u9ED8\u8BA4360,vod,renren,hanjutv" },
+      "SOURCE_ORDER": { category: "source", type: "multi-select", options: this.ALLOWED_SOURCES, description: "\u6E90\u6392\u5E8F\u914D\u7F6E\uFF0C\u9ED8\u8BA4douban,360,renren,hanjutv" },
       "MERGE_SOURCE_PAIRS": { category: "source", type: "multi-select", options: this.MERGE_ALLOWED_SOURCES, description: "\u6E90\u5408\u5E76\u914D\u7F6E\uFF0C\u914D\u7F6E\u540E\u5C06\u5BF9\u5E94\u6E90\u5408\u5E76\u540C\u65F6\u4E00\u8D77\u83B7\u53D6\u5F39\u5E55\u8FD4\u56DE\uFF0C\u5141\u8BB8\u591A\u7EC4\uFF0C\u5141\u8BB8\u591A\u6E90\uFF0C\u5141\u8BB8\u586B\u5355\u6E90\u8868\u793A\u4FDD\u7559\u539F\u7ED3\u679C\uFF0C\u4E00\u7EC4\u4E2D\u7B2C\u4E00\u4E2A\u4E3A\u4E3B\u6E90\u5176\u4F59\u4E3A\u526F\u6E90\uFF0C\u526F\u6E90\u5F80\u4E3B\u6E90\u5408\u5E76\uFF0C\u4E3B\u6E90\u5982\u679C\u6CA1\u6709\u7ED3\u679C\u4F1A\u8F6E\u66FF\u4E0B\u4E00\u4E2A\u4F5C\u4E3A\u4E3B\u6E90\u3002\n\u683C\u5F0F\uFF1A\u6E901&\u6E902&\u6E903 \uFF0C\u591A\u7EC4\u7528\u9017\u53F7\u5206\u9694\u3002\n\u793A\u4F8B\uFF1Adandan&animeko&bahamut,bilibili&animeko,dandan" },
+      "CUSTOM_MERGE_RULES": { category: "source", type: "text", sources: this.MERGE_ALLOWED_SOURCES, description: "\u5408\u5E76\u6620\u5C04\u8868\uFF0C\u7528\u4E8E\u81EA\u5B9A\u4E49\u6E90\u5408\u5E76\u884C\u4E3A\u3002\n\u683C\u5F0F1(\u5408\u5E76)\uFF1A\u526F\u6E90\u5267\u540D/S\u5B63\u6570@\u6765\u6E90 -> \u4E3B\u6E90\u5267\u540D/S\u5B63\u6570@\u6765\u6E90 | E\u526F\u6E90\u96C6\u6570>E\u4E3B\u6E90\u96C6\u6570\n\u683C\u5F0F2(\u963B\u65AD)\uFF1A\u526F\u6E90\u5267\u540D/S\u5B63\u6570@\u6765\u6E90 \xD7 \u4E3B\u6E90\u5267\u540D/S\u5B63\u6570@\u6765\u6E90\n\u8BF4\u660E\uFF1A[/S\u5B63\u6570] \u4E0E [|\u8DEF\u7531\u89C4\u5219] \u4E3A\u53EF\u9009\u9879\uFF0C\u7559\u7A7A\u5219\u4EA4\u7531\u7A0B\u5E8F\u5224\u65AD\u3002\u591A\u4E2A\u89C4\u5219\u7528\u5206\u53F7\u9694\u5F00\uFF0C\u591A\u6BB5\u8DEF\u7531\u7528\u9017\u53F7\u5206\u9694\u3002\n\u793A\u4F8B\uFF1A\n1. \u5E38\u89C4\u5408\u5E76\uFF1A\u5929\u6C14\u4E4B\u5B50@bilibili -> \u5929\u6C14\u4E4B\u5B50@dandan\n2. \u591A\u96C6\u8DEF\u7531\uFF1A\u6211\u63A8\u7684\u5B69\u5B50/S01@bahamut -> \u6211\u63A8\u7684\u5B69\u5B50/S03@dandan | E25~E35>E25~E35\n3. \u963B\u65AD\u5408\u5E76\uFF1A\u8F89\u591C\u5927\u5C0F\u59D0\u60F3\u8BA9\u6211\u544A\u767D\uFF1F\uFF5E\u5929\u624D\u4EEC\u7684\u604B\u7231\u5934\u8111\u6218\uFF5E(2020)@bilibili \xD7 \u8F89\u591C\u5927\u5C0F\u59D0\u60F3\u8BA9\u6211\u544A\u767D\uFF5E\u5929\u624D\u4EEC\u7684\u604B\u7231\u5934\u8111\u6218\uFF5E OVA(2021)\u3010OVA\u3011@dandan" },
       "OTHER_SERVER": { category: "source", type: "text", description: "\u7B2C\u4E09\u65B9\u5F39\u5E55\u670D\u52A1\u5668\uFF0C\u9ED8\u8BA4https://api.danmu.icu" },
       "CUSTOM_SOURCE_API_URL": { category: "source", type: "text", description: "\u81EA\u5B9A\u4E49\u5F39\u5E55\u6E90API\u5730\u5740\uFF0C\u9ED8\u8BA4\u4E3A\u7A7A\uFF0C\u914D\u7F6E\u540E\u8FD8\u9700\u5728SOURCE_ORDER\u6DFB\u52A0custom\u6E90" },
       "VOD_SERVERS": { category: "source", type: "text", description: "VOD\u7AD9\u70B9\u914D\u7F6E\uFF0C\u683C\u5F0F\uFF1A\u540D\u79F0@URL,\u540D\u79F0@URL\uFF0C\u9ED8\u8BA4\u91D1\u8749@https://zy.jinchancaiji.com,789@https://www.caiji.cyou,\u542C\u98CE@https://gctf.tfdh.top" },
@@ -876,6 +8989,7 @@ var Envs = class {
       "TITLE_TO_CHINESE": { category: "match", type: "boolean", description: "\u5916\u8BED\u6807\u9898\u8F6C\u6362\u4E2D\u6587\u5F00\u5173" },
       "ANIME_TITLE_SIMPLIFIED": { category: "match", type: "boolean", description: "\u641C\u7D22\u7684\u5267\u540D\u6807\u9898\u81EA\u52A8\u7E41\u8F6C\u7B80" },
       "TITLE_MAPPING_TABLE": { category: "match", type: "map", description: '\u5267\u540D\u6620\u5C04\u8868\uFF0C\u7528\u4E8E\u81EA\u52A8\u5339\u914D\u65F6\u66FF\u6362\u6807\u9898\u8FDB\u884C\u641C\u7D22\uFF0C\u683C\u5F0F\uFF1A\u539F\u59CB\u6807\u9898->\u6620\u5C04\u6807\u9898;\u539F\u59CB\u6807\u9898->\u6620\u5C04\u6807\u9898;... \uFF0C\u4F8B\u5982\uFF1A"\u5510\u671D\u8BE1\u4E8B\u5F55->\u5510\u671D\u8BE1\u4E8B\u5F55\u4E4B\u897F\u884C;\u56FD\u8272\u82B3\u534E->\u9526\u7EE3\u82B3\u534E"' },
+      "TITLE_NOISE_FILTER": { category: "match", type: "text", description: "\u5267\u540D\u6742\u97F3\u6E05\u7406\u89C4\u5219\uFF0C\u6309\u6B63\u5219\u8868\u8FBE\u5F0F\u6E05\u7406\u641C\u7D22\u4E0E\u5339\u914D\u9636\u6BB5\u7684\u5267\u540D\u6742\u97F3\u8BCD\uFF08\u5982`\u767E\u82B1\u6740\uFF08\u771F\u5F69\uFF09`\u2192`\u767E\u82B1\u6740`\uFF09\u3002\u9ED8\u8BA4\u503C\uFF1A[\uFF08(](?:\u81FB\u5F69|\u771F\u5F69|\u9AD8\u6E05|\u6807\u6E05|\u8D85\u6E05|\u56FD\u914D|\u4E2D\u914D|\u65E5\u914D|\u7CA4\u8BED|\u539F\u58F0|\u53F0\u914D|\u65E0\u4FEE|\u672A\u5220\u51CF|\u5B8C\u6574\u7248)[\uFF09)]\uFF0C\u4E2D\u82F1\u6587\u62EC\u53F7\u5747\u5339\u914D\u3002\u8BBE\u4E3A\u7A7A\u503C\u53EF\u7981\u7528" },
       "AI_BASE_URL": { category: "match", type: "text", description: "AI\u670D\u52A1\u57FA\u7840URL\uFF0C\u4E0D\u586B\u9ED8\u8BA4\u4E3Ahttps://api.openai.com/v1" },
       "AI_MODEL": { category: "match", type: "text", description: "AI\u6A21\u578B\u540D\u79F0\uFF0C\u4E0D\u586B\u9ED8\u8BA4\u4E3Agpt-4o" },
       "AI_API_KEY": { category: "match", type: "text", description: "AI\u670D\u52A1API\u5BC6\u94A5\uFF0C\u9ED8\u8BA4\u4E3A\u7A7A\uFF0C\u9700\u624B\u52A8\u586B\u5199" },
@@ -924,6 +9038,8 @@ var Envs = class {
       // 源排序
       mergeSourcePairs: this.resolveMergeSourcePairs(),
       // 源合并配置，用于将源合并获取
+      customMergeRules: this.resolveCustomMergeRules(),
+      // 合并映射表，用于自定义源合并行为。
       otherServer: this.get("OTHER_SERVER", "https://api.danmu.icu", "string"),
       // 第三方弹幕服务器
       customSourceApiUrl: this.get("CUSTOM_SOURCE_API_URL", "", "string", true),
@@ -946,6 +9062,8 @@ var Envs = class {
       // 剧名正则过滤
       episodeTitleFilter: this.resolveEpisodeTitleFilter(),
       // 剧集标题正则过滤
+      titleNoiseFilter: this.resolveTitleNoiseFilter(),
+      // 剧名杂音清理规则
       blockedWords: this.get("BLOCKED_WORDS", "", "string"),
       // 屏蔽词列表
       groupMinute: Math.min(this.get("GROUP_MINUTE", 1, "number"), 30),
@@ -1089,7 +9207,7 @@ var Globals = {
   originalEnvVars: {},
   accessedEnvVars: {},
   // 静态常量
-  VERSION: "1.19.6",
+  VERSION: "1.19.17",
   MAX_LOGS: 1e3,
   // 日志存储，最多保存 1000 行
   MAX_RECORDS: 100,
@@ -1189,6 +9307,9 @@ var Globals = {
       } else if (conf.startsWith("bilibili@") && hostname.includes("bilibili")) {
         specificProxy = conf.substring(9);
         break;
+      } else if (conf.startsWith("animeko@") && (hostname.includes("animeko") || hostname.includes("bgm.tv"))) {
+        specificProxy = conf.substring(8);
+        break;
       } else if (conf.startsWith("@") && !universalProxy) {
         universalProxy = conf.substring(1);
       } else if (!conf.includes("@") && !forwardProxy) {
@@ -1224,11 +9345,13 @@ var Globals = {
    */
   /**
    * 获取全局配置对象（单例，可修改）
+   * 使用 Proxy 保持接口兼容性，实例懒初始化后缓存复用避免每次新建
    * @returns {Object} 全局配置对象本身
    */
   getConfig() {
+    if (this._configProxy) return this._configProxy;
     const self = this;
-    return new Proxy({}, {
+    this._configProxy = new Proxy({}, {
       get(target, prop) {
         if (prop in self.envs) {
           return self.envs[prop];
@@ -1250,6 +9373,7 @@ var Globals = {
         return true;
       }
     });
+    return this._configProxy;
   }
 };
 var globals = new Proxy({}, {
@@ -1271,75 +9395,74 @@ var globals = new Proxy({}, {
   }
 });
 
-// danmu_api/utils/log-util.js
-function log(level, ...args) {
-  const levels = { error: 0, warn: 1, info: 2 };
-  const currentLevelValue = levels[globals.logLevel] !== void 0 ? levels[globals.logLevel] : 1;
-  if ((levels[level] || 0) > currentLevelValue) {
-    return;
+// forward-node-builtins:async-hooks
+var AsyncLocalStorage = class {
+  constructor() {
+    this.store = void 0;
   }
-  const processedArgs = args.map((arg) => {
-    if (typeof arg === "object") {
-      const jsonString = JSON.stringify(arg);
-      return hideSensitiveInfo(jsonString);
-    } else {
-      return typeof arg === "string" ? hideSensitiveInfo(arg) : arg;
-    }
-  });
-  const message = processedArgs.map((arg) => typeof arg === "object" ? JSON.stringify(arg) : arg).join(" ");
-  const now = /* @__PURE__ */ new Date();
-  const shanghaiTime = new Date(now.getTime() + 8 * 60 * 60 * 1e3);
-  const timestamp = shanghaiTime.toISOString().replace("Z", "+08:00");
-  globals.logBuffer.push({ timestamp, level, message });
-  if (globals.logBuffer.length > globals.MAX_LOGS) globals.logBuffer.shift();
-  console[level](...processedArgs);
-}
-function hideSensitiveInfo(message) {
-  let processedMessage = message;
-  if (globals.originalEnvVars && globals.accessedEnvVars) {
-    for (const [envVar, originalValue] of Object.entries(globals.originalEnvVars)) {
-      const accessedValue = globals.accessedEnvVars[envVar];
-      if (originalValue && typeof originalValue === "string" && originalValue.length > 0 && accessedValue && typeof accessedValue === "string" && accessedValue.match(/^\*+$/) && accessedValue.length === originalValue.length) {
-        const mask = "*".repeat(originalValue.length);
-        const regex = new RegExp(originalValue.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "g");
-        processedMessage = processedMessage.replace(regex, mask);
-      }
+  getStore() {
+    return this.store;
+  }
+  run(store, callback, ...args) {
+    const previousStore = this.store;
+    this.store = store;
+    try {
+      return callback(...args);
+    } finally {
+      this.store = previousStore;
     }
   }
-  return processedMessage;
-}
+};
 
 // danmu_api/utils/http-util.js
+var sourceLogContext = new AsyncLocalStorage();
+var SOURCE_KEY_TO_LOG_NAME = {
+  "360": "360kan",
+  "imgo": "mango"
+};
+function toLogSourceName(sourceKey) {
+  return SOURCE_KEY_TO_LOG_NAME[sourceKey] || sourceKey;
+}
 function linkSignal(externalSignal, internalController) {
-  if (externalSignal) {
-    if (externalSignal.aborted) {
-      internalController.abort();
-    } else {
-      externalSignal.addEventListener("abort", () => {
-        internalController.abort();
-      }, { once: true });
-    }
+  if (!externalSignal) return () => {
+  };
+  if (externalSignal.aborted) {
+    internalController.abort();
+    return () => {
+    };
   }
+  const abortHandler = () => {
+    internalController.abort();
+  };
+  externalSignal.addEventListener("abort", abortHandler, { once: true });
+  return () => {
+    externalSignal.removeEventListener("abort", abortHandler);
+  };
 }
 async function httpGet(url, options = {}) {
   const maxRetries = parseInt(options.retries || "0", 10) || 0;
   const validStatusCodes = Array.isArray(options.validStatusCodes) ? options.validStatusCodes : [];
   let lastError;
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    const currentSource = sourceLogContext.getStore() || "system";
     if (attempt > 0) {
-      log("info", `[\u8BF7\u6C42\u6A21\u62DF] \u7B2C ${attempt} \u6B21\u91CD\u8BD5: ${url}`);
-      await new Promise((resolve) => setTimeout(resolve, Math.min(1e3 * Math.pow(2, attempt - 1), 5e3)));
+      log("info", `[${currentSource}] [\u8BF7\u6C42\u6A21\u62DF] \u7B2C ${attempt} \u6B21\u91CD\u8BD5: ${url}`);
+      if (lastError && (lastError.cause?.code === "ETIMEDOUT" || lastError.cause?.code === "ECONNRESET" || lastError.name === "AbortError")) {
+        await new Promise((resolve) => setTimeout(resolve, 100));
+      } else {
+        await new Promise((resolve) => setTimeout(resolve, Math.min(1e3 * Math.pow(2, attempt - 1), 5e3)));
+      }
     } else {
-      log("info", `[\u8BF7\u6C42\u6A21\u62DF] HTTP GET: ${url}`);
+      log("info", `[${currentSource}] [\u8BF7\u6C42\u6A21\u62DF] HTTP GET: ${url}`);
     }
-    const timeout = parseInt(globals.vodRequestTimeout || "5000", 10) || 5e3;
+    const timeout = parseInt(options.timeout || globals.vodRequestTimeout || "5000", 10) || 5e3;
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), timeout);
-    linkSignal(options.signal, controller);
+    const cleanupSignal = linkSignal(options.signal, controller);
     try {
       let response;
       if (typeof WebAssembly === "undefined") {
-        log("info", "iOS\u73AF\u5883\u964D\u7EA7\u4F7F\u7528node-fetch");
+        log("info", "[Utils] [HTTP] iOS\u73AF\u5883\u964D\u7EA7\u4F7F\u7528node-fetch");
         const fetch2 = (await import("node-fetch")).default;
         response = await fetch2(url, {
           method: "GET",
@@ -1363,7 +9486,7 @@ async function httpGet(url, options = {}) {
       }
       let data;
       if (options.base64Data) {
-        log("info", "base64\u6A21\u5F0F");
+        log("info", "[Utils] [HTTP] base64\u6A21\u5F0F");
         const arrayBuffer = await response.arrayBuffer();
         const uint8Array = new Uint8Array(arrayBuffer);
         let binary = "";
@@ -1374,7 +9497,7 @@ async function httpGet(url, options = {}) {
         }
         data = btoa(binary);
       } else if (options.zlibMode) {
-        log("info", "zlib\u6A21\u5F0F");
+        log("info", "[Utils] [HTTP] zlib\u6A21\u5F0F");
         const arrayBuffer = await response.arrayBuffer();
         let decodedData;
         if (typeof DecompressionStream !== "undefined") {
@@ -1385,17 +9508,17 @@ async function httpGet(url, options = {}) {
           try {
             decodedData = await decompressedStream.text();
           } catch (e) {
-            log("error", "[\u8BF7\u6C42\u6A21\u62DF] \u89E3\u538B\u7F29\u5931\u8D25", e);
+            log("error", `[${currentSource}] [\u8BF7\u6C42\u6A21\u62DF] \u89E3\u538B\u7F29\u5931\u8D25`, e);
             throw e;
           }
         } else {
-          log("info", "iOS\u73AF\u5883\u964D\u7EA7\u4F7F\u7528pako\u89E3\u538B");
+          log("info", "[Utils] [HTTP] iOS\u73AF\u5883\u964D\u7EA7\u4F7F\u7528pako\u89E3\u538B");
           try {
-            const pako = await import("pako");
-            const inflateResult = pako.inflate(new Uint8Array(arrayBuffer));
+            const pako2 = await Promise.resolve().then(() => (init_pako_esm(), pako_esm_exports));
+            const inflateResult = pako2.inflate(new Uint8Array(arrayBuffer));
             decodedData = new TextDecoder("utf-8").decode(inflateResult);
           } catch (e) {
-            log("error", "[\u8BF7\u6C42\u6A21\u62DF] pako\u89E3\u538B\u7F29\u5931\u8D25", e);
+            log("error", `[${currentSource}] [\u8BF7\u6C42\u6A21\u62DF] pako\u89E3\u538B\u7F29\u5931\u8D25`, e);
             throw e;
           }
         }
@@ -1422,7 +9545,7 @@ async function httpGet(url, options = {}) {
         headers["set-cookie"] = setCookieValues.join(";");
       }
       if (attempt > 0) {
-        log("info", `[\u8BF7\u6C42\u6A21\u62DF] \u91CD\u8BD5\u6210\u529F`);
+        log("info", `[${currentSource}] [\u8BF7\u6C42\u6A21\u62DF] \u91CD\u8BD5\u6210\u529F`);
       }
       return {
         data: parsedData,
@@ -1432,17 +9555,18 @@ async function httpGet(url, options = {}) {
     } catch (error) {
       clearTimeout(timeoutId);
       lastError = error;
+      const currentSource2 = sourceLogContext.getStore() || "system";
       if (options.signal?.aborted) {
         throw error;
       }
       if (error.name === "AbortError") {
-        log("error", `[\u8BF7\u6C42\u6A21\u62DF] \u8BF7\u6C42\u8D85\u65F6:`, error.message);
+        log("error", `[${currentSource2}] [\u8BF7\u6C42\u6A21\u62DF] \u8BF7\u6C42\u8D85\u65F6:`, error.message);
         log("error", "\u8BE6\u7EC6\u8BCA\u65AD:");
         log("error", "- URL:", url);
         log("error", "- \u8D85\u65F6\u65F6\u95F4:", `${timeout}ms`);
         log("error", `- \u5F53\u524D\u5C1D\u8BD5: ${attempt + 1}/${maxRetries + 1}`);
       } else {
-        log("error", `[\u8BF7\u6C42\u6A21\u62DF] \u8BF7\u6C42\u5931\u8D25:`, error.message);
+        log("error", `[${currentSource2}] [\u8BF7\u6C42\u6A21\u62DF] \u8BF7\u6C42\u5931\u8D25:`, error.message);
         log("error", "\u8BE6\u7EC6\u8BCA\u65AD:");
         log("error", "- URL:", url);
         log("error", "- \u9519\u8BEF\u7C7B\u578B:", error.name);
@@ -1454,12 +9578,15 @@ async function httpGet(url, options = {}) {
         }
       }
       if (attempt < maxRetries) {
-        log("info", `[\u8BF7\u6C42\u6A21\u62DF] \u51C6\u5907\u91CD\u8BD5...`);
+        log("info", `[${currentSource2}] [\u8BF7\u6C42\u6A21\u62DF] \u51C6\u5907\u91CD\u8BD5...`);
         continue;
       }
+    } finally {
+      cleanupSignal();
     }
   }
-  log("error", `[\u8BF7\u6C42\u6A21\u62DF] \u6240\u6709\u91CD\u8BD5\u5747\u5931\u8D25 (${maxRetries + 1} \u6B21\u5C1D\u8BD5)`);
+  const finalSource = sourceLogContext.getStore() || "system";
+  log("error", `[${finalSource}] [\u8BF7\u6C42\u6A21\u62DF] \u6240\u6709\u91CD\u8BD5\u5747\u5931\u8D25 (${maxRetries + 1} \u6B21\u5C1D\u8BD5)`);
   throw lastError;
 }
 async function httpPost(url, body, options = {}) {
@@ -1467,16 +9594,21 @@ async function httpPost(url, body, options = {}) {
   const validStatusCodes = Array.isArray(options.validStatusCodes) ? options.validStatusCodes : [];
   let lastError;
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    const currentSource = sourceLogContext.getStore() || "system";
     if (attempt > 0) {
-      log("info", `[\u8BF7\u6C42\u6A21\u62DF] \u7B2C ${attempt} \u6B21\u91CD\u8BD5: ${url}`);
-      await new Promise((resolve) => setTimeout(resolve, Math.min(1e3 * Math.pow(2, attempt - 1), 5e3)));
+      log("info", `[${currentSource}] [\u8BF7\u6C42\u6A21\u62DF] \u7B2C ${attempt} \u6B21\u91CD\u8BD5: ${url}`);
+      if (lastError && (lastError.cause?.code === "ETIMEDOUT" || lastError.cause?.code === "ECONNRESET" || lastError.name === "AbortError")) {
+        await new Promise((resolve) => setTimeout(resolve, 100));
+      } else {
+        await new Promise((resolve) => setTimeout(resolve, Math.min(1e3 * Math.pow(2, attempt - 1), 5e3)));
+      }
     } else {
-      log("info", `[\u8BF7\u6C42\u6A21\u62DF] HTTP POST: ${url}`);
+      log("info", `[${currentSource}] [\u8BF7\u6C42\u6A21\u62DF] HTTP POST: ${url}`);
     }
     const timeout = parseInt(options.timeout || globals.vodRequestTimeout || "5000", 10) || 5e3;
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), timeout);
-    linkSignal(options.signal, controller);
+    const cleanupSignal = linkSignal(options.signal, controller);
     const { headers = {}, params, allow_redirects = true } = options;
     const fetchOptions = {
       method: "POST",
@@ -1492,7 +9624,7 @@ async function httpPost(url, body, options = {}) {
     try {
       let response;
       if (typeof WebAssembly === "undefined") {
-        log("info", "iOS\u73AF\u5883\u964D\u7EA7\u4F7F\u7528node-fetch");
+        log("info", "[Utils] [HTTP] iOS\u73AF\u5883\u964D\u7EA7\u4F7F\u7528node-fetch");
         const fetch2 = (await import("node-fetch")).default;
         response = await fetch2(url, fetchOptions);
       } else {
@@ -1501,7 +9633,7 @@ async function httpPost(url, body, options = {}) {
       clearTimeout(timeoutId);
       const data = await response.text();
       if (!response.ok && !validStatusCodes.includes(response.status)) {
-        log("error", `[\u8BF7\u6C42\u6A21\u62DF] response data: `, data);
+        log("error", `[${currentSource}] [\u8BF7\u6C42\u6A21\u62DF] response data: `, data);
         throw new Error(`HTTP error! status: ${response.status}`);
       }
       let parsedData;
@@ -1511,7 +9643,7 @@ async function httpPost(url, body, options = {}) {
         parsedData = data;
       }
       if (attempt > 0) {
-        log("info", `[\u8BF7\u6C42\u6A21\u62DF] \u91CD\u8BD5\u6210\u529F`);
+        log("info", `[${currentSource}] [\u8BF7\u6C42\u6A21\u62DF] \u91CD\u8BD5\u6210\u529F`);
       }
       return {
         data: parsedData,
@@ -1521,17 +9653,18 @@ async function httpPost(url, body, options = {}) {
     } catch (error) {
       clearTimeout(timeoutId);
       lastError = error;
+      const currentSource2 = sourceLogContext.getStore() || "system";
       if (options.signal?.aborted) {
         throw error;
       }
       if (error.name === "AbortError") {
-        log("error", `[\u8BF7\u6C42\u6A21\u62DF] \u8BF7\u6C42\u8D85\u65F6:`, error.message);
+        log("error", `[${currentSource2}] [\u8BF7\u6C42\u6A21\u62DF] \u8BF7\u6C42\u8D85\u65F6:`, error.message);
         log("error", "\u8BE6\u7EC6\u8BCA\u65AD:");
         log("error", "- URL:", url);
         log("error", "- \u8D85\u65F6\u65F6\u95F4:", `${timeout}ms`);
         log("error", `- \u5F53\u524D\u5C1D\u8BD5: ${attempt + 1}/${maxRetries + 1}`);
       } else {
-        log("error", `[\u8BF7\u6C42\u6A21\u62DF] \u8BF7\u6C42\u5931\u8D25:`, error.message);
+        log("error", `[${currentSource2}] [\u8BF7\u6C42\u6A21\u62DF] \u8BF7\u6C42\u5931\u8D25:`, error.message);
         log("error", "\u8BE6\u7EC6\u8BCA\u65AD:");
         log("error", "- URL:", url);
         log("error", "- \u9519\u8BEF\u7C7B\u578B:", error.name);
@@ -1543,12 +9676,15 @@ async function httpPost(url, body, options = {}) {
         }
       }
       if (attempt < maxRetries) {
-        log("info", `[\u8BF7\u6C42\u6A21\u62DF] \u51C6\u5907\u91CD\u8BD5...`);
+        log("info", `[${currentSource2}] [\u8BF7\u6C42\u6A21\u62DF] \u51C6\u5907\u91CD\u8BD5...`);
         continue;
       }
+    } finally {
+      cleanupSignal();
     }
   }
-  log("error", `[\u8BF7\u6C42\u6A21\u62DF] \u6240\u6709\u91CD\u8BD5\u5747\u5931\u8D25 (${maxRetries + 1} \u6B21\u5C1D\u8BD5)`);
+  const finalSource = sourceLogContext.getStore() || "system";
+  log("error", `[${finalSource}] [\u8BF7\u6C42\u6A21\u62DF] \u6240\u6709\u91CD\u8BD5\u5747\u5931\u8D25 (${maxRetries + 1} \u6B21\u5C1D\u8BD5)`);
   throw lastError;
 }
 async function getPageTitle(url) {
@@ -1566,7 +9702,8 @@ async function getPageTitle(url) {
     }
     return url;
   } catch (error) {
-    log("error", `\u83B7\u53D6\u6807\u9898\u5931\u8D25: ${error.message}`);
+    const currentSource = sourceLogContext.getStore() || "system";
+    log("error", `[${currentSource}] \u83B7\u53D6\u6807\u9898\u5931\u8D25: ${error.message}`);
     return url;
   }
 }
@@ -1679,12 +9816,13 @@ function getPathname(url) {
 async function httpGetWithStreamCheck(url, options = {}, checkCallback) {
   const { headers = {}, sniffLimit } = options;
   const SNIFF_LIMIT = parseInt(sniffLimit || "32768", 10) || 32768;
-  const timeout = parseInt(globals.vodRequestTimeout || "5000", 10) || 5e3;
+  const timeout = parseInt(options.timeout || globals.vodRequestTimeout || "5000", 10) || 5e3;
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), timeout);
-  linkSignal(options.signal, controller);
+  const cleanupSignal = linkSignal(options.signal, controller);
   try {
-    log("info", `[\u6D41\u5F0F\u8BF7\u6C42] HTTP GET: ${url}`);
+    const currentSource = sourceLogContext.getStore() || "system";
+    log("info", `[${currentSource}] [\u6D41\u5F0F\u8BF7\u6C42] HTTP GET: ${url}`);
     const response = await fetch(url, {
       method: "GET",
       headers,
@@ -1695,11 +9833,12 @@ async function httpGetWithStreamCheck(url, options = {}, checkCallback) {
     }
     const reader = response.body.getReader ? response.body.getReader() : null;
     if (!reader) {
-      log("warn", "[\u6D41\u5F0F\u8BF7\u6C42] \u73AF\u5883\u4E0D\u652F\u6301\u6D41\u5F0F\u8BFB\u53D6,\u56DE\u9000\u5230\u666E\u901A\u8BF7\u6C42");
+      const currentSource2 = sourceLogContext.getStore() || "system";
+      log("warn", `[${currentSource2}] [\u6D41\u5F0F\u8BF7\u6C42] \u73AF\u5883\u4E0D\u652F\u6301\u6D41\u5F0F\u8BFB\u53D6,\u56DE\u9000\u5230\u666E\u901A\u8BF7\u6C42`);
       const text = await response.text();
       clearTimeout(timeoutId);
       if (checkCallback && !checkCallback(text.slice(0, SNIFF_LIMIT))) {
-        log("info", "[\u6D41\u5F0F\u8BF7\u6C42] \u68C0\u6D4B\u5230\u65E0\u6548\u6570\u636E(\u56DE\u9000\u6A21\u5F0F),\u4E22\u5F03\u7ED3\u679C");
+        log("info", `[${currentSource2}] [\u6D41\u5F0F\u8BF7\u6C42] \u68C0\u6D4B\u5230\u65E0\u6548\u6570\u636E(\u56DE\u9000\u6A21\u5F0F),\u4E22\u5F03\u7ED3\u679C`);
         return null;
       }
       try {
@@ -1721,7 +9860,8 @@ async function httpGetWithStreamCheck(url, options = {}, checkCallback) {
         const chunkText = new TextDecoder("utf-8").decode(value, { stream: true });
         checkBuffer += chunkText;
         if (!checkCallback(checkBuffer)) {
-          log("info", `[\u6D41\u5F0F\u8BF7\u6C42] \u55C5\u63A2\u5230\u65E0\u6548\u7279\u5F81(\u5DF2\u8BFB${receivedLength}\u5B57\u8282),\u7ACB\u5373\u7194\u65AD`);
+          const currentSource2 = sourceLogContext.getStore() || "system";
+          log("info", `[${currentSource2}] [\u6D41\u5F0F\u8BF7\u6C42] \u55C5\u63A2\u5230\u65E0\u6548\u7279\u5F81(\u5DF2\u8BFB${receivedLength}\u5B57\u8282),\u7ACB\u5373\u7194\u65AD`);
           controller.abort();
           isAborted = true;
           break;
@@ -1748,61 +9888,20 @@ async function httpGetWithStreamCheck(url, options = {}, checkCallback) {
       return resultText;
     }
   } catch (error) {
+    const currentSource = sourceLogContext.getStore() || "system";
     clearTimeout(timeoutId);
     if (error.name === "AbortError") {
       return null;
     }
-    log("error", `[\u6D41\u5F0F\u8BF7\u6C42] \u5931\u8D25: ${error.message}`);
+    log("error", `[${currentSource}] [\u6D41\u5F0F\u8BF7\u6C42] \u5931\u8D25: ${error.message}`);
     return null;
+  } finally {
+    cleanupSignal();
   }
-}
-
-// danmu_api/utils/zh-util.js
-function charPYStr() {
-  return "\u9515\u7691\u853C\u788D\u7231\u55F3\u5AD2\u7477\u66A7\u972D\u8C19\u94F5\u9E4C\u80AE\u8884\u5965\u5AAA\u9A9C\u9CCC\u575D\u7F62\u94AF\u6446\u8D25\u5457\u9881\u529E\u7ECA\u94A3\u5E2E\u7ED1\u9551\u8C24\u5265\u9971\u5B9D\u62A5\u9C8D\u9E28\u9F85\u8F88\u8D1D\u94A1\u72C8\u5907\u60EB\u9E4E\u8D32\u951B\u7EF7\u7B14\u6BD5\u6BD9\u5E01\u95ED\u835C\u54D4\u6ED7\u94CB\u7B5A\u8DF8\u8FB9\u7F16\u8D2C\u53D8\u8FA9\u8FAB\u82C4\u7F0F\u7B3E\u6807\u9AA0\u98D1\u98D9\u9556\u9573\u9CD4\u9CD6\u522B\u762A\u6FD2\u6EE8\u5BBE\u6448\u50A7\u7F24\u69DF\u6BA1\u8191\u9554\u9ACC\u9B13\u997C\u7980\u62E8\u94B5\u94C2\u9A73\u997D\u94B9\u9E41\u8865\u94B8\u8D22\u53C2\u8695\u6B8B\u60ED\u60E8\u707F\u9A96\u9EEA\u82CD\u8231\u4ED3\u6CA7\u5395\u4FA7\u518C\u6D4B\u607B\u5C42\u8BE7\u9538\u4FAA\u9497\u6400\u63BA\u8749\u998B\u8C17\u7F20\u94F2\u4EA7\u9610\u98A4\u5181\u8C04\u8C36\u8487\u5FCF\u5A75\u9AA3\u89C7\u7985\u9561\u573A\u5C1D\u957F\u507F\u80A0\u5382\u7545\u4F25\u82CC\u6005\u960A\u9CB3\u949E\u8F66\u5F7B\u7817\u5C18\u9648\u886C\u4F27\u8C0C\u6987\u789C\u9F80\u6491\u79F0\u60E9\u8BDA\u9A8B\u67A8\u67FD\u94D6\u94DB\u75F4\u8FDF\u9A70\u803B\u9F7F\u70BD\u996C\u9E31\u51B2\u51B2\u866B\u5BA0\u94F3\u7574\u8E0C\u7B79\u7EF8\u4FE6\u5E31\u96E0\u6A71\u53A8\u9504\u96CF\u7840\u50A8\u89E6\u5904\u520D\u7ECC\u8E70\u4F20\u948F\u75AE\u95EF\u521B\u6006\u9524\u7F0D\u7EAF\u9E51\u7EF0\u8F8D\u9F8A\u8F9E\u8BCD\u8D50\u9E5A\u806A\u8471\u56F1\u4ECE\u4E1B\u82C1\u9AA2\u679E\u51D1\u8F8F\u8E7F\u7A9C\u64BA\u9519\u9509\u9E7E\u8FBE\u54D2\u9791\u5E26\u8D37\u9A80\u7ED0\u62C5\u5355\u90F8\u63B8\u80C6\u60EE\u8BDE\u5F39\u6B9A\u8D55\u7605\u7BAA\u5F53\u6321\u515A\u8361\u6863\u8C20\u7800\u88C6\u6363\u5C9B\u7977\u5BFC\u76D7\u7118\u706F\u9093\u956B\u654C\u6DA4\u9012\u7F14\u7C74\u8BCB\u8C1B\u7EE8\u89CC\u955D\u98A0\u70B9\u57AB\u7535\u5DC5\u94BF\u766B\u9493\u8C03\u94EB\u9CB7\u8C0D\u53E0\u9CBD\u9489\u9876\u952D\u8BA2\u94E4\u4E22\u94E5\u4E1C\u52A8\u680B\u51BB\u5CBD\u9E2B\u7AA6\u728A\u72EC\u8BFB\u8D4C\u9540\u6E0E\u691F\u724D\u7B03\u9EE9\u953B\u65AD\u7F0E\u7C16\u5151\u961F\u5BF9\u603C\u9566\u5428\u987F\u949D\u7096\u8DB8\u593A\u5815\u94CE\u9E45\u989D\u8BB9\u6076\u997F\u8C14\u57A9\u960F\u8F6D\u9507\u9537\u9E57\u989A\u989B\u9CC4\u8BF6\u513F\u5C14\u9975\u8D30\u8FE9\u94D2\u9E38\u9C95\u53D1\u7F5A\u9600\u73D0\u77FE\u9492\u70E6\u8D29\u996D\u8BBF\u7EBA\u94AB\u9C82\u98DE\u8BFD\u5E9F\u8D39\u7EEF\u9544\u9CB1\u7EB7\u575F\u594B\u6124\u7CAA\u507E\u4E30\u67AB\u950B\u98CE\u75AF\u51AF\u7F1D\u8BBD\u51E4\u6CA3\u80A4\u8F90\u629A\u8F85\u8D4B\u590D\u8D1F\u8BA3\u5987\u7F1A\u51EB\u9A78\u7EC2\u7ECB\u8D59\u9EB8\u9C8B\u9CC6\u9486\u8BE5\u9499\u76D6\u8D45\u6746\u8D76\u79C6\u8D63\u5C34\u64C0\u7EC0\u5188\u521A\u94A2\u7EB2\u5C97\u6206\u9550\u777E\u8BF0\u7F1F\u9506\u6401\u9E3D\u9601\u94EC\u4E2A\u7EA5\u9549\u988D\u7ED9\u4E98\u8D53\u7EE0\u9CA0\u9F9A\u5BAB\u5DE9\u8D21\u94A9\u6C9F\u82DF\u6784\u8D2D\u591F\u8BDF\u7F11\u89CF\u86CA\u987E\u8BC2\u6BC2\u94B4\u9522\u9E2A\u9E44\u9E58\u5250\u6302\u9E39\u63B4\u5173\u89C2\u9986\u60EF\u8D2F\u8BD6\u63BC\u9E73\u9CCF\u5E7F\u72B7\u89C4\u5F52\u9F9F\u95FA\u8F68\u8BE1\u8D35\u523D\u5326\u523F\u59AB\u6867\u9C91\u9CDC\u8F8A\u6EDA\u886E\u7EF2\u9CA7\u9505\u56FD\u8FC7\u57DA\u5459\u5E3C\u6901\u8748\u94EA\u9A87\u97E9\u6C49\u961A\u7ED7\u9889\u53F7\u704F\u98A2\u9602\u9E64\u8D3A\u8BC3\u9616\u86CE\u6A2A\u8F70\u9E3F\u7EA2\u9EC9\u8BA7\u836D\u95F3\u9C8E\u58F6\u62A4\u6CAA\u6237\u6D52\u9E55\u54D7\u534E\u753B\u5212\u8BDD\u9A85\u6866\u94E7\u6000\u574F\u6B22\u73AF\u8FD8\u7F13\u6362\u5524\u75EA\u7115\u6DA3\u5942\u7F33\u953E\u9CA9\u9EC4\u8C0E\u9CC7\u6325\u8F89\u6BC1\u8D3F\u79FD\u4F1A\u70E9\u6C47\u8BB3\u8BF2\u7ED8\u8BD9\u835F\u54D5\u6D4D\u7F0B\u73F2\u6656\u8364\u6D51\u8BE8\u9984\u960D\u83B7\u8D27\u7978\u94AC\u956C\u51FB\u673A\u79EF\u9965\u8FF9\u8BA5\u9E21\u7EE9\u7F09\u6781\u8F91\u7EA7\u6324\u51E0\u84DF\u5242\u6D4E\u8BA1\u8BB0\u9645\u7EE7\u7EAA\u8BA6\u8BD8\u8360\u53FD\u54DC\u9AA5\u7391\u89CA\u9F51\u77F6\u7F81\u867F\u8DFB\u9701\u9C9A\u9CAB\u5939\u835A\u988A\u8D3E\u94BE\u4EF7\u9A7E\u90CF\u6D43\u94D7\u9553\u86F2\u6B7C\u76D1\u575A\u7B3A\u95F4\u8270\u7F04\u8327\u68C0\u78B1\u7877\u62E3\u6361\u7B80\u4FED\u51CF\u8350\u69DB\u9274\u8DF5\u8D31\u89C1\u952E\u8230\u5251\u996F\u6E10\u6E85\u6DA7\u8C0F\u7F23\u620B\u622C\u7751\u9E63\u7B15\u9CA3\u97AF\u5C06\u6D46\u848B\u6868\u5956\u8BB2\u9171\u7EDB\u7F30\u80F6\u6D47\u9A84\u5A07\u6405\u94F0\u77EB\u4FA5\u811A\u997A\u7F34\u7EDE\u8F7F\u8F83\u6322\u5CE4\u9E6A\u9C9B\u9636\u8282\u6D01\u7ED3\u8BEB\u5C4A\u7596\u988C\u9C92\u7D27\u9526\u4EC5\u8C28\u8FDB\u664B\u70EC\u5C3D\u52B2\u8346\u830E\u537A\u8369\u9991\u7F19\u8D46\u89D0\u9CB8\u60CA\u7ECF\u9888\u9759\u955C\u5F84\u75C9\u7ADE\u51C0\u522D\u6CFE\u8FF3\u5F2A\u80EB\u9753\u7EA0\u53A9\u65E7\u9604\u9E20\u9E6B\u9A79\u4E3E\u636E\u952F\u60E7\u5267\u8BB5\u5C66\u6989\u98D3\u949C\u9514\u7AAD\u9F83\u9E43\u7EE2\u9529\u954C\u96BD\u89C9\u51B3\u7EDD\u8C32\u73CF\u94A7\u519B\u9A8F\u76B2\u5F00\u51EF\u5240\u57B2\u5FFE\u607A\u94E0\u9534\u9F9B\u95F6\u94AA\u94D0\u9897\u58F3\u8BFE\u9A92\u7F02\u8F72\u94B6\u951E\u9894\u57A6\u6073\u9F88\u94FF\u62A0\u5E93\u88E4\u55BE\u5757\u4FA9\u90D0\u54D9\u810D\u5BBD\u72EF\u9ACB\u77FF\u65F7\u51B5\u8BD3\u8BF3\u909D\u5739\u7EA9\u8D36\u4E8F\u5CBF\u7AA5\u9988\u6E83\u532E\u8489\u6126\u8069\u7BD1\u9603\u951F\u9CB2\u6269\u9614\u86F4\u8721\u814A\u83B1\u6765\u8D56\u5D03\u5F95\u6D9E\u6FD1\u8D49\u7750\u94FC\u765E\u7C41\u84DD\u680F\u62E6\u7BEE\u9611\u5170\u6F9C\u8C30\u63FD\u89C8\u61D2\u7F06\u70C2\u6EE5\u5C9A\u6984\u6593\u9567\u8934\u7405\u9606\u9512\u635E\u52B3\u6D9D\u5520\u5D02\u94D1\u94F9\u75E8\u4E50\u9CD3\u956D\u5792\u7C7B\u6CEA\u8BD4\u7F27\u7BF1\u72F8\u79BB\u9CA4\u793C\u4E3D\u5389\u52B1\u783E\u5386\u6CA5\u96B6\u4FEA\u90E6\u575C\u82C8\u8385\u84E0\u5456\u9026\u9A8A\u7F21\u67A5\u680E\u8F79\u783A\u9502\u9E42\u75A0\u7C9D\u8DDE\u96F3\u9CA1\u9CE2\u4FE9\u8054\u83B2\u8FDE\u9570\u601C\u6D9F\u5E18\u655B\u8138\u94FE\u604B\u70BC\u7EC3\u8539\u5941\u6F4B\u740F\u6B93\u88E2\u88E3\u9CA2\u7CAE\u51C9\u4E24\u8F86\u8C05\u9B49\u7597\u8FBD\u9563\u7F2D\u948C\u9E69\u730E\u4E34\u90BB\u9CDE\u51DB\u8D41\u853A\u5EEA\u6AA9\u8F9A\u8E8F\u9F84\u94C3\u7075\u5CAD\u9886\u7EEB\u68C2\u86CF\u9CAE\u998F\u5218\u6D4F\u9A9D\u7EFA\u954F\u9E68\u9F99\u804B\u5499\u7B3C\u5784\u62E2\u9647\u830F\u6CF7\u73D1\u680A\u80E7\u783B\u697C\u5A04\u6402\u7BD3\u507B\u848C\u55BD\u5D5D\u9542\u7618\u8027\u877C\u9AC5\u82A6\u5362\u9885\u5E90\u7089\u63B3\u5364\u864F\u9C81\u8D42\u7984\u5F55\u9646\u5786\u64B8\u565C\u95FE\u6CF8\u6E0C\u680C\u6A79\u8F73\u8F82\u8F98\u6C07\u80EA\u9E2C\u9E6D\u823B\u9C88\u5CE6\u631B\u5B6A\u6EE6\u4E71\u8114\u5A08\u683E\u9E3E\u92AE\u62A1\u8F6E\u4F26\u4ED1\u6CA6\u7EB6\u8BBA\u56F5\u841D\u7F57\u903B\u9523\u7BA9\u9AA1\u9A86\u7EDC\u8366\u7321\u6CFA\u6924\u8136\u9559\u9A74\u5415\u94DD\u4FA3\u5C61\u7F15\u8651\u6EE4\u7EFF\u6988\u891B\u950A\u5452\u5988\u739B\u7801\u8682\u9A6C\u9A82\u5417\u551B\u5B37\u6769\u4E70\u9EA6\u5356\u8FC8\u8109\u52A2\u7792\u9992\u86EE\u6EE1\u8C29\u7F26\u9558\u98A1\u9CD7\u732B\u951A\u94C6\u8D38\u4E48\u6CA1\u9541\u95E8\u95F7\u4EEC\u626A\u7116\u61D1\u9494\u9530\u68A6\u772F\u8C1C\u5F25\u89C5\u5E42\u8288\u8C27\u7315\u7962\u7EF5\u7F05\u6E11\u817C\u9EFE\u5E99\u7F08\u7F2A\u706D\u60AF\u95FD\u95F5\u7F17\u9E23\u94ED\u8C2C\u8C1F\u84E6\u998D\u6B81\u9546\u8C0B\u4EA9\u94BC\u5450\u94A0\u7EB3\u96BE\u6320\u8111\u607C\u95F9\u94D9\u8BB7\u9981\u5185\u62DF\u817B\u94CC\u9CB5\u64B5\u8F87\u9CB6\u917F\u9E1F\u8311\u8885\u8042\u556E\u954A\u954D\u9667\u8616\u55EB\u989F\u8E51\u67E0\u72DE\u5B81\u62E7\u6CDE\u82CE\u549B\u804D\u94AE\u7EBD\u8113\u6D53\u519C\u4FAC\u54DD\u9A7D\u9495\u8BFA\u50A9\u759F\u6B27\u9E25\u6BB4\u5455\u6CA4\u8BB4\u6004\u74EF\u76D8\u8E52\u5E9E\u629B\u75B1\u8D54\u8F94\u55B7\u9E4F\u7EB0\u7F74\u94CD\u9A97\u8C1D\u9A88\u98D8\u7F25\u9891\u8D2B\u5AD4\u82F9\u51ED\u8BC4\u6CFC\u9887\u948B\u6251\u94FA\u6734\u8C31\u9564\u9568\u6816\u8110\u9F50\u9A91\u5C82\u542F\u6C14\u5F03\u8BAB\u8572\u9A90\u7EEE\u6864\u789B\u9880\u9883\u9CCD\u7275\u948E\u94C5\u8FC1\u7B7E\u8C26\u94B1\u94B3\u6F5C\u6D45\u8C34\u5811\u4F65\u8368\u60AD\u9A9E\u7F31\u6920\u94A4\u67AA\u545B\u5899\u8537\u5F3A\u62A2\u5AF1\u6A2F\u6217\u709D\u9516\u9535\u956A\u7F9F\u8DC4\u9539\u6865\u4E54\u4FA8\u7FD8\u7A8D\u8BEE\u8C2F\u835E\u7F32\u7857\u8DF7\u7A83\u60EC\u9532\u7BA7\u94A6\u4EB2\u5BDD\u9513\u8F7B\u6C22\u503E\u9877\u8BF7\u5E86\u63FF\u9CAD\u743C\u7A77\u8315\u86F1\u5DEF\u8D47\u866E\u9CC5\u8D8B\u533A\u8EAF\u9A71\u9F8B\u8BCE\u5C96\u9612\u89D1\u9E32\u98A7\u6743\u529D\u8BE0\u7EFB\u8F81\u94E8\u5374\u9E4A\u786E\u9615\u9619\u60AB\u8BA9\u9976\u6270\u7ED5\u835B\u5A06\u6861\u70ED\u97E7\u8BA4\u7EAB\u996A\u8F6B\u8363\u7ED2\u5D58\u877E\u7F1B\u94F7\u98A6\u8F6F\u9510\u86AC\u95F0\u6DA6\u6D12\u8428\u98D2\u9CC3\u8D5B\u4F1E\u6BF5\u7CC1\u4E27\u9A9A\u626B\u7F2B\u6DA9\u556C\u94EF\u7A51\u6740\u5239\u7EB1\u94E9\u9CA8\u7B5B\u6652\u917E\u5220\u95EA\u9655\u8D61\u7F2E\u8BAA\u59D7\u9A9F\u9490\u9CDD\u5892\u4F24\u8D4F\u57A7\u6B87\u89DE\u70E7\u7ECD\u8D4A\u6444\u6151\u8BBE\u538D\u6EE0\u7572\u7EC5\u5BA1\u5A76\u80BE\u6E17\u8BDC\u8C02\u6E16\u58F0\u7EF3\u80DC\u5E08\u72EE\u6E7F\u8BD7\u65F6\u8680\u5B9E\u8BC6\u9A76\u52BF\u9002\u91CA\u9970\u89C6\u8BD5\u8C25\u57D8\u83B3\u5F11\u8F7C\u8D33\u94C8\u9CA5\u5BFF\u517D\u7EF6\u67A2\u8F93\u4E66\u8D4E\u5C5E\u672F\u6811\u7AD6\u6570\u6445\u7EBE\u5E05\u95E9\u53CC\u8C01\u7A0E\u987A\u8BF4\u7855\u70C1\u94C4\u4E1D\u9972\u53AE\u9A77\u7F0C\u9536\u9E36\u8038\u6002\u9882\u8BBC\u8BF5\u64DE\u85AE\u998A\u98D5\u953C\u82CF\u8BC9\u8083\u8C21\u7A23\u867D\u968F\u7EE5\u5C81\u8C07\u5B59\u635F\u7B0B\u836A\u72F2\u7F29\u7410\u9501\u5522\u7743\u736D\u631E\u95FC\u94CA\u9CCE\u53F0\u6001\u949B\u9C90\u644A\u8D2A\u762B\u6EE9\u575B\u8C2D\u8C08\u53F9\u6619\u94BD\u952C\u9878\u6C64\u70EB\u50A5\u9967\u94F4\u9557\u6D9B\u7EE6\u8BA8\u97EC\u94FD\u817E\u8A8A\u9511\u9898\u4F53\u5C49\u7F07\u9E48\u9617\u6761\u7C9C\u9F86\u9CA6\u8D34\u94C1\u5385\u542C\u70C3\u94DC\u7EDF\u6078\u5934\u94AD\u79C3\u56FE\u948D\u56E2\u629F\u9893\u8715\u9968\u8131\u9E35\u9A6E\u9A7C\u692D\u7BA8\u9F0D\u889C\u5A32\u817D\u5F2F\u6E7E\u987D\u4E07\u7EA8\u7EFE\u7F51\u8F8B\u97E6\u8FDD\u56F4\u4E3A\u6F4D\u7EF4\u82C7\u4F1F\u4F2A\u7EAC\u8C13\u536B\u8BFF\u5E0F\u95F1\u6CA9\u6DA0\u73AE\u97EA\u709C\u9C94\u6E29\u95FB\u7EB9\u7A33\u95EE\u960C\u74EE\u631D\u8717\u6DA1\u7A9D\u5367\u83B4\u9F8C\u545C\u94A8\u4E4C\u8BEC\u65E0\u829C\u5434\u575E\u96FE\u52A1\u8BEF\u90AC\u5E91\u6003\u59A9\u9A9B\u9E49\u9E5C\u9521\u727A\u88AD\u4E60\u94E3\u620F\u7EC6\u9969\u960B\u73BA\u89CB\u867E\u8F96\u5CE1\u4FA0\u72ED\u53A6\u5413\u7856\u9C9C\u7EA4\u8D24\u8854\u95F2\u663E\u9669\u73B0\u732E\u53BF\u9985\u7FA1\u5BAA\u7EBF\u82CB\u83B6\u85D3\u5C98\u7303\u5A34\u9E47\u75EB\u869D\u7C7C\u8DF9\u53A2\u9576\u4E61\u8BE6\u54CD\u9879\u8297\u9977\u9AA7\u7F03\u98E8\u8427\u56A3\u9500\u6653\u5578\u54D3\u6F47\u9A81\u7EE1\u67AD\u7BAB\u534F\u631F\u643A\u80C1\u8C10\u5199\u6CFB\u8C22\u4EB5\u64B7\u7EC1\u7F2C\u950C\u8845\u5174\u9649\u8365\u51F6\u6C79\u9508\u7EE3\u9990\u9E3A\u865A\u5618\u987B\u8BB8\u53D9\u7EEA\u7EED\u8BE9\u987C\u8F69\u60AC\u9009\u7663\u7EDA\u8C16\u94C9\u955F\u5B66\u8C11\u6CF6\u9CD5\u52CB\u8BE2\u5BFB\u9A6F\u8BAD\u8BAF\u900A\u57D9\u6D54\u9C9F\u538B\u9E26\u9E2D\u54D1\u4E9A\u8BB6\u57AD\u5A05\u6860\u6C29\u9609\u70DF\u76D0\u4E25\u5CA9\u989C\u960E\u8273\u538C\u781A\u5F66\u8C1A\u9A8C\u53A3\u8D5D\u4FE8\u5156\u8C33\u6079\u95EB\u917D\u9B47\u990D\u9F39\u9E2F\u6768\u626C\u75A1\u9633\u75D2\u517B\u6837\u7080\u7476\u6447\u5C27\u9065\u7A91\u8C23\u836F\u8F7A\u9E5E\u9CD0\u7237\u9875\u4E1A\u53F6\u9765\u8C12\u90BA\u6654\u70E8\u533B\u94F1\u9890\u9057\u4EEA\u8681\u827A\u4EBF\u5FC6\u4E49\u8BE3\u8BAE\u8C0A\u8BD1\u5F02\u7ECE\u8BD2\u5453\u5CC4\u9974\u603F\u9A7F\u7F22\u8F76\u8D3B\u9487\u9552\u9571\u7617\u8223\u836B\u9634\u94F6\u996E\u9690\u94DF\u763E\u6A31\u5A74\u9E70\u5E94\u7F28\u83B9\u8424\u8425\u8367\u8747\u8D62\u9896\u8314\u83BA\u8426\u84E5\u6484\u5624\u6EE2\u6F46\u748E\u9E66\u763F\u988F\u7F42\u54DF\u62E5\u4F63\u75C8\u8E0A\u548F\u955B\u4F18\u5FE7\u90AE\u94C0\u72B9\u8BF1\u83B8\u94D5\u9C7F\u8206\u9C7C\u6E14\u5A31\u4E0E\u5C7F\u8BED\u72F1\u8A89\u9884\u9A6D\u4F1B\u4FE3\u8C00\u8C15\u84E3\u5D5B\u996B\u9608\u59AA\u7EA1\u89CE\u6B24\u94B0\u9E46\u9E6C\u9F89\u9E33\u6E0A\u8F95\u56ED\u5458\u5706\u7F18\u8FDC\u6A7C\u9E22\u9F0B\u7EA6\u8DC3\u94A5\u7CA4\u60A6\u9605\u94BA\u90E7\u5300\u9668\u8FD0\u8574\u915D\u6655\u97F5\u90D3\u82B8\u607D\u6120\u7EAD\u97EB\u6B92\u6C32\u6742\u707E\u8F7D\u6512\u6682\u8D5E\u74D2\u8DB1\u933E\u8D43\u810F\u9A75\u51FF\u67A3\u8D23\u62E9\u5219\u6CFD\u8D5C\u5567\u5E3B\u7BA6\u8D3C\u8C2E\u8D60\u7EFC\u7F2F\u8F67\u94E1\u95F8\u6805\u8BC8\u658B\u503A\u6BE1\u76CF\u65A9\u8F97\u5D2D\u6808\u6218\u7EFD\u8C35\u5F20\u6DA8\u5E10\u8D26\u80C0\u8D75\u8BCF\u948A\u86F0\u8F99\u9517\u8FD9\u8C2A\u8F84\u9E67\u8D1E\u9488\u4FA6\u8BCA\u9547\u9635\u6D48\u7F1C\u6862\u8F78\u8D48\u796F\u9E29\u6323\u7741\u72F0\u4E89\u5E27\u75C7\u90D1\u8BC1\u8BE4\u5CE5\u94B2\u94EE\u7B5D\u7EC7\u804C\u6267\u7EB8\u631A\u63B7\u5E1C\u8D28\u6EDE\u9A98\u6809\u6800\u8F75\u8F7E\u8D3D\u9E37\u86F3\u7D77\u8E2C\u8E2F\u89EF\u949F\u7EC8\u79CD\u80BF\u4F17\u953A\u8BCC\u8F74\u76B1\u663C\u9AA4\u7EA3\u7EC9\u732A\u8BF8\u8BDB\u70DB\u77A9\u5631\u8D2E\u94F8\u9A7B\u4F2B\u69E0\u94E2\u4E13\u7816\u8F6C\u8D5A\u556D\u9994\u989E\u6869\u5E84\u88C5\u5986\u58EE\u72B6\u9525\u8D58\u5760\u7F00\u9A93\u7F12\u8C06\u51C6\u7740\u6D4A\u8BFC\u956F\u5179\u8D44\u6E0D\u8C18\u7F01\u8F8E\u8D40\u7726\u9531\u9F87\u9CBB\u8E2A\u603B\u7EB5\u506C\u90B9\u8BF9\u9A7A\u9CB0\u8BC5\u7EC4\u955E\u94BB\u7F35\u8E9C\u9CDF\u7FF1\u5E76\u535C\u6C89\u4E11\u6DC0\u8FED\u6597\u8303\u5E72\u768B\u7845\u67DC\u540E\u4F19\u79F8\u6770\u8BC0\u5938\u91CC\u91CC\u51CC\u4E48\u9709\u637B\u51C4\u6266\u5723\u5C38\u62AC\u6D82\u6D3C\u5582\u6C61\u9528\u54B8\u874E\u5F5D\u6D8C\u6E38\u5401\u5FA1\u613F\u5CB3\u4E91\u7076\u624E\u672D\u7B51\u4E8E\u5FD7\u6CE8\u51CB\u8BA0\u8C2B\u90C4\u52D0\u51FC\u5742\u5785\u57B4\u57EF\u57DD\u82D8\u836C\u836E\u839C\u83BC\u83F0\u85C1\u63F8\u5412\u5423\u5494\u549D\u54B4\u5658\u567C\u56AF\u5E5E\u5C99\u5D74\u5F77\u5FBC\u72B8\u72CD\u9980\u9987\u9993\u9995\u6123\u61B7\u61D4\u4E2C\u6E86\u6EDF\u6EB7\u6F24\u6F74\u6FB9\u752F\u7E9F\u7ED4\u7EF1\u73C9\u67A7\u684A\u6849\u69D4\u6A65\u8F71\u8F77\u8D4D\u80B7\u80E8\u98DA\u7173\u7145\u7198\u610D\u6DFC\u781C\u78D9\u770D\u949A\u94B7\u94D8\u94DE\u9503\u950D\u950E\u950F\u9518\u951D\u952A\u952B\u953F\u9545\u954E\u9562\u9565\u9569\u9572\u7A06\u9E4B\u9E5B\u9E71\u75AC\u75B4\u75D6\u766F\u88E5\u8941\u8022\u98A5\u87A8\u9EB4\u9C85\u9C86\u9C87\u9C9E\u9CB4\u9CBA\u9CBC\u9CCA\u9CCB\u9CD8\u9CD9\u9792\u97B4\u9F44\u4E2C\u4E3A\u4EB8\u4F17\u4F2A\u4F59\u51A2\u51C0\u51CC\u51FC\u522C\u52CB\u52D0\u52DA\u5364\u53C6\u53C7\u542F\u5494\u54A4\u54B4\u54CC\u54D7\u551D\u5521\u5523\u553F\u556E\u5570\u5574\u5475\u567C\u56AF\u5785\u57A7\u57AF\u57B1\u57D9\u57DD\u5846\u5899\u58F8\u59AB\u59DC\u5A34\u5A73\u5C43\u5CBD\u5CC3\u5CE3\u5D04\u5D5A\u5D5B\u5D74\u5EBC\u5F5F\u5FA1\u610D\u616D\u61B7\u624E\u6266\u631C\u6326\u637B\u63F8\u65F8\u663D\u672D\u684A\u68BC\u68BE\u68C2\u69DA\u6A90\u6C61\u6C93\u6CA8\u6CA9\u6CB5\u6D49\u6D50\u6D55\u6D8C\u6DA2\u6E7F\u6E87\u6EEA\u6F24\u7145\u7173\u7198\u7266\u729F\u72CD\u72DD\u732C\u7399\u739A\u73B1\u73C9\u73CF\u73F0\u740E\u7487\u7572\u75B4\u7606\u7618\u766F\u772C\u7740\u7841\u7845\u7859\u785A\u7877\u78B9\u78D9\u794E\u79FE\u7B5C\u7B7E\u7B93\u7CC7\u7E9F\u7EAE\u7EB4\u7EBB\u7EBC\u7ED6\u7EE4\u7EE6\u7EEC\u7EF1\u7EF9\u7F0A\u7F10\u7F1E\u7F30\u7FD9\u7FDA\u80B7\u810F\u814C\u8158\u816D\u81DC\u8273\u8279\u8359\u839C\u83BC\u841A\u85C1\u866C\u8780\u87CF\u8885\u8886\u88AF\u88C8\u88E5\u8941\u8955\u89C3\u89CD\u8A5F\u8BB1\u8BBB\u8BC7\u8BD0\u8BEA\u8C1E\u8C25\u8C37\u8C6E\u8D20\u8D4D\u8D51\u8D52\u8D57\u8D5F\u8D6A\u8DD6\u8DF6\u8E0A\u8F6A\u8F80\u8F8C\u8F92\u90C1\u90C4\u9166\u9245\u9274\u948E\u9491\u9496\u9498\u94B5\u94BB\u94CF\u94DA\u94E6\u94FB\u9508\u950F\u951C\u9520\u9528\u9533\u953D\u9543\u9548\u9555\u955A\u9560\u9562\u956E\u9574\u95EC\u95F2\u95FF\u9607\u9613\u9618\u961B\u9655\u97B4\u97E8\u988B\u988E\u9892\u9895\u9899\u98A3\u98CF\u98D0\u98D4\u98D6\u98D7\u9964\u9965\u9966\u9973\u9978\u9979\u997B\u997E\u9982\u9983\u9989\u998C\u998E\u9A72\u9A83\u9A89\u9A8D\u9A8E\u9A94\u9A95\u9A99\u9AA6\u9C7D\u9C7E\u9C80\u9C84\u9C89\u9C8A\u9C8C\u9C8F\u9C93\u9C96\u9C97\u9C98\u9C99\u9C9D\u9CAA\u9CAC\u9CAF\u9CB9\u9CBE\u9CBF\u9CC0\u9CC1\u9CC2\u9CC8\u9CC9\u9CD1\u9CD2\u9CDB\u9CE0\u9CE1\u9CE3\u9E24\u9E27\u9E2E\u9E30\u9E34\u9E3B\u9E3C\u9E40\u9E47\u9E4D\u9E50\u9E52\u9E53\u9E54\u9E56\u9E5D\u9E5F\u9E60\u9E61\u9E62\u9E65\u9E6F\u9E72\u9E74\u9EE1\u9F0C\u9F17\u9F81\u9F82\u5FD7\u5236\u54A8\u53EA\u7CFB\u677E\u5C1D\u9762\u5E72\u62FC\u6076\u8D5E\u53D1\u50F5\u81F4\u5978\u83B7\u7EC3\u56DE\u7CFB\u8FF9\u53EA\u8F9F\u677F\u4F60";
-}
-function ftPYStr() {
-  return "\u9312\u769A\u85F9\u7919\u611B\u566F\u5B21\u74A6\u66D6\u9744\u8AF3\u92A8\u9D6A\u9AAF\u8956\u5967\u5ABC\u9A41\u9C32\u58E9\u7F77\u9200\u64FA\u6557\u5504\u9812\u8FA6\u7D46\u9211\u5E6B\u7D81\u938A\u8B17\u525D\u98FD\u5BF6\u5831\u9B91\u9D07\u9F59\u8F29\u8C9D\u92C7\u72FD\u5099\u618A\u9D6F\u8CC1\u931B\u7E43\u7B46\u7562\u6583\u5E63\u9589\u84FD\u55F6\u6F77\u924D\u7BF3\u8E55\u908A\u7DE8\u8CB6\u8B8A\u8FAF\u8FAE\u8290\u7DF6\u7C69\u6A19\u9A43\u98AE\u98C6\u93E2\u9463\u9C3E\u9C49\u5225\u765F\u7015\u6FF1\u8CD3\u64EF\u5110\u7E7D\u6AB3\u6BAF\u81CF\u944C\u9AD5\u9B22\u9905\u7A1F\u64A5\u7F3D\u9251\u99C1\u9911\u9238\u9D53\u88DC\u923D\u8CA1\u53C3\u8836\u6B98\u615A\u6158\u71E6\u9A42\u9EF2\u84BC\u8259\u5009\u6EC4\u5EC1\u5074\u518A\u6E2C\u60FB\u5C64\u8A6B\u9364\u5115\u91F5\u6519\u647B\u87EC\u995E\u8B92\u7E8F\u93DF\u7522\u95E1\u986B\u56C5\u8AC2\u8B96\u8546\u61FA\u5B0B\u9A4F\u8998\u79AA\u9414\u5834\u5617\u9577\u511F\u8178\u5EE0\u66A2\u5000\u8407\u60B5\u95B6\u9BE7\u9214\u8ECA\u5FB9\u7868\u5875\u9673\u896F\u5096\u8AF6\u6AEC\u78E3\u9F54\u6490\u7A31\u61F2\u8AA0\u9A01\u68D6\u6A89\u92EE\u943A\u7661\u9072\u99B3\u6065\u9F52\u71BE\u98ED\u9D1F\u6C96\u885D\u87F2\u5BF5\u9283\u7587\u8E8A\u7C4C\u7DA2\u5114\u5E6C\u8B8E\u6AE5\u5EDA\u92E4\u96DB\u790E\u5132\u89F8\u8655\u82BB\u7D40\u8E95\u50B3\u91E7\u7621\u95D6\u5275\u6134\u9318\u7D9E\u7D14\u9D89\u7DBD\u8F1F\u9F6A\u8FAD\u8A5E\u8CDC\u9DBF\u8070\u8525\u56EA\u5F9E\u53E2\u84EF\u9A44\u6A05\u6E4A\u8F33\u8EA5\u7AC4\u651B\u932F\u92BC\u9E7A\u9054\u5660\u97C3\u5E36\u8CB8\u99D8\u7D3F\u64D4\u55AE\u9132\u64A3\u81BD\u619A\u8A95\u5F48\u6BAB\u8CE7\u7649\u7C1E\u7576\u64CB\u9EE8\u8569\u6A94\u8B9C\u78AD\u8960\u6417\u5CF6\u79B1\u5C0E\u76DC\u71FE\u71C8\u9127\u9419\u6575\u6ECC\u905E\u7DE0\u7CF4\u8A46\u8AE6\u7D88\u89BF\u93D1\u985B\u9EDE\u588A\u96FB\u5DD4\u923F\u7672\u91E3\u8ABF\u929A\u9BDB\u8ADC\u758A\u9C08\u91D8\u9802\u9320\u8A02\u92CC\u4E1F\u92A9\u6771\u52D5\u68DF\u51CD\u5D20\u9D87\u7AC7\u72A2\u7368\u8B80\u8CED\u934D\u7006\u6ADD\u7258\u7BE4\u9EF7\u935B\u65B7\u7DDE\u7C6A\u514C\u968A\u5C0D\u61DF\u9413\u5678\u9813\u920D\u71C9\u8E89\u596A\u58AE\u9438\u9D5D\u984D\u8A1B\u60E1\u9913\u8AE4\u580A\u95BC\u8EDB\u92E8\u9354\u9D9A\u984E\u9853\u9C77\u8A92\u5152\u723E\u990C\u8CB3\u9087\u927A\u9D2F\u9B9E\u767C\u7F70\u95A5\u743A\u792C\u91E9\u7169\u8CA9\u98EF\u8A2A\u7D21\u9201\u9B74\u98DB\u8AB9\u5EE2\u8CBB\u7DCB\u9428\u9BE1\u7D1B\u58B3\u596E\u61A4\u7CDE\u50E8\u8C50\u6953\u92D2\u98A8\u760B\u99AE\u7E2B\u8AF7\u9CF3\u7043\u819A\u8F3B\u64AB\u8F14\u8CE6\u5FA9\u8CA0\u8A03\u5A66\u7E1B\u9CE7\u99D9\u7D31\u7D3C\u8CFB\u9EA9\u9B92\u9C12\u91D3\u8A72\u9223\u84CB\u8CC5\u687F\u8D95\u7A08\u8D1B\u5C37\u641F\u7D3A\u5CA1\u525B\u92FC\u7DB1\u5D17\u6207\u93AC\u776A\u8AA5\u7E1E\u92EF\u64F1\u9D3F\u95A3\u927B\u500B\u7D07\u9398\u6F41\u7D66\u4E99\u8CE1\u7D86\u9BC1\u9F94\u5BAE\u978F\u8CA2\u9264\u6E9D\u830D\u69CB\u8CFC\u5920\u8A6C\u7DF1\u89AF\u8831\u9867\u8A41\u8F42\u9237\u932E\u9D23\u9D60\u9DBB\u526E\u639B\u9D30\u6451\u95DC\u89C0\u9928\u6163\u8CAB\u8A7F\u645C\u9E1B\u9C25\u5EE3\u7377\u898F\u6B78\u9F9C\u95A8\u8ECC\u8A6D\u8CB4\u528A\u532D\u528C\u5AAF\u6A9C\u9BAD\u9C56\u8F25\u6EFE\u889E\u7DC4\u9BC0\u934B\u570B\u904E\u581D\u54BC\u5E57\u69E8\u87C8\u927F\u99ED\u97D3\u6F22\u95DE\u7D4E\u9821\u865F\u705D\u9865\u95A1\u9DB4\u8CC0\u8A36\u95D4\u8823\u6A6B\u8F5F\u9D3B\u7D05\u9ECC\u8A0C\u8452\u958E\u9C5F\u58FA\u8B77\u6EEC\u6236\u6EF8\u9D98\u5629\u83EF\u756B\u5283\u8A71\u9A4A\u6A3A\u93F5\u61F7\u58DE\u6B61\u74B0\u9084\u7DE9\u63DB\u559A\u7613\u7165\u6E19\u5950\u7E6F\u9370\u9BC7\u9EC3\u8B0A\u9C09\u63EE\u8F1D\u6BC0\u8CC4\u7A62\u6703\u71F4\u532F\u8AF1\u8AA8\u7E6A\u8A7C\u8588\u5666\u6FAE\u7E62\u743F\u6689\u8477\u6E3E\u8AE2\u991B\u95BD\u7372\u8CA8\u798D\u9225\u944A\u64CA\u6A5F\u7A4D\u9951\u8DE1\u8B4F\u96DE\u7E3E\u7DDD\u6975\u8F2F\u7D1A\u64E0\u5E7E\u858A\u5291\u6FDF\u8A08\u8A18\u969B\u7E7C\u7D00\u8A10\u8A70\u85BA\u5630\u568C\u9A65\u74A3\u89AC\u9F4F\u78EF\u7F88\u8806\u8E8B\u973D\u9C6D\u9BFD\u593E\u83A2\u9830\u8CC8\u9240\u50F9\u99D5\u90DF\u6D79\u92CF\u93B5\u87EF\u6BB2\u76E3\u5805\u7B8B\u9593\u8271\u7DD8\u7E6D\u6AA2\u583F\u9E7C\u63C0\u64BF\u7C21\u5109\u6E1B\u85A6\u6ABB\u9452\u8E10\u8CE4\u898B\u9375\u8266\u528D\u991E\u6F38\u6FFA\u6F97\u8AEB\u7E11\u6214\u6229\u77BC\u9DBC\u7B67\u9C39\u97C9\u5C07\u6F3F\u8523\u69F3\u734E\u8B1B\u91AC\u7D73\u97C1\u81A0\u6F86\u9A55\u5B0C\u652A\u9278\u77EF\u50E5\u8173\u9903\u7E73\u7D5E\u8F4E\u8F03\u649F\u5DA0\u9DE6\u9BAB\u968E\u7BC0\u6F54\u7D50\u8AA1\u5C46\u7664\u981C\u9B9A\u7DCA\u9326\u50C5\u8B39\u9032\u6649\u71FC\u76E1\u52C1\u834A\u8396\u5DF9\u85CE\u9949\u7E09\u8D10\u89B2\u9BE8\u9A5A\u7D93\u9838\u975C\u93E1\u5F91\u75D9\u7AF6\u51C8\u5244\u6D87\u9015\u5F33\u811B\u975A\u7CFE\u5EC4\u820A\u9B2E\u9CE9\u9DF2\u99D2\u8209\u64DA\u92F8\u61FC\u5287\u8A4E\u5C68\u6AF8\u98B6\u9245\u92E6\u7AB6\u9F5F\u9D51\u7D79\u9308\u942B\u96CB\u89BA\u6C7A\u7D55\u8B4E\u73A8\u921E\u8ECD\u99FF\u76B8\u958B\u51F1\u5274\u584F\u613E\u6137\u93A7\u9347\u9F95\u958C\u9227\u92AC\u9846\u6BBC\u8AB2\u9A0D\u7DD9\u8EFB\u9233\u9301\u9837\u58BE\u61C7\u9F66\u93D7\u6473\u5EAB\u8932\u56B3\u584A\u5108\u9136\u5672\u81BE\u5BEC\u736A\u9AD6\u7926\u66E0\u6CC1\u8A86\u8A91\u913A\u58D9\u7E8A\u8CBA\u8667\u5DCB\u7ABA\u994B\u6F70\u5331\u8562\u6192\u8075\u7C23\u95AB\u9315\u9BE4\u64F4\u95CA\u8810\u881F\u81D8\u840A\u4F86\u8CF4\u5D0D\u5FA0\u6DF6\u7028\u8CDA\u775E\u9338\u7669\u7C5F\u85CD\u6B04\u6514\u7C43\u95CC\u862D\u703E\u8B95\u652C\u89BD\u61F6\u7E9C\u721B\u6FEB\u5D50\u6B16\u6595\u946D\u8964\u746F\u95AC\u92C3\u6488\u52DE\u6F87\u562E\u5D97\u92A0\u9412\u7646\u6A02\u9C33\u9433\u58D8\u985E\u6DDA\u8A84\u7E32\u7C6C\u8C8D\u96E2\u9BC9\u79AE\u9E97\u53B2\u52F5\u792B\u6B77\u701D\u96B8\u5137\u9148\u58E2\u85F6\u849E\u863A\u56A6\u9090\u9A6A\u7E2D\u6AEA\u6ADF\u8F62\u792A\u92F0\u9E1D\u7658\u7CF2\u8E92\u9742\u9C7A\u9C67\u5006\u806F\u84EE\u9023\u942E\u6190\u6F23\u7C3E\u6582\u81C9\u93C8\u6200\u7149\u7DF4\u861E\u5969\u7032\u7489\u6BAE\u8933\u895D\u9C31\u7CE7\u6DBC\u5169\u8F1B\u8AD2\u9B4E\u7642\u907C\u9410\u7E5A\u91D5\u9DEF\u7375\u81E8\u9130\u9C57\u51DC\u8CC3\u85FA\u5EE9\u6A81\u8F54\u8EAA\u9F61\u9234\u9748\u5DBA\u9818\u7DBE\u6B1E\u87F6\u9BEA\u993E\u5289\u700F\u9A2E\u7DB9\u93A6\u9DDA\u9F8D\u807E\u56A8\u7C60\u58DF\u650F\u96B4\u8622\u7027\u74CF\u6AF3\u6727\u7931\u6A13\u5A41\u645F\u7C0D\u50C2\u851E\u560D\u5D81\u93E4\u763A\u802C\u87BB\u9ACF\u8606\u76E7\u9871\u5EEC\u7210\u64C4\u9E75\u865C\u9B6F\u8CC2\u797F\u9304\u9678\u58DA\u64FC\u5695\u95AD\u7018\u6DE5\u6AE8\u6AD3\u8F64\u8F05\u8F46\u6C0C\u81DA\u9E15\u9DFA\u826B\u9C78\u5DD2\u6523\u5B7F\u7064\u4E82\u81E0\u5B4C\u6B12\u9E1E\u947E\u6384\u8F2A\u502B\u4F96\u6DEA\u7DB8\u8AD6\u5707\u863F\u7F85\u908F\u947C\u7C6E\u9A3E\u99F1\u7D61\u7296\u7380\u6FFC\u6B0F\u8161\u93CD\u9A62\u5442\u92C1\u4FB6\u5C62\u7E37\u616E\u6FFE\u7DA0\u6ADA\u8938\u92DD\u5638\u5ABD\u746A\u78BC\u879E\u99AC\u7F75\u55CE\u561C\u5B24\u69AA\u8CB7\u9EA5\u8CE3\u9081\u8108\u52F1\u779E\u9945\u883B\u6EFF\u8B3E\u7E35\u93DD\u9859\u9C3B\u8C93\u9328\u925A\u8CBF\u9EBC\u6C92\u9382\u9580\u60B6\u5011\u636B\u71DC\u61E3\u9346\u9333\u5922\u7787\u8B0E\u5F4C\u8993\u51AA\u7F8B\u8B10\u737C\u79B0\u7DBF\u7DEC\u6FA0\u9766\u9EFD\u5EDF\u7DF2\u7E46\u6EC5\u61AB\u95A9\u9594\u7DE1\u9CF4\u9298\u8B2C\u8B28\u9A40\u9943\u6B7F\u93CC\u8B00\u755D\u926C\u5436\u9209\u7D0D\u96E3\u6493\u8166\u60F1\u9B27\u9403\u8A25\u9912\u5167\u64EC\u81A9\u922E\u9BE2\u6506\u8F26\u9BF0\u91C0\u9CE5\u8526\u88CA\u8076\u5699\u9477\u93B3\u9689\u8617\u56C1\u9862\u8EA1\u6AB8\u7370\u5BE7\u64F0\u6FD8\u82E7\u5680\u8079\u9215\u7D10\u81BF\u6FC3\u8FB2\u5102\u5665\u99D1\u91F9\u8AFE\u513A\u7627\u6B50\u9DD7\u6BC6\u5614\u6F1A\u8B33\u616A\u750C\u76E4\u8E63\u9F90\u62CB\u76B0\u8CE0\u8F61\u5674\u9D6C\u7D15\u7F86\u9239\u9A19\u8ADE\u99E2\u98C4\u7E39\u983B\u8CA7\u5B2A\u860B\u6191\u8A55\u6F51\u9817\u91D9\u64B2\u92EA\u6A38\u8B5C\u93F7\u9420\u68F2\u81CD\u9F4A\u9A0E\u8C48\u555F\u6C23\u68C4\u8A16\u8604\u9A0F\u7DBA\u69BF\u78E7\u980E\u980F\u9C2D\u727D\u91EC\u925B\u9077\u7C3D\u8B19\u9322\u9257\u6F5B\u6DFA\u8B74\u5879\u50C9\u8541\u6173\u9A2B\u7E7E\u69E7\u9210\u69CD\u55C6\u58BB\u8594\u5F37\u6436\u5B19\u6AA3\u6227\u7197\u9306\u93D8\u93F9\u7FA5\u8E4C\u936C\u6A4B\u55AC\u50D1\u7FF9\u7AC5\u8A9A\u8B59\u854E\u7E70\u78FD\u8E7A\u7ACA\u611C\u9365\u7BCB\u6B3D\u89AA\u5BE2\u92DF\u8F15\u6C2B\u50BE\u9803\u8ACB\u6176\u64B3\u9BD6\u74CA\u7AAE\u7162\u86FA\u5DF0\u8CD5\u87E3\u9C0D\u8DA8\u5340\u8EC0\u9A45\u9F72\u8A58\u5D87\u95C3\u89B7\u9D1D\u9874\u6B0A\u52F8\u8A6E\u7DA3\u8F07\u9293\u537B\u9D72\u78BA\u95CB\u95D5\u6128\u8B93\u9952\u64FE\u7E5E\u8558\u5B08\u6A48\u71B1\u97CC\u8A8D\u7D09\u98EA\u8ED4\u69AE\u7D68\u5DB8\u8811\u7E1F\u92A3\u9870\u8EDF\u92B3\u8706\u958F\u6F64\u7051\u85A9\u98AF\u9C13\u8CFD\u5098\u6BFF\u7CDD\u55AA\u9A37\u6383\u7E45\u6F80\u55C7\u92AB\u7A61\u6BBA\u524E\u7D17\u93A9\u9BCA\u7BE9\u66EC\u91C3\u522A\u9583\u965C\u8D0D\u7E55\u8A15\u59CD\u9A38\u91E4\u9C54\u5891\u50B7\u8CDE\u5770\u6BA4\u89F4\u71D2\u7D39\u8CD2\u651D\u61FE\u8A2D\u5399\u7044\u756C\u7D33\u5BE9\u5B38\u814E\u6EF2\u8A75\u8AD7\u700B\u8072\u7E69\u52DD\u5E2B\u7345\u6FD5\u8A69\u6642\u8755\u5BE6\u8B58\u99DB\u52E2\u9069\u91CB\u98FE\u8996\u8A66\u8B1A\u5852\u8494\u5F12\u8EFE\u8CB0\u9230\u9C23\u58FD\u7378\u7DAC\u6A1E\u8F38\u66F8\u8D16\u5C6C\u8853\u6A39\u8C4E\u6578\u6504\u7D13\u5E25\u9582\u96D9\u8AB0\u7A05\u9806\u8AAA\u78A9\u720D\u9460\u7D72\u98FC\u5EDD\u99DF\u7DE6\u9376\u9DE5\u8073\u616B\u980C\u8A1F\u8AA6\u64FB\u85EA\u993F\u98BC\u93AA\u8607\u8A34\u8085\u8B16\u7A4C\u96D6\u96A8\u7D8F\u6B72\u8AB6\u5B6B\u640D\u7B4D\u84C0\u733B\u7E2E\u7463\u9396\u55E9\u8127\u737A\u64BB\u95E5\u9248\u9C28\u81FA\u614B\u9226\u9B90\u6524\u8CAA\u7671\u7058\u58C7\u8B5A\u8AC7\u5606\u66C7\u926D\u931F\u9807\u6E6F\u71D9\u513B\u9933\u940B\u93DC\u6FE4\u7D73\u8A0E\u97DC\u92F1\u9A30\u8B04\u92BB\u984C\u9AD4\u5C5C\u7DF9\u9D5C\u95D0\u689D\u7CF6\u9F60\u9C37\u8CBC\u9435\u5EF3\u807D\u70F4\u9285\u7D71\u615F\u982D\u9204\u79BF\u5716\u91F7\u5718\u6476\u9839\u86FB\u98E9\u812B\u9D15\u99B1\u99DD\u6A62\u7C5C\u9F09\u896A\u5AA7\u8183\u5F4E\u7063\u9811\u842C\u7D08\u7DB0\u7DB2\u8F1E\u97CB\u9055\u570D\u70BA\u6FF0\u7DAD\u8466\u5049\u507D\u7DEF\u8B02\u885B\u8AC9\u5E43\u95C8\u6E88\u6F7F\u744B\u97D9\u7152\u9BAA\u6EAB\u805E\u7D0B\u7A69\u554F\u95BF\u7515\u64BE\u8778\u6E26\u7AA9\u81E5\u8435\u9F77\u55DA\u93A2\u70CF\u8AA3\u7121\u856A\u5433\u5862\u9727\u52D9\u8AA4\u9114\u5EE1\u61AE\u5AF5\u9A16\u9D61\u9DA9\u932B\u72A7\u8972\u7FD2\u9291\u6232\u7D30\u993C\u9B29\u74BD\u89A1\u8766\u8F44\u5CFD\u4FE0\u72F9\u5EC8\u5687\u7864\u9BAE\u7E96\u8CE2\u929C\u9591\u986F\u96AA\u73FE\u737B\u7E23\u9921\u7FA8\u61B2\u7DDA\u83A7\u859F\u861A\u5CF4\u736B\u5AFB\u9DF4\u7647\u8814\u79C8\u8E9A\u5EC2\u9472\u9109\u8A73\u97FF\u9805\u858C\u9909\u9A64\u7DD7\u9957\u856D\u56C2\u92B7\u66C9\u562F\u5635\u701F\u9A4D\u7D83\u689F\u7C2B\u5354\u633E\u651C\u8105\u8AE7\u5BEB\u7009\u8B1D\u893B\u64F7\u7D32\u7E88\u92C5\u91C1\u8208\u9658\u6ECE\u5147\u6D36\u92B9\u7E61\u9948\u9D42\u865B\u5653\u9808\u8A31\u6558\u7DD2\u7E8C\u8A61\u980A\u8ED2\u61F8\u9078\u766C\u7D62\u8AFC\u9249\u93C7\u5B78\u8B14\u6FA9\u9C48\u52DB\u8A62\u5C0B\u99B4\u8A13\u8A0A\u905C\u5864\u6F6F\u9C58\u58D3\u9D09\u9D28\u555E\u4E9E\u8A1D\u57E1\u5A6D\u690F\u6C2C\u95B9\u7159\u9E7D\u56B4\u5DD6\u984F\u95BB\u8277\u53AD\u786F\u5F65\u8AFA\u9A57\u53B4\u8D17\u513C\u5157\u8B9E\u61E8\u9586\u91C5\u9B58\u995C\u9F34\u9D26\u694A\u63DA\u760D\u967D\u7662\u990A\u6A23\u716C\u7464\u6416\u582F\u9059\u7AAF\u8B20\u85E5\u8EFA\u9DC2\u9C29\u723A\u9801\u696D\u8449\u9768\u8B01\u9134\u66C4\u71C1\u91AB\u92A5\u9824\u907A\u5100\u87FB\u85DD\u5104\u61B6\u7FA9\u8A63\u8B70\u8ABC\u8B6F\u7570\u7E79\u8A52\u56C8\u5DA7\u98F4\u61CC\u9A5B\u7E0A\u8EFC\u8CBD\u91D4\u93B0\u943F\u761E\u8264\u852D\u9670\u9280\u98F2\u96B1\u92A6\u766E\u6AFB\u5B30\u9DF9\u61C9\u7E93\u7469\u87A2\u71DF\u7192\u8805\u8D0F\u7A4E\u584B\u9DAF\u7E08\u93A3\u6516\u56B6\u7005\u7020\u74D4\u9E1A\u766D\u9826\u7F4C\u55B2\u64C1\u50AD\u7670\u8E34\u8A60\u93DE\u512A\u6182\u90F5\u923E\u7336\u8A98\u8555\u92AA\u9B77\u8F3F\u9B5A\u6F01\u5A1B\u8207\u5DBC\u8A9E\u7344\u8B7D\u9810\u99AD\u50B4\u4FC1\u8ADB\u8AED\u8577\u5D33\u98EB\u95BE\u5AD7\u7D06\u89A6\u6B5F\u923A\u9D52\u9DF8\u9F6C\u9D1B\u6DF5\u8F45\u5712\u54E1\u5713\u7DE3\u9060\u6ADE\u9CF6\u9EFF\u7D04\u8E8D\u9470\u7CB5\u6085\u95B1\u925E\u9116\u52FB\u9695\u904B\u860A\u919E\u6688\u97FB\u9106\u8553\u60F2\u614D\u7D1C\u97DE\u6B9E\u6C33\u96DC\u707D\u8F09\u6522\u66AB\u8D0A\u74DA\u8DB2\u93E8\u8D13\u81DF\u99D4\u947F\u68D7\u8CAC\u64C7\u5247\u6FA4\u8CFE\u5616\u5E58\u7C00\u8CCA\u8B56\u8D08\u7D9C\u7E52\u8ECB\u9358\u9598\u67F5\u8A50\u9F4B\u50B5\u6C08\u76DE\u65AC\u8F3E\u5D84\u68E7\u6230\u7DBB\u8B6B\u5F35\u6F32\u5E33\u8CEC\u8139\u8D99\u8A54\u91D7\u87C4\u8F4D\u937A\u9019\u8B2B\u8F12\u9DD3\u8C9E\u91DD\u5075\u8A3A\u93AE\u9663\u6E5E\u7E1D\u6968\u8EEB\u8CD1\u798E\u9D06\u6399\u775C\u7319\u722D\u5E40\u7665\u912D\u8B49\u8ACD\u5D22\u9266\u931A\u7B8F\u7E54\u8077\u57F7\u7D19\u646F\u64F2\u5E5F\u8CEA\u6EEF\u9A2D\u6ADB\u6894\u8EF9\u8F0A\u8D04\u9DD9\u8784\u7E36\u8E93\u8E91\u89F6\u9418\u7D42\u7A2E\u816B\u773E\u937E\u8B05\u8EF8\u76BA\u665D\u9A5F\u7D02\u7E10\u8C6C\u8AF8\u8A85\u71ED\u77DA\u56D1\u8CAF\u9444\u99D0\u4F47\u6AE7\u9296\u5C08\u78DA\u8F49\u8CFA\u56C0\u994C\u9873\u6A01\u838A\u88DD\u599D\u58EF\u72C0\u9310\u8D05\u589C\u7DB4\u9A05\u7E0B\u8AC4\u6E96\u8457\u6FC1\u8AD1\u9432\u8332\u8CC7\u6F2C\u8AEE\u7DC7\u8F1C\u8CB2\u7725\u9319\u9F5C\u9BD4\u8E64\u7E3D\u7E31\u50AF\u9112\u8ACF\u9A36\u9BEB\u8A5B\u7D44\u93C3\u9246\u7E98\u8EA6\u9C52\u7FFA\u4E26\u8514\u6C88\u919C\u6FB1\u53E0\u9B25\u7BC4\u5E79\u81EF\u77FD\u6AC3\u5F8C\u5925\u7A2D\u5091\u8A23\u8A87\u88E1\u88CF\u6DE9\u9EBD\u9EF4\u649A\u6DD2\u6261\u8056\u5C4D\u64E1\u5857\u7AAA\u9935\u6C59\u9341\u9E79\u880D\u5F5C\u6E67\u904A\u7C72\u79A6\u9858\u5DBD\u96F2\u7AC8\u7D2E\u5284\u7BC9\u65BC\u8A8C\u8A3B\u96D5\u8A01\u8B7E\u90E4\u731B\u6C39\u962A\u58DF\u5816\u57B5\u588A\u6ABE\u8552\u8464\u84E7\u8493\u83C7\u69C1\u6463\u54A4\u551A\u54E2\u565D\u5645\u6485\u5288\u8B14\u8946\u5DB4\u810A\u4EFF\u50E5\u7341\u9E85\u9918\u9937\u994A\u9962\u695E\u6035\u61CD\u723F\u6F35\u7069\u6DF7\u6FEB\u7026\u6DE1\u5BE7\u7CF8\u7D5D\u7DD4\u7449\u6898\u68EC\u6848\u6A70\u6AEB\u8EF2\u8EE4\u8CEB\u8181\u8156\u98C8\u7CCA\u7146\u6E9C\u6E63\u6E3A\u78B8\u6EFE\u7798\u9208\u9255\u92E3\u92B1\u92E5\u92F6\u9426\u9427\u9369\u9340\u9343\u9307\u9384\u9387\u93BF\u941D\u9465\u9479\u9454\u7A6D\u9D93\u9DA5\u9E0C\u7667\u5C59\u7602\u81D2\u8947\u7E48\u802E\u986C\u87CE\u9EAF\u9B81\u9B83\u9B8E\u9BD7\u9BDD\u9BF4\u9C5D\u9BFF\u9C20\u9C35\u9C45\u97BD\u97DD\u9F47\u4E2C\u7232\u56B2\u8846\u50DE\u9918\u51A2\u6DE8\u51CC\u51FC\u5257\u52F3\u52D0\u52E9\u6EF7\u9749\u9746\u5553\u5494\u5412\u54B4\u54CC\u8B41\u55CA\u5562\u5523\u553F\u9F67\u56C9\u563D\u5475\u567C\u56AF\u58E0\u57A7\u58B6\u58CB\u58CE\u57DD\u58EA\u7246\u58FC\u5B00\u59DC\u5AFA\u5AFF\u5C53\u5D2C\u5DA8\u5DA2\u5DAE\u5D94\u5D5B\u5D74\u5ECE\u5F60\u5FA1\u610D\u6196\u61B7\u624E\u6266\u6397\u648F\u637B\u63F8\u6698\u66E8\u672D\u684A\u6AAE\u68F6\u6AFA\u6A9F\u6A90\u6C61\u6C93\u6E22\u6F59\u6CB5\u6EAE\u6EFB\u6FDC\u6D8C\u6EB3\u6EBC\u6F0A\u6FA6\u6F24\u7145\u7173\u7198\u729B\u729F\u72CD\u736E\u875F\u74B5\u7452\u7472\u73C9\u73CF\u74AB\u74A1\u7487\u7572\u75FE\u762E\u763B\u766F\u77D3\u7740\u785C\u7845\u78D1\u7904\u7906\u78B9\u78D9\u7995\u7A60\u7C39\u7C64\u7C59\u9931\u7CF9\u7D18\u7D1D\u7D35\u7D16\u7D70\u7D8C\u7D5B\u7DD3\u979D\u7DAF\u7E15\u7DDA\u7E17\u7E6E\u7FFD\u7FEC\u80B7\u9AD2\u9183\u8195\u9F76\u81E2\u8C54\u8279\u8598\u839C\u84F4\u8600\u85C1\u866F\u87BF\u8828\u5ACB\u8918\u894F\u890C\u8949\u8941\u8974\u898E\u89A5\u8B8B\u8A12\u8A29\u8A57\u8A56\u8B78\u8ADD\u8AE1\u8C37\u8C76\u8C9F\u9F4E\u8D14\u8CD9\u8CF5\u8D07\u8D6C\u8DD6\u8E82\u8E0A\u8ED1\u8F08\u8F2C\u8F40\u9B31\u90C4\u91B1\u9245\u9451\u91FA\u9212\u935A\u9203\u9262\u947D\u9276\u928D\u929B\u92D9\u93FD\u9417\u9321\u9329\u6774\u9348\u9360\u93A1\u939B\u9394\u93F0\u93D0\u9481\u9436\u945E\u9588\u9592\u95D3\u95CD\u95E0\u95D2\u95E4\u965D\u97B4\u97CD\u9832\u71B2\u982E\u9834\u9852\u7E87\u98BA\u98AD\u98B8\u98BB\u98C0\u98E3\u98E2\u98E5\u98FF\u9904\u990E\u990F\u9916\u9915\u991C\u9936\u9941\u993A\u99B9\u99F0\u9A6B\u9A02\u99F8\u9A0C\u9A4C\u9A24\u9A66\u9B5B\u9B62\u9B68\u9B7A\u9B8B\u9B93\u9B8A\u9B8D\u9BB3\u9BA6\u9C02\u9B9C\u9C60\u9BBA\u9BB6\u9BD2\u9BD5\u9C3A\u9C0F\u9C68\u9BF7\u9C2E\u9C03\u9C01\u9C42\u9C1F\u9C1C\u9C3C\u9C6F\u9C64\u9C63\u9CF2\u9DAC\u9D1E\u9D12\u9DFD\u9D34\u9D43\u9D50\u9DF3\u9D7E\u9D6E\u9D8A\u9D77\u9DEB\u9DA1\u9DCA\u9DB2\u9DB9\u9DBA\u9DC1\u9DD6\u9E07\u9E0F\u9E18\u9EF6\u9F02\u9780\u9F55\u9F57\u5FD7\u5236\u8AEE\u53EA\u7CFB\u9B06\u5690\u9762\u4E7E\u62FC\u5641\u8B9A\u9AEE\u6BAD\u7DFB\u59E6\u7A6B\u934A\u8FF4\u4FC2\u8E5F\u96BB\u95E2\u95C6\u59B3";
-}
-var exceptionMap = /* @__PURE__ */ new Map([
-  ["\u5403", "\u5403"],
-  // 吃 -> 喫，但同源，不转换
-  ["\u6CE8", "\u6CE8"]
-  // 注 -> 註，但同源，不转换
-]);
-function traditionalized(cc) {
-  let str = "";
-  for (let i = 0; i < cc.length; i++) {
-    const char = cc.charAt(i);
-    if (exceptionMap.has(char)) {
-      str += char;
-      continue;
-    }
-    const index = charPYStr().indexOf(char);
-    if (index !== -1) {
-      str += ftPYStr().charAt(index);
-    } else {
-      str += char;
-    }
-  }
-  return str;
-}
-function simplized(cc) {
-  let str = "";
-  for (let i = 0; i < cc.length; i++) {
-    if (ftPYStr().indexOf(cc.charAt(i)) != -1)
-      str += charPYStr().charAt(ftPYStr().indexOf(cc.charAt(i)));
-    else
-      str += cc.charAt(i);
-  }
-  return str;
-}
-function isNonChinese(str) {
-  const chineseRegex = /[\u4e00-\u9fff]/;
-  return !chineseRegex.test(str);
 }
 
 // danmu_api/utils/codec-util.js
+var import_decompress = __toESM(require_decompress(), 1);
 function simpleHash(str) {
   let hash = 0;
   for (let i = 0; i < str.length; i++) {
@@ -2465,6 +10564,17 @@ function base64ToBytes(b64) {
   }
   return bytes;
 }
+function decompressBrotli(bytes) {
+  if (bytes == null) {
+    throw new TypeError("Brotli \u8F93\u5165\u4E0D\u80FD\u4E3A\u7A7A");
+  }
+  const input = bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes);
+  const output = (0, import_decompress.default)(input);
+  if (!output) {
+    throw new Error("Brotli \u89E3\u538B\u5931\u8D25");
+  }
+  return output instanceof Uint8Array ? output : new Uint8Array(output);
+}
 function BufferBase64Decode(b64) {
   const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=";
   let str = "";
@@ -2540,7 +10650,7 @@ function aesDecryptBase64(cipherB64, keyStr) {
     const unpadded = pkcs7Unpad(decryptedBytes);
     return utf8BytesToString(unpadded);
   } catch (e) {
-    log("error", e);
+    log("error", "[Utils] [Codec]", e);
     return null;
   }
 }
@@ -2762,7 +10872,11 @@ function fromCodePoint(codePoint) {
   return String.fromCharCode(highSurrogate, lowSurrogate);
 }
 function decodeHtmlEntities(str) {
-  return str.replace(/&#(\d+);/g, (match, num) => {
+  if (!str) return str;
+  const namedEntities = { "&lt;": "<", "&gt;": ">", "&amp;": "&", "&quot;": '"', "&apos;": "'" };
+  return str.replace(/&[a-zA-Z]+;/g, (match) => {
+    return namedEntities[match] || match;
+  }).replace(/&#(\d+);/g, (match, num) => {
     return fromCodePoint(parseInt(num, 10));
   }).replace(/&#x([0-9a-fA-F]+);/g, (match, hex) => {
     return fromCodePoint(parseInt(hex, 16));
@@ -2774,11 +10888,11 @@ async function setRedisKey(key, value) {
   const serializedValue = serializeValue(key, value);
   const currentHash = simpleHash(serializedValue);
   if (globals.lastHashes[key] === currentHash) {
-    log("info", `[redis] \u952E ${key} \u65E0\u53D8\u5316\uFF0C\u8DF3\u8FC7 SET \u8BF7\u6C42`);
+    log("info", `[Utils] [Redis] \u952E ${key} \u65E0\u53D8\u5316\uFF0C\u8DF3\u8FC7 SET \u8BF7\u6C42`);
     return { result: "OK" };
   }
   const url = `${globals.redisUrl}/set/${key}`;
-  log("info", `[redis] \u5F00\u59CB\u53D1\u9001 SET \u8BF7\u6C42:`, url);
+  log("info", `[Utils] [Redis] \u5F00\u59CB\u53D1\u9001 SET \u8BF7\u6C42:`, url);
   try {
     const response = await fetch(url, {
       method: "POST",
@@ -2790,20 +10904,20 @@ async function setRedisKey(key, value) {
     });
     const result = await response.json();
     globals.lastHashes[key] = currentHash;
-    log("info", `[redis] \u952E ${key} \u66F4\u65B0\u6210\u529F`);
+    log("info", `[Utils] [Redis] \u952E ${key} \u66F4\u65B0\u6210\u529F`);
     return result;
   } catch (error) {
-    log("error", `[redis] SET \u8BF7\u6C42\u5931\u8D25:`, error.message);
-    log("error", "- \u9519\u8BEF\u7C7B\u578B:", error.name);
+    log("error", `[Utils] [Redis] SET \u8BF7\u6C42\u5931\u8D25:`, error.message);
+    log("error", "- [Utils] [Redis] \u9519\u8BEF\u7C7B\u578B:", error.name);
     if (error.cause) {
-      log("error", "- \u7801:", error.cause.code);
-      log("error", "- \u539F\u56E0:", error.cause.message);
+      log("error", "- [Utils] [Redis] \u7801:", error.cause.code);
+      log("error", "- [Utils] [Redis] \u539F\u56E0:", error.cause.message);
     }
   }
 }
 async function runPipeline(commands) {
   const url = `${globals.redisUrl}/pipeline`;
-  log("info", `[redis] \u5F00\u59CB\u53D1\u9001 PIPELINE \u8BF7\u6C42:`, url);
+  log("info", `[Utils] [Redis] \u5F00\u59CB\u53D1\u9001 PIPELINE \u8BF7\u6C42:`, url);
   try {
     const response = await fetch(url, {
       method: "POST",
@@ -2817,17 +10931,17 @@ async function runPipeline(commands) {
     const result = await response.json();
     return result;
   } catch (error) {
-    log("error", `[redis] Pipeline \u8BF7\u6C42\u5931\u8D25:`, error.message);
-    log("error", "- \u9519\u8BEF\u7C7B\u578B:", error.name);
+    log("error", `[Utils] [Redis] Pipeline \u8BF7\u6C42\u5931\u8D25:`, error.message);
+    log("error", "- [Utils] [Redis] \u9519\u8BEF\u7C7B\u578B:", error.name);
     if (error.cause) {
-      log("error", "- \u7801:", error.cause.code);
-      log("error", "- \u539F\u56E0:", error.cause.message);
+      log("error", "- [Utils] [Redis] \u7801:", error.cause.code);
+      log("error", "- [Utils] [Redis] \u539F\u56E0:", error.cause.message);
     }
   }
 }
 async function updateRedisCaches() {
   try {
-    log("info", "updateCaches start.");
+    log("info", "[Utils] [Redis] updateCaches start.");
     const commands = [];
     const updates = [];
     const variables = [
@@ -2847,7 +10961,7 @@ async function updateRedisCaches() {
       }
     }
     if (commands.length > 0) {
-      log("info", `Updating ${commands.length} changed keys: ${updates.map((u) => u.key).join(", ")}`);
+      log("info", `[Utils] [Redis] Updating ${commands.length} changed keys: ${updates.map((u) => u.key).join(", ")}`);
       const results = await runPipeline(commands);
       let successCount = 0;
       let failureCount = 0;
@@ -2857,7 +10971,7 @@ async function updateRedisCaches() {
             successCount++;
           } else {
             failureCount++;
-            log("warn", `Failed to update Redis key: ${updates[index]?.key}, result: ${JSON.stringify(result)}`);
+            log("warn", `[Utils] [Redis] Failed to update Redis key: ${updates[index]?.key}, result: ${JSON.stringify(result)}`);
           }
         });
       }
@@ -2865,239 +10979,21 @@ async function updateRedisCaches() {
         updates.forEach(({ key, hash }) => {
           globals.lastHashes[key] = hash;
         });
-        log("info", `Redis update completed successfully: ${successCount} keys updated`);
+        log("info", `[Utils] [Redis] Redis update completed successfully: ${successCount} keys updated`);
       } else {
-        log("warn", `Redis update partially failed: ${successCount} succeeded, ${failureCount} failed`);
+        log("warn", `[Utils] [Redis] Redis update partially failed: ${successCount} succeeded, ${failureCount} failed`);
       }
     } else {
-      log("info", "No changes detected, skipping Redis update.");
+      log("info", "[Utils] [Redis] No changes detected, skipping Redis update.");
     }
   } catch (error) {
-    log("error", `updateRedisCaches failed: ${error.message}`, error.stack);
-    log("error", `Error details - Name: ${error.name}, Cause: ${error.cause ? error.cause.message : "N/A"}`);
+    log("error", `[Utils] [Redis] updateRedisCaches failed: ${error.message}`, error.stack);
+    log("error", `[Utils] [Redis] Error details - Name: ${error.name}, Cause: ${error.cause ? error.cause.message : "N/A"}`);
   }
 }
 
 // danmu_api/apis/dandan-api.js
 
-
-// danmu_api/utils/common-util.js
-function printFirst200Chars(data) {
-  let dataToPrint;
-  if (typeof data === "string") {
-    dataToPrint = data;
-  } else if (Array.isArray(data)) {
-    dataToPrint = JSON.stringify(data);
-  } else if (typeof data === "object") {
-    dataToPrint = JSON.stringify(data);
-  } else {
-    log("error", "Unsupported data type");
-    return;
-  }
-  log("info", dataToPrint.slice(0, 200));
-}
-var extractAnimeTitle = (str) => str.split("(")[0].trim();
-function extractYear(animeTitle) {
-  const match = animeTitle.match(/\((\d{4})\)/);
-  return match ? parseInt(match[1]) : null;
-}
-function convertChineseNumber(chineseNumber) {
-  if (/^\d+$/.test(chineseNumber)) {
-    return Number(chineseNumber);
-  }
-  const digits = {
-    // 简体
-    "\u96F6": 0,
-    "\u4E00": 1,
-    "\u4E8C": 2,
-    "\u4E09": 3,
-    "\u56DB": 4,
-    "\u4E94": 5,
-    "\u516D": 6,
-    "\u4E03": 7,
-    "\u516B": 8,
-    "\u4E5D": 9,
-    // 繁体
-    "\u58F9": 1,
-    "\u8CB3": 2,
-    "\u53C3": 3,
-    "\u8086": 4,
-    "\u4F0D": 5,
-    "\u9678": 6,
-    "\u67D2": 7,
-    "\u634C": 8,
-    "\u7396": 9
-  };
-  const units = {
-    // 简体
-    "\u5341": 10,
-    "\u767E": 100,
-    "\u5343": 1e3,
-    // 繁体
-    "\u62FE": 10,
-    "\u4F70": 100,
-    "\u4EDF": 1e3
-  };
-  let result = 0;
-  let current = 0;
-  let lastUnit = 1;
-  for (let i = 0; i < chineseNumber.length; i++) {
-    const char = chineseNumber[i];
-    if (digits[char] !== void 0) {
-      current = digits[char];
-    } else if (units[char] !== void 0) {
-      const unit = units[char];
-      if (current === 0) current = 1;
-      if (unit >= lastUnit) {
-        result = current * unit;
-      } else {
-        result += current * unit;
-      }
-      lastUnit = unit;
-      current = 0;
-    }
-  }
-  if (current > 0) {
-    result += current;
-  }
-  return result;
-}
-function sanitizeSearchKeyword(str) {
-  if (!str) return "";
-  return String(str).replace(/[\u200B-\u200F\uFEFF]/g, "").trim();
-}
-function normalizeSpaces(str) {
-  if (!str) return "";
-  return String(str).replace(/[^\u4e00-\u9fa5\u3400-\u4DBF\u{20000}-\u{2EE5F}\u{30000}-\u{323AF}\u3040-\u30ff\uFF65-\uFF9F\uAC00-\uD7AFa-zA-Z0-9\uFF10-\uFF19\uFF21-\uFF3A\uFF41-\uFF5A\u2160-\u217F\u0400-\u04FF\u00C0-\u024F\u0370-\u03FF]/gu, "");
-}
-function strictTitleMatch(title, query) {
-  if (!title || !query) return false;
-  const t = normalizeSpaces(title);
-  const q = normalizeSpaces(query);
-  if (t === q) return true;
-  const separators = [" ", "(", "\uFF08", ":", "\uFF1A", "-", "\u2014", "\xB7", "\u7B2C", "S", "s", "\u5E74\u756A", "\u5408\u96C6"];
-  for (const sep of separators) {
-    if (t.startsWith(q + sep)) return true;
-  }
-  return false;
-}
-function getExplicitSeasonNumber(text) {
-  if (!text) return null;
-  const match = text.match(/(?:第\s*([0-9一二三四五六七八九十百千万]+)\s*[季期部])|(?:S(?:eason)?\s*(\d+))|(?:Part\s*(\d+))/i);
-  if (match) {
-    const numStr = match[1] || match[2] || match[3];
-    if (numStr) {
-      return convertChineseNumber(numStr);
-    }
-  }
-  return null;
-}
-function titleMatches(title, query, parsedSeason = null) {
-  if (globals.strictTitleMatch) return strictTitleMatch(title, query);
-  const t = normalizeSpaces(title).toLowerCase();
-  const q = normalizeSpaces(query).toLowerCase();
-  let qList = [q];
-  try {
-    qList = [.../* @__PURE__ */ new Set([query, simplized(query), traditionalized(query)])].map((kw) => normalizeSpaces(kw).toLowerCase()).filter(Boolean);
-  } catch (e) {
-  }
-  if (qList.some((kw) => t.includes(kw))) return true;
-  const querySeason = parsedSeason !== null ? parsedSeason : getExplicitSeasonNumber(query);
-  if (querySeason !== null) {
-    const titleSeason = getExplicitSeasonNumber(title);
-    if (querySeason > 1) {
-      if ((titleSeason || 1) !== querySeason) return false;
-    } else if (querySeason === 1) {
-      if (titleSeason !== null && titleSeason !== 1) return false;
-    }
-  }
-  const tSet = new Set(t);
-  return qList.some((kw) => {
-    if (Math.abs(t.length - kw.length) > Math.max(t.length, kw.length) * 0.7 || /^[a-zA-Z0-9]+$/.test(kw)) {
-      return false;
-    }
-    const qSet = new Set(kw);
-    const matchCount = [...qSet].reduce((acc, char) => acc + (tSet.has(char) ? 1 : 0), 0);
-    return matchCount / qSet.size > 0.8;
-  });
-}
-function validateType(value, expectedType) {
-  const fieldName = value?.constructor?.name;
-  if (expectedType === "array") {
-    if (!Array.isArray(value)) {
-      throw new TypeError(`${value} \u5FC5\u987B\u662F\u4E00\u4E2A\u6570\u7EC4\uFF0C\u4F46\u4F20\u5165\u7684\u662F ${fieldName}`);
-    }
-  } else if (expectedType === "boolean") {
-    if (typeof value !== "boolean" && typeof value !== "number") {
-      throw new TypeError(`${value} \u5FC5\u987B\u662F boolean \u6216 number\uFF0C\u4F46\u4F20\u5165\u7684\u662F ${fieldName}`);
-    }
-  } else if (typeof value !== expectedType) {
-    throw new TypeError(`${value} \u5FC5\u987B\u662F ${expectedType}\uFF0C\u4F46\u4F20\u5165\u7684\u662F ${fieldName}`);
-  }
-}
-function extractSeasonNumberFromAnimeTitle(animeTitle) {
-  if (!animeTitle) return { season: null, baseTitle: null };
-  const match = animeTitle.match(/^(.*?)\(\d{4}\)/);
-  const rawTitleWithoutYear = match ? match[1].trim() : animeTitle.split("(")[0].trim();
-  const titleWithoutYear = normalizeSpaces(rawTitleWithoutYear);
-  const explicitSeasonMatch = titleWithoutYear.match(/第\s*([0-9一二三四五六七八九十壹贰叁肆伍陆柒捌玖拾]+)\s*[季期部]/);
-  if (explicitSeasonMatch) {
-    return {
-      season: convertChineseNumber(explicitSeasonMatch[1]),
-      baseTitle: titleWithoutYear.replace(explicitSeasonMatch[0], "").trim()
-    };
-  }
-  const seasonMatch = titleWithoutYear.match(/(?:S(?:eason)?|Season)\s*(\d+)/i);
-  if (seasonMatch) {
-    return {
-      season: parseInt(seasonMatch[1], 10),
-      baseTitle: titleWithoutYear.replace(seasonMatch[0], "").trim()
-    };
-  }
-  const partMatch = titleWithoutYear.match(/Part\s*(\d+)/i);
-  if (partMatch) {
-    return {
-      season: parseInt(partMatch[1], 10),
-      baseTitle: titleWithoutYear.replace(partMatch[0], "").trim()
-    };
-  }
-  const trailingNumber = titleWithoutYear.match(/(?:^|\s|[^\d])(\d{1,2})$/);
-  if (trailingNumber) {
-    return {
-      season: parseInt(trailingNumber[1], 10),
-      baseTitle: titleWithoutYear.slice(0, titleWithoutYear.lastIndexOf(trailingNumber[1])).trim()
-    };
-  }
-  const trailingChinese = titleWithoutYear.match(/([一二三四五六七八九十壹贰叁肆伍陆柒捌玖拾]+)$/);
-  if (trailingChinese) {
-    return {
-      season: convertChineseNumber(trailingChinese[1]),
-      baseTitle: titleWithoutYear.replace(trailingChinese[0], "").trim()
-    };
-  }
-  return { season: null, baseTitle: titleWithoutYear };
-}
-function extractEpisodeNumberFromTitle(episodeTitle) {
-  if (!episodeTitle) return null;
-  const chineseMatch = episodeTitle.match(/第(\d+)集/);
-  if (chineseMatch) {
-    return parseInt(chineseMatch[1], 10);
-  }
-  const epMatch = episodeTitle.match(/[Ee][Pp]?(\d+)/);
-  if (epMatch) {
-    return parseInt(epMatch[1], 10);
-  }
-  const numberMatch = episodeTitle.match(/(?:^|\s)(\d+)(?:\s|$)/);
-  if (numberMatch) {
-    return parseInt(numberMatch[1], 10);
-  }
-  return null;
-}
-function extractAnimeInfo(animeTitle, episodeTitle) {
-  let { season, baseTitle } = extractSeasonNumberFromAnimeTitle(animeTitle);
-  let episode = extractEpisodeNumberFromTitle(episodeTitle);
-  return { baseTitle, season, episode };
-}
 
 // danmu_api/models/dandan-model.js
 var Anime = class _Anime {
@@ -3113,7 +11009,9 @@ var Anime = class _Anime {
     rating = 0,
     isFavorited = true,
     source = "",
-    links = []
+    links = [],
+    mergedChildren = [],
+    isHiddenChild = false
   } = {}) {
     validateType(animeId, "number");
     validateType(bangumiId, "string");
@@ -3127,6 +11025,8 @@ var Anime = class _Anime {
     validateType(isFavorited, "boolean");
     validateType(source, "string");
     validateType(links, "array");
+    validateType(mergedChildren, "array");
+    validateType(isHiddenChild, "boolean");
     this.links = links.map((linkData) => Link.fromJson(linkData));
     Object.assign(this, {
       animeId,
@@ -3139,7 +11039,9 @@ var Anime = class _Anime {
       episodeCount,
       rating,
       isFavorited,
-      source
+      source,
+      mergedChildren,
+      isHiddenChild
     });
   }
   // ---- 静态方法：从 JSON 创建 Anime 对象 ----
@@ -3409,13 +11311,27 @@ function getActiveSearchCacheEntries() {
     const cacheAgeMinutes = (now - cached.timestamp) / (1e3 * 60);
     if (cacheAgeMinutes > globals.searchCacheMinutes) {
       globals.searchCache.delete(keyword);
-      log("info", `Search cache for "${keyword}" expired after ${cacheAgeMinutes.toFixed(2)} minutes`);
+      log("info", `[Cache] Search cache for "${keyword}" expired after ${cacheAgeMinutes.toFixed(2)} minutes`);
       continue;
     }
     activeEntries.push(cached);
   }
   activeEntries.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
   return activeEntries;
+}
+function sweepExpiredCache(cacheMap, cacheMinutes, cacheName) {
+  const now = Date.now();
+  let sweptCount = 0;
+  for (const [key, entry] of cacheMap.entries()) {
+    const ageMinutes = (now - entry.timestamp) / (1e3 * 60);
+    if (ageMinutes > cacheMinutes) {
+      cacheMap.delete(key);
+      sweptCount++;
+    }
+  }
+  if (sweptCount > 0) {
+    log("info", `[Cache] ${cacheName} TTL \u626B\u63CF\u5B8C\u6BD5\uFF0C\u5DF2\u79FB\u9664 ${sweptCount} \u4E2A\u8FC7\u671F\u6761\u76EE\uFF0C\u5269\u4F59 ${cacheMap.size} \u4E2A`);
+  }
 }
 function matchesAnimeId(anime, idStr) {
   return String(anime?.animeId) === idStr || String(anime?.bangumiId) === idStr;
@@ -3537,14 +11453,14 @@ function isSearchCacheValid(keyword) {
   const cacheAgeMinutes = (now - cached.timestamp) / (1e3 * 60);
   if (cacheAgeMinutes > globals.searchCacheMinutes) {
     globals.searchCache.delete(keyword);
-    log("info", `Search cache for "${keyword}" expired after ${cacheAgeMinutes.toFixed(2)} minutes`);
+    log("info", `[Cache] Search cache for "${keyword}" expired after ${cacheAgeMinutes.toFixed(2)} minutes`);
     return false;
   }
   return true;
 }
 function getSearchCache(keyword, detailsMap = null) {
   if (isSearchCacheValid(keyword)) {
-    log("info", `Using search cache for "${keyword}"`);
+    log("info", `[Cache] Using search cache for "${keyword}"`);
     const cached = globals.searchCache.get(keyword);
     if (detailsMap instanceof Map && Array.isArray(cached.details)) {
       cached.details.forEach((anime) => {
@@ -3557,12 +11473,18 @@ function getSearchCache(keyword, detailsMap = null) {
 }
 function setSearchCache(keyword, results, detailsMap = null) {
   const details = collectUniqueAnimeDetails(detailsMap);
+  sweepExpiredCache(globals.searchCache, globals.searchCacheMinutes, "searchCache");
   globals.searchCache.set(keyword, {
     results,
     details,
     timestamp: Date.now()
   });
-  log("info", `Cached search results for "${keyword}" (${results.length} animes)`);
+  if (globals.searchCache.size > 500) {
+    const oldestKey = globals.searchCache.keys().next().value;
+    globals.searchCache.delete(oldestKey);
+    log("info", `[Cache] searchCache TTL\u6E05\u7406\u540E\u4ECD\u8FBE\u4E0A\u9650\uFF0C\u5DF2\u79FB\u9664\u6700\u65E9\u6761\u76EE: ${oldestKey}`);
+  }
+  log("info", `[Cache] Cached search results for "${keyword}" (${results.length} animes)`);
 }
 function isCommentCacheValid(videoUrl) {
   if (!globals.commentCache.has(videoUrl)) {
@@ -3573,35 +11495,41 @@ function isCommentCacheValid(videoUrl) {
   const cacheAgeMinutes = (now - cached.timestamp) / (1e3 * 60);
   if (cacheAgeMinutes > globals.commentCacheMinutes) {
     globals.commentCache.delete(videoUrl);
-    log("info", `Comment cache for "${videoUrl}" expired after ${cacheAgeMinutes.toFixed(2)} minutes`);
+    log("info", `[Cache] Comment cache for "${videoUrl}" expired after ${cacheAgeMinutes.toFixed(2)} minutes`);
     return false;
   }
   return true;
 }
 function getCommentCache(videoUrl) {
   if (isCommentCacheValid(videoUrl)) {
-    log("info", `Using comment cache for "${videoUrl}"`);
+    log("info", `[Cache] Using comment cache for "${videoUrl}"`);
     return globals.commentCache.get(videoUrl).comments;
   }
   return null;
 }
 function setCommentCache(videoUrl, comments) {
+  sweepExpiredCache(globals.commentCache, globals.commentCacheMinutes, "commentCache");
   globals.commentCache.set(videoUrl, {
     comments,
     timestamp: Date.now()
   });
-  log("info", `Cached comments for "${videoUrl}" (${comments.length} comments)`);
+  if (globals.commentCache.size > 500) {
+    const oldestKey = globals.commentCache.keys().next().value;
+    globals.commentCache.delete(oldestKey);
+    log("info", `[Cache] commentCache TTL\u6E05\u7406\u540E\u4ECD\u8FBE\u4E0A\u9650\uFF0C\u5DF2\u79FB\u9664\u6700\u65E9\u6761\u76EE: ${oldestKey}`);
+  }
+  log("info", `[Cache] Cached comments for "${videoUrl}" (${comments.length} comments)`);
 }
 function addEpisode(url, title) {
   const existingEpisode = globals.episodeIds.find((episode) => episode.url === url && episode.title === title);
   if (existingEpisode) {
-    log("info", `Episode with URL ${url} and title ${title} already exists in episodeIds, returning existing episode.`);
+    log("info", `[Cache] Episode with URL ${url} and title ${title} already exists in episodeIds, returning existing episode.`);
     return existingEpisode;
   }
   globals.episodeNum++;
   const newEpisode = { id: globals.episodeNum, url, title };
   globals.episodeIds.push(newEpisode);
-  log("info", `Added to episodeIds: ${JSON.stringify(newEpisode)}`);
+  log("info", `[Cache] Added to episodeIds: ${JSON.stringify(newEpisode)}`);
   return newEpisode;
 }
 function removeEpisodeByUrl(url) {
@@ -3609,68 +11537,68 @@ function removeEpisodeByUrl(url) {
   globals.episodeIds = globals.episodeIds.filter((episode) => episode.url !== url);
   const removedCount = initialLength - globals.episodeIds.length;
   if (removedCount > 0) {
-    log("info", `Removed ${removedCount} episode(s) from episodeIds with URL: ${url}`);
+    log("info", `[Cache] Removed ${removedCount} episode(s) from episodeIds with URL: ${url}`);
     return true;
   }
-  log("error", `No episode found in episodeIds with URL: ${url}`);
+  log("error", `[Cache] No episode found in episodeIds with URL: ${url}`);
   return false;
 }
 function findUrlById(id) {
   const episode = globals.episodeIds.find((episode2) => episode2.id === id);
   if (episode) {
-    log("info", `Found URL for ID ${id}: ${episode.url}`);
+    log("info", `[Cache] Found URL for ID ${id}: ${episode.url}`);
     return episode.url;
   }
   const resolved = resolveEpisodeContextById(id);
   if (resolved?.link?.url) {
-    log("info", `Found URL for ID ${id} via cached anime details: ${resolved.link.url}`);
+    log("info", `[Cache] Found URL for ID ${id} via cached anime details: ${resolved.link.url}`);
     return resolved.link.url;
   }
-  log("error", `No URL found for ID: ${id}`);
+  log("error", `[Cache] No URL found for ID: ${id}`);
   return null;
 }
 function findIndexById(id) {
   const index = globals.episodeIds.findIndex((episode) => episode.id === id);
   if (index !== -1) {
-    log("info", `Found index for ID ${id}: ${index}`);
+    log("info", `[Cache] Found index for ID ${id}: ${index}`);
     return index;
   }
   const resolved = resolveEpisodeContextById(id);
   if (resolved) {
-    log("info", `Found index for ID ${id} via cached anime details: ${resolved.index}`);
+    log("info", `[Cache] Found index for ID ${id} via cached anime details: ${resolved.index}`);
     return resolved.index;
   }
-  log("error", `No index found for ID: ${id}`);
+  log("error", `[Cache] No index found for ID: ${id}`);
   return -1;
 }
 function findTitleById(id) {
   const episode = globals.episodeIds.find((episode2) => episode2.id === id);
   if (episode) {
-    log("info", `Found TITLE for ID ${id}: ${episode.title}`);
+    log("info", `[Cache] Found TITLE for ID ${id}: ${episode.title}`);
     return episode.title;
   }
   const resolved = resolveEpisodeContextById(id);
   if (resolved?.link?.title) {
-    log("info", `Found TITLE for ID ${id} via cached anime details: ${resolved.link.title}`);
+    log("info", `[Cache] Found TITLE for ID ${id} via cached anime details: ${resolved.link.title}`);
     return resolved.link.title;
   }
-  log("error", `No TITLE found for ID: ${id}`);
+  log("error", `[Cache] No TITLE found for ID: ${id}`);
   return null;
 }
 function findAnimeTitleById(id) {
   const resolved = resolveEpisodeContextById(id);
   if (resolved?.anime?.animeTitle) {
-    log("info", `Found animeTitle for ID ${id}: ${resolved.anime.animeTitle}`);
+    log("info", `[Cache] Found animeTitle for ID ${id}: ${resolved.anime.animeTitle}`);
     return resolved.anime.animeTitle;
   }
-  log("error", `No animeTitle found for ID: ${id}`);
+  log("error", `[Cache] No animeTitle found for ID: ${id}`);
   return null;
 }
 function addAnime(anime, detailStore = null) {
   anime = Anime.fromJson(anime);
   try {
     if (!anime.links || !Array.isArray(anime.links)) {
-      log("error", `Invalid or missing links in anime: ${JSON.stringify(anime)}`);
+      log("error", `[Cache] Invalid or missing links in anime: ${JSON.stringify(anime)}`);
       return false;
     }
     const newLinks = [];
@@ -3681,7 +11609,7 @@ function addAnime(anime, detailStore = null) {
           newLinks.push(episode);
         }
       } else {
-        log("error", `Invalid link in anime, missing url: ${JSON.stringify(link)}`);
+        log("error", `[Cache] Invalid link in anime, missing url: ${JSON.stringify(link)}`);
       }
     });
     const animeCopy = Anime.fromJson({ ...anime, links: newLinks });
@@ -3689,17 +11617,17 @@ function addAnime(anime, detailStore = null) {
     const existingAnimeIndex = globals.animes.findIndex((a) => a.animeId === anime.animeId);
     if (existingAnimeIndex !== -1) {
       globals.animes.splice(existingAnimeIndex, 1);
-      log("info", `Removed old anime at index: ${existingAnimeIndex}`);
+      log("info", `[Cache] Removed old anime at index: ${existingAnimeIndex}`);
     }
     globals.animes.push(animeCopy);
-    log("info", `Added anime to latest position: ${anime.animeId}`);
+    log("info", `[Cache] Added anime to latest position: ${anime.animeId}`);
     if (globals.animes.length > globals.MAX_ANIMES) {
       const removeSuccess = removeEarliestAnime();
       if (!removeSuccess) {
-        log("error", "Failed to remove earliest anime, but continuing");
+        log("error", "[Cache] Failed to remove earliest anime, but continuing");
       }
     }
-    log("info", `animes: ${JSON.stringify(
+    log("info", `[Cache] animes: ${JSON.stringify(
       globals.animes.map((anime2) => ({
         links: anime2.links,
         animeId: anime2.animeId,
@@ -3710,17 +11638,17 @@ function addAnime(anime, detailStore = null) {
     )}`);
     return true;
   } catch (error) {
-    log("error", `addAnime failed: ${error.message}`);
+    log("error", `[Cache] addAnime failed: ${error.message}`);
     return false;
   }
 }
 function removeEarliestAnime() {
   if (globals.animes.length === 0) {
-    log("error", "No animes to remove.");
+    log("error", "[Cache] No animes to remove.");
     return false;
   }
   const removedAnime = globals.animes.shift();
-  log("info", `Removed earliest anime: ${JSON.stringify(removedAnime)}`);
+  log("info", `[Cache] Removed earliest anime: ${JSON.stringify(removedAnime)}`);
   if (removedAnime.links && Array.isArray(removedAnime.links)) {
     removedAnime.links.forEach((link) => {
       if (link.url) {
@@ -3732,10 +11660,15 @@ function removeEarliestAnime() {
 }
 function storeAnimeIdsToMap(curAnimes, key) {
   const uniqueAnimeIds = /* @__PURE__ */ new Set();
+  const oldValue = globals.lastSelectMap.get(key);
+  if (oldValue && Array.isArray(oldValue.animeIds)) {
+    for (const id of oldValue.animeIds) {
+      uniqueAnimeIds.add(id);
+    }
+  }
   for (const anime of curAnimes) {
     uniqueAnimeIds.add(anime.animeId);
   }
-  const oldValue = globals.lastSelectMap.get(key);
   const oldPrefer = oldValue?.prefer;
   const oldSource = oldValue?.source;
   const oldPreferBySeason = oldValue?.preferBySeason;
@@ -3761,15 +11694,15 @@ function storeAnimeIdsToMap(curAnimes, key) {
   if (globals.lastSelectMap.size > globals.MAX_LAST_SELECT_MAP) {
     const firstKey = globals.lastSelectMap.keys().next().value;
     globals.lastSelectMap.delete(firstKey);
-    log("info", `Removed earliest entry from lastSelectMap: ${firstKey}`);
+    log("info", `[Cache] Removed earliest entry from lastSelectMap: ${firstKey}`);
   }
 }
 function findAnimeIdByCommentId(commentId) {
   const resolved = resolveEpisodeContextById(commentId);
   if (resolved) {
-    return [resolved.anime.animeId, resolved.anime.source, resolved.link.title];
+    return [resolved.anime.animeId, resolved.anime.source, resolved.link.title, resolved.anime.aliases || []];
   }
-  return [null, null, null];
+  return [null, null, null, []];
 }
 function setPreferByAnimeId(animeId, source, season = null, offset = null) {
   for (const [key, value] of globals.lastSelectMap.entries()) {
@@ -3801,7 +11734,7 @@ function writeCacheToFile(key, value) {
 }
 async function updateLocalCaches() {
   try {
-    log("info", "updateLocalCaches start.");
+    log("info", "[Cache] updateLocalCaches start.");
     const updates = [];
     const variables = [
       { key: "animes", value: globals.animes },
@@ -3820,16 +11753,16 @@ async function updateLocalCaches() {
       }
     }
     if (updates.length > 0) {
-      log("info", `Updated local caches for keys: ${updates.map((u) => u.key).join(", ")}`);
+      log("info", `[Cache] Updated local caches for keys: ${updates.map((u) => u.key).join(", ")}`);
       updates.forEach(({ key, hash }) => {
         globals.lastHashes[key] = hash;
       });
     } else {
-      log("info", "No changes detected, skipping local cache update.");
+      log("info", "[Cache] No changes detected, skipping local cache update.");
     }
   } catch (error) {
-    log("error", `updateLocalCaches failed: ${error.message}`, error.stack);
-    log("error", `Error details - Name: ${error.name}, Cause: ${error.cause ? error.cause.message : "N/A"}`);
+    log("error", `[Cache] updateLocalCaches failed: ${error.message}`, error.stack);
+    log("error", `[Cache] Error details - Name: ${error.name}, Cause: ${error.cause ? error.cause.message : "N/A"}`);
   }
 }
 
@@ -4027,19 +11960,19 @@ function convertToDanmakuJson(contents, platform) {
       try {
         return new RegExp(pattern.slice(1, -1));
       } catch (e) {
-        log("error", `\u65E0\u6548\u7684\u6B63\u5219\u8868\u8FBE\u5F0F: ${pattern}`, e);
+        log("error", `[Utils] [Danmu] \u65E0\u6548\u7684\u6B63\u5219\u8868\u8FBE\u5F0F: ${pattern}`, e);
         return null;
       }
     }
     return null;
   }).filter((regex) => regex !== null);
-  log("info", `\u539F\u59CB\u5C4F\u853D\u8BCD\u5B57\u7B26\u4E32: ${globals.blockedWords}`);
+  log("info", `[Utils] [Danmu] \u539F\u59CB\u5C4F\u853D\u8BCD\u5B57\u7B26\u4E32: ${globals.blockedWords}`);
   const regexArrayToString = (array) => Array.isArray(array) ? array.map((regex) => regex.toString()).join("\n") : String(array);
-  log("info", `\u5C4F\u853D\u8BCD\u5217\u8868: ${regexArrayToString(regexArray)}`);
+  log("info", `[Utils] [Danmu] \u5C4F\u853D\u8BCD\u5217\u8868: ${regexArrayToString(regexArray)}`);
   const filteredDanmus = danmus.filter((item) => {
     return !regexArray.some((regex) => regex.test(item.m));
   });
-  log("info", `\u53BB\u91CD\u5206\u949F\u6570: ${globals.groupMinute}`);
+  log("info", `[Utils] [Danmu] \u53BB\u91CD\u5206\u949F\u6570: ${globals.groupMinute}`);
   const groupedDanmus = groupDanmusByMinute(filteredDanmus, globals.groupMinute, isMultiSource);
   const likeDanmus = handleDanmusLike(groupedDanmus);
   let convertedDanmus = limitDanmusByCount(likeDanmus, globals.danmuLimit);
@@ -4076,10 +12009,10 @@ function convertToDanmakuJson(contents, platform) {
       return danmu;
     });
     if (topBottomCount > 0) {
-      log("info", `[danmu convert] \u8F6C\u6362\u4E86 ${topBottomCount} \u6761\u9876\u90E8/\u5E95\u90E8\u5F39\u5E55\u4E3A\u6D6E\u52A8\u5F39\u5E55`);
+      log("info", `[Utils] [Danmu] [danmu convert] \u8F6C\u6362\u4E86 ${topBottomCount} \u6761\u9876\u90E8/\u5E95\u90E8\u5F39\u5E55\u4E3A\u6D6E\u52A8\u5F39\u5E55`);
     }
     if (colorCount > 0) {
-      log("info", `[danmu convert] \u8F6C\u6362\u4E86 ${colorCount} \u6761\u5F39\u5E55\u989C\u8272`);
+      log("info", `[Utils] [Danmu] [danmu convert] \u8F6C\u6362\u4E86 ${colorCount} \u6761\u5F39\u5E55\u989C\u8272`);
     }
   }
   if (globals.danmuSimplifiedTraditional === "traditional") {
@@ -4087,13 +12020,13 @@ function convertToDanmakuJson(contents, platform) {
       ...danmu,
       m: traditionalized(danmu.m)
     }));
-    log("info", `[danmu convert] \u8F6C\u6362\u4E86 ${convertedDanmus.length} \u6761\u5F39\u5E55\u4E3A\u7E41\u4F53\u5B57`);
+    log("info", `[Utils] [Danmu] [danmu convert] \u8F6C\u6362\u4E86 ${convertedDanmus.length} \u6761\u5F39\u5E55\u4E3A\u7E41\u4F53\u5B57`);
   }
-  log("info", `danmus_original: ${danmus.length}`);
-  log("info", `danmus_filter: ${filteredDanmus.length}`);
-  log("info", `danmus_group: ${groupedDanmus.length}`);
-  log("info", `danmus_limit: ${convertedDanmus.length}`);
-  log("info", "Top 5 danmus:", JSON.stringify(convertedDanmus.slice(0, 5), null, 2));
+  log("info", `[Utils] [Danmu] danmus_original: ${danmus.length}`);
+  log("info", `[Utils] [Danmu] danmus_filter: ${filteredDanmus.length}`);
+  log("info", `[Utils] [Danmu] danmus_group: ${groupedDanmus.length}`);
+  log("info", `[Utils] [Danmu] danmus_limit: ${convertedDanmus.length}`);
+  log("info", "[Utils] [Danmu] Top 5 danmus:", JSON.stringify(convertedDanmus.slice(0, 5), null, 2));
   return convertedDanmus;
 }
 function rgbToInt(color) {
@@ -4151,13 +12084,13 @@ function escapeXmlText(str) {
 function formatDanmuResponse(danmuData, queryFormat) {
   let format = queryFormat || globals.danmuOutputFormat;
   format = format.toLowerCase();
-  log("info", `[Format] Using format: ${format}`);
+  log("info", `[Utils] [Danmu] [Format] Using format: ${format}`);
   if (format === "xml") {
     try {
       const xmlData = convertDanmuToXml(danmuData);
       return xmlResponse(xmlData);
     } catch (error) {
-      log("error", `Failed to convert to XML: ${error.message}`);
+      log("error", `[Utils] [Danmu] Failed to convert to XML: ${error.message}`);
       return jsonResponse(danmuData);
     }
   }
@@ -4186,7 +12119,7 @@ async function tmdbApiGet(url, options = {}) {
     if (error.name === "AbortError") {
       throw error;
     }
-    log("error", "[TMDB] Api error:", {
+    log("error", "[Utils] [TMDB] Api error:", {
       message: error.message,
       name: error.name,
       stack: error.stack
@@ -4226,7 +12159,7 @@ async function searchTmdbTitles(title, mediaType = "multi", options = {}) {
       break;
     }
   }
-  log("info", `[TMDB] \u5171\u83B7\u53D6\u5230 ${allResults.length} \u6761\u641C\u7D22\u7ED3\u679C\uFF08\u6700\u591A${maxPages}\u9875\uFF09`);
+  log("info", `[Utils] [TMDB] \u5171\u83B7\u53D6\u5230 ${allResults.length} \u6761\u641C\u7D22\u7ED3\u679C\uFF08\u6700\u591A${maxPages}\u9875\uFF09`);
   return {
     data: {
       results: allResults
@@ -4265,7 +12198,7 @@ function extractChineseTitleFromAlternatives(altData, mediaType, queryTitle = ""
     const match = titles.find(rule);
     if (match) {
       const bestMatchTitle = getStr(match);
-      log("info", `[TMDB] \u6309\u4F18\u5148\u7EA7\u7B56\u7565\u6210\u529F\u63D0\u53D6\u6700\u4F73\u4E2D\u6587\u522B\u540D: ${bestMatchTitle}`);
+      log("info", `[Utils] [TMDB] \u6309\u4F18\u5148\u7EA7\u7B56\u7565\u6210\u529F\u63D0\u53D6\u6700\u4F73\u4E2D\u6587\u522B\u540D: ${bestMatchTitle}`);
       return bestMatchTitle;
     }
   }
@@ -4280,7 +12213,7 @@ async function getChineseTitleForResult(result, signal, queryTitle = "") {
   if (!needsAlternative) {
     return resultTitle;
   }
-  log("info", `[TMDB] \u5C1D\u8BD5\u83B7\u53D6\u4E2D\u6587\u522B\u540D\u4EE5\u5BFB\u627E\u66F4\u4F18\u5339\u914D (\u5F53\u524D\u6807\u9898: "${resultTitle}")`);
+  log("info", `[Utils] [TMDB] \u5C1D\u8BD5\u83B7\u53D6\u4E2D\u6587\u522B\u540D\u4EE5\u5BFB\u627E\u66F4\u4F18\u5339\u914D (\u5F53\u524D\u6807\u9898: "${resultTitle}")`);
   const mediaType = result.media_type || (result.name ? "tv" : "movie");
   try {
     if (signal && signal.aborted) {
@@ -4292,24 +12225,24 @@ async function getChineseTitleForResult(result, signal, queryTitle = "") {
     }
     const chineseTitle = extractChineseTitleFromAlternatives(altResp, mediaType, queryTitle);
     if (chineseTitle) {
-      log("info", `[TMDB] \u5C06\u4F7F\u7528\u4E2D\u6587\u522B\u540D\u8FDB\u884C\u76F8\u4F3C\u5339\u914D: ${chineseTitle}`);
+      log("info", `[Utils] [TMDB] \u5C06\u4F7F\u7528\u4E2D\u6587\u522B\u540D\u8FDB\u884C\u76F8\u4F3C\u5339\u914D: ${chineseTitle}`);
       return chineseTitle;
     } else {
-      log("info", `[TMDB] \u672A\u627E\u5230\u4E2D\u6587\u522B\u540D\uFF0C\u4F7F\u7528\u539F\u6807\u9898: ${resultTitle}`);
+      log("info", `[Utils] [TMDB] \u672A\u627E\u5230\u4E2D\u6587\u522B\u540D\uFF0C\u4F7F\u7528\u539F\u6807\u9898: ${resultTitle}`);
       return resultTitle;
     }
   } catch (error) {
     if (error.name === "AbortError") {
       throw error;
     }
-    log("error", `[TMDB] \u83B7\u53D6\u522B\u540D\u5931\u8D25: ${error.message}`);
+    log("error", `[Utils] [TMDB] \u83B7\u53D6\u522B\u540D\u5931\u8D25: ${error.message}`);
     return resultTitle;
   }
 }
 async function getTmdbJaOriginalTitle(title, signal = null, sourceLabel = "Unknown") {
   const cleanTitle = cleanSearchQuery(title);
   if (cleanTitle !== title) {
-    log("info", `[TMDB] \u4F18\u5316\u641C\u7D22\u5173\u952E\u8BCD: "${title}" -> "${cleanTitle}"`);
+    log("info", `[Utils] [TMDB] \u4F18\u5316\u641C\u7D22\u5173\u952E\u8BCD: "${title}" -> "${cleanTitle}"`);
   }
   if (globals.useBangumiData) {
     const localMatches = await searchBangumiData(cleanTitle, ["tmdb", "bangumi", "anidb"]);
@@ -4317,12 +12250,12 @@ async function getTmdbJaOriginalTitle(title, signal = null, sourceLabel = "Unkno
       const m = localMatches[0];
       const displayTitle = m.titles.find((t) => t && t.includes(cleanTitle)) || m.titles[1] || m.title;
       const jaOriginalTitle = m.title;
-      log("info", `[TMDB] Bangumi-Data \u672C\u5730\u547D\u4E2D\uFF0C\u63D0\u53D6\u539F\u540D\u6210\u529F: \u539F\u540D=${jaOriginalTitle}, \u522B\u540D=${displayTitle}`);
+      log("info", `[Utils] [TMDB] Bangumi-Data \u672C\u5730\u547D\u4E2D\uFF0C\u63D0\u53D6\u539F\u540D\u6210\u529F: \u539F\u540D=${jaOriginalTitle}, \u522B\u540D=${displayTitle}\uFF08\u68C0\u7D22\u8BCD\uFF1A${cleanTitle}\uFF09`);
       return { title: jaOriginalTitle, cnAlias: displayTitle };
     }
   }
   if (!globals.tmdbApiKey) {
-    log("info", "[TMDB] \u672A\u914D\u7F6EAPI\u5BC6\u94A5\uFF0C\u8DF3\u8FC7TMDB\u7F51\u7EDC\u641C\u7D22");
+    log("info", "[Utils] [TMDB] \u672A\u914D\u7F6EAPI\u5BC6\u94A5\uFF0C\u8DF3\u8FC7TMDB\u7F51\u7EDC\u641C\u7D22");
     return null;
   }
   let task = TMDB_PENDING.get(cleanTitle);
@@ -4346,32 +12279,6 @@ async function getTmdbJaOriginalTitle(title, signal = null, sourceLabel = "Unkno
           return {
             isValid: false,
             reason: `\u975E\u52A8\u753B\u4E14\u975E\u65E5\u8BED\u5185\u5BB9(language: ${originalLanguage}, genres: ${allGenreIds.join(",")})`
-          };
-        };
-        const validateResults = (results) => {
-          if (!results || results.length === 0) {
-            return {
-              hasValid: false,
-              validCount: 0,
-              totalCount: 0,
-              details: "\u641C\u7D22\u7ED3\u679C\u4E3A\u7A7A"
-            };
-          }
-          let validCount = 0;
-          const validItems = [];
-          for (const item of results) {
-            const validation = isValidContent(item);
-            if (validation.isValid) {
-              validCount++;
-              const itemTitle = item.name || item.title || "\u672A\u77E5";
-              validItems.push(`${itemTitle}(${validation.reason})`);
-            }
-          }
-          return {
-            hasValid: validCount > 0,
-            validCount,
-            totalCount: results.length,
-            details: validCount > 0 ? `\u627E\u5230${validCount}\u4E2A\u7B26\u5408\u6761\u4EF6\u7684\u5185\u5BB9: ${validItems.slice(0, 3).join(", ")}${validCount > 3 ? "..." : ""}` : `\u6240\u6709${results.length}\u4E2A\u7ED3\u679C\u5747\u4E0D\u7B26\u5408\u6761\u4EF6(\u975E\u52A8\u753B\u4E14\u975E\u65E5\u8BED)`
           };
         };
         const similarity = (s1, s2) => {
@@ -4414,31 +12321,41 @@ async function getTmdbJaOriginalTitle(title, signal = null, sourceLabel = "Unkno
           };
           return (longer2.length - editDistance2(longer2, shorter2)) / longer2.length;
         };
-        log("info", `[TMDB] \u6B63\u5728\u641C\u7D22 (Shared Task): ${cleanTitle}`);
+        log("info", `[Utils] [TMDB] \u6B63\u5728\u641C\u7D22 (Shared Task): ${cleanTitle}`);
         if (backgroundSignal.aborted) throw new DOMException("Aborted", "AbortError");
         const respZh = await searchTmdbTitles(cleanTitle, "multi", { signal: backgroundSignal });
         if (!respZh || !respZh.data) {
-          log("info", "[TMDB] TMDB\u641C\u7D22\u7ED3\u679C\u4E3A\u7A7A");
+          log("info", "[Utils] [TMDB] TMDB\u641C\u7D22\u7ED3\u679C\u4E3A\u7A7A");
           return null;
         }
         const dataZh = typeof respZh.data === "string" ? JSON.parse(respZh.data) : respZh.data;
         if (!dataZh.results || dataZh.results.length === 0) {
-          log("info", "[TMDB] TMDB\u672A\u627E\u5230\u4EFB\u4F55\u7ED3\u679C");
+          log("info", "[Utils] [TMDB] TMDB\u672A\u627E\u5230\u4EFB\u4F55\u7ED3\u679C");
           return null;
         }
-        const validationResult = validateResults(dataZh.results);
-        if (!validationResult.hasValid) {
-          log("info", `[TMDB] \u7C7B\u578B\u5224\u65AD\u672A\u901A\u8FC7,\u8DF3\u8FC7\u540E\u7EED\u641C\u7D22: ${validationResult.details}`);
+        const validResults = [];
+        const invalidItems = [];
+        for (const item of dataZh.results) {
+          const validation = isValidContent(item);
+          if (validation.isValid) {
+            validResults.push(item);
+          } else {
+            const itemTitle = item.name || item.title || "\u672A\u77E5";
+            invalidItems.push(`${itemTitle}(${validation.reason})`);
+          }
+        }
+        if (validResults.length === 0) {
+          log("info", `[Utils] [TMDB] \u6570\u636E\u6E05\u6D17\u62E6\u622A: \u641C\u7D22\u7ED3\u679C\u4E2D\u6CA1\u6709\u4EFB\u4F55\u76EE\u6807\u7C7B\u578B(\u52A8\u753B/\u65E5\u6587)\u7684\u5185\u5BB9`);
           return null;
         }
-        log("info", `[TMDB] \u7C7B\u578B\u5224\u65AD\u901A\u8FC7: ${validationResult.details}`);
+        log("info", `[Utils] [TMDB] \u6570\u636E\u6E05\u6D17\u5B8C\u6210: \u4FDD\u7559 ${validResults.length} \u4E2A\u6709\u6548\u6761\u76EE\u53C2\u4E0E\u5339\u914D\uFF0C\u8FC7\u6EE4 ${invalidItems.length} \u4E2A\u65E0\u5173\u6761\u76EE${invalidItems.length > 0 ? "\uFF0C\u8FC7\u6EE4\u8BE6\u60C5: " + invalidItems.join(", ") : ""}`);
         let bestMatch = null;
         let bestScore = -1;
         let bestMatchChineseTitle = null;
         let alternativeTitleFetchCount = 0;
         const MAX_ALTERNATIVE_FETCHES = 5;
         let skipAlternativeFetch = false;
-        for (const result of dataZh.results) {
+        for (const result of validResults) {
           const resultTitle = result.name || result.title || "";
           if (!resultTitle) continue;
           const directScore = similarity(cleanTitle, resultTitle);
@@ -4447,7 +12364,7 @@ async function getTmdbJaOriginalTitle(title, signal = null, sourceLabel = "Unkno
           const initialScore = Math.max(directScore, originalScore);
           if (initialScore === 1 && !skipAlternativeFetch) {
             skipAlternativeFetch = true;
-            log("info", `[TMDB] \u5339\u914D\u68C0\u67E5 "${resultTitle}" - \u76F8\u4F3C\u5EA6: 100.00% (\u5B8C\u5168\u5339\u914D\uFF0C\u8DF3\u8FC7\u540E\u7EED\u6240\u6709\u522B\u540D\u641C\u7D22)`);
+            log("info", `[Utils] [TMDB] \u5339\u914D\u68C0\u67E5 "${resultTitle}" - \u76F8\u4F3C\u5EA6: 100.00% (\u5B8C\u5168\u5339\u914D\uFF0C\u8DF3\u8FC7\u540E\u7EED\u6240\u6709\u522B\u540D\u641C\u7D22)`);
             if (initialScore > bestScore) {
               bestScore = initialScore;
               bestMatch = result;
@@ -4462,9 +12379,9 @@ async function getTmdbJaOriginalTitle(title, signal = null, sourceLabel = "Unkno
             chineseTitle = resultTitle;
             finalScore = initialScore;
             if (skipAlternativeFetch && isExactMatch) {
-              log("info", `[TMDB] \u5339\u914D\u68C0\u67E5 "${resultTitle}" - \u76F8\u4F3C\u5EA6: ${(finalScore * 100).toFixed(2)}% (\u5DF2\u627E\u5230\u5B8C\u5168\u5339\u914D\uFF0C\u8DF3\u8FC7\u522B\u540D\u641C\u7D22)`);
+              log("info", `[Utils] [TMDB] \u5339\u914D\u68C0\u67E5 "${resultTitle}" - \u76F8\u4F3C\u5EA6: ${(finalScore * 100).toFixed(2)}% (\u5DF2\u627E\u5230\u5B8C\u5168\u5339\u914D\uFF0C\u8DF3\u8FC7\u522B\u540D\u641C\u7D22)`);
             } else {
-              log("info", `[TMDB] \u5339\u914D\u68C0\u67E5 "${resultTitle}" - \u76F8\u4F3C\u5EA6: ${(finalScore * 100).toFixed(2)}%`);
+              log("info", `[Utils] [TMDB] \u5339\u914D\u68C0\u67E5 "${resultTitle}" - \u76F8\u4F3C\u5EA6: ${(finalScore * 100).toFixed(2)}%`);
             }
           } else {
             if (alternativeTitleFetchCount < MAX_ALTERNATIVE_FETCHES) {
@@ -4475,20 +12392,20 @@ async function getTmdbJaOriginalTitle(title, signal = null, sourceLabel = "Unkno
                 }
               } catch (error) {
                 if (error.name === "AbortError") throw error;
-                log("error", `[TMDB] \u5904\u7406\u7ED3\u679C\u5931\u8D25: ${error.message}`);
+                log("error", `[Utils] [TMDB] \u5904\u7406\u7ED3\u679C\u5931\u8D25: ${error.message}`);
                 chineseTitle = resultTitle;
               }
             } else {
               chineseTitle = resultTitle;
-              log("info", `[TMDB] \u5DF2\u8FBE\u5230\u522B\u540D\u83B7\u53D6\u4E0A\u9650(${MAX_ALTERNATIVE_FETCHES})\uFF0C\u4F7F\u7528\u539F\u6807\u9898: ${resultTitle}`);
+              log("info", `[Utils] [TMDB] \u5DF2\u8FBE\u5230\u522B\u540D\u83B7\u53D6\u4E0A\u9650(${MAX_ALTERNATIVE_FETCHES})\uFF0C\u4F7F\u7528\u539F\u6807\u9898: ${resultTitle}`);
             }
             const finalDirectScore = similarity(cleanTitle, chineseTitle);
             finalScore = Math.max(finalDirectScore, originalScore);
             const displayInfo = chineseTitle !== resultTitle ? `"${resultTitle}" (\u522B\u540D: ${chineseTitle})` : `"${resultTitle}"`;
-            log("info", `[TMDB] \u5339\u914D\u68C0\u67E5 ${displayInfo} - \u76F8\u4F3C\u5EA6: ${(finalScore * 100).toFixed(2)}%`);
+            log("info", `[Utils] [TMDB] \u5339\u914D\u68C0\u67E5 ${displayInfo} - \u76F8\u4F3C\u5EA6: ${(finalScore * 100).toFixed(2)}%`);
             if (finalScore === 1 && !skipAlternativeFetch) {
               skipAlternativeFetch = true;
-              log("info", `[TMDB] \u901A\u8FC7\u522B\u540D\u627E\u5230\u5B8C\u5168\u5339\u914D\uFF0C\u8DF3\u8FC7\u540E\u7EED\u6240\u6709\u522B\u540D\u641C\u7D22`);
+              log("info", `[Utils] [TMDB] \u901A\u8FC7\u522B\u540D\u627E\u5230\u5B8C\u5168\u5339\u914D\uFF0C\u8DF3\u8FC7\u540E\u7EED\u6240\u6709\u522B\u540D\u641C\u7D22`);
             }
           }
           if (finalScore > bestScore) {
@@ -4497,30 +12414,30 @@ async function getTmdbJaOriginalTitle(title, signal = null, sourceLabel = "Unkno
             bestMatchChineseTitle = chineseTitle;
           }
         }
-        const MIN_SIMILARITY = 0.2;
+        const MIN_SIMILARITY = 0.4;
         if (!bestMatch || bestScore < MIN_SIMILARITY) {
-          log("info", `[TMDB] \u6700\u4F73\u5339\u914D\u76F8\u4F3C\u5EA6\u8FC7\u4F4E\u6216\u672A\u627E\u5230\u5339\u914D (${bestMatch ? (bestScore * 100).toFixed(2) + "%" : "N/A"}),\u8DF3\u8FC7`);
+          log("info", `[Utils] [TMDB] \u6700\u4F73\u5339\u914D\u76F8\u4F3C\u5EA6\u8FC7\u4F4E\u6216\u672A\u627E\u5230\u5339\u914D (${bestMatch ? (bestScore * 100).toFixed(2) + "%" : "N/A"}),\u8DF3\u8FC7`);
           return null;
         }
-        log("info", `[TMDB] TMDB\u6700\u4F73\u5339\u914D: ${bestMatchChineseTitle}, \u76F8\u4F3C\u5EA6: ${(bestScore * 100).toFixed(2)}%`);
+        log("info", `[Utils] [TMDB] TMDB\u6700\u4F73\u5339\u914D: ${bestMatchChineseTitle}, \u76F8\u4F3C\u5EA6: ${(bestScore * 100).toFixed(2)}%`);
         const mediaType = bestMatch.media_type || (bestMatch.name ? "tv" : "movie");
         const detailResp = await getTmdbJpDetail(mediaType, bestMatch.id, { signal: backgroundSignal });
         let jaOriginalTitle;
         if (!detailResp || !detailResp.data) {
           jaOriginalTitle = bestMatch.name || bestMatch.title;
-          log("info", `[TMDB] \u4F7F\u7528\u4E2D\u6587\u641C\u7D22\u7ED3\u679C\u6807\u9898: ${jaOriginalTitle}`);
+          log("info", `[Utils] [TMDB] \u4F7F\u7528\u4E2D\u6587\u641C\u7D22\u7ED3\u679C\u6807\u9898: ${jaOriginalTitle}`);
         } else {
           const detail = typeof detailResp.data === "string" ? JSON.parse(detailResp.data) : detailResp.data;
           jaOriginalTitle = detail.original_name || detail.original_title || detail.name || detail.title;
-          log("info", `[TMDB] \u627E\u5230\u65E5\u8BED\u539F\u540D: ${jaOriginalTitle}`);
+          log("info", `[Utils] [TMDB] \u627E\u5230\u65E5\u8BED\u539F\u540D: ${jaOriginalTitle}`);
         }
         return { title: jaOriginalTitle, cnAlias: bestMatchChineseTitle };
       } catch (error) {
         if (error.name === "AbortError") {
-          log("info", `[TMDB] \u540E\u53F0\u641C\u7D22\u4EFB\u52A1\u5DF2\u5B8C\u5168\u7EC8\u6B62 (${cleanTitle})`);
+          log("info", `[Utils] [TMDB] \u540E\u53F0\u641C\u7D22\u4EFB\u52A1\u5DF2\u5B8C\u5168\u7EC8\u6B62 (${cleanTitle})`);
           return null;
         }
-        log("error", "[TMDB] Background Search error:", {
+        log("error", "[Utils] [TMDB] Background Search error:", {
           message: error.message,
           name: error.name,
           stack: error.stack
@@ -4536,9 +12453,9 @@ async function getTmdbJaOriginalTitle(title, signal = null, sourceLabel = "Unkno
       })
     };
     TMDB_PENDING.set(cleanTitle, task);
-    log("info", `[TMDB] \u542F\u52A8\u65B0\u641C\u7D22\u4EFB\u52A1: ${cleanTitle}`);
+    log("info", `[Utils] [TMDB] \u542F\u52A8\u65B0\u641C\u7D22\u4EFB\u52A1: ${cleanTitle}`);
   } else {
-    log("info", `[TMDB] \u52A0\u5165\u6B63\u5728\u8FDB\u884C\u7684\u641C\u7D22: ${cleanTitle} (${sourceLabel})`);
+    log("info", `[Utils] [TMDB] \u52A0\u5165\u6B63\u5728\u8FDB\u884C\u7684\u641C\u7D22: ${cleanTitle} (${sourceLabel})`);
   }
   task.refCount++;
   const leaveTask = () => {
@@ -4546,33 +12463,42 @@ async function getTmdbJaOriginalTitle(title, signal = null, sourceLabel = "Unkno
     if (currentTask === task) {
       task.refCount--;
       if (task.refCount <= 0) {
-        log("info", `[TMDB] \u6240\u6709\u8C03\u7528\u8005\u5DF2\u53D6\u6D88\uFF0C\u7EC8\u6B62\u540E\u53F0\u8BF7\u6C42: ${cleanTitle}`);
+        log("info", `[Utils] [TMDB] \u6240\u6709\u8C03\u7528\u8005\u5DF2\u53D6\u6D88\uFF0C\u7EC8\u6B62\u540E\u53F0\u8BF7\u6C42: ${cleanTitle}`);
         task.controller.abort();
       }
     }
   };
+  let abortHandler;
   if (signal) {
     if (signal.aborted) {
       leaveTask();
-      log("info", `[TMDB] \u641C\u7D22\u5DF2\u88AB\u4E2D\u65AD (Source: ${sourceLabel})`);
+      log("info", `[Utils] [TMDB] \u641C\u7D22\u5DF2\u88AB\u4E2D\u65AD (Source: ${sourceLabel})`);
       return null;
     }
-    signal.addEventListener("abort", leaveTask, { once: true });
+    signal.addEventListener("abort", leaveTask);
   }
   try {
     const userAbortPromise = new Promise((_, reject) => {
       if (signal) {
-        signal.addEventListener("abort", () => reject(new DOMException("Aborted", "AbortError")), { once: true });
+        abortHandler = () => reject(new DOMException("Aborted", "AbortError"));
+        signal.addEventListener("abort", abortHandler);
       }
     });
     return await Promise.race([task.promise, userAbortPromise]);
   } catch (error) {
     if (error.name === "AbortError") {
-      log("info", `[TMDB] \u641C\u7D22\u5DF2\u88AB\u4E2D\u65AD (Source: ${sourceLabel})`);
+      log("info", `[Utils] [TMDB] \u641C\u7D22\u5DF2\u88AB\u4E2D\u65AD (Source: ${sourceLabel})`);
       return null;
     }
-    log("error", `[TMDB] \u641C\u7D22\u5F02\u5E38: ${error.message}`);
+    log("error", `[Utils] [TMDB] \u641C\u7D22\u5F02\u5E38: ${error.message}`);
     return null;
+  } finally {
+    if (signal) {
+      signal.removeEventListener("abort", leaveTask);
+      if (abortHandler) {
+        signal.removeEventListener("abort", abortHandler);
+      }
+    }
   }
 }
 var SUFFIX_PATTERN = /(?:\s+|^)(?:第?\s*(?:\d+|[一二三四五六七八九十]+)\s*[季期部]|season\s*\d+|s\d+|part\s*\d+|act\s*\d+|phase\s*\d+|the\s+final\s+season|(?:movie|film|ova|oad|sp|剧场版|劇場版|续[篇集]|外传)(?![a-z]))|[:：~～]|\s+.*?篇|(?<=\s|^)\d+$/i;
@@ -4598,7 +12524,7 @@ function smartTitleReplace(animes, cnAlias) {
     }
   }
   if (validCount === 0) return;
-  log("info", `[TMDB] \u542F\u52A8\u667A\u80FD\u66FF\u6362\uFF0C\u76EE\u6807\u522B\u540D: "${cnAlias}"\uFF0C\u5F85\u5904\u7406\u6761\u76EE: ${validCount}`);
+  log("info", `[Utils] [TMDB] \u542F\u52A8\u667A\u80FD\u66FF\u6362\uFF0C\u76EE\u6807\u522B\u540D: "${cnAlias}"\uFF0C\u5F85\u5904\u7406\u6761\u76EE: ${validCount}`);
   const baseTitles = animes.map((a) => {
     const t = a.org_title || a.title || "";
     return t.substring(0, detectSuffixStart(t));
@@ -4612,7 +12538,7 @@ function smartTitleReplace(animes, cnAlias) {
     lcp = a1.substring(0, i);
   }
   if (lcp && lcp.length > 1) {
-    log("info", `[TMDB] \u8BA1\u7B97\u51FA\u6700\u957F\u516C\u5171\u524D\u7F00 (LCP): "${lcp}"`);
+    log("info", `[Utils] [TMDB] \u8BA1\u7B97\u51FA\u6700\u957F\u516C\u5171\u524D\u7F00 (LCP): "${lcp}"`);
   }
   for (const anime of animes) {
     const originalTitle = anime.title || "";
@@ -4620,7 +12546,7 @@ function smartTitleReplace(animes, cnAlias) {
     if (lcp && lcp.length > 1 && originalTitle.startsWith(lcp)) {
       const suffix = originalTitle.substring(lcp.length).trim();
       anime._displayTitle = suffix ? `${cnAlias}${suffix.match(/^[~～:：]/) ? "" : " "}${suffix}` : cnAlias;
-      log("info", `[TMDB] [LCP\u6A21\u5F0F] "${originalTitle}" -> "${anime._displayTitle}"`);
+      log("info", `[Utils] [TMDB] [LCP\u6A21\u5F0F] "${originalTitle}" -> "${anime._displayTitle}"`);
     } else {
       const match = originalTitle.match(SEPARATOR_REGEX);
       if (match) {
@@ -4630,14 +12556,18 @@ function smartTitleReplace(animes, cnAlias) {
           const subMatch = suffix.trim().match(SEPARATOR_REGEX);
           const subSuffix = subMatch ? suffix.trim().substring(subMatch.index) : "";
           anime._displayTitle = `${prefix} ${cnAlias}${subSuffix}`;
-          log("info", `[TMDB] [\u524D\u7F00\u4FDD\u62A4\u6A21\u5F0F] "${originalTitle}" -> "${anime._displayTitle}"`);
+          log("info", `[Utils] [TMDB] [\u524D\u7F00\u4FDD\u62A4\u6A21\u5F0F] "${originalTitle}" -> "${anime._displayTitle}"`);
         } else {
           anime._displayTitle = cnAlias + suffix;
-          log("info", `[TMDB] [\u5206\u9694\u7B26\u6A21\u5F0F] "${originalTitle}" -> "${anime._displayTitle}"`);
+          log("info", `[Utils] [TMDB] [\u5206\u9694\u7B26\u6A21\u5F0F] "${originalTitle}" -> "${anime._displayTitle}"`);
         }
       } else {
-        anime._displayTitle = cnAlias;
-        log("info", `[TMDB] [\u5168\u66FF\u6A21\u5F0F] "${originalTitle}" -> "${anime._displayTitle}"`);
+        if (isNonChinese(originalTitle)) {
+          anime._displayTitle = cnAlias;
+          log("info", `[Utils] [TMDB] [\u7EAF\u5916\u6587\u5168\u66FF\u6A21\u5F0F] "${originalTitle}" -> "${anime._displayTitle}"`);
+        } else {
+          log("info", `[Utils] [TMDB] [\u8DF3\u8FC7\u66FF\u6362] "${originalTitle}" \u542B\u6709\u4E2D\u6587\u4E14\u7279\u5F81\u4E0D\u7B26\uFF0C\u62D2\u7EDD\u5F3A\u5236\u5168\u66FF\u4EE5\u9632\u8BEF\u6740`);
+        }
       }
     }
   }
@@ -4648,17 +12578,17 @@ var MERGE_DELIMITER = "$$$";
 var DISPLAY_CONNECTOR = "&";
 var ENABLE_VERBOSE_MERGE_LOG = false;
 var MergeWeights = Object.freeze({
-  // 标题与结构
+  // ── 标题与结构 ──────────────────────────────────────────
   TITLE_STRUCTURE_CONFLICT: -0.3,
   // 标题结构冲突（如父子集关系）
   LANG_MATCH_CN: 0.15,
-  // 双端均为中文时的奖励
+  // 双端均为中文时的语言一致奖励
   LANG_MISMATCH: -0.2,
   // 语言不一致时的惩罚
-  // 日期
+  // ── 日期 ─────────────────────────────────────────────────
   DATE_MATCH: 0,
   // 基础日期匹配（动态计算，此处为占位）
-  // 集数对齐 (Alignment)
+  // ── 集数对齐 (Episode Alignment) ─────────────────────────
   EP_ALIGN: {
     MOVIE_TYPE_MISMATCH: -5,
     // 电影/TV 类型不符
@@ -4677,15 +12607,15 @@ var MergeWeights = Object.freeze({
     IS_SPECIAL_MATCH: 3,
     // 是否为特殊集属性一致
     SEASON_SHIFT_EXACT: 15,
-    // 完美的季度偏移匹配（如 S2E1 -> S1E13）
+    // 完美的季度偏移匹配（如 S2E1 → S1E13）
     CN_STRICT_MATCH: 25,
-    // 中文严格 核心词命中且集数一致的奖励
+    // 中文严格：核心词命中且集数一致的奖励
     CN_STRICT_MISMATCH: -5,
-    // 中文严格 核心词包含但集数不同（防止同系列不同集数的误对齐）
+    // 中文严格：核心词包含但集数不同（防同系列误对齐）
     NUMERIC_MATCH: 2,
-    // 数字严格相等
+    // 数字严格相等奖励
     PATTERN_CONSISTENCY_BONUS: 2,
-    // 强规律性奖励
+    // 强规律性奖励（偏移一致比例高）
     ZERO_DIFF_BONUS_BASE: 100,
     // 零偏移的额外基准奖励
     ZERO_DIFF_BONUS_PER_HIT: 5
@@ -4694,19 +12624,19 @@ var MergeWeights = Object.freeze({
 });
 var Thresholds = Object.freeze({
   SIMILARITY_MIN: 0.65,
-  // 最低标题相似度
+  // 最低标题相似度（低于此值直接拒绝）
   SIMILARITY_STRONG: 0.98,
-  // 强匹配（Probe确认后）
+  // 强匹配（Probe 确认后）
   TIER_DEFAULT: 1e-3,
-  // 默认分数梯度容差
+  // 默认分数梯度容差（精确匹配）
   TIER_CN: 0.4,
-  // 中文优先梯度容差
+  // 中文优先梯度容差（宽松保留CN资源）
   TIER_PART: 0.5,
-  // Part分部容差
+  // Part 分部容差
   COLLECTION_RATIO: 4,
-  // 合集判定比率上限
+  // 合集判定比率上限（防超大合集误标）
   COLLECTION_DIFF: 6
-  // 合集判定数量差阈值
+  // 合集判定数量差阈值（超出N集才认为是合集）
 });
 function log2(level, ...args) {
   const isMergeCheck = typeof args[0] === "string" && args[0].includes("[Merge-Check]");
@@ -4714,6 +12644,7 @@ function log2(level, ...args) {
   log(level, ...args);
 }
 var RegexStore = {
+  /** 语言识别正则 */
   Lang: {
     CN: /(普通[话話]|[国國][语語]|中文配音|中配|中文|[粤粵][语語]配音|[粤粵]配|[粤粵][语語]|[台臺]配|[台臺][语語]|港配|港[语語]|字幕|助[听聽])(?:版)?/,
     JP: /(日[语語]|日配|原版|原[声聲])(?:版)?/,
@@ -4723,13 +12654,14 @@ var RegexStore = {
     CN_STD: /普通[话話]|[国國][语語]|中文配音|中配|中文|[粤粵][语語]配音|[粤粵]配|[粤粵][语語]|[台臺]配|[台臺][语語]|港配|港[语語]|字幕|助[听聽]/g,
     JP_STD: /日[语語]|日配|原版|原[声聲]/g
   },
+  /** 季度解析正则 */
   Season: {
     PURE_PART: /^(?:(?:第|S(?:eason)?)\s*\d+(?:季|期|部)?|(?:Part|P|第)\s*\d+(?:部分)?)$/i,
     PART_NORM: /第\s*(\d+)\s*部分/g,
     PART_NORM_2: /(?:Part|P)[\s.]*(\d+)/gi,
     FINAL: /(?:The\s+)?Final\s+Season/gi,
     NORM: /(?:Season|S)\s*(\d+)/gi,
-    CN: /第\s*([一二三四五六七八九十])\s*季/g,
+    CN: /第\s*([一二三四五六七八九十]+)\s*季/g,
     ROMAN: /(\s|^)(IV|III|II|I)(\s|$)/g,
     INFO_STRONG: /(?:season|s|第)\s*[0-9一二三四五六七八九十]+\s*(?:季|期|部(?!分))?/gi,
     PART_INFO_STRONG: /(?:part|p|第)\s*\d+\s*(?:部分)?/gi,
@@ -4738,6 +12670,7 @@ var RegexStore = {
     SUFFIX_AMBIGUOUS: /(?:[\s\u4e00-\u9fa5]|^)(S|T|R|II|III|IV)(?=$|[\s\(\（\[【])/i,
     SUFFIX_SEQUEL: /(?:续篇|续集|The Sequel)/i
   },
+  /** 通用文本清洗正则 */
   Clean: {
     NA_TAG: /(\(|（|\[)N\/A(\)|）|\])/gi,
     SOURCE_TAG: /【.*?】/g,
@@ -4758,6 +12691,7 @@ var RegexStore = {
     REDUNDANT_UNSAFE_END: /[\(\（\[【:：~～\-]$/,
     REDUNDANT_VALID_CHARS: /[\u4e00-\u9fa5a-zA-Z]{2,}/
   },
+  /** 集数处理正则 */
   Episode: {
     SUFFIX_DIGIT: /_\d+(?=$|\s)/g,
     FILE_NOISE: /_(\d{2,4})(?=\.)/g,
@@ -4777,11 +12711,13 @@ var RegexStore = {
     MAP_EXCLUDE_KEYWORDS: /(?:^|\s)(?:PV|OP|ED|SP|Special|Drama|OAD|OVA|Opening|Ending|特番|特典|Behind\s+the\s+Scenes|Making|Interview)(?:\s|$|[:：])/i,
     SINK_TITLE_STRICT: /^(?:S\d+|C\d+|SP\d*|OP\d*|ED\d*|PV\d*|Trailers?|Interview|Making|特番|特典)(?:\s|$|[:：.\-]|\u3000)/i
   },
+  /** 内容分类正则 */
   Category: {
     ANIME_KW: /(动画|TV动画|动漫|日漫|国漫)/,
     REAL_KW: /(电视剧|真人剧|综艺|纪录片)/,
     ANIMEKO_SOURCE: /animeko/i
   },
+  /** 相似度计算专用正则 */
   Similarity: {
     CN_STRICT_CORE_REMOVE: /[0-9a-zA-Z\s第季集话partEPep._\-–—:：【】()（）]/gi
   }
@@ -4801,6 +12737,7 @@ var SEASON_PATTERNS = [
   { regex: /(剧场版|劇場版|the\s*movie|theatrical|movie|film|电影)/i, val: "MOVIE" },
   { regex: /(续篇|续集)/, val: "SEQUEL" },
   { regex: /\b(sp|special)\d*\b/i, val: "SP" },
+  // 回退：清洗后以数字结尾（如 "タイトル2"）视为 S{N}
   { regex: /[^0-9](\d)$/, prefix: "S", useCleaned: true }
 ];
 var SpecialSeriesRegistry = [
@@ -4808,7 +12745,6 @@ var SpecialSeriesRegistry = [
     // 案例 1：经典的带副标题映射（美少女战士）
     seriesKeywords: ["\u7F8E\u5C11\u5973\u6218\u58EB"],
     mappings: [
-      // 忽略大小写，填入 "R" 即可自动匹配 "r"
       { markers: ["R"], targetStandard: "\u7B2C\u4E8C\u5B63" },
       { markers: ["S"], targetStandard: "\u7B2C\u4E09\u5B63" },
       { markers: ["SuperS", "Super S"], targetStandard: "\u7B2C\u56DB\u5B63" },
@@ -4838,31 +12774,14 @@ var SpecialSeriesRegistry = [
 function escapeRegExp(string) {
   return string.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
-function normalizeTitleForEngine(title) {
-  if (!title) return "";
-  let normTitle = title;
-  const upperTitle = normTitle.toUpperCase();
-  for (const rule of SpecialSeriesRegistry) {
-    const isTargetSeries = rule.seriesKeywords.every((kw) => upperTitle.includes(kw.toUpperCase()));
-    if (isTargetSeries) {
-      let hasMapped = false;
-      if (rule.mappings) {
-        for (const mapping of rule.mappings) {
-          mapping.markers.forEach((marker) => {
-            const reg = new RegExp(escapeRegExp(marker), "gi");
-            if (reg.test(normTitle)) {
-              normTitle = normTitle.replace(reg, ` ${mapping.targetStandard} `);
-              hasMapped = true;
-            }
-          });
-        }
-      }
-      if (!hasMapped && rule.defaultStandard) {
-        normTitle += ` ${rule.defaultStandard} `;
-      }
+function fastCloneAnime(anime) {
+  if (typeof structuredClone === "function") {
+    try {
+      return structuredClone(anime);
+    } catch (e) {
     }
   }
-  return normTitle;
+  return JSON.parse(JSON.stringify(anime));
 }
 function getLanguageType(text) {
   if (!text) return "Unspecified";
@@ -4870,6 +12789,31 @@ function getLanguageType(text) {
   if (RegexStore.Lang.CN.test(t)) return "CN";
   if (RegexStore.Lang.JP.test(t)) return "JP";
   return "Unspecified";
+}
+function normalizeTitleForEngine(title) {
+  if (!title) return "";
+  let normTitle = title;
+  const upperTitle = normTitle.toUpperCase();
+  for (const rule of SpecialSeriesRegistry) {
+    const isTargetSeries = rule.seriesKeywords.every((kw) => upperTitle.includes(kw.toUpperCase()));
+    if (!isTargetSeries) continue;
+    let hasMapped = false;
+    if (rule.mappings) {
+      for (const mapping of rule.mappings) {
+        mapping.markers.forEach((marker) => {
+          const reg = new RegExp(escapeRegExp(marker), "gi");
+          if (reg.test(normTitle)) {
+            normTitle = normTitle.replace(reg, ` ${mapping.targetStandard} `);
+            hasMapped = true;
+          }
+        });
+      }
+    }
+    if (!hasMapped && rule.defaultStandard) {
+      normTitle += ` ${rule.defaultStandard} `;
+    }
+  }
+  return normTitle;
 }
 function cleanText(text) {
   if (!text) return "";
@@ -4879,8 +12823,7 @@ function cleanText(text) {
   clean = clean.replace(RegexStore.Season.PART_NORM_2, "part $1");
   clean = clean.replace(RegexStore.Season.FINAL, "\u6700\u7EC8\u5B63");
   clean = clean.replace(RegexStore.Season.NORM, "\u7B2C$1\u5B63");
-  const cnNums = { "\u4E00": "1", "\u4E8C": "2", "\u4E09": "3", "\u56DB": "4", "\u4E94": "5", "\u516D": "6", "\u4E03": "7", "\u516B": "8", "\u4E5D": "9", "\u5341": "10" };
-  clean = clean.replace(RegexStore.Season.CN, (m, num) => `\u7B2C${cnNums[num]}\u5B63`);
+  clean = clean.replace(RegexStore.Season.CN, (m, num) => `\u7B2C${convertChineseNumber(num)}\u5B63`);
   clean = clean.replace(RegexStore.Season.ROMAN, (match, p1, roman, p2) => {
     const rMap = { "I": "1", "II": "2", "III": "3", "IV": "4" };
     return `${p1}\u7B2C${rMap[roman]}\u5B63${p2}`;
@@ -4988,8 +12931,8 @@ function calculateDiceSimilarity(s1, s2) {
   if (size1 === 0 && size2 === 0) return 1;
   if (size1 === 0 || size2 === 0) return 0;
   let intersection = 0;
-  const [smaller, larger] = size1 < size2 ? [set1, set2] : [set2, set1];
-  for (const char of smaller) if (larger.has(char)) intersection++;
+  const [smaller2, larger] = size1 < size2 ? [set1, set2] : [set2, set1];
+  for (const char of smaller2) if (larger.has(char)) intersection++;
   return 2 * intersection / (size1 + size2);
 }
 function calculateSimilarity(str1, str2) {
@@ -5024,44 +12967,6 @@ function calculateSimilarity(str1, str2) {
     }
   }
   return Math.max(editScore, diceScore, overlapScore);
-}
-function checkTitleSubtitleConflict(titleA, titleB, isDateValid = true) {
-  if (!titleA || !titleB) return false;
-  if (cleanTitleForSimilarity(titleA) === cleanTitleForSimilarity(titleB)) return false;
-  const lightClean = (str) => {
-    if (!str) return "";
-    let s = simplized(str);
-    s = s.replace(RegexStore.Clean.META_SUFFIX, "").replace(RegexStore.Clean.YEAR_TAG, "").replace(RegexStore.Clean.SOURCE_TAG, "").replace(RegexStore.Clean.FROM_SUFFIX, "").replace(RegexStore.Clean.WHITESPACE, " ");
-    return s.trim().toLowerCase();
-  };
-  const t1 = lightClean(titleA), t2 = lightClean(titleB);
-  if (t1 === t2) return false;
-  const extractSubtitle = (fullTitle) => {
-    const splitters = [":", "\uFF1A", " code:", " code\uFF1A", " season", " part"];
-    for (const sep of splitters) {
-      const idx = fullTitle.indexOf(sep);
-      if (idx !== -1) return fullTitle.substring(idx).trim();
-    }
-    const spaceParts = fullTitle.split(RegexStore.Clean.WHITESPACE);
-    if (spaceParts.length >= 2) return spaceParts.slice(1).join(" ");
-    return null;
-  };
-  const sub1 = extractSubtitle(t1), sub2 = extractSubtitle(t2);
-  const [short, long] = t1.length < t2.length ? [t1, t2] : [t2, t1];
-  if (long.startsWith(short)) {
-    if (long.length === short.length) return false;
-    const nextChar = long[short.length];
-    if (RegexStore.Clean.SUBTITLE_SEPARATOR.test(nextChar)) {
-      const subtitle = long.slice(short.length).replace(RegexStore.Clean.SUBTITLE_SEPARATOR, "").trim();
-      if (!isDateValid && subtitle.length > 1) return true;
-      if (subtitle.length > 2) return true;
-    }
-  }
-  if (sub1 && sub2) {
-    const sim = calculateDiceSimilarity(sub1, sub2);
-    if (sim < 0.2) return true;
-  }
-  return false;
 }
 function extractSeasonMarkers(title, typeDesc = "", aliases = []) {
   const markers = /* @__PURE__ */ new Set();
@@ -5139,6 +13044,44 @@ function getContentCategory(title, typeDesc, source) {
   if (RegexStore.Category.ANIME_KW.test(fullText)) return "ANIME";
   if (RegexStore.Category.REAL_KW.test(fullText)) return "REAL";
   return "UNKNOWN";
+}
+function checkTitleSubtitleConflict(titleA, titleB, isDateValid = true) {
+  if (!titleA || !titleB) return false;
+  if (cleanTitleForSimilarity(titleA) === cleanTitleForSimilarity(titleB)) return false;
+  const lightClean = (str) => {
+    if (!str) return "";
+    let s = simplized(str);
+    s = s.replace(RegexStore.Clean.META_SUFFIX, "").replace(RegexStore.Clean.YEAR_TAG, "").replace(RegexStore.Clean.SOURCE_TAG, "").replace(RegexStore.Clean.FROM_SUFFIX, "").replace(RegexStore.Clean.WHITESPACE, " ");
+    return s.trim().toLowerCase();
+  };
+  const t1 = lightClean(titleA), t2 = lightClean(titleB);
+  if (t1 === t2) return false;
+  const extractSubtitle = (fullTitle) => {
+    const splitters = [":", "\uFF1A", " code:", " code\uFF1A", " season", " part"];
+    for (const sep of splitters) {
+      const idx = fullTitle.indexOf(sep);
+      if (idx !== -1) return fullTitle.substring(idx).trim();
+    }
+    const spaceParts = fullTitle.split(RegexStore.Clean.WHITESPACE);
+    if (spaceParts.length >= 2) return spaceParts.slice(1).join(" ");
+    return null;
+  };
+  const sub1 = extractSubtitle(t1), sub2 = extractSubtitle(t2);
+  const [short, long] = t1.length < t2.length ? [t1, t2] : [t2, t1];
+  if (long.startsWith(short)) {
+    if (long.length === short.length) return false;
+    const nextChar = long[short.length];
+    if (RegexStore.Clean.SUBTITLE_SEPARATOR.test(nextChar)) {
+      const subtitle = long.slice(short.length).replace(RegexStore.Clean.SUBTITLE_SEPARATOR, "").trim();
+      if (!isDateValid && subtitle.length > 1) return true;
+      if (subtitle.length > 2) return true;
+    }
+  }
+  if (sub1 && sub2) {
+    const sim = calculateDiceSimilarity(sub1, sub2);
+    if (sim < 0.2) return true;
+  }
+  return false;
 }
 function checkTheatricalExemption(titleA, titleB, typeDescA, typeDescB) {
   const isTheatrical = (typeDescA || "").includes("\u5267\u573A\u7248") || (typeDescB || "").includes("\u5267\u573A\u7248");
@@ -5257,6 +13200,422 @@ function isMergeRatioValid(mergedCount, totalA, totalB, sourceA, sourceB, isAnyC
   if (maxTotal > 5 && ratio < 0.18) return false;
   return true;
 }
+function getSpecialEpisodeType(title) {
+  if (!title) return null;
+  const t = title.toLowerCase();
+  if (t.includes("opening")) return "opening";
+  if (t.includes("ending")) return "ending";
+  if (t.includes("interview")) return "interview";
+  if (t.includes("bloopers")) return "Bloopers";
+  return null;
+}
+function extractEpisodeInfo(title, sourceName = "") {
+  let isStrictSpecial = false;
+  let effectiveSource = sourceName;
+  if (title) {
+    const tagMatch = title.match(RegexStore.Episode.DANDAN_TAG);
+    if (tagMatch) effectiveSource = tagMatch[1].toLowerCase();
+  }
+  const isDandanOrAnimeko = /^(dandan|animeko)$/i.test(effectiveSource);
+  if (isDandanOrAnimeko && title) {
+    let rawTemp = title.replace(RegexStore.Clean.SOURCE_TAG, "").replace(RegexStore.Clean.FROM_SUFFIX, "").trim();
+    if (RegexStore.Episode.SPECIAL_START.test(rawTemp) || RegexStore.Episode.DANDAN_IGNORE.test(rawTemp)) {
+      isStrictSpecial = true;
+    }
+  }
+  const t = cleanText(title || "");
+  const isMovie = RegexStore.Episode.MOVIE_CHECK.test(t);
+  const isPV = RegexStore.Episode.PV_CHECK.test(t);
+  let num = null, season = null;
+  const specialTypeTag = getSpecialEpisodeType(title);
+  const isSpecial = isPV || isStrictSpecial || !!specialTypeTag || RegexStore.Episode.SPECIAL_CHECK.test(t);
+  const seasonMatch = t.match(RegexStore.Episode.SEASON_MATCH);
+  if (seasonMatch) season = parseInt(seasonMatch[1]);
+  const seasonEpMatch = t.match(RegexStore.Episode.NUM_STRATEGY_A);
+  if (seasonEpMatch) {
+    num = parseFloat(seasonEpMatch[2]);
+  } else {
+    const strongPrefixMatch = t.match(RegexStore.Episode.NUM_STRATEGY_B);
+    if (strongPrefixMatch) {
+      num = parseFloat(strongPrefixMatch[1]);
+    } else {
+      const weakPrefixMatch = t.match(RegexStore.Episode.NUM_STRATEGY_C);
+      if (weakPrefixMatch) num = parseFloat(weakPrefixMatch[1]);
+    }
+  }
+  return { isMovie, num, isSpecial, isPV, season, isStrictSpecial };
+}
+function filterEpisodes(links, filterRegex, sourceName = "") {
+  if (!links) return [];
+  const skipFilterSources = ["animeko", "bilibili", "bilibili1", "bahamut", "dandan"];
+  const shouldSkipFilter = skipFilterSources.includes(sourceName);
+  if (!filterRegex || shouldSkipFilter) {
+    return links.map((link, index) => ({ link, originalIndex: index }));
+  }
+  const validLinks = [];
+  const droppedTitles = [];
+  links.forEach((link, index) => {
+    const title = link.title || link.name || "";
+    if (filterRegex.test(title)) {
+      droppedTitles.push(title);
+    } else {
+      validLinks.push({ link, originalIndex: index });
+    }
+  });
+  if (droppedTitles.length > 0) {
+    const sourcePrefix = sourceName ? `[${sourceName}] ` : "";
+    log2("info", `[Merge-Check] ${sourcePrefix}\u547D\u4E2DEPISODE_TITLE_FILTER\u8FC7\u6EE4\uFF0C\u5DF2\u524D\u7F6E\u5254\u9664 ${droppedTitles.length} \u96C6: ${droppedTitles.join(", ")}`);
+  }
+  return validLinks;
+}
+var _redundantTitleRegexCache = /* @__PURE__ */ new Map();
+function identifyRedundantTitle(links, seriesTitle, sourceName) {
+  if (!links || links.length < 2 || !seriesTitle) return "";
+  const cleanSource = (text) => {
+    if (!text || !sourceName) return text || "";
+    try {
+      let regex = _redundantTitleRegexCache.get(sourceName);
+      if (!regex) {
+        const escapedSource = escapeRegExp(sourceName);
+        regex = new RegExp(`(\\[|\u3010|\\s)?${escapedSource}(\\]|\u3011|\\s)?`, "gi");
+        _redundantTitleRegexCache.set(sourceName, regex);
+      }
+      return text.replace(regex, "").trim();
+    } catch (e) {
+      return text;
+    }
+  };
+  let cleanSeriesTitle = cleanSource(seriesTitle);
+  const separatorMatch = cleanSeriesTitle.match(RegexStore.Clean.REDUNDANT_SEPARATOR);
+  if (separatorMatch) cleanSeriesTitle = cleanSeriesTitle.substring(0, separatorMatch.index);
+  const titles = links.map((item) => {
+    const realLink = item.link || item;
+    if (!realLink) return "";
+    return cleanSource(realLink.title || realLink.name || "");
+  });
+  if (titles.some((t) => !t)) return "";
+  const getLCS = (s1, s2) => {
+    let maxSub = "";
+    for (let i = 0; i < s1.length; i++) {
+      for (let j = i + 1; j <= s1.length; j++) {
+        const sub = s1.substring(i, j);
+        if (s2.includes(sub) && sub.length > maxSub.length) maxSub = sub;
+      }
+    }
+    return maxSub;
+  };
+  let common2 = getLCS(titles[0], titles[1]);
+  if (common2.length < 2) return "";
+  for (let i = 2; i < titles.length; i++) {
+    common2 = getLCS(common2, titles[i]);
+    if (common2.length < 2) return "";
+  }
+  const validatedRedundant = getLCS(common2, cleanSeriesTitle);
+  if (!cleanSeriesTitle.startsWith(validatedRedundant)) return "";
+  if (RegexStore.Clean.REDUNDANT_UNSAFE_END.test(validatedRedundant)) {
+    const trimmed = validatedRedundant.slice(0, -1).trim();
+    if (trimmed.length >= 2 && cleanSeriesTitle.startsWith(trimmed)) return trimmed;
+    return "";
+  }
+  if (validatedRedundant.length >= 2) {
+    if (RegexStore.Clean.REDUNDANT_VALID_CHARS.test(validatedRedundant) || validatedRedundant.length > 3) {
+      log2("info", `[Merge-Check] \u68C0\u6D4B\u5230\u96C6\u5185\u5197\u4F59\u6807\u9898\u5B57\u6BB5: "${validatedRedundant}" (\u5DF2\u5FFD\u7565\u6765\u6E90: ${sourceName}, \u951A\u5B9A\u9A8C\u8BC1\u901A\u8FC7)`);
+      return validatedRedundant;
+    }
+  }
+  return "";
+}
+function getDecimalEpisodes(links, source) {
+  const decimals = /* @__PURE__ */ new Set();
+  if (!links) return decimals;
+  let lastIntegerIndex = -1;
+  for (let i = 0; i < links.length; i++) {
+    const title = links[i].title || links[i].name || "";
+    const info = extractEpisodeInfo(title, source);
+    if (info.num !== null && !info.isSpecial && !info.isPV && info.num % 1 === 0) lastIntegerIndex = i;
+  }
+  links.forEach((l, i) => {
+    const title = l.title || l.name || "";
+    const info = extractEpisodeInfo(title, source);
+    if (info.num !== null && !info.isSpecial && !info.isPV && info.num % 1 !== 0) {
+      if (i < lastIntegerIndex) decimals.add(info.num);
+    }
+  });
+  return decimals;
+}
+function sinkDecimalEpisodes(links, numsToSink, source, sideName) {
+  const normals = [], sinkers = [];
+  let movedCount = 0;
+  links.forEach((link) => {
+    const title = link.title || link.name || "";
+    const info = extractEpisodeInfo(title, source);
+    const isTarget = info.num !== null && numsToSink.has(info.num);
+    if (isTarget) {
+      sinkers.push(link);
+      movedCount++;
+    } else normals.push(link);
+  });
+  if (movedCount > 0) {
+    links.length = 0;
+    links.push(...normals, ...sinkers);
+    log2("info", `[Merge-Check] [${sideName}] \u81EA\u52A8\u6C89\u5E95: \u79FB\u52A8\u4E86 ${movedCount} \u4E2A\u4E2D\u95F4\u63D2\u503C\u96C6\u6570 (${Array.from(numsToSink).join(",")}) \u5230\u672B\u5C3E`);
+  }
+}
+function findBestAlignmentOffset(primaryLinks, secondaryLinks, seriesLangA = "Unspecified", seriesLangB = "Unspecified", sourceA = "", sourceB = "", primarySeriesTitle = "", secondarySeriesTitle = "") {
+  if (primaryLinks.length === 0 || secondaryLinks.length === 0) return 0;
+  const redundantA = identifyRedundantTitle(primaryLinks, primarySeriesTitle, sourceA);
+  const redundantB = identifyRedundantTitle(secondaryLinks, secondarySeriesTitle, sourceB);
+  const getTempTitle = (rawTitle, redundantStr) => {
+    if (!rawTitle) return "";
+    if (redundantStr && rawTitle.includes(redundantStr)) return rawTitle.replace(redundantStr, "");
+    return rawTitle;
+  };
+  const processLink = (item, source, seriesLang, red) => {
+    const rawTitle = item.link.title || "";
+    const cleanTitle = getTempTitle(rawTitle, red);
+    const info = extractEpisodeInfo(cleanTitle, source);
+    const epLang = getLanguageType(cleanTitle);
+    const effLang = epLang !== "Unspecified" ? epLang : seriesLang;
+    const finalLang = effLang === "Unspecified" && /^(dandan|animeko)$/i.test(source) ? "JP" : effLang;
+    const cleanEpText = cleanEpisodeText(cleanTitle);
+    const strictCnCore = finalLang === "CN" ? cleanTitle.replace(RegexStore.Similarity.CN_STRICT_CORE_REMOVE, "") : null;
+    return { info, effLang: finalLang, specialType: getSpecialEpisodeType(cleanTitle), cleanEpText, strictCnCore };
+  };
+  const pInfos = primaryLinks.map((item) => processLink(item, sourceA, seriesLangA, redundantA));
+  const sInfos = secondaryLinks.map((item) => processLink(item, sourceB, seriesLangB, redundantB));
+  let minNormalA = null, minNormalB = null;
+  pInfos.forEach(({ info }) => {
+    if (info.num !== null && !info.isSpecial && info.num % 1 === 0)
+      minNormalA = minNormalA === null ? info.num : Math.min(minNormalA, info.num);
+  });
+  sInfos.forEach(({ info }) => {
+    if (info.num !== null && !info.isSpecial && info.num % 1 === 0)
+      minNormalB = minNormalB === null ? info.num : Math.min(minNormalB, info.num);
+  });
+  const seasonShift = minNormalA !== null && minNormalB !== null ? minNormalA - minNormalB : null;
+  const baseRange = 15;
+  const targetShift = seasonShift !== null ? -seasonShift : 0;
+  const safeMin = Math.max(Math.min(-baseRange, targetShift - baseRange), -Math.max(primaryLinks.length, secondaryLinks.length));
+  const safeMax = Math.min(Math.max(baseRange, targetShift + baseRange), Math.max(primaryLinks.length, secondaryLinks.length));
+  let bestOffset = 0, maxScore = -9999;
+  for (let offset = safeMin; offset <= safeMax; offset++) {
+    let totalTextScore = 0, rawTextScoreSum = 0, matchCount = 0;
+    let numericDiffs = /* @__PURE__ */ new Map();
+    let hasSeasonShiftMatch = false;
+    let lastPNumLocal = null;
+    for (let i = 0; i < secondaryLinks.length; i++) {
+      const pIndex = i + offset;
+      if (pIndex < 0 || pIndex >= primaryLinks.length) continue;
+      const dataA = pInfos[pIndex], dataB = sInfos[i];
+      const infoA = dataA.info, infoB = dataB.info;
+      let pairScore = 0;
+      if (infoA.isMovie !== infoB.isMovie)
+        pairScore += MergeWeights.EP_ALIGN.MOVIE_TYPE_MISMATCH;
+      if (infoA.isStrictSpecial && !infoB.isSpecial || infoB.isStrictSpecial && !infoA.isSpecial)
+        pairScore += MergeWeights.EP_ALIGN.SPECIAL_STRICT_MISMATCH;
+      const normLangA = dataA.effLang === "Unspecified" ? "JP" : dataA.effLang;
+      const normLangB = dataB.effLang === "Unspecified" ? "JP" : dataB.effLang;
+      if (normLangA === normLangB) pairScore += MergeWeights.EP_ALIGN.LANG_MATCH;
+      else pairScore += MergeWeights.EP_ALIGN.LANG_MISMATCH;
+      if (infoA.season !== null && infoB.season !== null && infoA.season !== infoB.season)
+        pairScore += MergeWeights.EP_ALIGN.SEASON_NUM_MISMATCH;
+      if (dataA.specialType || dataB.specialType) {
+        if (dataA.specialType !== dataB.specialType) pairScore += MergeWeights.EP_ALIGN.SPECIAL_TYPE_MISMATCH;
+        else pairScore += MergeWeights.EP_ALIGN.SPECIAL_TYPE_MATCH;
+      }
+      if (infoA.isSpecial === infoB.isSpecial) pairScore += MergeWeights.EP_ALIGN.IS_SPECIAL_MATCH;
+      if (seasonShift !== null && !infoA.isSpecial && !infoB.isSpecial) {
+        if (infoA.num - infoB.num === seasonShift) {
+          pairScore += MergeWeights.EP_ALIGN.SEASON_SHIFT_EXACT;
+          hasSeasonShiftMatch = true;
+        }
+      }
+      let sim = 0;
+      if (dataA.effLang === "CN" && dataB.effLang === "CN" && dataA.strictCnCore && dataB.strictCnCore) {
+        if (dataA.strictCnCore.includes(dataB.strictCnCore) || dataB.strictCnCore.includes(dataA.strictCnCore)) {
+          sim = infoA.num !== null && infoB.num !== null && infoA.num === infoB.num ? MergeWeights.EP_ALIGN.CN_STRICT_MATCH : MergeWeights.EP_ALIGN.CN_STRICT_MISMATCH;
+        } else {
+          sim = calculateSimilarity(dataA.cleanEpText, dataB.cleanEpText);
+        }
+      } else {
+        sim = calculateSimilarity(dataA.cleanEpText, dataB.cleanEpText);
+      }
+      pairScore += sim;
+      rawTextScoreSum += sim;
+      if (infoA.num !== null && infoB.num !== null && infoA.num === infoB.num)
+        pairScore += MergeWeights.EP_ALIGN.NUMERIC_MATCH;
+      let weightMultiplier = 1;
+      if (infoA.num !== null && !infoA.isSpecial) {
+        if (lastPNumLocal !== null && infoA.num - lastPNumLocal > 1) {
+          weightMultiplier = 0.1;
+        } else {
+          lastPNumLocal = infoA.num;
+        }
+      }
+      pairScore *= weightMultiplier;
+      sim *= weightMultiplier;
+      rawTextScoreSum += sim;
+      totalTextScore += pairScore;
+      if (infoA.num !== null && infoB.num !== null) {
+        const diffKey = (infoB.num - infoA.num).toFixed(4);
+        numericDiffs.set(diffKey, (numericDiffs.get(diffKey) || 0) + weightMultiplier);
+      }
+      matchCount++;
+    }
+    if (matchCount > 0) {
+      let finalScore = totalTextScore / matchCount;
+      let maxFrequency = 0;
+      for (const count of numericDiffs.values()) maxFrequency = Math.max(maxFrequency, count);
+      const consistencyRatio = maxFrequency / matchCount;
+      const avgRawTextScore = rawTextScoreSum / matchCount;
+      if (consistencyRatio > 0.6) {
+        if (hasSeasonShiftMatch || avgRawTextScore > 0.33) finalScore += MergeWeights.EP_ALIGN.PATTERN_CONSISTENCY_BONUS;
+      }
+      finalScore += Math.min(matchCount * 0.15, 1.5);
+      const zeroDiffCount = numericDiffs.get("0.0000") || 0;
+      if (zeroDiffCount > 0) {
+        finalScore += MergeWeights.EP_ALIGN.ZERO_DIFF_BONUS_BASE;
+        finalScore += zeroDiffCount * MergeWeights.EP_ALIGN.ZERO_DIFF_BONUS_PER_HIT;
+      }
+      if (finalScore > maxScore) {
+        maxScore = finalScore;
+        bestOffset = offset;
+      }
+    }
+  }
+  return maxScore > 0.3 ? bestOffset : 0;
+}
+function buildSeasonLengthMap(allGroupAnimes, epFilter, collectionAnimeIds) {
+  const seasonStats = /* @__PURE__ */ new Map();
+  const debugLogs = [];
+  for (const anime of allGroupAnimes) {
+    if (collectionAnimeIds && collectionAnimeIds.has(anime.animeId)) {
+      continue;
+    }
+    const realAnime = globals.animes.find((a) => String(a.animeId) === String(anime.animeId)) || anime;
+    const category = getContentCategory(realAnime.animeTitle, realAnime.typeDescription, realAnime.source);
+    if (category === "REAL") {
+      debugLogs.push(`   [\u5254\u9664] [${realAnime.source}] ${realAnime.animeTitle} (\u7C7B\u578B: \u771F\u4EBA\u5267/REAL)`);
+      continue;
+    }
+    const mediaType = getStrictMediaType(realAnime.animeTitle, realAnime.typeDescription);
+    if (mediaType === "MOVIE") {
+      debugLogs.push(`   [\u5254\u9664] [${realAnime.source}] ${realAnime.animeTitle} (\u7C7B\u578B: \u7535\u5F71/MOVIE)`);
+      continue;
+    }
+    const seasonNum = getSeasonNumber(realAnime.animeTitle, realAnime.typeDescription, realAnime.aliases);
+    if (seasonNum !== null && realAnime.links) {
+      const validLinks = filterEpisodes(realAnime.links, epFilter, realAnime.source).filter((item) => {
+        const title = item.link.title || item.link.name || "";
+        const cleanT = cleanText(title);
+        const rawTemp = cleanT.replace(RegexStore.Clean.SOURCE_TAG, "").replace(RegexStore.Clean.FROM_SUFFIX, "").trim();
+        if (/^(dandan|animeko)$/i.test(realAnime.source)) {
+          if (RegexStore.Episode.SPECIAL_CHECK.test(rawTemp) || RegexStore.Episode.DANDAN_IGNORE.test(rawTemp)) return false;
+        }
+        if (RegexStore.Episode.MAP_EXCLUDE_KEYWORDS.test(rawTemp) || RegexStore.Episode.MAP_EXCLUDE_KEYWORDS.test(title)) return false;
+        return true;
+      });
+      const count = validLinks.length;
+      if (count > 0) {
+        if (!seasonStats.has(seasonNum)) seasonStats.set(seasonNum, /* @__PURE__ */ new Map());
+        const freqMap = seasonStats.get(seasonNum);
+        if (!freqMap.has(count)) freqMap.set(count, []);
+        freqMap.get(count).push(realAnime.source);
+        debugLogs.push(`   [\u91C7\u7EB3] [${realAnime.source}] S${seasonNum} = ${count}\u96C6 ("${realAnime.animeTitle}")`);
+      } else {
+        debugLogs.push(`   [\u5FFD\u7565] [${realAnime.source}] S${seasonNum} (\u6709\u6548\u96C6\u6570\u4E3A 0)`);
+      }
+    } else {
+    }
+  }
+  const seasonMap = /* @__PURE__ */ new Map();
+  const resultLogs = [];
+  for (const [sNum, freqMap] of seasonStats.entries()) {
+    let modeCount = 0, maxFreq = 0, contributors = [];
+    for (const [count, sources] of freqMap.entries()) {
+      const freq = sources.length;
+      if (freq > maxFreq) {
+        maxFreq = freq;
+        modeCount = count;
+        contributors = sources;
+      } else if (freq === maxFreq && count < modeCount) {
+        modeCount = count;
+        contributors = sources;
+      }
+    }
+    seasonMap.set(sNum, modeCount);
+    const statDetails = Array.from(freqMap.entries()).map(([cnt, srcs]) => `${cnt}\u96C6(x${srcs.length})[${srcs.join(",")}]`).join(", ");
+    resultLogs.push(`S${sNum}=${modeCount} (\u63A8\u65AD\u6765\u6E90: ${contributors.join(",")} | \u7EDF\u8BA1: ${statDetails})`);
+  }
+  if (debugLogs.length > 0 || resultLogs.length > 0) {
+    log2("info", `[Merge-Check] [Map-Build] \u5B63\u5EA6\u5730\u56FE\u6784\u5EFA\u8BE6\u60C5:
+${debugLogs.join("\n")}
+   => \u6700\u7EC8\u5224\u5B9A: { ${resultLogs.join("; ")} }`);
+  }
+  return seasonMap;
+}
+function generateSafeMergedId(id1, id2, salt = "") {
+  const str = `${id1}_${id2}_${salt}`;
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) hash = (hash << 5) - hash + str.charCodeAt(i) | 0;
+  return Math.abs(hash) % 1e9 + 1e9;
+}
+function createNewLink(item, sourceName) {
+  const rawLink = item.link;
+  const rawTitle = rawLink.title || rawLink.name || `Episode ${item.originalIndex + 1}`;
+  let newUrl = rawLink.url || "";
+  if (newUrl) {
+    newUrl = sanitizeUrl(newUrl);
+    if (!/^https?:\/\//i.test(newUrl)) newUrl = `${sourceName}:${newUrl}`;
+  }
+  let displayTitle = rawTitle;
+  if (!displayTitle.includes(`\u3010${sourceName}\u3011`)) displayTitle = `\u3010${sourceName}\u3011 ${displayTitle}`;
+  return { title: displayTitle, url: newUrl, name: rawTitle };
+}
+function stitchUnmatchedEpisodes(derivedAnime, orphans, sourceName) {
+  if (!orphans || orphans.length === 0) return;
+  const headList = [], tailList = [], specialList = [];
+  const currentLen = derivedAnime.links.length;
+  let lastPrimaryMainIndex = -1;
+  for (let i = currentLen - 1; i >= 0; i--) {
+    const link = derivedAnime.links[i];
+    const title = link.title || link.name || "";
+    const info = extractEpisodeInfo(title, derivedAnime.source);
+    if (!info.isSpecial && !info.isPV && !info.isStrictSpecial && info.num !== null) {
+      lastPrimaryMainIndex = i;
+      break;
+    }
+  }
+  for (const item of orphans) {
+    const relativeIdx = item.relativeIndex;
+    const isStrictSpecial = item.info && item.info.isStrictSpecial;
+    const isOrphanMain = item.info && !item.info.isSpecial && !item.info.isPV && !isStrictSpecial && item.info.num !== null;
+    if (relativeIdx < 0 && !isStrictSpecial) {
+      headList.push(item);
+    } else if (relativeIdx >= currentLen && !isStrictSpecial || isOrphanMain && relativeIdx > lastPrimaryMainIndex) {
+      tailList.push(item);
+    } else {
+      specialList.push(item);
+    }
+  }
+  const addedLogs = [];
+  const processList = (list, target, msg) => {
+    if (list.length > 0) {
+      list.sort((a, b) => a.originalIndex - b.originalIndex);
+      target.push(...list.map((it) => createNewLink(it, sourceName)));
+      addedLogs.push(`   [\u8865\u5168-${msg}] \u63D2\u5165/\u8FFD\u52A0 ${list.length} \u96C6 (${list.map((i) => i.link.title).join(", ")})`);
+    }
+  };
+  if (headList.length > 0) {
+    headList.sort((a, b) => a.originalIndex - b.originalIndex);
+    derivedAnime.links.unshift(...headList.map((it) => createNewLink(it, sourceName)));
+    addedLogs.push(`   [\u8865\u5168-\u5934\u90E8] \u63D2\u5165 ${headList.length} \u96C6 (${headList.map((i) => i.link.title).join(", ")})`);
+  }
+  processList(tailList, derivedAnime.links, "\u5C3E\u90E8");
+  processList(specialList, derivedAnime.links, "\u7279\u6B8A");
+  if (addedLogs.length > 0) log2("info", `[Merge] [${sourceName}] \u667A\u80FD\u8865\u5168:
+${addedLogs.join("\n")}`);
+}
 function detectPeerContextSequels(secondaryList) {
   const contextMap = /* @__PURE__ */ new Map();
   if (!secondaryList || secondaryList.length < 2) return contextMap;
@@ -5292,7 +13651,7 @@ function detectPeerContextSequels(secondaryList) {
 function probeContentMatch(primaryAnime, candidateAnime) {
   const result = { isStrongMatch: false, isStrongMismatch: false };
   if (!primaryAnime.links || !candidateAnime.links) return result;
-  if (primaryAnime.links.length === 0 || candidateAnime.links.length === 0) return result;
+  if (!primaryAnime.links.length || !candidateAnime.links.length) return result;
   const countEpisodes = (links) => links.filter((l) => {
     const t = (l.title || l.name || "").toLowerCase();
     return !RegexStore.Episode.PV_CHECK.test(t) && !RegexStore.Episode.SPECIAL_CHECK.test(t);
@@ -5334,7 +13693,58 @@ function probeContentMatch(primaryAnime, candidateAnime) {
   }
   return result;
 }
-function findSecondaryMatches(primaryAnime, secondaryList, collectionAnimeIds = /* @__PURE__ */ new Set()) {
+function getMatchingCustomRule(pAnime, sAnime) {
+  const rules = globals.customMergeRules || [];
+  if (rules.length === 0) return null;
+  const pSeason = getSeasonNumber(pAnime.animeTitle, pAnime.typeDescription, pAnime.aliases);
+  const sSeason = getSeasonNumber(sAnime.animeTitle, sAnime.typeDescription, sAnime.aliases);
+  const buildComparable = (animeTitle, ruleTitle) => {
+    let cleanAnime = simplized(animeTitle || "").toLowerCase().replace(RegexStore.Clean.FROM_SUFFIX, "");
+    let cleanRule = simplized(ruleTitle || "").toLowerCase();
+    const hasYearInRule = /[\(（\[]?\d{4}[\)）\]]?/.test(cleanRule);
+    const hasTagsInRule = /【.*?】/.test(cleanRule) || /\[.*?\]/.test(cleanRule);
+    if (!hasYearInRule) {
+      cleanAnime = cleanAnime.replace(/[\(（\[]\d{4}[\)）\]]/g, "");
+    }
+    if (!hasTagsInRule) {
+      const startBracketMatch = cleanAnime.match(/^(?:【|\[)(.+?)(?:】|\])/);
+      if (startBracketMatch) {
+        const content = startBracketMatch[1];
+        const typeKeywords = /^(TV|剧场版|劇場版|movie|film|anime|动漫|动画|电影|电视剧|连续剧|综艺|真人秀|纪录片|日剧|韩剧|美剧|英剧|泰剧|国产剧|港剧|台剧|短剧|微短剧|特摄|OVA|OAD|SP|AVC|HEVC|MP4|MKV)$/i;
+        if (!typeKeywords.test(content)) {
+          cleanAnime = cleanAnime.replace(startBracketMatch[0], content + " ");
+        }
+      }
+      cleanAnime = cleanAnime.replace(RegexStore.Clean.SOURCE_TAG, "").replace(/\[.*?\]/g, "");
+    }
+    if (!cleanRule.includes("\u5B63") && !cleanRule.includes("season")) {
+      cleanAnime = cleanAnime.replace(RegexStore.Season.INFO_STRONG, "");
+    }
+    cleanAnime = cleanAnime.replace(RegexStore.Clean.MOVIE_KEYWORDS, "");
+    return {
+      target: normalizeSpaces(cleanAnime).replace(/\s+/g, ""),
+      rule: normalizeSpaces(cleanRule).replace(/\s+/g, "")
+    };
+  };
+  for (const rule of rules) {
+    const getBaseSource = (src) => String(src).split(DISPLAY_CONNECTOR)[0];
+    const rulePBaseSource = getBaseSource(rule.primary.source);
+    const ruleSBaseSource = getBaseSource(rule.secondary.source);
+    const pSources = String(pAnime.source).split(DISPLAY_CONNECTOR);
+    const sSources = String(sAnime.source).split(DISPLAY_CONNECTOR);
+    if (!pSources.includes(rulePBaseSource) || !sSources.includes(ruleSBaseSource)) continue;
+    const pComp = buildComparable(pAnime.animeTitle, rule.primary.title);
+    const sComp = buildComparable(sAnime.animeTitle, rule.secondary.title);
+    const isPTitleMatch = pComp.target === pComp.rule;
+    const isSTitleMatch = sComp.target === sComp.rule;
+    if (!isPTitleMatch || !isSTitleMatch) continue;
+    if (rule.primary.season !== null && (pSeason || 1) !== rule.primary.season) continue;
+    if (rule.secondary.season !== null && (sSeason || 1) !== rule.secondary.season) continue;
+    return rule;
+  }
+  return null;
+}
+function findSecondaryMatches(primaryAnime, secondaryList, collectionAnimeIds = /* @__PURE__ */ new Set(), baseSecondaries = []) {
   if (!secondaryList || secondaryList.length === 0) return [];
   const rawPrimaryTitle = primaryAnime.animeTitle || "";
   const primaryTitleForSim = rawPrimaryTitle.replace(RegexStore.Clean.YEAR_TAG, "").replace(/【(电影|电视剧)】/g, "").trim();
@@ -5345,7 +13755,6 @@ function findSecondaryMatches(primaryAnime, secondaryList, collectionAnimeIds = 
   const primaryLang = getLanguageType(rawPrimaryTitle);
   const primaryCleanForZhi = cleanText(primaryTitleForSim);
   const cleanPrimarySim = cleanTitleForSimilarity(primaryTitleForSim);
-  const baseA = removeParentheses(primaryTitleForSim);
   const markersP = extractSeasonMarkers(rawPrimaryTitle, primaryAnime.typeDescription, primaryAnime.aliases);
   const seasonsP = Array.from(markersP).filter((m) => m.startsWith("S"));
   const combinedForContext = [{ animeId: primaryAnime.animeId, animeTitle: rawPrimaryTitle }, ...secondaryList];
@@ -5360,6 +13769,27 @@ function findSecondaryMatches(primaryAnime, secondaryList, collectionAnimeIds = 
   let maxScore = 0;
   for (const secAnime of secondaryList) {
     const rawSecTitle = secAnime.animeTitle || "";
+    const customRule = getMatchingCustomRule(primaryAnime, secAnime);
+    if (customRule) {
+      if (customRule.action === "block") {
+        logReason(rawSecTitle, `\u88AB\u6620\u5C04\u8868 [\xD7] \u660E\u786E\u7981\u6B62\u4E0E\u4E3B\u6E90\u5408\u5E76`);
+        continue;
+      }
+      const secLang2 = getLanguageType(rawSecTitle);
+      validCandidates.push({
+        anime: secAnime,
+        score: 1,
+        lang: secLang2,
+        debugTitle: rawSecTitle,
+        isCustomMapped: true
+      });
+      log2("info", `[Merge-Check] \u5408\u5E76\u6620\u5C04\u8868\u7279\u6743\u653E\u884C: [${primaryAnime.source}] ${rawPrimaryTitle} <-> [${secAnime.source}] ${rawSecTitle}`);
+      continue;
+    }
+    if (!baseSecondaries.includes(secAnime.source)) {
+      logReason(rawSecTitle, `\u8BE5\u6765\u6E90\u4E3A\u6620\u5C04\u8868\u52A8\u6001\u6CE8\u5165\uFF0C\u4E14\u672A\u547D\u4E2D\u7279\u6743\u89C4\u5219\uFF0C\u53D7\u9650\u4E8E\u6743\u9650\u6C99\u7BB1\u4E88\u4EE5\u963B\u65AD`);
+      continue;
+    }
     const isSecCollection = collectionAnimeIds.has(secAnime.animeId);
     const isAnyCollection = isPrimaryCollection || isSecCollection;
     const isSecIgnoredYear = secAnime.source === "hanjutv";
@@ -5411,13 +13841,12 @@ function findSecondaryMatches(primaryAnime, secondaryList, collectionAnimeIds = 
     const hasMovieA = rawPrimaryTitle.search(RegexStore.Clean.MOVIE_KEYWORDS) !== -1;
     const hasMovieB = rawSecTitle.search(RegexStore.Clean.MOVIE_KEYWORDS) !== -1;
     if (hasMovieA !== hasMovieB) {
-      const markersA = markersP;
       const markersB = extractSeasonMarkers(rawSecTitle, secAnime.typeDescription, secAnime.aliases);
       const stripMovie = (t) => cleanTitleForSimilarity(t.replace(RegexStore.Clean.MOVIE_KEYWORDS, ""));
       const cleanA = stripMovie(rawPrimaryTitle);
       const cleanB = stripMovie(rawSecTitle);
       if (calculateSimilarity(cleanA, cleanB) > 0.9) {
-        if (!markersA.has("SEQUEL") && !markersB.has("SEQUEL")) {
+        if (!markersP.has("SEQUEL") && !markersB.has("SEQUEL")) {
           logReason(rawSecTitle, `\u5267\u573A\u7248\u6807\u9898\u963B\u65AD: [${hasMovieA ? "Movie" : "TV"}] vs [${hasMovieB ? "Movie" : "TV"}] (\u65E0\u7EED\u7BC7\u6807\u8BC6)`);
           continue;
         }
@@ -5482,8 +13911,9 @@ function findSecondaryMatches(primaryAnime, secondaryList, collectionAnimeIds = 
       log2("info", `[Merge-Check] \u5019\u9009\u9009\u4E2D: ${rawSecTitle} Score=${score.toFixed(2)} (BestSoFar=${maxScore.toFixed(2)})`);
     }
   }
-  if (validCandidates.length === 0 || maxScore < Thresholds.SIMILARITY_MIN) return [];
+  if (validCandidates.length === 0 || maxScore < Thresholds.SIMILARITY_MIN && !validCandidates.some((c) => c.isCustomMapped)) return [];
   const finalResults = validCandidates.filter((candidate) => {
+    if (candidate.isCustomMapped) return true;
     if (candidate.score >= maxScore - Thresholds.TIER_DEFAULT) return true;
     if (candidate.lang === "CN" && candidate.score >= maxScore - Thresholds.TIER_CN) return true;
     const markersC = extractSeasonMarkers(candidate.debugTitle, candidate.anime.typeDescription, candidate.anime.aliases);
@@ -5497,853 +13927,16 @@ function findSecondaryMatches(primaryAnime, secondaryList, collectionAnimeIds = 
     }
     return false;
   });
-  finalResults.sort((a, b) => b.score - a.score);
+  finalResults.sort((a, b) => {
+    if (a.isCustomMapped && !b.isCustomMapped) return -1;
+    if (!a.isCustomMapped && b.isCustomMapped) return 1;
+    return b.score - a.score;
+  });
   return finalResults.map((item) => item.anime);
-}
-function getSpecialEpisodeType(title) {
-  if (!title) return null;
-  const t = title.toLowerCase();
-  if (t.includes("opening")) return "opening";
-  if (t.includes("ending")) return "ending";
-  if (t.includes("interview")) return "interview";
-  if (t.includes("bloopers")) return "Bloopers";
-  return null;
-}
-function extractEpisodeInfo(title, sourceName = "") {
-  let isStrictSpecial = false;
-  let effectiveSource = sourceName;
-  if (title) {
-    const tagMatch = title.match(RegexStore.Episode.DANDAN_TAG);
-    if (tagMatch) effectiveSource = tagMatch[1].toLowerCase();
-  }
-  const isDandanOrAnimeko = /^(dandan|animeko)$/i.test(effectiveSource);
-  if (isDandanOrAnimeko && title) {
-    let rawTemp = title.replace(RegexStore.Clean.SOURCE_TAG, "").replace(RegexStore.Clean.FROM_SUFFIX, "").trim();
-    if (RegexStore.Episode.SPECIAL_START.test(rawTemp) || RegexStore.Episode.DANDAN_IGNORE.test(rawTemp)) {
-      isStrictSpecial = true;
-    }
-  }
-  const t = cleanText(title || "");
-  const isMovie = RegexStore.Episode.MOVIE_CHECK.test(t);
-  const isPV = RegexStore.Episode.PV_CHECK.test(t);
-  let num = null, season = null;
-  const specialTypeTag = getSpecialEpisodeType(title);
-  const isSpecial = isPV || isStrictSpecial || !!specialTypeTag || RegexStore.Episode.SPECIAL_CHECK.test(t);
-  const seasonMatch = t.match(RegexStore.Episode.SEASON_MATCH);
-  if (seasonMatch) season = parseInt(seasonMatch[1]);
-  const seasonEpMatch = t.match(RegexStore.Episode.NUM_STRATEGY_A);
-  if (seasonEpMatch) num = parseFloat(seasonEpMatch[2]);
-  else {
-    const strongPrefixMatch = t.match(RegexStore.Episode.NUM_STRATEGY_B);
-    if (strongPrefixMatch) num = parseFloat(strongPrefixMatch[1]);
-    else {
-      const weakPrefixMatch = t.match(RegexStore.Episode.NUM_STRATEGY_C);
-      if (weakPrefixMatch) num = parseFloat(weakPrefixMatch[1]);
-    }
-  }
-  return { isMovie, num, isSpecial, isPV, season, isStrictSpecial };
-}
-function filterEpisodes(links, filterRegex, sourceName = "") {
-  if (!links) return [];
-  const skipFilterSources = ["animeko", "bilibili", "bilibili1", "bahamut", "dandan"];
-  const shouldSkipFilter = skipFilterSources.includes(sourceName);
-  if (!filterRegex || shouldSkipFilter) {
-    return links.map((link, index) => ({ link, originalIndex: index }));
-  }
-  const validLinks = [];
-  const droppedTitles = [];
-  links.forEach((link, index) => {
-    const title = link.title || link.name || "";
-    if (filterRegex.test(title)) {
-      droppedTitles.push(title);
-    } else {
-      validLinks.push({ link, originalIndex: index });
-    }
-  });
-  if (droppedTitles.length > 0) {
-    const sourcePrefix = sourceName ? `[${sourceName}] ` : "";
-    log2("info", `[Merge-Check] ${sourcePrefix}\u547D\u4E2DEPISODE_TITLE_FILTER\u8FC7\u6EE4\uFF0C\u5DF2\u524D\u7F6E\u5254\u9664 ${droppedTitles.length} \u96C6: ${droppedTitles.join(", ")}`);
-  }
-  return validLinks;
-}
-var _redundantTitleRegexCache = /* @__PURE__ */ new Map();
-function identifyRedundantTitle(links, seriesTitle, sourceName) {
-  if (!links || links.length < 2 || !seriesTitle) return "";
-  const cleanSource = (text) => {
-    if (!text || !sourceName) return text || "";
-    try {
-      let regex = _redundantTitleRegexCache.get(sourceName);
-      if (!regex) {
-        const escapedSource = sourceName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-        regex = new RegExp(`(\\[|\u3010|\\s)?${escapedSource}(\\]|\u3011|\\s)?`, "gi");
-        _redundantTitleRegexCache.set(sourceName, regex);
-      }
-      return text.replace(regex, "").trim();
-    } catch (e) {
-      return text;
-    }
-  };
-  let cleanSeriesTitle = cleanSource(seriesTitle);
-  const separatorMatch = cleanSeriesTitle.match(RegexStore.Clean.REDUNDANT_SEPARATOR);
-  if (separatorMatch) cleanSeriesTitle = cleanSeriesTitle.substring(0, separatorMatch.index);
-  const titles = links.map((item) => {
-    const realLink = item.link || item;
-    if (!realLink) return "";
-    return cleanSource(realLink.title || realLink.name || "");
-  });
-  if (titles.some((t) => !t)) return "";
-  const getLCS = (s1, s2) => {
-    let maxSub = "";
-    for (let i = 0; i < s1.length; i++) {
-      for (let j = i + 1; j <= s1.length; j++) {
-        const sub = s1.substring(i, j);
-        if (s2.includes(sub)) {
-          if (sub.length > maxSub.length) maxSub = sub;
-        }
-      }
-    }
-    return maxSub;
-  };
-  let common = getLCS(titles[0], titles[1]);
-  if (common.length < 2) return "";
-  for (let i = 2; i < titles.length; i++) {
-    common = getLCS(common, titles[i]);
-    if (common.length < 2) return "";
-  }
-  const validatedRedundant = getLCS(common, cleanSeriesTitle);
-  if (!cleanSeriesTitle.startsWith(validatedRedundant)) return "";
-  if (RegexStore.Clean.REDUNDANT_UNSAFE_END.test(validatedRedundant)) {
-    const trimmed = validatedRedundant.slice(0, -1).trim();
-    if (trimmed.length >= 2 && cleanSeriesTitle.startsWith(trimmed)) return trimmed;
-    return "";
-  }
-  if (validatedRedundant.length >= 2) {
-    if (RegexStore.Clean.REDUNDANT_VALID_CHARS.test(validatedRedundant) || validatedRedundant.length > 3) {
-      log2("info", `[Merge-Check] \u68C0\u6D4B\u5230\u96C6\u5185\u5197\u4F59\u6807\u9898\u5B57\u6BB5: "${validatedRedundant}" (\u5DF2\u5FFD\u7565\u6765\u6E90: ${sourceName}, \u951A\u5B9A\u9A8C\u8BC1\u901A\u8FC7)`);
-      return validatedRedundant;
-    }
-  }
-  return "";
-}
-function findBestAlignmentOffset(primaryLinks, secondaryLinks, seriesLangA = "Unspecified", seriesLangB = "Unspecified", sourceA = "", sourceB = "", primarySeriesTitle = "", secondarySeriesTitle = "") {
-  if (primaryLinks.length === 0 || secondaryLinks.length === 0) return 0;
-  const redundantA = identifyRedundantTitle(primaryLinks, primarySeriesTitle, sourceA);
-  const redundantB = identifyRedundantTitle(secondaryLinks, secondarySeriesTitle, sourceB);
-  const getTempTitle = (rawTitle, redundantStr) => {
-    if (!rawTitle) return "";
-    if (redundantStr && rawTitle.includes(redundantStr)) return rawTitle.replace(redundantStr, "");
-    return rawTitle;
-  };
-  const processLink = (item, source, seriesLang, red) => {
-    const rawTitle = item.link.title || "";
-    const cleanTitle = getTempTitle(rawTitle, red);
-    const info = extractEpisodeInfo(cleanTitle, source);
-    const epLang = getLanguageType(cleanTitle);
-    const effLang = epLang !== "Unspecified" ? epLang : seriesLang;
-    const finalLang = effLang === "Unspecified" && /^(dandan|animeko)$/i.test(source) ? "JP" : effLang;
-    const cleanEpText = cleanEpisodeText(cleanTitle);
-    const strictCnCore = finalLang === "CN" ? cleanTitle.replace(RegexStore.Similarity.CN_STRICT_CORE_REMOVE, "") : null;
-    return { info, effLang: finalLang, specialType: getSpecialEpisodeType(cleanTitle), cleanEpText, strictCnCore };
-  };
-  const pInfos = primaryLinks.map((item) => processLink(item, sourceA, seriesLangA, redundantA));
-  const sInfos = secondaryLinks.map((item) => processLink(item, sourceB, seriesLangB, redundantB));
-  let bestOffset = 0, maxScore = -9999;
-  let minNormalA = null, minNormalB = null;
-  pInfos.forEach(({ info }) => {
-    if (info.num !== null && !info.isSpecial && info.num % 1 === 0) minNormalA = minNormalA === null ? info.num : Math.min(minNormalA, info.num);
-  });
-  sInfos.forEach(({ info }) => {
-    if (info.num !== null && !info.isSpecial && info.num % 1 === 0) minNormalB = minNormalB === null ? info.num : Math.min(minNormalB, info.num);
-  });
-  const seasonShift = minNormalA !== null && minNormalB !== null ? minNormalA - minNormalB : null;
-  const baseRange = 15;
-  const targetShift = seasonShift !== null ? -seasonShift : 0;
-  const safeMin = Math.max(Math.min(-baseRange, targetShift - baseRange), -Math.max(primaryLinks.length, secondaryLinks.length));
-  const safeMax = Math.min(Math.max(baseRange, targetShift + baseRange), Math.max(primaryLinks.length, secondaryLinks.length));
-  for (let offset = safeMin; offset <= safeMax; offset++) {
-    let totalTextScore = 0, rawTextScoreSum = 0, matchCount = 0;
-    let numericDiffs = /* @__PURE__ */ new Map();
-    let hasSeasonShiftMatch = false;
-    let lastPNumLocal = null;
-    for (let i = 0; i < secondaryLinks.length; i++) {
-      const pIndex = i + offset;
-      if (pIndex >= 0 && pIndex < primaryLinks.length) {
-        const dataA = pInfos[pIndex], dataB = sInfos[i];
-        const infoA = dataA.info, infoB = dataB.info;
-        let pairScore = 0;
-        if (infoA.isMovie !== infoB.isMovie) pairScore += MergeWeights.EP_ALIGN.MOVIE_TYPE_MISMATCH;
-        if (infoA.isStrictSpecial && !infoB.isSpecial || infoB.isStrictSpecial && !infoA.isSpecial) pairScore += MergeWeights.EP_ALIGN.SPECIAL_STRICT_MISMATCH;
-        const normLangA = dataA.effLang === "Unspecified" ? "JP" : dataA.effLang;
-        const normLangB = dataB.effLang === "Unspecified" ? "JP" : dataB.effLang;
-        if (normLangA === normLangB) pairScore += MergeWeights.EP_ALIGN.LANG_MATCH;
-        else pairScore += MergeWeights.EP_ALIGN.LANG_MISMATCH;
-        if (infoA.season !== null && infoB.season !== null && infoA.season !== infoB.season) pairScore += MergeWeights.EP_ALIGN.SEASON_NUM_MISMATCH;
-        if (dataA.specialType || dataB.specialType) {
-          if (dataA.specialType !== dataB.specialType) pairScore += MergeWeights.EP_ALIGN.SPECIAL_TYPE_MISMATCH;
-          else pairScore += MergeWeights.EP_ALIGN.SPECIAL_TYPE_MATCH;
-        }
-        if (infoA.isSpecial === infoB.isSpecial) pairScore += MergeWeights.EP_ALIGN.IS_SPECIAL_MATCH;
-        if (seasonShift !== null && !infoA.isSpecial && !infoB.isSpecial) {
-          if (infoA.num - infoB.num === seasonShift) {
-            pairScore += MergeWeights.EP_ALIGN.SEASON_SHIFT_EXACT;
-            hasSeasonShiftMatch = true;
-          }
-        }
-        let sim = 0;
-        if (dataA.effLang === "CN" && dataB.effLang === "CN" && dataA.strictCnCore && dataB.strictCnCore) {
-          if (dataA.strictCnCore.includes(dataB.strictCnCore) || dataB.strictCnCore.includes(dataA.strictCnCore)) {
-            if (infoA.num !== null && infoB.num !== null && infoA.num === infoB.num) sim = MergeWeights.EP_ALIGN.CN_STRICT_MATCH;
-            else sim = MergeWeights.EP_ALIGN.CN_STRICT_MISMATCH;
-          } else sim = calculateSimilarity(dataA.cleanEpText, dataB.cleanEpText);
-        } else sim = calculateSimilarity(dataA.cleanEpText, dataB.cleanEpText);
-        pairScore += sim;
-        rawTextScoreSum += sim;
-        if (infoA.num !== null && infoB.num !== null && infoA.num === infoB.num) pairScore += MergeWeights.EP_ALIGN.NUMERIC_MATCH;
-        let weightMultiplier = 1;
-        if (infoA.num !== null && !infoA.isSpecial) {
-          if (lastPNumLocal !== null && infoA.num - lastPNumLocal > 1) {
-            weightMultiplier = 0.1;
-          } else {
-            lastPNumLocal = infoA.num;
-          }
-        }
-        pairScore *= weightMultiplier;
-        sim *= weightMultiplier;
-        rawTextScoreSum += sim;
-        totalTextScore += pairScore;
-        if (infoA.num !== null && infoB.num !== null) {
-          const diffKey = (infoB.num - infoA.num).toFixed(4);
-          numericDiffs.set(diffKey, (numericDiffs.get(diffKey) || 0) + weightMultiplier);
-        }
-        matchCount++;
-      }
-    }
-    if (matchCount > 0) {
-      let finalScore = totalTextScore / matchCount;
-      let maxFrequency = 0;
-      for (const count of numericDiffs.values()) maxFrequency = Math.max(maxFrequency, count);
-      const consistencyRatio = maxFrequency / matchCount;
-      const avgRawTextScore = rawTextScoreSum / matchCount;
-      if (consistencyRatio > 0.6) {
-        if (hasSeasonShiftMatch || avgRawTextScore > 0.33) finalScore += MergeWeights.EP_ALIGN.PATTERN_CONSISTENCY_BONUS;
-      }
-      finalScore += Math.min(matchCount * 0.15, 1.5);
-      const zeroDiffCount = numericDiffs.get("0.0000") || 0;
-      if (zeroDiffCount > 3) {
-        finalScore += MergeWeights.EP_ALIGN.ZERO_DIFF_BONUS_BASE;
-        finalScore += zeroDiffCount * MergeWeights.EP_ALIGN.ZERO_DIFF_BONUS_PER_HIT;
-      } else if (zeroDiffCount > 0) {
-        finalScore += zeroDiffCount * 2;
-      }
-      if (finalScore > maxScore) {
-        maxScore = finalScore;
-        bestOffset = offset;
-      }
-    }
-  }
-  return maxScore > 0.3 ? bestOffset : 0;
-}
-function generateSafeMergedId(id1, id2, salt = "") {
-  const str = `${id1}_${id2}_${salt}`;
-  let hash = 0;
-  for (let i = 0; i < str.length; i++) hash = (hash << 5) - hash + str.charCodeAt(i) | 0;
-  return Math.abs(hash) % 1e9 + 1e9;
-}
-function createNewLink(item, sourceName) {
-  const rawLink = item.link;
-  const rawTitle = rawLink.title || rawLink.name || `Episode ${item.originalIndex + 1}`;
-  let newUrl = rawLink.url || "";
-  if (newUrl) {
-    newUrl = sanitizeUrl(newUrl);
-    if (!/^https?:\/\//i.test(newUrl)) newUrl = `${sourceName}:${newUrl}`;
-  }
-  let displayTitle = rawTitle;
-  if (!displayTitle.includes(`\u3010${sourceName}\u3011`)) displayTitle = `\u3010${sourceName}\u3011 ${displayTitle}`;
-  return { title: displayTitle, url: newUrl, name: rawTitle };
-}
-function stitchUnmatchedEpisodes(derivedAnime, orphans, sourceName) {
-  if (!orphans || orphans.length === 0) return;
-  const headList = [], tailList = [], specialList = [];
-  const currentLen = derivedAnime.links.length;
-  let lastPrimaryMainIndex = -1;
-  for (let i = currentLen - 1; i >= 0; i--) {
-    const link = derivedAnime.links[i];
-    const title = link.title || link.name || "";
-    const info = extractEpisodeInfo(title, derivedAnime.source);
-    if (!info.isSpecial && !info.isPV && !info.isStrictSpecial && info.num !== null) {
-      lastPrimaryMainIndex = i;
-      break;
-    }
-  }
-  for (const item of orphans) {
-    const relativeIdx = item.relativeIndex;
-    const isStrictSpecial = item.info && item.info.isStrictSpecial;
-    const isOrphanMain = item.info && !item.info.isSpecial && !item.info.isPV && !isStrictSpecial && item.info.num !== null;
-    if (relativeIdx < 0 && !isStrictSpecial) headList.push(item);
-    else if (relativeIdx >= currentLen && !isStrictSpecial || isOrphanMain && relativeIdx > lastPrimaryMainIndex) tailList.push(item);
-    else specialList.push(item);
-  }
-  const addedLogs = [];
-  const processList = (list, target, msg) => {
-    if (list.length > 0) {
-      list.sort((a, b) => a.originalIndex - b.originalIndex);
-      target.push(...list.map((it) => createNewLink(it, sourceName)));
-      addedLogs.push(`   [\u8865\u5168-${msg}] \u63D2\u5165/\u8FFD\u52A0 ${list.length} \u96C6 (${list.map((i) => i.link.title).join(", ")})`);
-    }
-  };
-  if (headList.length > 0) {
-    headList.sort((a, b) => a.originalIndex - b.originalIndex);
-    derivedAnime.links.unshift(...headList.map((it) => createNewLink(it, sourceName)));
-    addedLogs.push(`   [\u8865\u5168-\u5934\u90E8] \u63D2\u5165 ${headList.length} \u96C6 (${headList.map((i) => i.link.title).join(", ")})`);
-  }
-  processList(tailList, derivedAnime.links, "\u5C3E\u90E8");
-  processList(specialList, derivedAnime.links, "\u7279\u6B8A");
-  if (addedLogs.length > 0) log2("info", `[Merge] [${sourceName}] \u667A\u80FD\u8865\u5168:
-${addedLogs.join("\n")}`);
-}
-function getDecimalEpisodes(links, source) {
-  const decimals = /* @__PURE__ */ new Set();
-  if (!links) return decimals;
-  let lastIntegerIndex = -1;
-  for (let i = 0; i < links.length; i++) {
-    const title = links[i].title || links[i].name || "";
-    const info = extractEpisodeInfo(title, source);
-    if (info.num !== null && !info.isSpecial && !info.isPV && info.num % 1 === 0) lastIntegerIndex = i;
-  }
-  links.forEach((l, i) => {
-    const title = l.title || l.name || "";
-    const info = extractEpisodeInfo(title, source);
-    if (info.num !== null && !info.isSpecial && !info.isPV && info.num % 1 !== 0) {
-      if (i < lastIntegerIndex) decimals.add(info.num);
-    }
-  });
-  return decimals;
-}
-function sinkDecimalEpisodes(links, numsToSink, source, sideName) {
-  const normals = [], sinkers = [];
-  let movedCount = 0;
-  links.forEach((link) => {
-    const title = link.title || link.name || "";
-    const info = extractEpisodeInfo(title, source);
-    const isTarget = info.num !== null && numsToSink.has(info.num);
-    if (isTarget) {
-      sinkers.push(link);
-      movedCount++;
-    } else normals.push(link);
-  });
-  if (movedCount > 0) {
-    links.length = 0;
-    links.push(...normals, ...sinkers);
-    log2("info", `[Merge-Check] [${sideName}] \u81EA\u52A8\u6C89\u5E95: \u79FB\u52A8\u4E86 ${movedCount} \u4E2A\u4E2D\u95F4\u63D2\u503C\u96C6\u6570 (${Array.from(numsToSink).join(",")}) \u5230\u672B\u5C3E`);
-  }
-}
-function buildSeasonLengthMap(allGroupAnimes, epFilter, collectionAnimeIds) {
-  const seasonStats = /* @__PURE__ */ new Map();
-  const debugLogs = [];
-  for (const anime of allGroupAnimes) {
-    if (collectionAnimeIds && collectionAnimeIds.has(anime.animeId)) {
-      continue;
-    }
-    const realAnime = globals.animes.find((a) => String(a.animeId) === String(anime.animeId)) || anime;
-    const category = getContentCategory(realAnime.animeTitle, realAnime.typeDescription, realAnime.source);
-    if (category === "REAL") {
-      debugLogs.push(`   [\u5254\u9664] [${realAnime.source}] ${realAnime.animeTitle} (\u7C7B\u578B: \u771F\u4EBA\u5267/REAL)`);
-      continue;
-    }
-    const mediaType = getStrictMediaType(realAnime.animeTitle, realAnime.typeDescription);
-    if (mediaType === "MOVIE") {
-      debugLogs.push(`   [\u5254\u9664] [${realAnime.source}] ${realAnime.animeTitle} (\u7C7B\u578B: \u7535\u5F71/MOVIE)`);
-      continue;
-    }
-    const seasonNum = getSeasonNumber(realAnime.animeTitle, realAnime.typeDescription, realAnime.aliases);
-    if (seasonNum !== null && realAnime.links) {
-      const validLinks = filterEpisodes(realAnime.links, epFilter, realAnime.source).filter((item) => {
-        const title = item.link.title || item.link.name || "";
-        const cleanT = cleanText(title);
-        const rawTemp = cleanT.replace(RegexStore.Clean.SOURCE_TAG, "").replace(RegexStore.Clean.FROM_SUFFIX, "").trim();
-        if (/^(dandan|animeko)$/i.test(realAnime.source)) {
-          if (RegexStore.Episode.SPECIAL_CHECK.test(rawTemp) || RegexStore.Episode.DANDAN_IGNORE.test(rawTemp)) return false;
-        }
-        if (RegexStore.Episode.MAP_EXCLUDE_KEYWORDS.test(rawTemp) || RegexStore.Episode.MAP_EXCLUDE_KEYWORDS.test(title)) return false;
-        return true;
-      });
-      const count = validLinks.length;
-      if (count > 0) {
-        if (!seasonStats.has(seasonNum)) seasonStats.set(seasonNum, /* @__PURE__ */ new Map());
-        const freqMap = seasonStats.get(seasonNum);
-        if (!freqMap.has(count)) freqMap.set(count, []);
-        freqMap.get(count).push(realAnime.source);
-        debugLogs.push(`   [\u91C7\u7EB3] [${realAnime.source}] S${seasonNum} = ${count}\u96C6 ("${realAnime.animeTitle}")`);
-      } else {
-        debugLogs.push(`   [\u5FFD\u7565] [${realAnime.source}] S${seasonNum} (\u6709\u6548\u96C6\u6570\u4E3A 0)`);
-      }
-    } else {
-    }
-  }
-  const seasonMap = /* @__PURE__ */ new Map();
-  const resultLogs = [];
-  for (const [sNum, freqMap] of seasonStats.entries()) {
-    let modeCount = 0;
-    let maxFreq = 0;
-    let contributors = [];
-    for (const [count, sources] of freqMap.entries()) {
-      const freq = sources.length;
-      if (freq > maxFreq) {
-        maxFreq = freq;
-        modeCount = count;
-        contributors = sources;
-      } else if (freq === maxFreq) {
-        if (count < modeCount) {
-          modeCount = count;
-          contributors = sources;
-        }
-      }
-    }
-    seasonMap.set(sNum, modeCount);
-    const statDetails = Array.from(freqMap.entries()).map(([cnt, srcs]) => `${cnt}\u96C6(x${srcs.length})[${srcs.join(",")}]`).join(", ");
-    resultLogs.push(`S${sNum}=${modeCount} (\u63A8\u65AD\u6765\u6E90: ${contributors.join(",")} | \u7EDF\u8BA1: ${statDetails})`);
-  }
-  if (debugLogs.length > 0 || resultLogs.length > 0) {
-    log2("info", `[Merge-Check] [Map-Build] \u5B63\u5EA6\u5730\u56FE\u6784\u5EFA\u8BE6\u60C5:
-${debugLogs.join("\n")}
-   => \u6700\u7EC8\u5224\u5B9A: { ${resultLogs.join("; ")} }`);
-  }
-  return seasonMap;
-}
-function fastCloneAnime(anime) {
-  if (typeof structuredClone === "function") {
-    try {
-      return structuredClone(anime);
-    } catch (e) {
-    }
-  }
-  return JSON.parse(JSON.stringify(anime));
-}
-async function processMergeTask(params) {
-  const {
-    pAnime,
-    availableSecondaries,
-    curAnimes,
-    groupConsumedIds,
-    globalConsumedIds,
-    generatedSignatures,
-    epFilter,
-    groupFingerprint,
-    currentPrimarySource,
-    logPrefix,
-    limitSecondaryLang,
-    collectionAnimeIds,
-    allowReuseIds,
-    collectionProgress
-  } = params;
-  if (collectionAnimeIds.has(pAnime.animeId) && groupConsumedIds.has(pAnime.animeId)) {
-    log2("info", `${logPrefix} \u8DF3\u8FC7: [${currentPrimarySource}] \u662F\u5408\u96C6\u4E14\u5DF2\u4F5C\u4E3A\u7EC4\u5185\u526F\u6E90\u53C2\u4E0E\u8FC7\u5408\u5E76\u3002`);
-    return null;
-  }
-  let derivedAnime = fastCloneAnime(pAnime);
-  if (!derivedAnime.links) {
-    const cachedPAnime = globals.animes.find((a) => String(a.animeId) === String(pAnime.animeId));
-    derivedAnime.links = cachedPAnime?.links ? fastCloneAnime(cachedPAnime.links) : [];
-  }
-  if (!derivedAnime.links || derivedAnime.links.length === 0) {
-    log2("warn", `${logPrefix} \u4E3B\u6E90\u6570\u636E\u4E0D\u5B8C\u6574\uFF0C\u8DF3\u8FC7: ${pAnime.animeTitle}`);
-    return null;
-  }
-  const logTitleA = pAnime.animeTitle.replace(RegexStore.Clean.FROM_SUFFIX, "");
-  const actualMergedSources = [];
-  const contentSignatureParts = [pAnime.animeId];
-  let hasMergedAny = false;
-  const seriesLangA = getLanguageType(pAnime.animeTitle);
-  const redundantP = identifyRedundantTitle(derivedAnime.links, pAnime.animeTitle, currentPrimarySource);
-  const getTempTitle = (rawTitle, redundantStr) => {
-    if (!rawTitle) return "";
-    if (redundantStr && rawTitle.includes(redundantStr)) return rawTitle.replace(redundantStr, "");
-    return rawTitle;
-  };
-  const isPrimaryCollection = collectionAnimeIds.has(pAnime.animeId);
-  const pCleanTitle = cleanTitleForSimilarity(pAnime.animeTitle);
-  const peerAnimes = curAnimes.filter((a) => cleanTitleForSimilarity(a.animeTitle) === pCleanTitle);
-  const seasonLengthMap = buildSeasonLengthMap(peerAnimes, epFilter, collectionAnimeIds);
-  if (seasonLengthMap.size > 0) {
-    const mapDesc = Array.from(seasonLengthMap.entries()).map(([k, v]) => `S${k}=${v}`).join(", ");
-    if (isPrimaryCollection || availableSecondaries.some((s) => curAnimes.some((a) => a.source === s && collectionAnimeIds.has(a.animeId)))) {
-      log2("info", `${logPrefix} [\u5408\u96C6\u5904\u7406] \u6784\u5EFA\u5B63\u5EA6\u96C6\u6570\u5730\u56FE (Mode\u7B56\u7565): { ${mapDesc} }`);
-    }
-  }
-  let allMatches = [];
-  for (const secSource of availableSecondaries) {
-    let secondaryItems = curAnimes.filter((a) => {
-      if (a.source !== secSource) return false;
-      if (isPrimaryCollection) return true;
-      const isConsumed = groupConsumedIds.has(a.animeId);
-      const isAllowedReuse = allowReuseIds && allowReuseIds.has(a.animeId);
-      if (isConsumed && !isAllowedReuse) return false;
-      return true;
-    });
-    if (limitSecondaryLang) secondaryItems = secondaryItems.filter((a) => getLanguageType(a.animeTitle) === limitSecondaryLang);
-    if (secondaryItems.length > 1) {
-      secondaryItems.sort((a, b) => {
-        const isCnA = getLanguageType(a.animeTitle) === "CN";
-        const isCnB = getLanguageType(b.animeTitle) === "CN";
-        if (isCnA === isCnB) return 0;
-        return isCnA ? 1 : -1;
-      });
-    }
-    if (secondaryItems.length === 0) continue;
-    const matchesForSource = findSecondaryMatches(pAnime, secondaryItems, collectionAnimeIds);
-    allMatches.push(...matchesForSource);
-  }
-  if (allMatches.length > 0) {
-    if (allMatches.length > 1 && (isPrimaryCollection || allMatches.some((m) => collectionAnimeIds.has(m.animeId)))) {
-      allMatches.sort((a, b) => {
-        const sA = getSeasonNumber(a.animeTitle, a.typeDescription, a.aliases) || 1;
-        const sB = getSeasonNumber(b.animeTitle, b.typeDescription, b.aliases) || 1;
-        if (sA !== sB) return sA - sB;
-        const idxA = availableSecondaries.indexOf(a.source);
-        const idxB = availableSecondaries.indexOf(b.source);
-        return idxA - idxB;
-      });
-      const seqLogs = allMatches.map((m) => `[${m.source}]S${getSeasonNumber(m.animeTitle, m.typeDescription, m.aliases) || 1}`);
-      log2("info", `${logPrefix} [\u5408\u96C6\u65F6\u5E8F] \u5DF2\u5C06\u8DE8\u6E90\u5339\u914D\u961F\u5217\u6309\u5B63\u6570\u5347\u5E8F\u6392\u5217\uFF0C\u4FDD\u969C\u5207\u7247\u63A8\u65AD\u4E25\u683C\u81EA\u4E3E: ${seqLogs.join(" -> ")}`);
-    }
-    for (const match of allMatches) {
-      const secSource = match.source;
-      if (!isPrimaryCollection) {
-        const isReuse = allowReuseIds && allowReuseIds.has(match.animeId);
-        if (!isReuse && groupConsumedIds.has(match.animeId)) continue;
-      }
-      const globalCachedMatch = globals.animes.find((a) => String(a.animeId) === String(match.animeId));
-      if (!globalCachedMatch?.links) continue;
-      const derivedMatch = fastCloneAnime(globalCachedMatch);
-      const mappingEntries = [], matchedPIndices = /* @__PURE__ */ new Set(), pendingMutations = [], orphanedEpisodes = [];
-      const logTitleB = derivedMatch.animeTitle.replace(RegexStore.Clean.FROM_SUFFIX, "");
-      const decimalsP = getDecimalEpisodes(derivedAnime.links, currentPrimarySource);
-      const decimalsS = getDecimalEpisodes(derivedMatch.links, secSource);
-      const toSinkS = new Set([...decimalsS].filter((x) => !decimalsP.has(x)));
-      const toSinkP = new Set([...decimalsP].filter((x) => !decimalsS.has(x)));
-      if (toSinkP.size > 0) sinkDecimalEpisodes(derivedAnime.links, toSinkP, currentPrimarySource, `\u4E3B\u6E90:${currentPrimarySource}`);
-      if (toSinkS.size > 0) {
-        sinkDecimalEpisodes(derivedMatch.links, toSinkS, secSource, `\u526F\u6E90:${secSource}`);
-      }
-      let currentSecondaryLinks = derivedMatch.links;
-      const filteredPLinksWithIndex = filterEpisodes(derivedAnime.links, epFilter, currentPrimarySource);
-      const filteredMLinksWithIndex = filterEpisodes(currentSecondaryLinks, epFilter, secSource);
-      const seriesLangB = getLanguageType(derivedMatch.animeTitle);
-      let activePLinks = filteredPLinksWithIndex, activeMLinks = filteredMLinksWithIndex;
-      let sliceStartP = 0, sliceStartS = 0;
-      const isSecondaryCollection = collectionAnimeIds.has(match.animeId);
-      const performSlicing = (isPrimarySide, collectionLinks, seasonNum) => {
-        let sliceStart = 0, slicedList = collectionLinks;
-        if (seasonNum && seasonNum > 1) {
-          let historyFound = false;
-          const collectionIdToCheck = isPrimarySide ? pAnime.animeId : match.animeId;
-          if (collectionProgress && collectionProgress.has(collectionIdToCheck)) {
-            const progress = collectionProgress.get(collectionIdToCheck);
-            const prevSeason = seasonNum - 1;
-            if (progress[`S${prevSeason}`] !== void 0) {
-              const inferredStart = progress[`S${prevSeason}`] + 1;
-              if (inferredStart > 0 && inferredStart < collectionLinks.length) {
-                slicedList = collectionLinks.slice(inferredStart);
-                sliceStart = inferredStart;
-                log2("info", `${logPrefix} [\u5408\u96C6\u5207\u7247] \u5386\u53F2\u63A8\u65AD\u547D\u4E2D: \u6839\u636E S${prevSeason} \u7ED3\u675F\u4F4D\u7F6E (Index ${progress[`S${prevSeason}`]}), \u8BBE\u5B9A S${seasonNum} \u8D77\u70B9\u4E3A Index ${inferredStart}`);
-                historyFound = true;
-              }
-            }
-          }
-          if (!historyFound) {
-            let accumulatedCount = 0;
-            for (let s = 1; s < seasonNum; s++) accumulatedCount += seasonLengthMap.get(s) || 0;
-            let safeAccumulated = accumulatedCount;
-            if (safeAccumulated >= collectionLinks.length) {
-              const heuristicStart = (seasonNum - 1) * 12;
-              if (heuristicStart < collectionLinks.length) {
-                log2("info", `${logPrefix} [\u5408\u96C6\u5207\u7247] \u8D77\u70B9\u8D8A\u754C\u4FEE\u6B63: \u539F\u8BA1\u7B97 ${safeAccumulated} > Total ${collectionLinks.length}\uFF0C\u542F\u7528\u56DE\u9000\u4F30\u7B97 (S${seasonNum} -> Index ${heuristicStart})`);
-                safeAccumulated = Math.max(0, heuristicStart - 2);
-              }
-            }
-            if (safeAccumulated > 0 && safeAccumulated < collectionLinks.length) {
-              const nextStart = accumulatedCount + (seasonLengthMap.get(seasonNum) || 999);
-              const safeEnd = Math.min(nextStart, collectionLinks.length);
-              slicedList = collectionLinks.slice(safeAccumulated, safeEnd);
-              sliceStart = safeAccumulated;
-              const sideName = isPrimarySide ? `\u4E3B\u6E90[${currentPrimarySource}]` : `\u526F\u6E90[${secSource}]`;
-              log2("info", `${logPrefix} [\u5408\u96C6\u5207\u7247] \u68C0\u6D4B\u5230${sideName}\u4E3A\u5408\u96C6 (Target: S${seasonNum}): \u65E0\u5386\u53F2\u63A8\u65AD(Defensive Fallback)\uFF0C\u4FE1\u4EFB\u5730\u56FE\u5207\u81F3 ${safeAccumulated}~${safeEnd} (\u5171 ${slicedList.length} \u96C6) \u53C2\u4E0E\u5BF9\u9F50`);
-            } else log2("info", `${logPrefix} [\u5408\u96C6\u5207\u7247] \u653E\u5F03\u5207\u7247: \u8BA1\u7B97\u8D77\u70B9 ${safeAccumulated} \u8D85\u51FA\u8303\u56F4 (Total: ${collectionLinks.length})`);
-          }
-        } else if (seasonNum === 1) {
-          const s1Count = seasonLengthMap.get(1);
-          if (s1Count && s1Count < collectionLinks.length) {
-            slicedList = collectionLinks.slice(0, s1Count);
-            const sideName = isPrimarySide ? `\u4E3B\u6E90[${currentPrimarySource}]` : `\u526F\u6E90[${secSource}]`;
-            log2("info", `${logPrefix} [\u5408\u96C6\u5207\u7247] \u68C0\u6D4B\u5230${sideName}\u4E3A\u5408\u96C6 (Target: S1): \u4F7F\u7528 Index 0~${s1Count} \u53C2\u4E0E\u5BF9\u9F50`);
-          }
-        }
-        return { sliceStart, slicedList };
-      };
-      if (isPrimaryCollection && !isSecondaryCollection) {
-        const secSeason = getSeasonNumber(derivedMatch.animeTitle, derivedMatch.typeDescription, derivedMatch.aliases);
-        const res = performSlicing(true, filteredPLinksWithIndex, secSeason);
-        activePLinks = res.slicedList;
-        sliceStartP = res.sliceStart;
-      } else if (!isPrimaryCollection && isSecondaryCollection) {
-        const pSeason = getSeasonNumber(pAnime.animeTitle, pAnime.typeDescription, pAnime.aliases);
-        const res = performSlicing(false, filteredMLinksWithIndex, pSeason);
-        activeMLinks = res.slicedList;
-        sliceStartS = res.sliceStart;
-      }
-      const bestOffsetLocal = findBestAlignmentOffset(activePLinks, activeMLinks, seriesLangA, seriesLangB, currentPrimarySource, secSource, pAnime.animeTitle, derivedMatch.animeTitle);
-      const offset = bestOffsetLocal + sliceStartP - sliceStartS;
-      if (offset !== 0) log2("info", `${logPrefix} \u96C6\u6570\u81EA\u52A8\u5BF9\u9F50 (${secSource}): Offset=${offset} (P:${filteredPLinksWithIndex.length}, S:${filteredMLinksWithIndex.length})`);
-      derivedAnime.animeId = generateSafeMergedId(derivedAnime.animeId, match.animeId, groupFingerprint);
-      derivedAnime.bangumiId = String(derivedAnime.animeId);
-      let mergedCount = 0;
-      const redundantS = identifyRedundantTitle(derivedMatch.links, derivedMatch.animeTitle, secSource);
-      const isBroadSpecial = (info) => info.isSpecial || info.isStrictSpecial || info.num !== null && info.num % 1 !== 0;
-      const shiftCounts = /* @__PURE__ */ new Map();
-      let lastPNum = null;
-      filteredMLinksWithIndex.forEach((sItem, k) => {
-        const pItem = filteredPLinksWithIndex[k + offset];
-        if (!pItem) return;
-        const titleP = getTempTitle(pItem.link.title || pItem.link.name, redundantP);
-        const titleS = getTempTitle(sItem.link.title || sItem.link.name, redundantS);
-        const infoP = extractEpisodeInfo(titleP, currentPrimarySource);
-        const infoS = extractEpisodeInfo(titleS, secSource);
-        if (infoP.num === null || infoS.num === null || isBroadSpecial(infoP) || isBroadSpecial(infoS)) return;
-        const diff = infoP.num - infoS.num;
-        const sim = calculateSimilarity(cleanEpisodeText(titleP), cleanEpisodeText(titleS));
-        let weight = 1 + (sim > 0.45 ? 1 : 0);
-        if (lastPNum !== null && infoP.num - lastPNum > 1) {
-          weight = 0.1;
-        } else {
-          lastPNum = infoP.num;
-        }
-        shiftCounts.set(diff, (shiftCounts.get(diff) || 0) + weight);
-      });
-      const consensusShift = shiftCounts.size > 0 ? [...shiftCounts.entries()].reduce((max, curr) => curr[1] > max[1] ? curr : max)[0] : null;
-      const pSpecialIndices = filteredPLinksWithIndex.reduce((acc, pItem, i) => {
-        const info = extractEpisodeInfo(getTempTitle(pItem.link.title || pItem.link.name, redundantP), currentPrimarySource);
-        if (isBroadSpecial(info) && !info.isPV) acc.push(i);
-        return acc;
-      }, []);
-      let sSpecialCounter = 0;
-      for (let k = 0; k < filteredMLinksWithIndex.length; k++) {
-        let pIndex = k + offset;
-        const sourceLinkItem = filteredMLinksWithIndex[k];
-        const sourceLink = sourceLinkItem.link;
-        const sTitleShort = sourceLink.name || sourceLink.title || `Index ${k}`;
-        const cleanTitleS = getTempTitle(sourceLink.title || sourceLink.name, redundantS);
-        const infoS = extractEpisodeInfo(cleanTitleS, secSource);
-        const orphanItem = { link: sourceLink, originalIndex: sourceLinkItem.originalIndex, relativeIndex: pIndex, info: infoS };
-        const broadSpecialS = isBroadSpecial(infoS);
-        if (consensusShift !== null && infoS.num !== null && !broadSpecialS) {
-          const targetNum = infoS.num + consensusShift;
-          pIndex = filteredPLinksWithIndex.findIndex((pItem) => {
-            const infoP = extractEpisodeInfo(getTempTitle(pItem.link.title || pItem.link.name, redundantP), currentPrimarySource);
-            return infoP.num === targetNum && !isBroadSpecial(infoP);
-          });
-          if (pIndex !== -1) {
-            orphanItem.relativeIndex = pIndex;
-          } else {
-            let closestIdx = -0.5;
-            for (let i = filteredPLinksWithIndex.length - 1; i >= 0; i--) {
-              const infoP = extractEpisodeInfo(getTempTitle(filteredPLinksWithIndex[i].link.title || filteredPLinksWithIndex[i].link.name, redundantP), currentPrimarySource);
-              if (infoP.num !== null && !infoP.isSpecial && infoP.num < targetNum) {
-                closestIdx = i;
-                break;
-              }
-            }
-            orphanItem.relativeIndex = closestIdx + k * 1e-3 + 0.1;
-          }
-        } else if (broadSpecialS) {
-          let bestPIdx = -1, bestSim = 0.65;
-          const cleanEpS = cleanEpisodeText(cleanTitleS);
-          for (const pIdx of pSpecialIndices) {
-            const pTitle = getTempTitle(filteredPLinksWithIndex[pIdx].link.title || filteredPLinksWithIndex[pIdx].link.name, redundantP);
-            const infoP = extractEpisodeInfo(pTitle, currentPrimarySource);
-            if (infoS.isPV !== infoP.isPV) continue;
-            const sim = calculateSimilarity(cleanEpS, cleanEpisodeText(pTitle));
-            if (sim > bestSim) {
-              bestSim = sim;
-              bestPIdx = pIdx;
-            }
-          }
-          if (bestPIdx === -1 && !infoS.isPV && sSpecialCounter < pSpecialIndices.length) {
-            bestPIdx = pSpecialIndices[sSpecialCounter];
-          }
-          if (!infoS.isPV) sSpecialCounter++;
-          pIndex = bestPIdx;
-          orphanItem.relativeIndex = pIndex !== -1 ? pIndex : filteredPLinksWithIndex.length + k * 1e-3;
-        } else {
-          orphanItem.relativeIndex = pIndex !== -1 ? pIndex : k + offset;
-        }
-        if (pIndex >= 0 && pIndex < filteredPLinksWithIndex.length) {
-          const originalPIndex = filteredPLinksWithIndex[pIndex].originalIndex;
-          const targetLink = derivedAnime.links[originalPIndex];
-          const pTitleShort = targetLink.name || targetLink.title || `Index ${originalPIndex}`;
-          const cleanTitleP = getTempTitle(targetLink.title, redundantP);
-          const specialP = getSpecialEpisodeType(cleanTitleP);
-          const specialS = getSpecialEpisodeType(cleanTitleS);
-          const infoP = extractEpisodeInfo(cleanTitleP, currentPrimarySource);
-          if (infoS.isPV && !specialP) {
-            mappingEntries.push({ idx: orphanItem.relativeIndex, text: `   [\u7565\u8FC7] ${pTitleShort} =/= ${sTitleShort} (PV\u4E0D\u5339\u914D\u6B63\u7247)` });
-            orphanedEpisodes.push(orphanItem);
-            continue;
-          }
-          if (specialP !== specialS) {
-            mappingEntries.push({ idx: orphanItem.relativeIndex, text: `   [\u7565\u8FC7] ${pTitleShort} =/= ${sTitleShort} (\u7279\u6B8A\u96C6\u7C7B\u578B\u4E0D\u5339\u914D)` });
-            orphanedEpisodes.push(orphanItem);
-            continue;
-          }
-          const strictOrDecimalP = infoP.isStrictSpecial || infoP.num !== null && infoP.num % 1 !== 0;
-          const strictOrDecimalS = infoS.isStrictSpecial || infoS.num !== null && infoS.num % 1 !== 0;
-          const isRegularP = !infoP.isSpecial && (infoP.num === null || infoP.num % 1 === 0);
-          const isRegularS = !infoS.isSpecial && (infoS.num === null || infoS.num % 1 === 0);
-          if (strictOrDecimalP && isRegularS || strictOrDecimalS && isRegularP) {
-            mappingEntries.push({ idx: orphanItem.relativeIndex, text: `   [\u7565\u8FC7] ${pTitleShort} =/= ${sTitleShort} (\u6B63\u7247\u4E0E\u756A\u5916\u963B\u65AD)` });
-            orphanedEpisodes.push(orphanItem);
-            continue;
-          }
-          const idB = sanitizeUrl(sourceLink.url);
-          let currentUrl = targetLink.url;
-          const secPart = `${secSource}:${idB}`;
-          if (!currentUrl.includes(MERGE_DELIMITER)) {
-            if (!currentUrl.startsWith(currentPrimarySource + ":")) currentUrl = `${currentPrimarySource}:${currentUrl}`;
-          }
-          const newMergedUrl = `${currentUrl}${MERGE_DELIMITER}${secPart}`;
-          let newMergedTitle = targetLink.title;
-          if (newMergedTitle) {
-            let sLabel = secSource;
-            if (sourceLink.title) {
-              const sMatch = sourceLink.title.match(/^【([^】\d]+)(?:\d*)】/);
-              if (sMatch) sLabel = sMatch[1].trim();
-            }
-            newMergedTitle = newMergedTitle.replace(/^【([^】]+)】/, (match2, content) => `\u3010${content}${DISPLAY_CONNECTOR}${sLabel}\u3011`);
-          }
-          mappingEntries.push({ idx: orphanItem.relativeIndex, text: `   [\u5339\u914D] ${pTitleShort} <-> ${sTitleShort}` });
-          matchedPIndices.add(pIndex);
-          mergedCount++;
-          pendingMutations.push({ linkIndex: originalPIndex, newUrl: newMergedUrl, newTitle: newMergedTitle });
-        } else {
-          mappingEntries.push({ idx: orphanItem.relativeIndex, text: `   [\u843D\u5355] (\u4E3B\u6E90\u8D8A\u754C) <-> ${sTitleShort}` });
-          orphanedEpisodes.push(orphanItem);
-        }
-      }
-      for (let j = 0; j < filteredPLinksWithIndex.length; j++) {
-        if (!matchedPIndices.has(j)) {
-          const originalPIndex = filteredPLinksWithIndex[j].originalIndex;
-          const targetLink = derivedAnime.links[originalPIndex];
-          const pTitleShort = targetLink.name || targetLink.title || `Index ${originalPIndex}`;
-          mappingEntries.push({ idx: j, text: `   [\u843D\u5355] ${pTitleShort} <-> (\u526F\u6E90\u7F3A\u5931\u6216\u88AB\u7565\u8FC7)` });
-        }
-      }
-      if (mergedCount > 0) {
-        const isAnyCollection = collectionAnimeIds.has(pAnime.animeId) || collectionAnimeIds.has(match.animeId);
-        if (isMergeRatioValid(mergedCount, filteredPLinksWithIndex.length, filteredMLinksWithIndex.length, currentPrimarySource, secSource, isAnyCollection)) {
-          for (const mutation of pendingMutations) {
-            const link = derivedAnime.links[mutation.linkIndex];
-            link.url = mutation.newUrl;
-            link.title = mutation.newTitle;
-          }
-          const getBaseTitle = (t) => {
-            if (!t) return "";
-            return t.replace(RegexStore.Clean.YEAR_TAG, "").replace(RegexStore.Clean.SOURCE_TAG, "").replace(RegexStore.Clean.FROM_SUFFIX, "").trim();
-          };
-          const currentPrimaryBase = getBaseTitle(derivedAnime.animeTitle);
-          derivedAnime.aliases = [.../* @__PURE__ */ new Set([
-            ...derivedAnime.aliases || [],
-            ...derivedMatch.aliases || [],
-            ...match.aliases || [],
-            getBaseTitle(derivedMatch.animeTitle)
-          ])].filter((alias) => alias && alias !== currentPrimaryBase);
-          log2("info", `${logPrefix} \u5173\u8054\u6210\u529F: [${currentPrimarySource}] ${logTitleA} <-> [${secSource}] ${logTitleB} (\u672C\u6B21\u5408\u5E76 ${mergedCount} \u96C6)`);
-          if (mappingEntries.length > 0) {
-            mappingEntries.sort((a, b) => a.idx - b.idx);
-            log2("info", `${logPrefix} [${secSource}] \u6620\u5C04\u8BE6\u60C5:
-${mappingEntries.map((e) => e.text).join("\n")}`);
-          }
-          if (collectionProgress && (isSecondaryCollection || isPrimaryCollection)) {
-            let maxUsedIndex = -1;
-            if (isPrimaryCollection && !isSecondaryCollection) {
-              for (let k = 0; k < filteredMLinksWithIndex.length; k++) {
-                const pIndex = k + offset;
-                if (matchedPIndices.has(pIndex)) {
-                  const originalPIndex = filteredPLinksWithIndex[pIndex].originalIndex;
-                  if (originalPIndex > maxUsedIndex) maxUsedIndex = originalPIndex;
-                }
-              }
-              if (maxUsedIndex !== -1) {
-                const sSeason = getSeasonNumber(derivedMatch.animeTitle, derivedMatch.typeDescription, derivedMatch.aliases) || 1;
-                if (!collectionProgress.has(pAnime.animeId)) collectionProgress.set(pAnime.animeId, {});
-                const progress = collectionProgress.get(pAnime.animeId);
-                if (mergedCount >= 3) {
-                  progress[`S${sSeason}`] = maxUsedIndex;
-                }
-              }
-            } else if (!isPrimaryCollection && isSecondaryCollection) {
-              for (let k = 0; k < filteredMLinksWithIndex.length; k++) {
-                const pIndex = k + offset;
-                if (matchedPIndices.has(pIndex)) {
-                  const item = filteredMLinksWithIndex[k];
-                  if (item.originalIndex > maxUsedIndex) maxUsedIndex = item.originalIndex;
-                }
-              }
-              if (maxUsedIndex !== -1) {
-                const pSeason = getSeasonNumber(pAnime.animeTitle, pAnime.typeDescription, pAnime.aliases) || 1;
-                if (!collectionProgress.has(match.animeId)) collectionProgress.set(match.animeId, {});
-                const progress = collectionProgress.get(match.animeId);
-                if (mergedCount >= 3) {
-                  progress[`S${pSeason}`] = maxUsedIndex;
-                  log2("info", `[Merge-Check] \u66F4\u65B0\u5408\u96C6\u8FDB\u5EA6 [${match.animeId}]: S${pSeason} -> MaxIndex ${maxUsedIndex}`);
-                }
-              }
-            }
-          }
-          if (collectionAnimeIds.has(match.animeId)) log2("info", `${logPrefix} [\u667A\u80FD\u8865\u5168] \u8DF3\u8FC7: \u526F\u6E90 [${secSource}] \u4E3A\u5408\u96C6\uFF0C\u4E3A\u907F\u514D\u6DF7\u5165\u5176\u4ED6\u5B63\u5EA6\u96C6\u6570\uFF0C\u4E0D\u6267\u884C\u8865\u5168\u3002`);
-          else stitchUnmatchedEpisodes(derivedAnime, orphanedEpisodes, secSource);
-          const normals = [], sinkers = [];
-          derivedAnime.links.forEach((link) => {
-            const rawContent = link.title.replace(RegexStore.Clean.SOURCE_TAG, "").trim();
-            if (RegexStore.Episode.SINK_TITLE_STRICT.test(rawContent)) sinkers.push(link);
-            else normals.push(link);
-          });
-          if (sinkers.length > 0) {
-            derivedAnime.links = [...normals, ...sinkers];
-            log2("info", `${logPrefix} [\u6392\u5E8F\u4F18\u5316] \u7ACB\u5373\u6267\u884C\u756A\u5916\u6C89\u5E95: \u79FB\u52A8\u4E86 ${sinkers.length} \u4E2A\u756A\u5916\u96C6\u5230\u672B\u5C3E`);
-          }
-          hasMergedAny = true;
-          actualMergedSources.push(secSource);
-          contentSignatureParts.push(match.animeId);
-        } else log2("info", `${logPrefix} \u5173\u8054\u53D6\u6D88: [${currentPrimarySource}] ${logTitleA} <-> [${secSource}] ${logTitleB} (\u5339\u914D\u7387\u8FC7\u4F4E: ${mergedCount}/${Math.max(filteredPLinksWithIndex.length, filteredMLinksWithIndex.length)})`);
-      }
-    }
-  }
-  if (hasMergedAny) {
-    const signature = contentSignatureParts.join("|");
-    if (generatedSignatures.has(signature)) {
-      log2("info", `${logPrefix} \u68C0\u6D4B\u5230\u91CD\u590D\u7684\u5408\u5E76\u7ED3\u679C (Signature: ${signature})\uFF0C\u5DF2\u81EA\u52A8\u9690\u53BB\u5197\u4F59\u6761\u76EE\u3002`);
-      return null;
-    }
-    generatedSignatures.add(signature);
-    for (let i = 1; i < contentSignatureParts.length; i++) {
-      const secId = contentSignatureParts[i];
-      if (!collectionAnimeIds.has(secId)) {
-        groupConsumedIds.add(secId);
-      } else {
-        log2("info", `${logPrefix} \u5408\u96C6\u4FDD\u7559: ID [${secId}] \u662F\u5408\u96C6\uFF0C\u4FDD\u7559\u4EE5\u4F9B\u540C\u7EC4\u590D\u7528\u3002`);
-      }
-      globalConsumedIds.add(secId);
-    }
-    const joinedSources = actualMergedSources.join(DISPLAY_CONNECTOR);
-    derivedAnime.animeTitle = derivedAnime.animeTitle.replace(`from ${currentPrimarySource}`, `from ${currentPrimarySource}${DISPLAY_CONNECTOR}${joinedSources}`);
-    derivedAnime.source = currentPrimarySource;
-    return derivedAnime;
-  }
-  return null;
 }
 function detectCollectionCandidates(curAnimes) {
   const collectionIds = /* @__PURE__ */ new Set();
   if (!curAnimes || curAnimes.length === 0) return collectionIds;
-  const cnNums = { "\u4E00": "1", "\u4E8C": "2", "\u4E09": "3", "\u56DB": "4", "\u4E94": "5", "\u516D": "6", "\u4E03": "7", "\u516B": "8", "\u4E5D": "9", "\u5341": "10" };
   const groups = /* @__PURE__ */ new Map();
   curAnimes.forEach((anime) => {
     const realAnime = globals.animes.find((a) => String(a.animeId) === String(anime.animeId)) || anime;
@@ -6357,7 +13950,7 @@ function detectCollectionCandidates(curAnimes) {
         protectedTitle = protectedTitle.replace(startBracketMatch[0], content + " ");
       }
     }
-    protectedTitle = protectedTitle.replace(/第([一二三四五六七八九十])季/g, (m, num) => `\u7B2C${cnNums[num]}\u5B63`);
+    protectedTitle = protectedTitle.replace(/第([一二三四五六七八九十]+)季/g, (m, num) => `\u7B2C${convertChineseNumber(num)}\u5B63`);
     let clean = protectedTitle.replace(RegexStore.Clean.SOURCE_TAG, "").replace(RegexStore.Clean.FROM_SUFFIX, "").replace(RegexStore.Clean.YEAR_TAG, "").replace(RegexStore.Clean.META_SUFFIX, "").replace(RegexStore.Lang.KEYWORDS_STRONG, "");
     SUFFIX_SPECIFIC_MAP.forEach((m) => clean = clean.replace(m.regex, ""));
     clean = clean.replace(RegexStore.Season.SUFFIX_AMBIGUOUS, "").replace(/(?:第|S)\d+(?:季|期|部)/gi, "").replace(/(?:Part|P)\s*\d+/gi, "").replace(/\s+/g, "").toLowerCase().trim();
@@ -6397,7 +13990,7 @@ ${itemDetails}`);
       let validCount = 0;
       if (realAnime.links) {
         if (/^(dandan|animeko)$/i.test(realAnime.source)) {
-          validCount = realAnime.links.filter((l, idx) => {
+          validCount = realAnime.links.filter((l) => {
             const rawTitle = l.title || l.name || "";
             const rawContent = rawTitle.replace(RegexStore.Clean.SOURCE_TAG, "").replace(RegexStore.Clean.FROM_SUFFIX, "").trim();
             if (RegexStore.Episode.SPECIAL_CHECK.test(rawContent) || RegexStore.Episode.DANDAN_IGNORE.test(rawContent)) return false;
@@ -6406,7 +13999,9 @@ ${itemDetails}`);
             if (RegexStore.Episode.MAP_EXCLUDE_KEYWORDS.test(rawContent) || RegexStore.Episode.MAP_EXCLUDE_KEYWORDS.test(rawTitle)) return false;
             return true;
           }).length;
-        } else validCount = realAnime.links.length;
+        } else {
+          validCount = realAnime.links.length;
+        }
       }
       if (!sourceStats.has(realAnime.source)) sourceStats.set(realAnime.source, { seasonCounts: {}, maxSeason: 0, s1Candidates: [] });
       const stat = sourceStats.get(realAnime.source);
@@ -6419,8 +14014,7 @@ ${itemDetails}`);
     const allSources = Array.from(sourceStats.keys());
     for (const [source, stat] of sourceStats.entries()) {
       if (stat.maxSeason > 1) continue;
-      let maxOtherS1 = 0;
-      let hasOtherSources = false;
+      let maxOtherS1 = 0, hasOtherSources = false;
       for (const otherSource2 of allSources) {
         if (otherSource2 === source) continue;
         const otherStat = sourceStats.get(otherSource2);
@@ -6448,13 +14042,594 @@ ${itemDetails}`);
   }
   return collectionIds;
 }
-async function applyMergeLogic(curAnimes, detailStore = null) {
-  if (!curAnimes || curAnimes.length < 2) {
-    return;
+async function processMergeTask(params) {
+  const {
+    pAnime,
+    availableSecondaries,
+    curAnimes,
+    groupConsumedIds,
+    globalConsumedIds,
+    generatedSignatures,
+    epFilter,
+    groupFingerprint,
+    currentPrimarySource,
+    logPrefix,
+    limitSecondaryLang,
+    collectionAnimeIds,
+    allowReuseIds,
+    collectionProgress,
+    baseSecondaries
+  } = params;
+  if (collectionAnimeIds.has(pAnime.animeId) && groupConsumedIds.has(pAnime.animeId)) {
+    log2("info", `${logPrefix} \u8DF3\u8FC7: [${currentPrimarySource}] \u662F\u5408\u96C6\u4E14\u5DF2\u4F5C\u4E3A\u7EC4\u5185\u526F\u6E90\u53C2\u4E0E\u8FC7\u5408\u5E76\u3002`);
+    return null;
   }
-  const groups = globals.mergeSourcePairs;
+  let derivedAnime = fastCloneAnime(pAnime);
+  if (!derivedAnime.links) {
+    const cachedPAnime = globals.animes.find((a) => String(a.animeId) === String(pAnime.animeId));
+    derivedAnime.links = cachedPAnime?.links ? fastCloneAnime(cachedPAnime.links) : [];
+  }
+  if (!derivedAnime.links || derivedAnime.links.length === 0) {
+    log2("warn", `${logPrefix} \u4E3B\u6E90\u6570\u636E\u4E0D\u5B8C\u6574\uFF0C\u8DF3\u8FC7: ${pAnime.animeTitle}`);
+    return null;
+  }
+  const logTitleA = pAnime.animeTitle.replace(RegexStore.Clean.FROM_SUFFIX, "");
+  const actualMergedSources = [];
+  const contentSignatureParts = [pAnime.animeId];
+  let hasMergedAny = false;
+  const seriesLangA = getLanguageType(pAnime.animeTitle);
+  const redundantP = identifyRedundantTitle(derivedAnime.links, pAnime.animeTitle, currentPrimarySource);
+  const isPrimaryCollection = collectionAnimeIds.has(pAnime.animeId);
+  const getTempTitle = (rawTitle, redundantStr) => {
+    if (!rawTitle) return "";
+    if (redundantStr && rawTitle.includes(redundantStr)) return rawTitle.replace(redundantStr, "");
+    return rawTitle;
+  };
+  const pCleanTitle = cleanTitleForSimilarity(pAnime.animeTitle);
+  const peerAnimes = curAnimes.filter((a) => cleanTitleForSimilarity(a.animeTitle) === pCleanTitle);
+  const seasonLengthMap = buildSeasonLengthMap(peerAnimes, epFilter, collectionAnimeIds);
+  if (seasonLengthMap.size > 0) {
+    const mapDesc = Array.from(seasonLengthMap.entries()).map(([k, v]) => `S${k}=${v}`).join(", ");
+    if (isPrimaryCollection || availableSecondaries.some((s) => curAnimes.some((a) => a.source === s && collectionAnimeIds.has(a.animeId)))) {
+      log2("info", `${logPrefix} [\u5408\u96C6\u5904\u7406] \u6784\u5EFA\u5B63\u5EA6\u96C6\u6570\u5730\u56FE (Mode\u7B56\u7565): { ${mapDesc} }`);
+    }
+  }
+  let allMatches = [];
+  for (const secSource of availableSecondaries) {
+    let secondaryItems = curAnimes.filter((a) => {
+      if (a.source !== secSource) return false;
+      const rule = getMatchingCustomRule(pAnime, a);
+      if (rule) {
+        if (rule.action === "block") {
+          log2("info", `${logPrefix} \u62E6\u622A: \u526F\u6E90 [${a.source}] ${a.animeTitle} \u88AB\u6620\u5C04\u8868 [\xD7] \u89C4\u5219\u660E\u786E\u963B\u65AD`);
+          return false;
+        }
+        return true;
+      }
+      if (isPrimaryCollection) return true;
+      const isConsumed = groupConsumedIds.has(a.animeId);
+      const isAllowedReuse = allowReuseIds && allowReuseIds.has(a.animeId);
+      if (isConsumed && !isAllowedReuse) return false;
+      return true;
+    });
+    const uniqueSecItems = [];
+    const seenIds = /* @__PURE__ */ new Set();
+    for (const item of secondaryItems) {
+      if (!seenIds.has(item.animeId)) {
+        seenIds.add(item.animeId);
+        uniqueSecItems.push(item);
+      }
+    }
+    secondaryItems = uniqueSecItems;
+    if (limitSecondaryLang) secondaryItems = secondaryItems.filter((a) => getLanguageType(a.animeTitle) === limitSecondaryLang);
+    if (secondaryItems.length > 1) {
+      secondaryItems.sort((a, b) => {
+        const isCnA = getLanguageType(a.animeTitle) === "CN";
+        const isCnB = getLanguageType(b.animeTitle) === "CN";
+        if (isCnA === isCnB) return 0;
+        return isCnA ? 1 : -1;
+      });
+    }
+    if (secondaryItems.length === 0) continue;
+    const matchesForSource = findSecondaryMatches(pAnime, secondaryItems, collectionAnimeIds, baseSecondaries);
+    allMatches.push(...matchesForSource);
+  }
+  if (allMatches.length > 0) {
+    if (allMatches.length > 1 && (isPrimaryCollection || allMatches.some((m) => collectionAnimeIds.has(m.animeId)))) {
+      allMatches.sort((a, b) => {
+        const sA = getSeasonNumber(a.animeTitle, a.typeDescription, a.aliases) || 1;
+        const sB = getSeasonNumber(b.animeTitle, b.typeDescription, b.aliases) || 1;
+        if (sA !== sB) return sA - sB;
+        const idxA = availableSecondaries.indexOf(a.source);
+        const idxB = availableSecondaries.indexOf(b.source);
+        return idxA - idxB;
+      });
+      const seqLogs = allMatches.map((m) => `[${m.source}]S${getSeasonNumber(m.animeTitle, m.typeDescription, m.aliases) || 1}`);
+      log2("info", `${logPrefix} [\u5408\u96C6\u65F6\u5E8F] \u5DF2\u5C06\u8DE8\u6E90\u5339\u914D\u961F\u5217\u6309\u5B63\u6570\u5347\u5E8F\u6392\u5217\uFF0C\u4FDD\u969C\u5207\u7247\u63A8\u65AD\u4E25\u683C\u81EA\u4E3E: ${seqLogs.join(" -> ")}`);
+    }
+    for (const match of allMatches) {
+      const secSource = match.source;
+      const customRule = getMatchingCustomRule(pAnime, match);
+      if (customRule && customRule.action === "block") {
+        log2("info", `${logPrefix} [\u5B89\u5168\u7F51\u62E6\u622A] \u5173\u8054\u53D6\u6D88: [${currentPrimarySource}] ${pAnime.animeTitle} <-> [${secSource}] ${match.animeTitle} \u88AB\u660E\u786E\u963B\u65AD`);
+        continue;
+      }
+      if (!isPrimaryCollection) {
+        const isReuse = allowReuseIds && allowReuseIds.has(match.animeId);
+        if (!isReuse && !customRule && groupConsumedIds.has(match.animeId)) continue;
+      }
+      const globalCachedMatch = globals.animes.find((a) => String(a.animeId) === String(match.animeId));
+      if (!globalCachedMatch?.links) continue;
+      const derivedMatch = fastCloneAnime(globalCachedMatch);
+      const mappingEntries = [], matchedPIndices = /* @__PURE__ */ new Set(), pendingMutations = [], orphanedEpisodes = [];
+      const logTitleB = derivedMatch.animeTitle.replace(RegexStore.Clean.FROM_SUFFIX, "");
+      const decimalsP = getDecimalEpisodes(derivedAnime.links, currentPrimarySource);
+      const decimalsS = getDecimalEpisodes(derivedMatch.links, secSource);
+      const toSinkS = new Set([...decimalsS].filter((x) => !decimalsP.has(x)));
+      const toSinkP = new Set([...decimalsP].filter((x) => !decimalsS.has(x)));
+      if (toSinkP.size > 0) sinkDecimalEpisodes(derivedAnime.links, toSinkP, currentPrimarySource, `\u4E3B\u6E90:${currentPrimarySource}`);
+      if (toSinkS.size > 0) sinkDecimalEpisodes(derivedMatch.links, toSinkS, secSource, `\u526F\u6E90:${secSource}`);
+      let currentSecondaryLinks = derivedMatch.links;
+      const filteredPLinksWithIndex = filterEpisodes(derivedAnime.links, epFilter, currentPrimarySource);
+      const filteredMLinksWithIndex = filterEpisodes(currentSecondaryLinks, epFilter, secSource);
+      const seriesLangB = getLanguageType(derivedMatch.animeTitle);
+      let activePLinks = filteredPLinksWithIndex;
+      let activeMLinks = filteredMLinksWithIndex;
+      let sliceStartP = 0, sliceStartS = 0;
+      const isSecondaryCollection = collectionAnimeIds.has(match.animeId);
+      const performSlicing = (isPrimarySide, collectionLinks, seasonNum) => {
+        let sliceStart = 0, slicedList = collectionLinks;
+        if (seasonNum && seasonNum > 1) {
+          let historyFound = false;
+          const collectionIdToCheck = isPrimarySide ? pAnime.animeId : match.animeId;
+          if (collectionProgress && collectionProgress.has(collectionIdToCheck)) {
+            const progress = collectionProgress.get(collectionIdToCheck);
+            const prevSeason = seasonNum - 1;
+            if (progress[`S${prevSeason}`] !== void 0) {
+              const inferredStart = progress[`S${prevSeason}`] + 1;
+              if (inferredStart > 0 && inferredStart < collectionLinks.length) {
+                slicedList = collectionLinks.slice(inferredStart);
+                sliceStart = inferredStart;
+                log2("info", `${logPrefix} [\u5408\u96C6\u5207\u7247] \u5386\u53F2\u63A8\u65AD\u547D\u4E2D: \u6839\u636E S${prevSeason} \u7ED3\u675F\u4F4D\u7F6E (Index ${progress[`S${prevSeason}`]}), \u8BBE\u5B9A S${seasonNum} \u8D77\u70B9\u4E3A Index ${inferredStart}`);
+                historyFound = true;
+              }
+            }
+          }
+          if (!historyFound) {
+            let accumulatedCount = 0;
+            for (let s = 1; s < seasonNum; s++) accumulatedCount += seasonLengthMap.get(s) || 0;
+            let safeAccumulated = accumulatedCount;
+            if (safeAccumulated >= collectionLinks.length) {
+              const heuristicStart = (seasonNum - 1) * 12;
+              if (heuristicStart < collectionLinks.length) {
+                log2("info", `${logPrefix} [\u5408\u96C6\u5207\u7247] \u8D77\u70B9\u8D8A\u754C\u4FEE\u6B63: \u539F\u8BA1\u7B97 ${safeAccumulated} > Total ${collectionLinks.length}\uFF0C\u542F\u7528\u56DE\u9000\u4F30\u7B97 (S${seasonNum} -> Index ${heuristicStart})`);
+                safeAccumulated = Math.max(0, heuristicStart - 2);
+              }
+            }
+            if (safeAccumulated > 0 && safeAccumulated < collectionLinks.length) {
+              const nextStart = accumulatedCount + (seasonLengthMap.get(seasonNum) || 999);
+              const safeEnd = Math.min(nextStart, collectionLinks.length);
+              slicedList = collectionLinks.slice(safeAccumulated, safeEnd);
+              sliceStart = safeAccumulated;
+              const sideName = isPrimarySide ? `\u4E3B\u6E90[${currentPrimarySource}]` : `\u526F\u6E90[${secSource}]`;
+              log2("info", `${logPrefix} [\u5408\u96C6\u5207\u7247] \u68C0\u6D4B\u5230${sideName}\u4E3A\u5408\u96C6 (Target: S${seasonNum}): \u65E0\u5386\u53F2\u63A8\u65AD(Defensive Fallback)\uFF0C\u4FE1\u4EFB\u5730\u56FE\u5207\u81F3 ${safeAccumulated}~${safeEnd} (\u5171 ${slicedList.length} \u96C6) \u53C2\u4E0E\u5BF9\u9F50`);
+            } else {
+              log2("info", `${logPrefix} [\u5408\u96C6\u5207\u7247] \u653E\u5F03\u5207\u7247: \u8BA1\u7B97\u8D77\u70B9 ${safeAccumulated} \u8D85\u51FA\u8303\u56F4 (Total: ${collectionLinks.length})`);
+            }
+          }
+        } else if (seasonNum === 1) {
+          const s1Count = seasonLengthMap.get(1);
+          if (s1Count && s1Count < collectionLinks.length) {
+            slicedList = collectionLinks.slice(0, s1Count);
+            const sideName = isPrimarySide ? `\u4E3B\u6E90[${currentPrimarySource}]` : `\u526F\u6E90[${secSource}]`;
+            log2("info", `${logPrefix} [\u5408\u96C6\u5207\u7247] \u68C0\u6D4B\u5230${sideName}\u4E3A\u5408\u96C6 (Target: S1): \u4F7F\u7528 Index 0~${s1Count} \u53C2\u4E0E\u5BF9\u9F50`);
+          }
+        }
+        return { sliceStart, slicedList };
+      };
+      if (isPrimaryCollection && !isSecondaryCollection) {
+        const secSeason = getSeasonNumber(derivedMatch.animeTitle, derivedMatch.typeDescription, derivedMatch.aliases);
+        const res = performSlicing(true, filteredPLinksWithIndex, secSeason);
+        activePLinks = res.slicedList;
+        sliceStartP = res.sliceStart;
+      } else if (!isPrimaryCollection && isSecondaryCollection) {
+        const pSeason = getSeasonNumber(pAnime.animeTitle, pAnime.typeDescription, pAnime.aliases);
+        const res = performSlicing(false, filteredMLinksWithIndex, pSeason);
+        activeMLinks = res.slicedList;
+        sliceStartS = res.sliceStart;
+      }
+      derivedAnime.animeId = generateSafeMergedId(derivedAnime.animeId, match.animeId, groupFingerprint);
+      derivedAnime.bangumiId = String(derivedAnime.animeId);
+      let mergedCount = 0;
+      const redundantS = identifyRedundantTitle(derivedMatch.links, derivedMatch.animeTitle, secSource);
+      const isBroadSpecial = (info) => info.isSpecial || info.isStrictSpecial || info.num !== null && info.num % 1 !== 0;
+      const kToPIndexMap = /* @__PURE__ */ new Map();
+      let offset = 0;
+      if (customRule && customRule.hasRoutes) {
+        log2("info", `${logPrefix} \u542F\u7528\u6620\u5C04\u8868\u7CBE\u786E\u8DEF\u7531: ${pAnime.animeTitle} <-> ${match.animeTitle}`);
+        const bestOffsetLocal = findBestAlignmentOffset(activePLinks, activeMLinks, seriesLangA, seriesLangB, currentPrimarySource, secSource, pAnime.animeTitle, derivedMatch.animeTitle);
+        const fallbackOffset = bestOffsetLocal + sliceStartP - sliceStartS;
+        offset = fallbackOffset;
+        const sToPMap = /* @__PURE__ */ new Map();
+        for (const route of customRule.routes) {
+          const sLen = route.sec.end - route.sec.start + 1;
+          const pLen = route.prim.end - route.prim.start + 1;
+          if (sLen !== pLen) {
+            log2("warn", `[Merge] [\u6620\u5C04\u8868] \u8DEF\u7531\u533A\u95F4\u8DE8\u5EA6\u4E0D\u5BF9\u7B49\uFF0C\u8DF3\u8FC7\u6B64\u6BB5: E${route.sec.start}~E${route.sec.end} > E${route.prim.start}~E${route.prim.end}`);
+            continue;
+          }
+          for (let i = 0; i < sLen; i++) {
+            sToPMap.set(route.sec.start + i, route.prim.start + i);
+          }
+        }
+        for (let k = 0; k < filteredMLinksWithIndex.length; k++) {
+          const sItem = filteredMLinksWithIndex[k];
+          const sourceLink = sItem.link;
+          const sTitleShort = sourceLink.name || sourceLink.title || `Index ${k}`;
+          const cleanTitleS = getTempTitle(sourceLink.title || sourceLink.name, redundantS);
+          const infoS = extractEpisodeInfo(cleanTitleS, secSource);
+          const orphanItem = { link: sourceLink, originalIndex: sItem.originalIndex, relativeIndex: -1, info: infoS };
+          let sNum = infoS.num;
+          if (sNum === null && !infoS.isStrictSpecial) {
+            sNum = k + 1;
+          }
+          if (sNum === null || !sToPMap.has(sNum)) {
+            orphanItem.relativeIndex = k + fallbackOffset;
+            mappingEntries.push({ idx: orphanItem.relativeIndex, text: `   [\u672A\u8DEF\u7531\u843D\u5355] ${sTitleShort} (\u5E94\u7528\u63A8\u65AD\u504F\u79FB\u4F4D\u7F6E)` });
+            orphanedEpisodes.push(orphanItem);
+            continue;
+          }
+          const targetPNum = sToPMap.get(sNum);
+          const pIndex = filteredPLinksWithIndex.findIndex((pItem, idx) => {
+            const infoP = extractEpisodeInfo(getTempTitle(pItem.link.title || pItem.link.name, redundantP), currentPrimarySource);
+            let pNum = infoP.num;
+            if (pNum === null && !infoP.isStrictSpecial) {
+              pNum = idx + 1;
+            }
+            return pNum === targetPNum && !infoP.isSpecial && !infoP.isStrictSpecial;
+          });
+          if (pIndex !== -1) {
+            kToPIndexMap.set(k, pIndex);
+            orphanItem.relativeIndex = pIndex;
+            const originalPIndex = filteredPLinksWithIndex[pIndex].originalIndex;
+            const targetLink = derivedAnime.links[originalPIndex];
+            const pTitleShort = targetLink.name || targetLink.title || `Index ${originalPIndex}`;
+            const idB = sanitizeUrl(sourceLink.url);
+            let currentUrl = targetLink.url;
+            const secPart = `${secSource}:${idB}`;
+            if (!currentUrl.includes(MERGE_DELIMITER)) {
+              if (!currentUrl.startsWith(currentPrimarySource + ":")) currentUrl = `${currentPrimarySource}:${currentUrl}`;
+            }
+            const newMergedUrl = `${currentUrl}${MERGE_DELIMITER}${secPart}`;
+            let newMergedTitle = targetLink.title;
+            if (newMergedTitle) {
+              let sLabel = secSource;
+              const sMatch = (sourceLink.title || "").match(/^【([^】\d]+)(?:\d*)】/);
+              if (sMatch) sLabel = sMatch[1].trim();
+              newMergedTitle = newMergedTitle.replace(/^【([^】]+)】/, (m, content) => `\u3010${content}${DISPLAY_CONNECTOR}${sLabel}\u3011`);
+            }
+            mappingEntries.push({ idx: pIndex, text: `   [\u5DF2\u8DEF\u7531\u6620\u5C04] ${pTitleShort} <-> ${sTitleShort} (Rule: E${sNum}>E${targetPNum})` });
+            matchedPIndices.add(pIndex);
+            mergedCount++;
+            pendingMutations.push({ linkIndex: originalPIndex, newUrl: newMergedUrl, newTitle: newMergedTitle });
+          } else {
+            orphanItem.relativeIndex = k + fallbackOffset;
+            mappingEntries.push({ idx: orphanItem.relativeIndex, text: `   [\u8DEF\u7531\u5931\u8D25] \u4E3B\u6E90\u627E\u4E0D\u5230 E${targetPNum} <-> ${sTitleShort}` });
+            orphanedEpisodes.push(orphanItem);
+          }
+        }
+      } else {
+        if (customRule) {
+          log2("info", `${logPrefix} \u547D\u4E2D\u6620\u5C04\u8868\u5E38\u89C4\u5408\u5E76: [${secSource}] ${match.animeTitle} -> [${currentPrimarySource}] ${pAnime.animeTitle} (\u5DF2\u514D\u68C0\u653E\u884C\uFF0C\u4EA4\u7531\u7CFB\u7EDF\u81EA\u52A8\u5BF9\u9F50)`);
+        }
+        const bestOffsetLocal = findBestAlignmentOffset(activePLinks, activeMLinks, seriesLangA, seriesLangB, currentPrimarySource, secSource, pAnime.animeTitle, derivedMatch.animeTitle);
+        offset = bestOffsetLocal + sliceStartP - sliceStartS;
+        if (offset !== 0) log2("info", `${logPrefix} \u96C6\u6570\u81EA\u52A8\u5BF9\u9F50 (${secSource}): Offset=${offset} (P:${filteredPLinksWithIndex.length}, S:${filteredMLinksWithIndex.length})`);
+        const shiftCounts = /* @__PURE__ */ new Map();
+        let lastPNum = null;
+        filteredMLinksWithIndex.forEach((sItem, k) => {
+          const pItem = filteredPLinksWithIndex[k + offset];
+          if (!pItem) return;
+          const titleP = getTempTitle(pItem.link.title || pItem.link.name, redundantP);
+          const titleS = getTempTitle(sItem.link.title || sItem.link.name, redundantS);
+          const infoP = extractEpisodeInfo(titleP, currentPrimarySource);
+          const infoS = extractEpisodeInfo(titleS, secSource);
+          if (infoP.num === null || infoS.num === null || isBroadSpecial(infoP) || isBroadSpecial(infoS)) return;
+          const diff = infoP.num - infoS.num;
+          const sim = calculateSimilarity(cleanEpisodeText(titleP), cleanEpisodeText(titleS));
+          let weight = 1 + (sim > 0.45 ? 1 : 0);
+          if (lastPNum !== null && infoP.num - lastPNum > 1) {
+            weight = 0.1;
+          } else {
+            lastPNum = infoP.num;
+          }
+          shiftCounts.set(diff, (shiftCounts.get(diff) || 0) + weight);
+        });
+        const consensusShift = shiftCounts.size > 0 ? [...shiftCounts.entries()].reduce((max, curr) => curr[1] > max[1] ? curr : max)[0] : null;
+        const pSpecialIndices = filteredPLinksWithIndex.reduce((acc, pItem, i) => {
+          const info = extractEpisodeInfo(getTempTitle(pItem.link.title || pItem.link.name, redundantP), currentPrimarySource);
+          if (isBroadSpecial(info) && !info.isPV) acc.push(i);
+          return acc;
+        }, []);
+        let sSpecialCounter = 0;
+        for (let k = 0; k < filteredMLinksWithIndex.length; k++) {
+          let pIndex = k + offset;
+          const sourceLinkItem = filteredMLinksWithIndex[k];
+          const sourceLink = sourceLinkItem.link;
+          const sTitleShort = sourceLink.name || sourceLink.title || `Index ${k}`;
+          const cleanTitleS = getTempTitle(sourceLink.title || sourceLink.name, redundantS);
+          const infoS = extractEpisodeInfo(cleanTitleS, secSource);
+          const orphanItem = { link: sourceLink, originalIndex: sourceLinkItem.originalIndex, relativeIndex: pIndex, info: infoS };
+          const broadSpecialS = isBroadSpecial(infoS);
+          if (consensusShift !== null && infoS.num !== null && !broadSpecialS) {
+            const targetNum = infoS.num + consensusShift;
+            pIndex = filteredPLinksWithIndex.findIndex((pItem) => {
+              const infoP = extractEpisodeInfo(getTempTitle(pItem.link.title || pItem.link.name, redundantP), currentPrimarySource);
+              return infoP.num === targetNum && !isBroadSpecial(infoP);
+            });
+            if (pIndex !== -1) {
+              orphanItem.relativeIndex = pIndex;
+            } else {
+              let closestIdx = -0.5;
+              for (let i = filteredPLinksWithIndex.length - 1; i >= 0; i--) {
+                const infoP = extractEpisodeInfo(getTempTitle(filteredPLinksWithIndex[i].link.title || filteredPLinksWithIndex[i].link.name, redundantP), currentPrimarySource);
+                if (infoP.num !== null && !infoP.isSpecial && infoP.num < targetNum) {
+                  closestIdx = i;
+                  break;
+                }
+              }
+              orphanItem.relativeIndex = closestIdx + k * 1e-3 + 0.1;
+            }
+          } else if (broadSpecialS) {
+            let bestPIdx = -1, bestSim = 0.65;
+            const cleanEpS = cleanEpisodeText(cleanTitleS);
+            for (const pIdx of pSpecialIndices) {
+              const pTitle = getTempTitle(filteredPLinksWithIndex[pIdx].link.title || filteredPLinksWithIndex[pIdx].link.name, redundantP);
+              const infoP = extractEpisodeInfo(pTitle, currentPrimarySource);
+              if (infoS.isPV !== infoP.isPV) continue;
+              const sim = calculateSimilarity(cleanEpS, cleanEpisodeText(pTitle));
+              if (sim > bestSim) {
+                bestSim = sim;
+                bestPIdx = pIdx;
+              }
+            }
+            if (bestPIdx === -1 && !infoS.isPV && sSpecialCounter < pSpecialIndices.length) {
+              bestPIdx = pSpecialIndices[sSpecialCounter];
+            }
+            if (!infoS.isPV) sSpecialCounter++;
+            pIndex = bestPIdx;
+            orphanItem.relativeIndex = pIndex !== -1 ? pIndex : filteredPLinksWithIndex.length + k * 1e-3;
+          } else {
+            orphanItem.relativeIndex = pIndex !== -1 ? pIndex : k + offset;
+          }
+          if (pIndex >= 0 && pIndex < filteredPLinksWithIndex.length) {
+            kToPIndexMap.set(k, pIndex);
+            const originalPIndex = filteredPLinksWithIndex[pIndex].originalIndex;
+            const targetLink = derivedAnime.links[originalPIndex];
+            const pTitleShort = targetLink.name || targetLink.title || `Index ${originalPIndex}`;
+            const cleanTitleP = getTempTitle(targetLink.title, redundantP);
+            const specialP = getSpecialEpisodeType(cleanTitleP);
+            const specialS = getSpecialEpisodeType(cleanTitleS);
+            const infoP = extractEpisodeInfo(cleanTitleP, currentPrimarySource);
+            if (infoS.isPV && !specialP) {
+              mappingEntries.push({ idx: orphanItem.relativeIndex, text: `   [\u7565\u8FC7] ${pTitleShort} =/= ${sTitleShort} (PV\u4E0D\u5339\u914D\u6B63\u7247)` });
+              orphanedEpisodes.push(orphanItem);
+              continue;
+            }
+            if (specialP !== specialS) {
+              mappingEntries.push({ idx: orphanItem.relativeIndex, text: `   [\u7565\u8FC7] ${pTitleShort} =/= ${sTitleShort} (\u7279\u6B8A\u96C6\u7C7B\u578B\u4E0D\u5339\u914D)` });
+              orphanedEpisodes.push(orphanItem);
+              continue;
+            }
+            const strictOrDecimalP = infoP.isStrictSpecial || infoP.num !== null && infoP.num % 1 !== 0;
+            const strictOrDecimalS = infoS.isStrictSpecial || infoS.num !== null && infoS.num % 1 !== 0;
+            const isRegularP = !infoP.isSpecial && (infoP.num === null || infoP.num % 1 === 0);
+            const isRegularS = !infoS.isSpecial && (infoS.num === null || infoS.num % 1 === 0);
+            if (strictOrDecimalP && isRegularS || strictOrDecimalS && isRegularP) {
+              mappingEntries.push({ idx: orphanItem.relativeIndex, text: `   [\u7565\u8FC7] ${pTitleShort} =/= ${sTitleShort} (\u6B63\u7247\u4E0E\u756A\u5916\u963B\u65AD)` });
+              orphanedEpisodes.push(orphanItem);
+              continue;
+            }
+            const idB = sanitizeUrl(sourceLink.url);
+            let currentUrl = targetLink.url;
+            const secPart = `${secSource}:${idB}`;
+            if (!currentUrl.includes(MERGE_DELIMITER)) {
+              if (!currentUrl.startsWith(currentPrimarySource + ":")) currentUrl = `${currentPrimarySource}:${currentUrl}`;
+            }
+            const newMergedUrl = `${currentUrl}${MERGE_DELIMITER}${secPart}`;
+            let newMergedTitle = targetLink.title;
+            if (newMergedTitle) {
+              let sLabel = secSource;
+              if (sourceLink.title) {
+                const sMatch = sourceLink.title.match(/^【([^】\d]+)(?:\d*)】/);
+                if (sMatch) sLabel = sMatch[1].trim();
+              }
+              newMergedTitle = newMergedTitle.replace(/^【([^】]+)】/, (match2, content) => `\u3010${content}${DISPLAY_CONNECTOR}${sLabel}\u3011`);
+            }
+            mappingEntries.push({ idx: orphanItem.relativeIndex, text: `   [\u5339\u914D] ${pTitleShort} <-> ${sTitleShort}` });
+            matchedPIndices.add(pIndex);
+            mergedCount++;
+            pendingMutations.push({ linkIndex: originalPIndex, newUrl: newMergedUrl, newTitle: newMergedTitle });
+          } else {
+            mappingEntries.push({ idx: orphanItem.relativeIndex, text: `   [\u843D\u5355] (\u4E3B\u6E90\u8D8A\u754C) <-> ${sTitleShort}` });
+            orphanedEpisodes.push(orphanItem);
+          }
+        }
+      }
+      for (let j = 0; j < filteredPLinksWithIndex.length; j++) {
+        if (!matchedPIndices.has(j)) {
+          const originalPIndex = filteredPLinksWithIndex[j].originalIndex;
+          const targetLink = derivedAnime.links[originalPIndex];
+          const pTitleShort = targetLink.name || targetLink.title || `Index ${originalPIndex}`;
+          mappingEntries.push({ idx: j, text: `   [\u843D\u5355] ${pTitleShort} <-> (\u526F\u6E90\u7F3A\u5931\u6216\u88AB\u7565\u8FC7)` });
+        }
+      }
+      if (mergedCount > 0) {
+        const isAnyCollection = collectionAnimeIds.has(pAnime.animeId) || collectionAnimeIds.has(match.animeId);
+        let isValidMerge = false;
+        if (customRule) {
+          isValidMerge = mergedCount > 0;
+        } else {
+          isValidMerge = isMergeRatioValid(mergedCount, filteredPLinksWithIndex.length, filteredMLinksWithIndex.length, currentPrimarySource, secSource, isAnyCollection);
+        }
+        if (isValidMerge) {
+          for (const mutation of pendingMutations) {
+            const link = derivedAnime.links[mutation.linkIndex];
+            link.url = mutation.newUrl;
+            link.title = mutation.newTitle;
+          }
+          const getBaseTitle = (t) => {
+            if (!t) return "";
+            return t.replace(RegexStore.Clean.YEAR_TAG, "").replace(RegexStore.Clean.SOURCE_TAG, "").replace(RegexStore.Clean.FROM_SUFFIX, "").trim();
+          };
+          const currentPrimaryBase = getBaseTitle(derivedAnime.animeTitle);
+          derivedAnime.aliases = [.../* @__PURE__ */ new Set([
+            ...derivedAnime.aliases || [],
+            ...derivedMatch.aliases || [],
+            ...match.aliases || [],
+            getBaseTitle(derivedMatch.animeTitle)
+          ])].filter((alias) => alias && alias !== currentPrimaryBase);
+          log2("info", `${logPrefix} \u5173\u8054\u6210\u529F: [${currentPrimarySource}] ${logTitleA} <-> [${secSource}] ${logTitleB} (\u672C\u6B21\u5408\u5E76 ${mergedCount} \u96C6)`);
+          if (mappingEntries.length > 0) {
+            mappingEntries.sort((a, b) => a.idx - b.idx);
+            log2("info", `${logPrefix} [${secSource}] \u6620\u5C04\u8BE6\u60C5:
+${mappingEntries.map((e) => e.text).join("\n")}`);
+          }
+          derivedAnime.mergedChildren = derivedAnime.mergedChildren || [];
+          if (!derivedAnime.mergedChildren.some((c) => String(c.animeId) === String(match.animeId) && c.source === match.source)) {
+            derivedAnime.mergedChildren.push({
+              animeId: match.animeId,
+              animeTitle: match.animeTitle,
+              source: match.source,
+              episodes: derivedMatch.links ? derivedMatch.links.length : 0,
+              imageUrl: match.imageUrl || ""
+            });
+          }
+          const cachedSec = globals.animes.find((a) => String(a.animeId) === String(match.animeId) && a.source === match.source);
+          if (cachedSec) cachedSec.isHiddenChild = true;
+          if (collectionProgress && (isSecondaryCollection || isPrimaryCollection)) {
+            let maxUsedIndex = -1;
+            if (isPrimaryCollection && !isSecondaryCollection) {
+              for (let k = 0; k < filteredMLinksWithIndex.length; k++) {
+                const pIndex = kToPIndexMap.has(k) ? kToPIndexMap.get(k) : k + offset;
+                if (matchedPIndices.has(pIndex)) {
+                  const originalPIndex = filteredPLinksWithIndex[pIndex].originalIndex;
+                  if (originalPIndex > maxUsedIndex) maxUsedIndex = originalPIndex;
+                }
+              }
+              if (maxUsedIndex !== -1) {
+                const sSeason = getSeasonNumber(derivedMatch.animeTitle, derivedMatch.typeDescription, derivedMatch.aliases) || 1;
+                if (!collectionProgress.has(pAnime.animeId)) collectionProgress.set(pAnime.animeId, {});
+                const progress = collectionProgress.get(pAnime.animeId);
+                if (mergedCount >= 3) {
+                  progress[`S${sSeason}`] = maxUsedIndex;
+                }
+              }
+            } else if (!isPrimaryCollection && isSecondaryCollection) {
+              for (let k = 0; k < filteredMLinksWithIndex.length; k++) {
+                const pIndex = kToPIndexMap.has(k) ? kToPIndexMap.get(k) : k + offset;
+                if (matchedPIndices.has(pIndex)) {
+                  const item = filteredMLinksWithIndex[k];
+                  if (item.originalIndex > maxUsedIndex) maxUsedIndex = item.originalIndex;
+                }
+              }
+              if (maxUsedIndex !== -1) {
+                const pSeason = getSeasonNumber(pAnime.animeTitle, pAnime.typeDescription, pAnime.aliases) || 1;
+                if (!collectionProgress.has(match.animeId)) collectionProgress.set(match.animeId, {});
+                const progress = collectionProgress.get(match.animeId);
+                if (mergedCount >= 3) {
+                  progress[`S${pSeason}`] = maxUsedIndex;
+                  log2("info", `[Merge-Check] \u66F4\u65B0\u5408\u96C6\u8FDB\u5EA6 [${match.animeId}]: S${pSeason} -> MaxIndex ${maxUsedIndex}`);
+                }
+              }
+            }
+          }
+          const pSeasonNum = getSeasonNumber(pAnime.animeTitle, pAnime.typeDescription, pAnime.aliases) || 1;
+          const sSeasonNum = getSeasonNumber(derivedMatch.animeTitle, derivedMatch.typeDescription, derivedMatch.aliases) || 1;
+          const isCrossSeasonMapping = customRule && pSeasonNum !== sSeasonNum;
+          if (collectionAnimeIds.has(match.animeId) || isCrossSeasonMapping) {
+            log2("info", `${logPrefix} [\u667A\u80FD\u8865\u5168] \u8DF3\u8FC7: \u526F\u6E90 [${secSource}] \u4E3A\u5408\u96C6\u6216\u89E6\u53D1\u8DE8\u5B63\u5EA6\u6620\u5C04\uFF0C\u4E3A\u907F\u514D\u6DF7\u5165\u5176\u4ED6\u5B63\u5EA6\u96C6\u6570\uFF0C\u4E0D\u6267\u884C\u8865\u5168\u3002`);
+          } else {
+            stitchUnmatchedEpisodes(derivedAnime, orphanedEpisodes, secSource);
+          }
+          const normals = [], sinkers = [];
+          derivedAnime.links.forEach((link) => {
+            const rawContent = link.title.replace(RegexStore.Clean.SOURCE_TAG, "").trim();
+            if (RegexStore.Episode.SINK_TITLE_STRICT.test(rawContent)) sinkers.push(link);
+            else normals.push(link);
+          });
+          if (sinkers.length > 0) {
+            derivedAnime.links = [...normals, ...sinkers];
+            log2("info", `${logPrefix} [\u6392\u5E8F\u4F18\u5316] \u7ACB\u5373\u6267\u884C\u756A\u5916\u6C89\u5E95: \u79FB\u52A8\u4E86 ${sinkers.length} \u4E2A\u756A\u5916\u96C6\u5230\u672B\u5C3E`);
+          }
+          hasMergedAny = true;
+          actualMergedSources.push(secSource);
+          contentSignatureParts.push(match.animeId);
+        } else {
+          log2("info", `${logPrefix} \u5173\u8054\u53D6\u6D88: [${currentPrimarySource}] ${logTitleA} <-> [${secSource}] ${logTitleB} (\u5339\u914D\u7387\u8FC7\u4F4E: ${mergedCount}/${Math.max(filteredPLinksWithIndex.length, filteredMLinksWithIndex.length)})`);
+        }
+      }
+    }
+  }
+  if (hasMergedAny) {
+    const signature = contentSignatureParts.join("|");
+    if (generatedSignatures.has(signature)) {
+      log2("info", `${logPrefix} \u68C0\u6D4B\u5230\u91CD\u590D\u7684\u5408\u5E76\u7ED3\u679C (Signature: ${signature})\uFF0C\u5DF2\u81EA\u52A8\u9690\u53BB\u5197\u4F59\u6761\u76EE\u3002`);
+      return null;
+    }
+    generatedSignatures.add(signature);
+    const cachedPrim = globals.animes.find((a) => String(a.animeId) === String(pAnime.animeId) && a.source === pAnime.source);
+    if (cachedPrim) cachedPrim.isHiddenChild = true;
+    for (let i = 1; i < contentSignatureParts.length; i++) {
+      const secId = contentSignatureParts[i];
+      if (!collectionAnimeIds.has(secId)) {
+        groupConsumedIds.add(secId);
+      } else {
+        log2("info", `${logPrefix} \u5408\u96C6\u4FDD\u7559: ID [${secId}] \u662F\u5408\u96C6\uFF0C\u4FDD\u7559\u4EE5\u4F9B\u540C\u7EC4\u590D\u7528\u3002`);
+      }
+      globalConsumedIds.add(secId);
+    }
+    const joinedSources = actualMergedSources.join(DISPLAY_CONNECTOR);
+    derivedAnime.animeTitle = derivedAnime.animeTitle.replace(
+      `from ${currentPrimarySource}`,
+      `from ${currentPrimarySource}${DISPLAY_CONNECTOR}${joinedSources}`
+    );
+    derivedAnime.source = currentPrimarySource;
+    return derivedAnime;
+  }
+  return null;
+}
+async function applyMergeLogic(curAnimes, detailStore = null) {
+  if (!curAnimes || curAnimes.length < 2) return;
+  const baseGroups = globals.mergeSourcePairs || [];
+  const customRules = globals.customMergeRules || [];
+  const dynamicPairsMap = /* @__PURE__ */ new Map();
+  for (const rule of customRules) {
+    if (rule.action === "block") continue;
+    const pSrc = rule.primary.source.split("&")[0];
+    const sSrc = rule.secondary.source.split("&")[0];
+    if (!dynamicPairsMap.has(pSrc)) dynamicPairsMap.set(pSrc, /* @__PURE__ */ new Set());
+    dynamicPairsMap.get(pSrc).add(sSrc);
+  }
+  let groups = baseGroups.map((bg) => ({
+    primary: bg.primary,
+    secondaries: [...bg.secondaries],
+    baseSecondaries: [...bg.secondaries]
+  }));
+  for (const [pSrc, sSrcs] of dynamicPairsMap.entries()) {
+    let existing = groups.find((g) => g.primary === pSrc);
+    if (!existing) {
+      existing = { primary: pSrc, secondaries: [], baseSecondaries: [] };
+      groups.push(existing);
+    }
+    for (const sSrc of sSrcs) {
+      if (!existing.secondaries.includes(sSrc)) {
+        existing.secondaries.push(sSrc);
+      }
+    }
+  }
   if (!groups || groups.length === 0) return;
-  log2("info", `[Merge] \u542F\u52A8\u6E90\u5408\u5E76\u7B56\u7565\uFF0C\u914D\u7F6E: ${JSON.stringify(groups)}`);
+  log2("info", `[Merge] \u542F\u52A8\u6E90\u5408\u5E76\u7B56\u7565\uFF0C\u7EC4\u5408\u8BA1\u7B97\u540E\u7684\u914D\u7F6E: ${JSON.stringify(groups)}`);
   let epFilter = globals.episodeTitleFilter;
   if (epFilter && typeof epFilter === "string") {
     try {
@@ -6544,7 +14719,8 @@ async function applyMergeLogic(curAnimes, detailStore = null) {
           logPrefix: `[Merge][Phase 1: CN-Strict]`,
           limitSecondaryLang: "CN",
           collectionAnimeIds,
-          collectionProgress
+          collectionProgress,
+          baseSecondaries: group.baseSecondaries
         });
         if (resultAnime) {
           newMergedAnimes.push(resultAnime);
@@ -6580,7 +14756,8 @@ async function applyMergeLogic(curAnimes, detailStore = null) {
           logPrefix: `[Merge][Phase 1.5: CN-Secondary]`,
           limitSecondaryLang: "CN",
           collectionAnimeIds,
-          collectionProgress
+          collectionProgress,
+          baseSecondaries: group.baseSecondaries
         });
         if (resultAnime) {
           newMergedAnimes.push(resultAnime);
@@ -6632,7 +14809,8 @@ async function applyMergeLogic(curAnimes, detailStore = null) {
           logPrefix: `[Merge][Phase 2: Standard]`,
           collectionAnimeIds,
           allowReuseIds,
-          collectionProgress
+          collectionProgress,
+          baseSecondaries: group.baseSecondaries
         });
         if (resultAnime) {
           newMergedAnimes.push(resultAnime);
@@ -6648,7 +14826,9 @@ async function applyMergeLogic(curAnimes, detailStore = null) {
   }
   if (keepSources.size > 0) {
     for (const anime of curAnimes) {
-      if (globalConsumedIds.has(anime.animeId) && keepSources.has(anime.source)) globalConsumedIds.delete(anime.animeId);
+      if (globalConsumedIds.has(anime.animeId) && keepSources.has(anime.source)) {
+        globalConsumedIds.delete(anime.animeId);
+      }
     }
   }
   for (let i = curAnimes.length - 1; i >= 0; i--) {
@@ -6660,6 +14840,27 @@ async function applyMergeLogic(curAnimes, detailStore = null) {
   } else {
     log2("info", `[Merge] \u626B\u63CF\u5B8C\u6BD5\uFF0C\u672A\u4EA7\u751F\u4EFB\u4F55\u5408\u5E76\uFF0C\u5217\u8868\u4FDD\u6301\u4E0D\u53D8 (\u6570\u91CF: ${curAnimes.length})`);
   }
+}
+function getDanmuTime(danmu) {
+  if (danmu.p && typeof danmu.p === "string") {
+    const pTime = parseFloat(danmu.p.split(",")[0]);
+    if (!isNaN(pTime)) return pTime;
+  }
+  if (danmu.t !== void 0 && danmu.t !== null) return Number(danmu.t);
+  if (typeof danmu.progress === "number") return danmu.progress / 1e3;
+  return 0;
+}
+function getDanmuText(danmu) {
+  if (danmu) {
+    if (typeof danmu.m === "string") return danmu.m;
+    if (typeof danmu.text === "string") return danmu.text;
+    if (typeof danmu.content === "string") return danmu.content;
+  }
+  return "";
+}
+function normalizeText(text) {
+  if (!text || typeof text !== "string") return "";
+  return text.replace(/[\s.,!?"'(){}\[\]<>;:，。！？、""''（）【】《》；：~～]/g, "").toLowerCase();
 }
 function mergeDanmakuList(listA, listB) {
   const final = [...listA || [], ...listB || []];
@@ -6740,29 +14941,6 @@ function alignSourceTimelines(results, sourceNames, realIds, minMatchRatio = 0.8
     });
   });
   return results;
-}
-function getDanmuTime(danmu) {
-  if (danmu.p && typeof danmu.p === "string") {
-    const pTime = parseFloat(danmu.p.split(",")[0]);
-    if (!isNaN(pTime)) return pTime;
-  }
-  if (danmu.t !== void 0 && danmu.t !== null) return Number(danmu.t);
-  if (typeof danmu.progress === "number") {
-    return danmu.progress / 1e3;
-  }
-  return 0;
-}
-function getDanmuText(danmu) {
-  if (danmu) {
-    if (typeof danmu.m === "string") return danmu.m;
-    if (typeof danmu.text === "string") return danmu.text;
-    if (typeof danmu.content === "string") return danmu.content;
-  }
-  return "";
-}
-function normalizeText(text) {
-  if (!text || typeof text !== "string") return "";
-  return text.replace(/[\s.,!?"'(){}\[\]<>;:，。！？、“”‘’（）【】《》；：~～]/g, "").toLowerCase();
 }
 
 // danmu_api/utils/hanjutv-util.js
@@ -7186,29 +15364,29 @@ var BaseSource = class {
   async getComments(id, sourceName, segmentFlag = false, progressCallback = null) {
     if (segmentFlag) {
       if (progressCallback) await progressCallback(5, `\u5F00\u59CB\u83B7\u53D6\u5F39\u5E55${sourceName}\u5F39\u5E55\u5206\u7247\u5217\u8868`);
-      log("info", `\u5F00\u59CB\u83B7\u53D6\u5F39\u5E55${sourceName}\u5F39\u5E55\u5206\u7247\u5217\u8868`);
+      log("info", `[system] [Base] \u5F00\u59CB\u83B7\u53D6\u5F39\u5E55${sourceName}\u5F39\u5E55\u5206\u7247\u5217\u8868`);
       return await this.getEpisodeDanmuSegments(id);
     }
     if (progressCallback) await progressCallback(5, `\u5F00\u59CB\u83B7\u53D6\u5F39\u5E55${sourceName}\u5F39\u5E55`);
-    log("info", `\u5F00\u59CB\u83B7\u53D6\u5F39\u5E55${sourceName}\u5F39\u5E55`);
+    log("info", `[system] [Base] \u5F00\u59CB\u83B7\u53D6\u5F39\u5E55${sourceName}\u5F39\u5E55`);
     const raw = await this.getEpisodeDanmu(id);
     if (progressCallback) await progressCallback(85, `\u539F\u59CB\u5F39\u5E55 ${raw.length} \u6761\uFF0C\u6B63\u5728\u89C4\u8303\u5316`);
-    log("info", `\u539F\u59CB\u5F39\u5E55 ${raw.length} \u6761\uFF0C\u6B63\u5728\u89C4\u8303\u5316`);
+    log("info", `[system] [Base] \u539F\u59CB\u5F39\u5E55 ${raw.length} \u6761\uFF0C\u6B63\u5728\u89C4\u8303\u5316`);
     const formatted = this.formatComments(raw);
     if (progressCallback) await progressCallback(100, `\u5F39\u5E55\u5904\u7406\u5B8C\u6210\uFF0C\u5171 ${formatted.length} \u6761`);
-    log("info", `\u5F39\u5E55\u5904\u7406\u5B8C\u6210\uFF0C\u5171 ${formatted.length} \u6761`);
+    log("info", `[system] [Base] \u5F39\u5E55\u5904\u7406\u5B8C\u6210\uFF0C\u5171 ${formatted.length} \u6761`);
     return convertToDanmakuJson(formatted, sourceName);
   }
   // 获取分片弹幕流水线方法(获取某集分片弹幕 -> 格式化弹幕 -> 弹幕处理，如去重/屏蔽字等)
   async getSegmentComments(segment, progressCallback = null) {
     if (progressCallback) await progressCallback(5, `\u5F00\u59CB\u83B7\u53D6\u5206\u7247\u5F39\u5E55${segment.type}\u5F39\u5E55`);
-    log("info", `\u5F00\u59CB\u83B7\u53D6\u5206\u7247\u5F39\u5E55${segment.type}\u5F39\u5E55`);
+    log("info", `[system] [Base] \u5F00\u59CB\u83B7\u53D6\u5206\u7247\u5F39\u5E55${segment.type}\u5F39\u5E55`);
     const raw = await this.getEpisodeSegmentDanmu(segment);
     if (progressCallback) await progressCallback(85, `\u539F\u59CB\u5206\u7247\u5F39\u5E55 ${raw.length} \u6761\uFF0C\u6B63\u5728\u89C4\u8303\u5316`);
-    log("info", `\u539F\u59CB\u5206\u7247\u5F39\u5E55 ${raw.length} \u6761\uFF0C\u6B63\u5728\u89C4\u8303\u5316`);
+    log("info", `[system] [Base] \u539F\u59CB\u5206\u7247\u5F39\u5E55 ${raw.length} \u6761\uFF0C\u6B63\u5728\u89C4\u8303\u5316`);
     const formatted = this.formatComments(raw);
     if (progressCallback) await progressCallback(100, `\u5206\u7247\u5F39\u5E55\u5904\u7406\u5B8C\u6210\uFF0C\u5171 ${formatted.length} \u6761`);
-    log("info", `\u5206\u7247\u5F39\u5E55\u5904\u7406\u5B8C\u6210\uFF0C\u5171 ${formatted.length} \u6761`);
+    log("info", `[system] [Base] \u5206\u7247\u5F39\u5E55\u5904\u7406\u5B8C\u6210\uFF0C\u5171 ${formatted.length} \u6761`);
     return convertToDanmakuJson(formatted, segment.type);
   }
   // 按年份降序排序并添加到curAnimes
@@ -7278,8 +15456,8 @@ var Kan360Source = class extends BaseSource {
           }
         );
         const data = await response.data;
-        log("info", `360kan zongyi response: ${JSON.stringify(data)}`);
         const episodeList = data.data.list;
+        log("info", `[360kan] 360kan zongyi response: \u7B2C${j}\u9875\u83B7\u53D6\u5230${episodeList ? episodeList.length : 0}\u6761\u5267\u96C6`);
         if (!episodeList) {
           break;
         }
@@ -7296,7 +15474,7 @@ var Kan360Source = class extends BaseSource {
             "sort": epNum || episodeInfo.sort || null
           });
         }
-        log("info", `links.length: ${links.length}`);
+        log("info", `[360kan] links.length: ${links.length}`);
       }
       links.sort((a, b) => {
         if (!a.sort || !b.sort) return 0;
@@ -7306,7 +15484,7 @@ var Kan360Source = class extends BaseSource {
       });
       return links;
     } catch (error) {
-      log("error", "get360Animes error:", {
+      log("error", "[360kan] get360Animes error:", {
         message: error.message,
         name: error.name,
         stack: error.stack
@@ -7329,7 +15507,7 @@ var Kan360Source = class extends BaseSource {
         return Number(result.data.allupinfo[site]);
       }
     } catch (error) {
-      log("error", "getNumber error:", error && error.message ? error.message : error);
+      log("error", "[360kan] getNumber error:", error && error.message ? error.message : error);
     }
     return null;
   }
@@ -7345,9 +15523,42 @@ var Kan360Source = class extends BaseSource {
       });
       return res.data;
     } catch (error) {
-      log("error", "get360Detail error:", error && error.message ? error.message : error);
+      log("error", "[360kan] get360Detail error:", error && error.message ? error.message : error);
     }
     return null;
+  }
+  // 使用 /v1/detail 分批获取集数（每批最多200集），返回 [{name, url}, ...]
+  async getEpisodesV1(cat, id, site, number) {
+    try {
+      if (!number || Number(number) === 0) return [];
+      const batchSize = 200;
+      let startIdx = 1;
+      const episodes = [];
+      const total = Number(number);
+      while (startIdx <= total) {
+        const endIdx = Math.min(startIdx + batchSize - 1, total);
+        try {
+          const detail = await this.get360Detail(cat, id, site, startIdx, endIdx);
+          if (detail && detail.data && detail.data.allepidetail && detail.data.allepidetail[site]) {
+            for (const it of detail.data.allepidetail[site]) {
+              episodes.push({ name: it.playlink_num, url: it.url });
+            }
+          } else {
+            if (startIdx === 1) return [];
+            break;
+          }
+        } catch (e) {
+          log("error", `[360kan] getEpisodesV1 batch ${startIdx}-${endIdx} failed for site ${site}: ${e && e.message ? e.message : e}`);
+          if (startIdx === 1) return [];
+          break;
+        }
+        startIdx = endIdx + 1;
+      }
+      return episodes;
+    } catch (e) {
+      log("error", `getEpisodesV1 error: ${e && e.message ? e.message : e}`);
+      return [];
+    }
   }
   // 使用 episodesv2 接口获取剧集分集（电视剧/动漫）
   async getEpisodesV2(cat, entId, site) {
@@ -7362,23 +15573,11 @@ var Kan360Source = class extends BaseSource {
       });
       let data = response.data;
       if (typeof data === "string") {
-        const firstParen = data.indexOf("(");
-        const lastParen = data.lastIndexOf(")");
-        if (firstParen !== -1 && lastParen !== -1 && lastParen > firstParen) {
-          const jsonText = data.substring(firstParen + 1, lastParen);
-          try {
-            data = JSON.parse(jsonText);
-          } catch (e) {
-            log("error", `getEpisodesV2 JSON parse error: ${e.message}`);
-            return [];
-          }
-        } else {
-          try {
-            data = JSON.parse(data);
-          } catch (e) {
-            log("error", `getEpisodesV2 unexpected response format`);
-            return [];
-          }
+        try {
+          data = JSON.parse(data);
+        } catch (e) {
+          log("error", `[360kan] getEpisodesV2 JSON parse error: ${e.message}`);
+          return [];
         }
       }
       if (!data) return [];
@@ -7401,7 +15600,7 @@ var Kan360Source = class extends BaseSource {
       }
       return [];
     } catch (error) {
-      log("error", "getEpisodesV2 error:", {
+      log("error", "[360kan] getEpisodesV2 error:", {
         message: error && error.message ? error.message : String(error),
         stack: error && error.stack ? error.stack : void 0
       });
@@ -7420,15 +15619,15 @@ var Kan360Source = class extends BaseSource {
         }
       );
       const data = response.data;
-      log("info", `360kan response: ${JSON.stringify(data)}`);
       let tmpAnimes = [];
       if ("rows" in data.data.longData) {
         tmpAnimes = data.data.longData.rows;
       }
-      log("info", `360kan animes.length: ${tmpAnimes.length}`);
+      log("info", `[360kan] 360kan response: ${JSON.stringify(tmpAnimes)}`);
+      log("info", `[360kan] 360kan animes.length: ${tmpAnimes.length}`);
       return tmpAnimes;
     } catch (error) {
-      log("error", "get360Animes error:", {
+      log("error", "[360kan] get360Animes error:", {
         message: error.message,
         name: error.name,
         stack: error.stack
@@ -7486,9 +15685,16 @@ var Kan360Source = class extends BaseSource {
             if (globals.vodAllowedPlatforms.includes(anime.seriesSite)) {
               for (let i = 0; i < anime.seriesPlaylinks.length; i++) {
                 const item = anime.seriesPlaylinks[i];
+                let epUrl = "";
+                if (item && typeof item === "object") {
+                  epUrl = item.url || "";
+                } else if (typeof item === "string") {
+                  epUrl = anime.playlinks && anime.playlinks[anime.seriesSite] ? anime.playlinks[anime.seriesSite] : "";
+                }
+                if (!epUrl) continue;
                 links.push({
                   "name": (i + 1).toString(),
-                  "url": item.url,
+                  "url": epUrl,
                   "title": `\u3010${anime.seriesSite}\u3011 \u7B2C${i + 1}\u96C6`
                 });
               }
@@ -7511,15 +15717,17 @@ var Kan360Source = class extends BaseSource {
                 } else {
                   try {
                     const siteNumber = await this.getNumber(cat, detailId, siteKey);
-                    const detail = await this.get360Detail(cat, detailId, siteKey, 1, siteNumber);
-                    if (detail && detail.data && detail.data.allepidetail && detail.data.allepidetail[siteKey]) {
-                      for (const ep of detail.data.allepidetail[siteKey]) {
-                        links.push({
-                          name: ep.playlink_num,
-                          url: ep.url,
-                          title: `\u3010${siteKey}\u3011 \u7B2C${ep.playlink_num}\u96C6`,
-                          sort: ep.playlink_num
-                        });
+                    if (siteNumber && Number(siteNumber) > 0) {
+                      const episodes = await this.getEpisodesV1(cat, detailId, siteKey, siteNumber);
+                      if (episodes && episodes.length > 0) {
+                        for (const ep of episodes) {
+                          links.push({
+                            name: ep.name,
+                            url: ep.url,
+                            title: `\u3010${siteKey}\u3011 \u7B2C${ep.name}\u96C6`,
+                            sort: ep.name
+                          });
+                        }
                       }
                     }
                   } catch (e) {
@@ -7595,17 +15803,17 @@ var VodSource = class extends BaseSource {
         }
       );
       if (response && response.data && response.data.list && response.data.list.length > 0) {
-        log("info", `\u8BF7\u6C42 ${serverName}(${server}) \u6210\u529F`);
+        log("info", `[VOD] \u8BF7\u6C42 ${serverName}(${server}) \u6210\u529F`);
         const data = response.data;
-        log("info", `${serverName} response: \u2193\u2193\u2193`);
+        log("info", `[VOD] ${serverName} response: \u2193\u2193\u2193`);
         printFirst200Chars(data);
         return { serverName, list: data.list };
       } else {
-        log("info", `\u8BF7\u6C42 ${serverName}(${server}) \u6210\u529F\uFF0C\u4F46 response.data.list \u4E3A\u7A7A`);
+        log("info", `[VOD] \u8BF7\u6C42 ${serverName}(${server}) \u6210\u529F\uFF0C\u4F46 response.data.list \u4E3A\u7A7A`);
         return { serverName, list: [] };
       }
     } catch (error) {
-      log("error", `\u8BF7\u6C42 ${serverName}(${server}) \u5931\u8D25:`, {
+      log("error", `[VOD] \u8BF7\u6C42 ${serverName}(${server}) \u5931\u8D25:`, {
         message: error.message,
         name: error.name,
         stack: error.stack
@@ -7632,8 +15840,8 @@ var VodSource = class extends BaseSource {
     let fastest;
     try {
       fastest = await Promise.race(promises);
-    } catch (err) {
-      log("error", `[VOD fastest mode] \u6240\u6709\u670D\u52A1\u5668\u76F4\u63A5\u629B\u9519`, err);
+    } catch (err2) {
+      log("error", `[VOD fastest mode] \u6240\u6709\u670D\u52A1\u5668\u76F4\u63A5\u629B\u9519`, err2);
       return [];
     }
     const stringContainsPreferId = (result) => {
@@ -7779,7 +15987,7 @@ async function doubanApiGet(url) {
     if (response.status != 200) return null;
     return response;
   } catch (error) {
-    log("error", "[DOUBAN] GET API error:", {
+    log("error", "[Utils] [Douban] GET API error:", {
       message: error.message,
       name: error.name,
       stack: error.stack
@@ -7805,7 +16013,7 @@ async function doubanApiPost(url, data = {}) {
     if (response.status != 200) return null;
     return response;
   } catch (error) {
-    log("error", "[DOUBAN] POST API error:", {
+    log("error", "[Utils] [Douban] POST API error:", {
       message: error.message,
       name: error.name,
       stack: error.stack
@@ -7845,7 +16053,7 @@ async function imdbApiGet(url) {
     if (response.status != 200) return null;
     return response;
   } catch (error) {
-    log("error", "[IMDB] API error:", {
+    log("error", "[Utils] [IMDB] API error:", {
       message: error.message,
       name: error.name,
       stack: error.stack
@@ -7897,10 +16105,10 @@ var TmdbSource = class extends BaseSource {
         await this._getDoubanInfo(imdbId, mediaType, doubanIds);
       } else {
         const seasons = await getImdbSeasons(imdbId);
-        log("info", "imdb seasons:", seasons.data.seasons);
+        log("info", "[TMDB] imdb seasons:", seasons.data.seasons);
         const seasonPromises = (seasons?.data?.seasons ?? []).map(async (season) => {
           let finalImdbId = imdbId;
-          log("info", "imdb season:", season.season);
+          log("info", "[TMDB] imdb season:", season.season);
           try {
             if (Number(season.season) !== 1) {
               const episodes = await getImdbepisodes(imdbId, season.season);
@@ -7908,14 +16116,14 @@ var TmdbSource = class extends BaseSource {
             }
             await this._getDoubanInfo(finalImdbId, mediaType, doubanIds);
           } catch (error) {
-            log("error", `\u5904\u7406\u7B2C ${season.season} \u5B63\u5931\u8D25\uFF0C\u7EE7\u7EED\u6267\u884C\u5176\u4ED6\u5B63:`, error);
+            log("error", `[TMDB] \u5904\u7406\u7B2C ${season.season} \u5B63\u5931\u8D25\uFF0C\u7EE7\u7EED\u6267\u884C\u5176\u4ED6\u5B63:`, error);
           }
         });
         await Promise.all(seasonPromises);
       }
       return doubanIds;
     } catch (error) {
-      log("error", "getTmdbIds error:", {
+      log("error", "[TMDB] getTmdbIds error:", {
         message: error.message,
         name: error.name,
         stack: error.stack
@@ -7932,13 +16140,13 @@ var TmdbSource = class extends BaseSource {
       if (data?.results?.length > 0) {
         tmdbItems = data.results.filter((item) => (item.name || item.title) === keyword);
       }
-      log("info", `tmdb items.length: ${tmdbItems.length}`);
+      log("info", `[TMDB] tmdb items.length: ${tmdbItems.length}`);
       const doubanPromises = tmdbItems.map(async (tmdbItem) => {
         try {
           const doubanIds = await this.getDoubanIdByTmdbId(tmdbItem.media_type, tmdbItem.id);
           return doubanIds;
         } catch (error) {
-          log("error", `\u83B7\u53D6 TMDB ID ${tmdbItem.id} \u7684\u8C46\u74E3 ID \u5931\u8D25\uFF0C\u7EE7\u7EED\u5904\u7406\u5176\u4ED6\u6761\u76EE:`, error);
+          log("error", `[TMDB] \u83B7\u53D6 TMDB ID ${tmdbItem.id} \u7684\u8C46\u74E3 ID \u5931\u8D25\uFF0C\u7EE7\u7EED\u5904\u7406\u5176\u4ED6\u6761\u76EE:`, error);
           return [];
         }
       });
@@ -7946,7 +16154,7 @@ var TmdbSource = class extends BaseSource {
       tmpAnimes = [...tmpAnimes, ...doubanResults.flat()];
       return tmpAnimes;
     } catch (error) {
-      log("error", "getTmdbAnimes error:", {
+      log("error", "[TMDB] getTmdbAnimes error:", {
         message: error.message,
         name: error.name,
         stack: error.stack
@@ -7988,7 +16196,7 @@ var DoubanSource = class extends BaseSource {
       let response = await searchDoubanTitles(keyword);
       let data = response?.data;
       if (!data || !data?.subjects?.items?.length && !data?.smart_box?.length) {
-        log("info", "searchDoubanTitles failed or empty, trying searchDoubanTitlesByPublic");
+        log("info", "[Douban] searchDoubanTitles failed or empty, trying searchDoubanTitlesByPublic");
         const fallbackResponse = await searchDoubanTitlesByPublic(keyword);
         const fallbackData = fallbackResponse?.data;
         if (fallbackData?.subjects?.length > 0) {
@@ -8006,10 +16214,10 @@ var DoubanSource = class extends BaseSource {
       if (data?.smart_box?.length > 0) {
         tmpAnimes = [...tmpAnimes, ...data.smart_box];
       }
-      log("info", `douban animes.length: ${tmpAnimes.length}`);
+      log("info", `[Douban] douban animes.length: ${tmpAnimes.length}`);
       return tmpAnimes;
     } catch (error) {
-      log("error", "getDoubanAnimes error:", {
+      log("error", "[Douban] getDoubanAnimes error:", {
         message: error.message,
         name: error.name,
         stack: error.stack
@@ -8099,14 +16307,14 @@ var DoubanSource = class extends BaseSource {
         const doubanId = anime.target_id;
         let animeType = anime?.type_name;
         if (animeType !== "\u7535\u5F71" && animeType !== "\u7535\u89C6\u5267") return;
-        log("info", "doubanId: ", doubanId, anime?.target?.title, animeType);
+        log("info", "[Douban] doubanId: ", doubanId, anime?.target?.title, animeType);
         const response = await getDoubanDetail(doubanId);
         const results = [];
         for (const vendor of response.data?.vendors ?? []) {
           if (!vendor) {
             continue;
           }
-          log("info", "vendor uri: ", vendor.uri);
+          log("info", "[Douban] vendor uri: ", vendor.uri);
           if (response.data?.genres.includes("\u771F\u4EBA\u79C0")) {
             animeType = "\u7EFC\u827A";
           } else if (response.data?.genres.includes("\u7EAA\u5F55\u7247")) {
@@ -8462,7 +16670,7 @@ ${path2}?${sortedQuery}`;
    */
   async fetchStandardDanmu(url, headers, tierName) {
     try {
-      const resp = await Widget.http.get(url, { headers, validStatusCodes: [404] });
+      const resp = await Widget.http.get(url, { headers, timeout: 5e3, validStatusCodes: [404] });
       if (resp.status === 404) {
         if (resp.data && resp.data.error === "Document not found") {
           return [];
@@ -8484,8 +16692,7 @@ ${path2}?${sortedQuery}`;
     const u = updateQueryString(url, params);
     const resp = await Widget.http.get(u, {
       headers,
-      retries: 1,
-      // 网页端为终极兜底链路，保留重试容错机制
+      timeout: 5e3,
       validStatusCodes
     });
     return resp;
@@ -8495,8 +16702,7 @@ ${path2}?${sortedQuery}`;
     const headers = this.buildSignedHeaders({ method, url, params, deviceId });
     const resp = await Widget.http.get(url + "?" + sortedQueryString(params), {
       headers,
-      retries: 1
-      // 网页端为终极兜底链路，保留重试容错机制
+      timeout: 5e3
     });
     return resp;
   }
@@ -8523,7 +16729,7 @@ ${path2}?${sortedQuery}`;
       const queryString = Object.entries(queryParams).map(([k, v]) => `${k}=${encodeURIComponent(v === null || v === void 0 ? "" : String(v))}`).join("&");
       const headers = this.generateTvHeaders(timestamp, sign);
       const url = `https://${this.API_CONFIG.TV_HOST}${path2}?${queryString}`;
-      const resp = await Widget.http.get(url, { headers });
+      const resp = await Widget.http.get(url, { headers, timeout: 5e3 });
       if (!resp.data || resp.data.code !== "0000") {
         log("info", `[Renren] TV\u641C\u7D22\u63A5\u53E3\u5F02\u5E38: code=${resp?.data?.code}, msg=${resp?.data?.msg}`);
         return null;
@@ -8531,8 +16737,16 @@ ${path2}?${sortedQuery}`;
       const list = resp.data.data || [];
       return list.map((item) => {
         let aliases = [];
-        if (item.highlights && item.highlights.alias) {
-          aliases = item.highlights.alias.split(",").map((s) => s.trim().replace(/<[^>]+>/g, "")).filter(Boolean);
+        if (item.highlights) {
+          if (item.highlights.alias) {
+            aliases = item.highlights.alias.split(",").map((s) => s.trim().replace(/<[^>]+>/g, "")).filter(Boolean);
+          }
+          if (item.highlights.original_name) {
+            const originalName = item.highlights.original_name.replace(/<[^>]+>/g, "").trim();
+            if (originalName && !aliases.includes(originalName)) {
+              aliases.push(originalName);
+            }
+          }
         }
         return {
           provider: "renren",
@@ -8564,7 +16778,7 @@ ${path2}?${sortedQuery}`;
       const headers = this.buildMacHeaders();
       const queryString = sortedQueryString(params);
       const url = `https://${this.API_CONFIG.MAC_HOST}${path2}?${queryString}`;
-      const resp = await Widget.http.get(url, { headers });
+      const resp = await Widget.http.get(url, { headers, timeout: 5e3 });
       if (!resp.data || resp.data.code !== "0000") {
         log("info", `[Renren] Mac\u7AEF\u641C\u7D22\u63A5\u53E3\u5F02\u5E38: code=${resp?.data?.code}`);
         return null;
@@ -8572,8 +16786,16 @@ ${path2}?${sortedQuery}`;
       const list = resp.data.data || [];
       return list.map((item) => {
         let aliases = [];
-        if (item.highlights && item.highlights.alias) {
-          aliases = item.highlights.alias.split(",").map((s) => s.trim().replace(/<[^>]+>/g, "")).filter(Boolean);
+        if (item.highlights) {
+          if (item.highlights.alias) {
+            aliases = item.highlights.alias.split(",").map((s) => s.trim().replace(/<[^>]+>/g, "")).filter(Boolean);
+          }
+          if (item.highlights.original_name) {
+            const originalName = item.highlights.original_name.replace(/<[^>]+>/g, "").trim();
+            if (originalName && !aliases.includes(originalName)) {
+              aliases.push(originalName);
+            }
+          }
         }
         return {
           provider: "renren",
@@ -8603,7 +16825,7 @@ ${path2}?${sortedQuery}`;
       const params = { keywords: keyword, searchAfter: "", size };
       const queryString = sortedQueryString(params);
       const headers = this.buildWinHeaders();
-      const resp = await Widget.http.get(`${url}?${queryString}`, { headers });
+      const resp = await Widget.http.get(`${url}?${queryString}`, { headers, timeout: 5e3 });
       if (!resp.data || resp.data.code !== "0000") {
         log("info", `[Renren] Win\u7AEF\u641C\u7D22\u63A5\u53E3\u5F02\u5E38: code=${resp?.data?.code}`);
         return null;
@@ -8615,8 +16837,16 @@ ${path2}?${sortedQuery}`;
       const seriesList = data.seriesList || [];
       const processItem = (item) => {
         let aliases = [];
-        if (item.highlights && item.highlights.alias) {
-          aliases = item.highlights.alias.split(",").map((s) => s.trim().replace(/<[^>]+>/g, "")).filter(Boolean);
+        if (item.highlights) {
+          if (item.highlights.alias) {
+            aliases = item.highlights.alias.split(",").map((s) => s.trim().replace(/<[^>]+>/g, "")).filter(Boolean);
+          }
+          if (item.highlights.original_name) {
+            const originalName = item.highlights.original_name.replace(/<[^>]+>/g, "").trim();
+            if (originalName && !aliases.includes(originalName)) {
+              aliases.push(originalName);
+            }
+          }
         }
         return {
           provider: "renren",
@@ -8677,8 +16907,16 @@ ${path2}?${sortedQuery}`;
       const list = decoded?.data?.searchDramaList || [];
       return list.map((item) => {
         let aliases = [];
-        if (item.highlights && item.highlights.alias) {
-          aliases = item.highlights.alias.split(",").map((s) => s.trim().replace(/<[^>]+>/g, "")).filter(Boolean);
+        if (item.highlights) {
+          if (item.highlights.alias) {
+            aliases = item.highlights.alias.split(",").map((s) => s.trim().replace(/<[^>]+>/g, "")).filter(Boolean);
+          }
+          if (item.highlights.original_name) {
+            const originalName = item.highlights.original_name.replace(/<[^>]+>/g, "").trim();
+            if (originalName && !aliases.includes(originalName)) {
+              aliases.push(originalName);
+            }
+          }
         }
         return {
           provider: "renren",
@@ -8771,7 +17009,8 @@ ${path2}?${sortedQuery}`;
       const queryString = Object.entries(queryParams).map(([k, v]) => `${k}=${encodeURIComponent(v)}`).join("&");
       const headers = this.generateTvHeaders(timestamp, sign);
       const resp = await Widget.http.get(`https://${this.API_CONFIG.TV_HOST}${path2}?${queryString}`, {
-        headers
+        headers,
+        timeout: 5e3
       });
       if (!resp || !resp.data) {
         log("info", `[Renren] TV\u8BE6\u60C5\u63A5\u53E3\u7F51\u7EDC\u65E0\u54CD\u5E94\u6216\u6570\u636E\u4E3A\u7A7A: ID=${dramaId}`);
@@ -8827,7 +17066,7 @@ ${path2}?${sortedQuery}`;
       const queryString = Object.entries(queryParams).map(([k, v]) => `${k}=${encodeURIComponent(v)}`).join("&");
       const headers = this.generateTvHeaders(timestamp, sign);
       const url = `https://${targetHost}${path2}?${queryString}`;
-      const resp = await Widget.http.get(url, { headers });
+      const resp = await Widget.http.get(url, { headers, timeout: 5e3 });
       if (!resp || !resp.data) {
         log("info", `[Renren] \u8BE6\u60C5\u63A5\u53E3\u7F51\u7EDC\u65E0\u54CD\u5E94\u6216\u6570\u636E\u4E3A\u7A7A (${targetHost}): ID=${dramaId}`);
         return null;
@@ -9080,6 +17319,7 @@ ${path2}?${sortedQuery}`;
       const url = `https://${this.API_CONFIG.TV_DANMU_HOST}${path2}`;
       const resp = await Widget.http.get(url, {
         headers,
+        timeout: 5e3,
         validStatusCodes: [404]
       });
       if (resp.status === 404) {
@@ -9310,7 +17550,7 @@ var HanjutvSource = class extends BaseSource {
     this._mobileMakeHeaders = null;
     this._tvMakeHeaders = null;
     this._mobileWarmupPromise = null;
-    this._mobileWarmupAttempted = false;
+    this._mobileWarmedUid = null;
   }
   getDanmuHeaders() {
     return {
@@ -9363,7 +17603,7 @@ var HanjutvSource = class extends BaseSource {
    * 统一的错误日志格式
    */
   logError(tag, error) {
-    log("error", `${tag}:`, {
+    log("error", `[Hanjutv] ${tag}:`, {
       message: error.message,
       name: error.name,
       stack: error.stack
@@ -9448,12 +17688,152 @@ var HanjutvSource = class extends BaseSource {
     }
     return Array.from(map.values());
   }
-  isMergeableSearchPair(leftItem, rightItem, keyword = "") {
-    if (!leftItem?.name || !rightItem?.name) return false;
-    if (keyword) {
-      if (!titleMatches(leftItem.name, keyword) || !titleMatches(rightItem.name, keyword)) return false;
+  // 双端身份键只做 Unicode 兼容归一与首尾去空白，不使用模糊标题清洗。
+  normalizeSearchPairTitle(name = "") {
+    return String(name || "").normalize("NFKC").trim();
+  }
+  getSearchPairYear(item) {
+    const rawYear = item?.publishTime ?? item?.releaseTime ?? item?.year ?? null;
+    const yearText = String(rawYear ?? "").trim();
+    const isReasonableYear = (year) => Number.isInteger(year) && year >= 1900 && year <= 2100;
+    const parseDateYear = (value) => {
+      const parsed = new Date(value);
+      const year = parsed.getUTCFullYear();
+      return isReasonableYear(year) ? year : null;
+    };
+    if (/^(?:19|20)\d{2}$/.test(yearText)) return Number(yearText);
+    const compactDateMatch = yearText.match(/^((?:19|20)\d{2})\d{4}$/);
+    if (compactDateMatch) return Number(compactDateMatch[1]);
+    if (rawYear !== null && rawYear !== "") {
+      const numericValue = Number(rawYear);
+      if (Number.isFinite(numericValue)) {
+        if (numericValue !== 0) {
+          const absoluteValue = Math.abs(numericValue);
+          let timestamp = null;
+          if (absoluteValue >= 1e10) {
+            timestamp = numericValue;
+          } else if (absoluteValue >= 1e8) {
+            timestamp = numericValue * 1e3;
+          }
+          const year = timestamp === null ? null : parseDateYear(timestamp);
+          if (year !== null) return year;
+        }
+      } else if (yearText) {
+        const year = parseDateYear(yearText);
+        if (year !== null) return year;
+      }
     }
-    return titleMatches(leftItem.name, rightItem.name) && titleMatches(rightItem.name, leftItem.name);
+    const memoMatch = String(item?.searchMemo || "").match(/(?:19|20)\d{2}/);
+    return memoMatch ? Number(memoMatch[0]) : null;
+  }
+  getSearchPairEpisodeCount(item) {
+    const value = Number(item?.lastSerialNo ?? item?.totalEpisode ?? item?.episodeCount);
+    return Number.isFinite(value) && value > 0 ? value : null;
+  }
+  getSearchPairMetadata(item) {
+    const normalizeValue = (value) => {
+      if (value === void 0 || value === null) return null;
+      const normalized = String(value).trim();
+      return normalized || null;
+    };
+    return {
+      playMode: normalizeValue(item?.playMode),
+      year: normalizeValue(this.getSearchPairYear(item)),
+      episodeCount: normalizeValue(this.getSearchPairEpisodeCount(item)),
+      category: normalizeValue(item?.category)
+    };
+  }
+  // titleMatches 只负责关键词相关性；S5↔TV 是否为同一实体必须满足精确标题与强元数据约束。
+  isMergeableSearchPair(leftItem, rightItem) {
+    const leftTitle = this.normalizeSearchPairTitle(leftItem?.name);
+    const rightTitle = this.normalizeSearchPairTitle(rightItem?.name);
+    if (!leftTitle || !rightTitle || leftTitle !== rightTitle) return false;
+    const leftMeta = this.getSearchPairMetadata(leftItem);
+    const rightMeta = this.getSearchPairMetadata(rightItem);
+    for (const field of ["playMode", "year", "category"]) {
+      if (leftMeta[field] !== null && rightMeta[field] !== null && leftMeta[field] !== rightMeta[field]) {
+        return false;
+      }
+    }
+    return true;
+  }
+  getSearchPairMatchScore(leftItem, rightItem) {
+    if (!this.isMergeableSearchPair(leftItem, rightItem)) return null;
+    const leftMeta = this.getSearchPairMetadata(leftItem);
+    const rightMeta = this.getSearchPairMetadata(rightItem);
+    const weights = { year: 8, playMode: 4, category: 2, episodeCount: 1 };
+    let score = 0;
+    for (const [field, weight] of Object.entries(weights)) {
+      if (leftMeta[field] !== null && rightMeta[field] !== null && leftMeta[field] === rightMeta[field]) {
+        score += weight;
+      }
+    }
+    return score;
+  }
+  selectUniqueBestSearchCandidate(item, candidates = []) {
+    const scored = candidates.map((candidate) => ({ candidate, score: this.getSearchPairMatchScore(item, candidate) })).filter((entry) => entry.score !== null);
+    if (scored.length === 0) return null;
+    const bestScore = Math.max(...scored.map((entry) => entry.score));
+    const best = scored.filter((entry) => entry.score === bestScore);
+    return best.length === 1 ? best[0].candidate : null;
+  }
+  pairSearchCandidateGroup(s5Items = [], tvItems = []) {
+    const remainingS5 = new Map(s5Items.map((item) => [String(item.sid), item]));
+    const remainingTv = new Map(tvItems.map((item) => [String(item.sid), item]));
+    const pairedTvByS5Sid = /* @__PURE__ */ new Map();
+    while (remainingS5.size > 0 && remainingTv.size > 0) {
+      const currentS5 = Array.from(remainingS5.values());
+      const currentTv = Array.from(remainingTv.values());
+      const bestTvByS5Sid = /* @__PURE__ */ new Map();
+      const bestS5ByTvSid = /* @__PURE__ */ new Map();
+      for (const s5Item of currentS5) {
+        const bestTv = this.selectUniqueBestSearchCandidate(s5Item, currentTv);
+        if (bestTv) bestTvByS5Sid.set(String(s5Item.sid), bestTv);
+      }
+      for (const tvItem of currentTv) {
+        const bestS5 = this.selectUniqueBestSearchCandidate(tvItem, currentS5);
+        if (bestS5) bestS5ByTvSid.set(String(tvItem.sid), bestS5);
+      }
+      const mutualPairs = [];
+      for (const [s5Sid, tvItem] of bestTvByS5Sid) {
+        const tvSid = String(tvItem.sid);
+        const bestS5 = bestS5ByTvSid.get(tvSid);
+        if (bestS5 && String(bestS5.sid) === s5Sid) {
+          mutualPairs.push({ s5Sid, tvSid, tvItem });
+        }
+      }
+      if (mutualPairs.length === 0) break;
+      for (const pair of mutualPairs) {
+        pairedTvByS5Sid.set(pair.s5Sid, pair.tvItem);
+        remainingS5.delete(pair.s5Sid);
+        remainingTv.delete(pair.tvSid);
+      }
+    }
+    return pairedTvByS5Sid;
+  }
+  pairSearchCandidates(s5Items = [], tvItems = []) {
+    const groupByTitle = (items) => {
+      const groups = /* @__PURE__ */ new Map();
+      for (const item of items) {
+        const title = this.normalizeSearchPairTitle(item?.name);
+        if (!title) continue;
+        if (!groups.has(title)) groups.set(title, []);
+        groups.get(title).push(item);
+      }
+      return groups;
+    };
+    const s5Groups = groupByTitle(s5Items);
+    const tvGroups = groupByTitle(tvItems);
+    const pairedTvByS5Sid = /* @__PURE__ */ new Map();
+    for (const [title, s5Group] of s5Groups) {
+      const tvGroup = tvGroups.get(title);
+      if (!tvGroup) continue;
+      const groupPairs = this.pairSearchCandidateGroup(s5Group, tvGroup);
+      for (const [s5Sid, tvItem] of groupPairs) {
+        pairedTvByS5Sid.set(s5Sid, tvItem);
+      }
+    }
+    return pairedTvByS5Sid;
   }
   buildSearchCandidate(item, variant, linkedSid = "") {
     if (!item?.sid) return null;
@@ -9482,11 +17862,11 @@ var HanjutvSource = class extends BaseSource {
     const tv = partition(tvUnique);
     const hasMatched = s5.matched.length + tv.matched.length > 0;
     const resultList = [];
-    const usedTvSids = /* @__PURE__ */ new Set();
+    const pairedTvByS5Sid = this.pairSearchCandidates(s5.matched, tv.matched);
+    const usedTvSids = new Set(Array.from(pairedTvByS5Sid.values(), (item) => String(item.sid)));
     for (const item of s5.matched) {
-      const pairedTv = tv.matched.find((candidate) => !usedTvSids.has(String(candidate.sid)) && this.isMergeableSearchPair(item, candidate, keyword));
+      const pairedTv = pairedTvByS5Sid.get(String(item.sid));
       if (pairedTv) {
-        usedTvSids.add(String(pairedTv.sid));
         resultList.push(this.buildSearchCandidate(item, HANJUTV_VARIANTS.MERGED, pairedTv.sid));
       } else {
         resultList.push(this.buildSearchCandidate(item, HANJUTV_VARIANTS.HXQ));
@@ -9546,20 +17926,29 @@ var HanjutvSource = class extends BaseSource {
   async warmupMobileIdentity(headers) {
     try {
       await Widget.http.get(`${this.appHost}/api/common/configs`, { headers, timeout: 8e3, retries: 0 });
+      return true;
     } catch (_) {
+      return false;
     }
   }
   async ensureMobileIdentityWarmed() {
-    if (this._mobileWarmupAttempted) {
-      await this._mobileWarmupPromise;
-      return;
-    }
-    this._mobileWarmupAttempted = true;
-    this._mobileWarmupPromise = (async () => {
+    if (this._mobileWarmedUid) return true;
+    if (this._mobileWarmupPromise) return this._mobileWarmupPromise;
+    const warmupPromise = (async () => {
       const headerInfo = await this.buildMobileHeaders();
-      await this.warmupMobileIdentity(headerInfo.headers);
+      if (this._mobileWarmedUid === headerInfo.uid) return true;
+      const warmed = await this.warmupMobileIdentity(headerInfo.headers);
+      if (warmed) this._mobileWarmedUid = headerInfo.uid;
+      return warmed;
     })();
-    await this._mobileWarmupPromise;
+    this._mobileWarmupPromise = warmupPromise;
+    try {
+      return await warmupPromise;
+    } finally {
+      if (this._mobileWarmupPromise === warmupPromise) {
+        this._mobileWarmupPromise = null;
+      }
+    }
   }
   async searchWithS5Api(keyword) {
     await this.ensureMobileIdentityWarmed();
@@ -9597,7 +17986,7 @@ var HanjutvSource = class extends BaseSource {
         return [];
       }
       if (resultList.length === 0) {
-        log("info", "hanjutvSearchresp: s5 \u4E0E TV \u63A5\u53E3\u5747\u65E0\u6709\u6548\u7ED3\u679C");
+        log("info", "[Hanjutv] hanjutvSearchresp: s5 \u4E0E TV \u63A5\u53E3\u5747\u65E0\u6709\u6548\u7ED3\u679C");
         return [];
       }
       log("info", `[Hanjutv] \u641C\u7D22\u5019\u9009\u7EDF\u8BA1 s5MatchedList=${JSON.stringify(stats.s5MatchedList)}, s5UnmatchedList=${JSON.stringify(stats.s5UnmatchedList)}, tvMatchedList=${JSON.stringify(stats.tvMatchedList)}, tvUnmatchedList=${JSON.stringify(stats.tvUnmatchedList)}`);
@@ -9616,7 +18005,7 @@ var HanjutvSource = class extends BaseSource {
       if (!sid) return null;
       const detail = await this.tryGet(() => loader(sid), null, errorTag);
       if (!detail) {
-        log("info", `${missingLogTag}: series \u4E0D\u5B58\u5728`);
+        log("info", `[Hanjutv] ${missingLogTag}: series \u4E0D\u5B58\u5728`);
         return null;
       }
       return detail;
@@ -9682,7 +18071,7 @@ var HanjutvSource = class extends BaseSource {
         episodes = await this.tryGet(attempt, []);
       }
       if (episodes.length === 0) {
-        log("info", "getHanjutvHxqEpisodes: episodes \u4E0D\u5B58\u5728");
+        log("info", "[Hanjutv] getHanjutvHxqEpisodes: episodes \u4E0D\u5B58\u5728");
         return [];
       }
       return episodes.sort((a, b) => a.serialNo - b.serialNo);
@@ -9700,7 +18089,7 @@ var HanjutvSource = class extends BaseSource {
         return this.normalizeTvEpisodes(decoded?.episodes || []);
       }, [], "getHanjutvTvEpisodes error");
       if (episodes.length === 0) {
-        log("info", "getHanjutvTvEpisodes: episodes \u4E0D\u5B58\u5728");
+        log("info", "[Hanjutv] getHanjutvTvEpisodes: episodes \u4E0D\u5B58\u5728");
         return [];
       }
       return episodes.sort((a, b) => a.serialNo - b.serialNo);
@@ -9857,19 +18246,28 @@ var HanjutvSource = class extends BaseSource {
         log("info", `[Hanjutv] \u7ED3\u679C\u5DF2\u547D\u4E2D\u76EE\u6807\u5B63(\u7B2C${resolvedQuerySeason}\u5B63)\uFF0C\u8DF3\u8FC7\u975E\u76EE\u6807\u5B63\u76F8\u5173\u8BF7\u6C42`);
       }
     }
-    await Promise.all(
+    const payloads = await Promise.all(
       filteredAnimes.map(async (anime) => {
         try {
           const payload = await this.buildAnimePayload(anime);
-          if (!payload || !payload.summary || !Array.isArray(payload.links) || payload.links.length === 0) return;
-          tmpAnimes.push(payload.summary);
-          addAnime({ ...payload.summary, links: payload.links }, detailStore);
-          if (globals.animes.length > globals.MAX_ANIMES) removeEarliestAnime();
+          if (!payload || !payload.summary || !Array.isArray(payload.links) || payload.links.length === 0) return null;
+          return payload;
         } catch (error) {
           log("error", `[Hanjutv] Error processing anime: ${error.message}`);
+          return null;
         }
       })
     );
+    for (const payload of payloads) {
+      if (!payload) continue;
+      try {
+        tmpAnimes.push(payload.summary);
+        addAnime({ ...payload.summary, links: payload.links }, detailStore);
+        if (globals.animes.length > globals.MAX_ANIMES) removeEarliestAnime();
+      } catch (error) {
+        log("error", `[Hanjutv] Error processing anime: ${error.message}`);
+      }
+    }
     this.sortAndPushAnimesByYear(tmpAnimes, curAnimes);
     return tmpAnimes;
   }
@@ -9966,7 +18364,7 @@ var HanjutvSource = class extends BaseSource {
     return results.flat();
   }
   async getEpisodeDanmuSegments(id) {
-    log("info", "\u83B7\u53D6\u97E9\u5267TV\u5F39\u5E55\u5206\u6BB5\u5217\u8868...", id);
+    log("info", "[Hanjutv] \u83B7\u53D6\u97E9\u5267TV\u5F39\u5E55\u5206\u6BB5\u5217\u8868...", id);
     return new SegmentListResponse({
       type: "hanjutv",
       duration: 0,
@@ -9995,7 +18393,28 @@ var BahamutSource = class extends BaseSource {
       let localMatches = [];
       if (globals.useBangumiData) {
         localMatches = await searchBangumiData2(keyword, ["gamer", "gamer_hk"]);
-        log("info", `[Bahamut] Bangumi-Data \u672C\u5730\u547D\u4E2D ${localMatches.length} \u6761\u6570\u636E`);
+        log("info", `[Bahamut] Bangumi-Data \u672C\u5730\u547D\u4E2D ${localMatches.length} \u6761\u6570\u636E\uFF08\u68C0\u7D22\u8BCD\uFF1A${keyword}\uFF09`);
+      }
+      const localWithVideoSn = localMatches.filter((m) => m.video_sn);
+      if (localMatches.length > 0 && localMatches.length === localWithVideoSn.length) {
+        log("info", `[Bahamut] Bangumi-Data \u672C\u5730\u547D\u4E2D\u5747\u542B video_sn\uFF0C\u542F\u7528\u6570\u636E\u6E90\u76F4\u901A\u6A21\u5F0F\uFF08\u8DF3\u8FC7\u641C\u7D22\u63A5\u53E3\uFF09`);
+        return localMatches.map((m) => {
+          const displayTitle = m.titles.find((t) => t && t.includes(keyword)) || m.titles[1] || m.title;
+          const finalTitle = displayTitle + (m.titleSuffix || "");
+          return {
+            video_sn: parseInt(m.video_sn),
+            title: finalTitle,
+            _displayTitle: finalTitle,
+            isLocalPriority: true,
+            aliases: [...m.titles],
+            _typeStr: m.typeStr,
+            _fromDataSourceDirectHit: true,
+            // 标记来源于数据源直通模式
+            _originalQuery: keyword,
+            // 保留 begin 年份供 handleAnimes 使用
+            _bangumiBegin: m.begin || null
+          };
+        });
       }
       const traditionalizedKeyword = traditionalized(keyword);
       const tmdbSearchKeyword = keyword;
@@ -10012,7 +18431,7 @@ var BahamutSource = class extends BaseSource {
               "Content-Type": "application/json",
               "User-Agent": "Anime/2.29.2 (7N5749MM3F.tw.com.gamer.anime; build:972; iOS 26.0.0) Alamofire/5.6.4"
             },
-            retries: 1
+            retries: 3
           });
           if (originalResp && originalResp.data && originalResp.data.anime && originalResp.data.anime.length > 0) {
             tmdbAbortController.abort();
@@ -10024,7 +18443,7 @@ var BahamutSource = class extends BaseSource {
               } catch (e) {
               }
             }
-            log("info", `bahamutSearchresp (original): ${JSON.stringify(anime)}`);
+            log("info", `[Bahamut] bahamutSearchresp (original): ${JSON.stringify(anime)}`);
             log("info", `[Bahamut] \u8FD4\u56DE ${anime.length} \u6761\u7ED3\u679C (source: original)`);
             return { success: true, data: anime, source: "original" };
           }
@@ -10058,7 +18477,7 @@ var BahamutSource = class extends BaseSource {
               "User-Agent": "Anime/2.29.2 (7N5749MM3F.tw.com.gamer.anime; build:972; iOS 26.0.0) Alamofire/5.6.4"
             },
             signal: tmdbAbortController.signal,
-            retries: 1
+            retries: 3
           });
           if (tmdbResp && tmdbResp.data && tmdbResp.data.anime && tmdbResp.data.anime.length > 0) {
             const anime = tmdbResp.data.anime;
@@ -10070,7 +18489,7 @@ var BahamutSource = class extends BaseSource {
               } catch (e) {
               }
             }
-            log("info", `bahamutSearchresp (TMDB): ${JSON.stringify(anime)}`);
+            log("info", `[Bahamut] bahamutSearchresp (TMDB): ${JSON.stringify(anime)}`);
             log("info", `[Bahamut] \u8FD4\u56DE ${anime.length} \u6761\u7ED3\u679C (source: tmdb)`);
             return { success: true, data: anime, source: "tmdb" };
           }
@@ -10081,7 +18500,12 @@ var BahamutSource = class extends BaseSource {
             log("info", "[Bahamut] \u539F\u59CB\u641C\u7D22\u6210\u529F\uFF0C\u4E2D\u65AD\u65E5\u8BED\u539F\u540D\u641C\u7D22");
             return { success: false, source: "tmdb", aborted: true };
           }
-          throw error;
+          log("error", "[Bahamut] TMDB\u641C\u7D22\u5931\u8D25:", {
+            message: error.message,
+            name: error.name,
+            stack: error.stack
+          });
+          return { success: false, source: "tmdb" };
         }
       })();
       const [originalResult, tmdbResult] = await Promise.all([
@@ -10118,7 +18542,7 @@ var BahamutSource = class extends BaseSource {
       }
       return finalResults;
     } catch (error) {
-      log("error", "getBahamutAnimes error:", {
+      log("error", "[Bahamut] getBahamutAnimes error:", {
         message: error.message,
         name: error.name,
         stack: error.stack
@@ -10135,20 +18559,21 @@ var BahamutSource = class extends BaseSource {
           "Content-Type": "application/json",
           "User-Agent": "Anime/2.29.2 (7N5749MM3F.tw.com.gamer.anime; build:972; iOS 26.0.0) Alamofire/5.6.4"
         },
-        retries: 1
+        retries: 3
       });
       if (!resp || !resp.data) {
-        log("info", "getBahamutEposides: \u8BF7\u6C42\u5931\u8D25\u6216\u65E0\u6570\u636E\u8FD4\u56DE");
+        log("info", "[Bahamut] getBahamutEposides: \u8BF7\u6C42\u5931\u8D25\u6216\u65E0\u6570\u636E\u8FD4\u56DE");
         return [];
       }
       if (!resp.data.data || !resp.data.data.video || !resp.data.data.anime) {
-        log("info", "getBahamutEposides: video \u6216 anime \u4E0D\u5B58\u5728");
+        log("info", "[Bahamut] getBahamutEposides: video \u6216 anime \u4E0D\u5B58\u5728");
         return [];
       }
-      log("info", `getBahamutEposides: ${JSON.stringify(resp.data.data)}`);
+      const { video: vData, anime: aData } = resp.data.data;
+      log("info", `[Bahamut] getBahamutEposides: videoSn=${vData.videoSn}, animeSn=${aData.animeSn}, title=${aData.title}, totalEpisode=${aData.totalEpisode}, episodes=${JSON.stringify(aData.episodes)}`);
       return resp.data.data;
     } catch (error) {
-      log("error", "getBahamutEposides error:", {
+      log("error", "[Bahamut] getBahamutEposides error:", {
         message: error.message,
         name: error.name,
         stack: error.stack
@@ -10236,9 +18661,15 @@ var BahamutSource = class extends BaseSource {
         log("info", `[Bahamut] \u7ED3\u679C\u5DF2\u547D\u4E2D\u76EE\u6807\u5B63(\u7B2C${resolvedQuerySeason}\u5B63)\uFF0C\u8DF3\u8FC7\u975E\u76EE\u6807\u5B63\u76F8\u5173\u8BF7\u6C42`);
       }
     }
+    const episodeCache = /* @__PURE__ */ new Map();
     const processBahamutAnimes = await Promise.all(matchedAnimes.map(async (anime) => {
       try {
-        const epData = await this.getEpisodes(anime.video_sn);
+        const cacheKey = String(anime.video_sn);
+        if (!episodeCache.has(cacheKey)) {
+          episodeCache.set(cacheKey, this.getEpisodes(anime.video_sn));
+        }
+        const epData = await episodeCache.get(cacheKey);
+        if (!epData || typeof epData !== "object" || Array.isArray(epData)) return null;
         const detail = epData.video;
         let eps = null;
         if (epData.anime.episodes) {
@@ -10256,7 +18687,23 @@ var BahamutSource = class extends BaseSource {
           }
         }
         if (links.length > 0) {
-          let yearMatch = (anime.info || "").match(/(\d{4})/);
+          let resolvedYear = null;
+          if (anime._bangumiBegin) {
+            resolvedYear = parseInt(anime._bangumiBegin.substring(0, 4));
+          }
+          if (!resolvedYear && epData.anime && epData.anime.seasonStart) {
+            resolvedYear = new Date(epData.anime.seasonStart).getFullYear();
+          }
+          if (!resolvedYear && detail && detail.upTime) {
+            const upTimeStr = String(detail.upTime);
+            const upTimeMatch = upTimeStr.match(/(\d{4})/);
+            if (upTimeMatch) resolvedYear = parseInt(upTimeMatch[1]);
+          }
+          if (!resolvedYear) {
+            const yearMatch = (anime.info || "").match(/(\d{4})/);
+            if (yearMatch) resolvedYear = parseInt(yearMatch[1]);
+          }
+          const resolvedCover = epData.anime && epData.anime.cover || anime.cover || detail && detail.cover || "";
           const displayTitle = anime._displayTitle || simplized(anime.title);
           const aliases = Array.isArray(anime.aliases) ? [...anime.aliases] : [];
           if (anime._originalTitleAlias && anime._originalTitleAlias !== displayTitle && !aliases.includes(anime._originalTitleAlias)) {
@@ -10272,12 +18719,12 @@ var BahamutSource = class extends BaseSource {
           let transformedAnime = {
             animeId: anime.video_sn,
             bangumiId: String(anime.video_sn),
-            animeTitle: `${displayTitle}(${(anime.info.match(/(\d{4})/) || [null])[0]})\u3010${itemType}\u3011from bahamut`,
+            animeTitle: `${displayTitle}(${resolvedYear || "N/A"})\u3010${itemType}\u3011from bahamut`,
             aliases,
             type: "\u52A8\u6F2B",
             typeDescription: "\u52A8\u6F2B",
-            imageUrl: anime.cover,
-            startDate: generateValidStartDate(new Date(epData.anime.seasonStart).getFullYear()),
+            imageUrl: resolvedCover,
+            startDate: resolvedYear ? generateValidStartDate(resolvedYear) : generateValidStartDate(epData.anime.seasonStart ? new Date(epData.anime.seasonStart).getFullYear() : null),
             episodeCount: links.length,
             rating: detail.rating,
             isFavorited: true,
@@ -10304,14 +18751,14 @@ var BahamutSource = class extends BaseSource {
           "Content-Type": "application/json",
           "User-Agent": "Anime/2.29.2 (7N5749MM3F.tw.com.gamer.anime; build:972; iOS 26.0.0) Alamofire/5.6.4"
         },
-        retries: 1
+        retries: 3
       });
       if (resp.data && resp.data.data && resp.data.data.danmu) {
         danmus = resp.data.data.danmu;
       }
       return danmus;
     } catch (error) {
-      log("error", "fetchBahamutEpisodeDanmu error:", {
+      log("error", "[Bahamut] fetchBahamutEpisodeDanmu error:", {
         message: error.message,
         name: error.name,
         stack: error.stack
@@ -10320,7 +18767,7 @@ var BahamutSource = class extends BaseSource {
     }
   }
   async getEpisodeDanmuSegments(id) {
-    log("info", "\u83B7\u53D6\u5DF4\u54C8\u59C6\u7279\u5F39\u5E55\u5206\u6BB5\u5217\u8868...", id);
+    log("info", "[Bahamut] \u83B7\u53D6\u5DF4\u54C8\u59C6\u7279\u5F39\u5E55\u5206\u6BB5\u5217\u8868...", id);
     return new SegmentListResponse({
       "type": "bahamut",
       "segmentList": [{
@@ -10756,9 +19203,9 @@ var TencentSource = class extends BaseSource {
     return vid2;
   }
   async getEpisodeDanmu(id) {
-    log("info", "\u5F00\u59CB\u4ECE\u672C\u5730\u8BF7\u6C42\u817E\u8BAF\u89C6\u9891\u5F39\u5E55...", id);
+    log("info", "[Tencent] \u5F00\u59CB\u4ECE\u672C\u5730\u8BF7\u6C42\u817E\u8BAF\u89C6\u9891\u5F39\u5E55...", id);
     let vid2 = this.extractVid(id);
-    log("info", `vid: ${vid2}`);
+    log("info", `[Tencent] vid: ${vid2}`);
     let res;
     try {
       res = await Widget.http.get(id, {
@@ -10768,18 +19215,18 @@ var TencentSource = class extends BaseSource {
         }
       });
     } catch (error) {
-      log("error", "\u8BF7\u6C42\u9875\u9762\u5931\u8D25:", error);
+      log("error", "[Tencent] \u8BF7\u6C42\u9875\u9762\u5931\u8D25:", error);
       return [];
     }
     const titleMatch = res.data.match(/<title[^>]*>(.*?)<\/title>/i);
     const title = titleMatch ? titleMatch[1].split("_")[0] : "\u672A\u77E5\u6807\u9898";
-    log("info", `\u6807\u9898: ${title}`);
+    log("info", `[Tencent] \u6807\u9898: ${title}`);
     const segmentResult = await this.getEpisodeDanmuSegments(id);
     if (!segmentResult || !segmentResult.segmentList || segmentResult.segmentList.length === 0) {
       return [];
     }
     const segmentList = segmentResult.segmentList;
-    log("info", `\u5F39\u5E55\u5206\u6BB5\u6570\u91CF: ${segmentList.length}`);
+    log("info", `[Tencent] \u5F39\u5E55\u5206\u6BB5\u6570\u91CF: ${segmentList.length}`);
     const promises = [];
     for (const segment of segmentList) {
       promises.push(
@@ -10806,18 +19253,18 @@ var TencentSource = class extends BaseSource {
         contents.push(...data.barrage_list);
       });
     } catch (error) {
-      log("error", "\u89E3\u6790\u5F39\u5E55\u6570\u636E\u5931\u8D25:", error);
+      log("error", "[Tencent] \u89E3\u6790\u5F39\u5E55\u6570\u636E\u5931\u8D25:", error);
       return [];
     }
     printFirst200Chars(contents);
     return contents;
   }
   async getEpisodeDanmuSegments(id) {
-    log("info", "\u83B7\u53D6\u817E\u8BAF\u89C6\u9891\u5F39\u5E55\u5206\u6BB5\u5217\u8868...", id);
+    log("info", "[Tencent] \u83B7\u53D6\u817E\u8BAF\u89C6\u9891\u5F39\u5E55\u5206\u6BB5\u5217\u8868...", id);
     const api_danmaku_base = "https://dm.video.qq.com/barrage/base/";
     const api_danmaku_segment = "https://dm.video.qq.com/barrage/segment/";
     let vid2 = this.extractVid(id);
-    log("info", `\u83B7\u53D6\u5F39\u5E55\u5206\u6BB5\u5217\u8868 - vid: ${vid2}`);
+    log("info", `[Tencent] \u83B7\u53D6\u5F39\u5E55\u5206\u6BB5\u5217\u8868 - vid: ${vid2}`);
     let res;
     try {
       res = await Widget.http.get(api_danmaku_base + vid2, {
@@ -10833,7 +19280,7 @@ var TencentSource = class extends BaseSource {
           "segmentList": []
         });
       }
-      log("error", "\u8BF7\u6C42\u5F39\u5E55\u57FA\u7840\u6570\u636E\u5931\u8D25:", error);
+      log("error", "[Tencent] \u8BF7\u6C42\u5F39\u5E55\u57FA\u7840\u6570\u636E\u5931\u8D25:", error);
       return new SegmentListResponse({
         "type": "qq",
         "segmentList": []
@@ -10877,7 +19324,7 @@ var TencentSource = class extends BaseSource {
       }
       return contents;
     } catch (error) {
-      log("error", "\u8BF7\u6C42\u5206\u7247\u5F39\u5E55\u5931\u8D25:", error);
+      log("error", "[Tencent] \u8BF7\u6C42\u5206\u7247\u5F39\u5E55\u5931\u8D25:", error);
       return [];
     }
   }
@@ -10950,21 +19397,38 @@ var _IqiyiSource = class _IqiyiSource extends BaseSource {
       };
       const queryString = buildQueryString(params);
       const url = `https://mesh.if.iqiyi.com/portal/lw/search/homePageV3?${queryString}`;
-      const response = await Widget.http.get(url, {
-        headers: {
-          "accept": "*/*",
-          "origin": "https://www.iqiyi.com",
-          "referer": "https://www.iqiyi.com/",
-          "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
-        }
-      });
-      if (!response || !response.data) {
+      const doSearch = async () => {
+        const resp = await Widget.http.get(url, {
+          headers: {
+            "accept": "*/*",
+            "origin": "https://www.iqiyi.com",
+            "referer": "https://www.iqiyi.com/",
+            "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+          }
+        });
+        if (!resp || !resp.data) return null;
+        return typeof resp.data === "string" ? JSON.parse(resp.data) : resp.data;
+      };
+      const MAX_RETRIES = 2;
+      let data = await doSearch();
+      for (let attempt = 0; attempt < MAX_RETRIES && (!data || data.code === "-1"); attempt++) {
+        const reason = !data ? "\u641C\u7D22\u54CD\u5E94\u4E3A\u7A7A" : `\u641C\u7D22\u63A5\u53E3\u98CE\u63A7 (code=${data.code})`;
+        log("info", `[iQiyi] ${reason}\uFF0C\u7B49\u5F85 1.5 \u79D2\u540E\u91CD\u8BD5 (${attempt + 1}/${MAX_RETRIES})`);
+        await new Promise((r) => setTimeout(r, 1500));
+        data = await doSearch();
+      }
+      if (!data) {
         log("info", "[iQiyi] \u641C\u7D22\u54CD\u5E94\u4E3A\u7A7A");
         return [];
       }
-      const data = typeof response.data === "string" ? JSON.parse(response.data) : response.data;
+      if (data.code === "-1") {
+        log("info", "[iQiyi] \u641C\u7D22\u63A5\u53E3\u98CE\u63A7 (code=-1)\uFF0C\u91CD\u8BD5\u540E\u4ECD\u5931\u8D25");
+        log("info", `[iQiyi] \u641C\u7D22\u539F\u59CB\u6570\u636E: ${JSON.stringify(data)}`);
+        return [];
+      }
       if (!data.data || !data.data.templates) {
         log("info", "[iQiyi] \u641C\u7D22\u65E0\u7ED3\u679C");
+        log("info", `[iQiyi] \u641C\u7D22\u539F\u59CB\u6570\u636E: ${JSON.stringify(data)}`);
         return [];
       }
       const results = [];
@@ -10972,10 +19436,10 @@ var _IqiyiSource = class _IqiyiSource extends BaseSource {
       for (const template of templates) {
         let albumsToProcess = [];
         if (template.template === 112 && template.intentAlbumInfos) {
-          log("debug", `[iQiyi] \u627E\u5230\u610F\u56FE\u5361\u7247 (template 112)\uFF0C\u5904\u7406 ${template.intentAlbumInfos.length} \u4E2A\u7ED3\u679C`);
+          log("info", `[iQiyi] \u627E\u5230\u610F\u56FE\u5361\u7247 (template 112)\uFF0C\u5904\u7406 ${template.intentAlbumInfos.length} \u4E2A\u7ED3\u679C`);
           albumsToProcess = template.intentAlbumInfos;
         } else if ([101, 102, 103].includes(template.template) && template.albumInfo) {
-          log("debug", `[iQiyi] \u627E\u5230\u666E\u901A\u7ED3\u679C\u5361\u7247 (template ${template.template})`);
+          log("info", `[iQiyi] \u627E\u5230\u666E\u901A\u7ED3\u679C\u5361\u7247 (template ${template.template})`);
           albumsToProcess = [template.albumInfo];
         }
         for (const album of albumsToProcess) {
@@ -11003,7 +19467,7 @@ var _IqiyiSource = class _IqiyiSource extends BaseSource {
       return null;
     }
     if (album.btnText === "\u5916\u7AD9\u4ED8\u8D39\u64AD\u653E") {
-      log("debug", `[iQiyi] \u8FC7\u6EE4\u6389\u5916\u7AD9\u4ED8\u8D39\u64AD\u653E\u5185\u5BB9: ${album.title}`);
+      log("info", `[iQiyi] \u8FC7\u6EE4\u6389\u5916\u7AD9\u4ED8\u8D39\u64AD\u653E\u5185\u5BB9: ${album.title}`);
       return null;
     }
     const channel = album.channel || "";
@@ -11043,7 +19507,7 @@ var _IqiyiSource = class _IqiyiSource extends BaseSource {
     if (mediaType.includes("\u7535\u5F71")) {
       const qipuId = album.qipuId || album.playQipuId;
       if (!qipuId) {
-        log("debug", `[iQiyi] \u7535\u5F71\u7F3A\u5C11 qipuId: ${album.title}`);
+        log("info", `[iQiyi] \u7535\u5F71\u7F3A\u5C11 qipuId: ${album.title}`);
         return null;
       }
       let year2 = null;
@@ -11070,12 +19534,12 @@ var _IqiyiSource = class _IqiyiSource extends BaseSource {
     }
     const url = album.pageUrl;
     if (!url) {
-      log("debug", `[iQiyi] \u975E\u7535\u5F71\u5185\u5BB9\u7F3A\u5C11 pageUrl: ${album.title}`);
+      log("info", `[iQiyi] \u975E\u7535\u5F71\u5185\u5BB9\u7F3A\u5C11 pageUrl: ${album.title}`);
       return null;
     }
     const linkIdMatch = url.match(/v_(\w+?)\.html/);
     if (!linkIdMatch) {
-      log("debug", `[iQiyi] \u65E0\u6CD5\u4ECE pageUrl \u63D0\u53D6 link_id: ${url}`);
+      log("info", `[iQiyi] \u65E0\u6CD5\u4ECE pageUrl \u63D0\u53D6 link_id: ${url}`);
       return null;
     }
     const linkId = linkIdMatch[1];
@@ -11186,9 +19650,9 @@ var _IqiyiSource = class _IqiyiSource extends BaseSource {
       let foundEpisodes = false;
       for (const block of blocks) {
         if (block.bk_type === "video_list" && block.data?.data) {
-          log("debug", `[iQiyi] \u627E\u5230 video_list \u7C7B\u578B\u7684\u5206\u96C6\u6570\u636E\u5757, bk_id: ${block.bk_id}`);
+          log("info", `[iQiyi] \u627E\u5230 video_list \u7C7B\u578B\u7684\u5206\u96C6\u6570\u636E\u5757, bk_id: ${block.bk_id}`);
           if (!block.tag || !block.tag.includes("episodes")) {
-            log("debug", `[iQiyi] \u8DF3\u8FC7\u975E\u5206\u96C6\u5757: ${block.bk_id}`);
+            log("info", `[iQiyi] \u8DF3\u8FC7\u975E\u5206\u96C6\u5757: ${block.bk_id}`);
             continue;
           }
           foundEpisodes = true;
@@ -11226,7 +19690,7 @@ var _IqiyiSource = class _IqiyiSource extends BaseSource {
             }
           }
         } else if (block.bk_type === "album_episodes" && block.data?.data) {
-          log("debug", "[iQiyi] \u627E\u5230 album_episodes \u7C7B\u578B\u7684\u5206\u96C6\u6570\u636E\u5757");
+          log("info", "[iQiyi] \u627E\u5230 album_episodes \u7C7B\u578B\u7684\u5206\u96C6\u6570\u636E\u5757");
           foundEpisodes = true;
           const episodeGroups = block.data.data;
           for (const group of episodeGroups) {
@@ -11314,7 +19778,7 @@ var _IqiyiSource = class _IqiyiSource extends BaseSource {
       params.sign = this._createSign(params);
       const queryString = buildQueryString(params);
       const url = `https://mesh.if.iqiyi.com/tvg/v2/lw/base_info?${queryString}`;
-      log("debug", `[iQiyi] \u8BF7\u6C42\u7535\u5F71\u8BE6\u60C5: ${url}`);
+      log("info", `[iQiyi] \u8BF7\u6C42\u7535\u5F71\u8BE6\u60C5: ${url}`);
       const response = await Widget.http.get(url, {
         headers: {
           "accept": "*/*",
@@ -11333,23 +19797,21 @@ var _IqiyiSource = class _IqiyiSource extends BaseSource {
         if (baseData.share_url) {
           const match = baseData.share_url.match(/v_(\w+)\.html/);
           if (match) {
-            const videoId = match[1];
-            log("info", `[iQiyi] \u4ECE share_url \u63D0\u53D6\u89C6\u9891ID: ${videoId}`);
-            return videoId;
+            log("info", `[iQiyi] \u4ECE share_url \u63D0\u53D6\u89C6\u9891ID: ${match[1]}`);
+            return match[1];
           }
         }
         if (baseData.page_url) {
           const match = baseData.page_url.match(/v_(\w+)\.html/);
           if (match) {
-            const videoId = match[1];
-            log("info", `[iQiyi] \u4ECE page_url \u63D0\u53D6\u89C6\u9891ID: ${videoId}`);
-            return videoId;
+            log("info", `[iQiyi] \u4ECE page_url \u63D0\u53D6\u89C6\u9891ID: ${match[1]}`);
+            return match[1];
           }
         }
       }
-      log("error", "[iQiyi] base_info API \u54CD\u5E94\u4E2D\u672A\u627E\u5230\u89C6\u9891ID");
-      log("debug", `[iQiyi] \u54CD\u5E94\u6570\u636E\u7ED3\u6784: ${JSON.stringify(data).substring(0, 1e3)}...`);
-      return null;
+      log("info", `[iQiyi] \u54CD\u5E94\u4E2D\u672A\u627E\u5230 v_xxx \u683C\u5F0F\u89C6\u9891ID\uFF0C\u4F7F\u7528 entity_id: ${qipuId}`);
+      log("info", `[iQiyi] \u54CD\u5E94\u6570\u636E\u7ED3\u6784: ${JSON.stringify(data).substring(0, 1e3)}...`);
+      return qipuId;
     } catch (error) {
       log("error", `[iQiyi] \u83B7\u53D6\u7535\u5F71\u89C6\u9891ID\u65F6\u51FA\u9519: ${error.message}`);
       return null;
@@ -11488,7 +19950,7 @@ var _IqiyiSource = class _IqiyiSource extends BaseSource {
     return processIqiyiAnimes;
   }
   async getEpisodeDanmu(id) {
-    log("info", "\u5F00\u59CB\u4ECE\u672C\u5730\u8BF7\u6C42\u7231\u5947\u827A\u5F39\u5E55...", id);
+    log("info", "[iQiyi] \u5F00\u59CB\u4ECE\u672C\u5730\u8BF7\u6C42\u7231\u5947\u827A\u5F39\u5E55...", id);
     let res;
     try {
       res = await Widget.http.get(id, {
@@ -11498,18 +19960,18 @@ var _IqiyiSource = class _IqiyiSource extends BaseSource {
         }
       });
     } catch (error) {
-      log("error", "\u8BF7\u6C42\u9875\u9762\u5931\u8D25:", error);
+      log("error", "[iQiyi] \u8BF7\u6C42\u9875\u9762\u5931\u8D25:", error);
       return [];
     }
     const titleMatch = res.data.match(/<title[^>]*>(.*?)<\/title>/i);
     const title = titleMatch ? titleMatch[1].split("_")[0] : "\u672A\u77E5\u6807\u9898";
-    log("info", `\u6807\u9898: ${title}`);
+    log("info", `[iQiyi] \u6807\u9898: ${title}`);
     const segmentResult = await this.getEpisodeDanmuSegments(id);
     if (!segmentResult || !segmentResult.segmentList || segmentResult.segmentList.length === 0) {
       return [];
     }
     const segmentList = segmentResult.segmentList;
-    log("info", `\u5F39\u5E55\u5206\u6BB5\u6570\u91CF: ${segmentList.length}`);
+    log("info", `[iQiyi] \u5F39\u5E55\u5206\u6BB5\u6570\u91CF: ${segmentList.length}`);
     const promises = [];
     for (const segment of segmentList) {
       promises.push(this.getEpisodeSegmentDanmu(segment));
@@ -11522,28 +19984,29 @@ var _IqiyiSource = class _IqiyiSource extends BaseSource {
         contents.push(...data);
       });
     } catch (error) {
-      log("error", "\u89E3\u6790\u5F39\u5E55\u6570\u636E\u5931\u8D25:", error);
+      log("error", "[iQiyi] \u89E3\u6790\u5F39\u5E55\u6570\u636E\u5931\u8D25:", error);
       return [];
     }
     printFirst200Chars(contents);
     return contents;
   }
   async getEpisodeDanmuSegments(id) {
-    log("info", "\u83B7\u53D6\u7231\u5947\u827A\u89C6\u9891\u5F39\u5E55\u5206\u6BB5\u5217\u8868...", id);
+    log("info", "[iQiyi] \u83B7\u53D6\u7231\u5947\u827A\u89C6\u9891\u5F39\u5E55\u5206\u6BB5\u5217\u8868...", id);
     const api_decode_base = "https://pcw-api.iq.com/api/decode/";
     const api_video_info = "https://pcw-api.iqiyi.com/video/video/baseinfo/";
-    let tvid;
+    let tvid, originalTvid;
     try {
       const idMatch = id.match(/v_(\w+)/);
       if (!idMatch) {
-        log("error", "\u65E0\u6CD5\u4ECE URL \u4E2D\u63D0\u53D6 tvid");
+        log("error", "[iQiyi] \u65E0\u6CD5\u4ECE URL \u4E2D\u63D0\u53D6 tvid");
         return new SegmentListResponse({
           "type": "qiyi",
           "segmentList": []
         });
       }
       tvid = idMatch[1];
-      log("info", `tvid: ${tvid}`);
+      log("info", `[iQiyi] tvid: ${tvid}`);
+      originalTvid = tvid;
       const decodeUrl = `${api_decode_base}${tvid}?platformId=3&modeCode=intl&langCode=sg`;
       let res = await Widget.http.get(decodeUrl, {
         headers: {
@@ -11553,15 +20016,15 @@ var _IqiyiSource = class _IqiyiSource extends BaseSource {
       });
       const data = typeof res.data === "string" ? JSON.parse(res.data) : res.data;
       tvid = data.data.toString();
-      log("info", `\u89E3\u7801\u540E tvid: ${tvid}`);
+      log("info", `[iQiyi] \u89E3\u7801\u540E tvid: ${tvid}`);
     } catch (error) {
-      log("error", "\u8BF7\u6C42\u89E3\u7801\u4FE1\u606F\u5931\u8D25:", error);
+      log("error", "[iQiyi] \u8BF7\u6C42\u89E3\u7801\u4FE1\u606F\u5931\u8D25:", error);
       return new SegmentListResponse({
         "type": "qiyi",
         "segmentList": []
       });
     }
-    let duration, albumid, categoryid;
+    let duration;
     try {
       const videoInfoUrl = `${api_video_info}${tvid}`;
       const res = await Widget.http.get(videoInfoUrl, {
@@ -11572,81 +20035,187 @@ var _IqiyiSource = class _IqiyiSource extends BaseSource {
       });
       const data = typeof res.data === "string" ? JSON.parse(res.data) : res.data;
       const videoInfo = data.data;
-      duration = videoInfo.durationSec;
-      albumid = videoInfo.albumId;
-      categoryid = videoInfo.channelId || videoInfo.categoryId;
-      log("info", `\u65F6\u957F: ${duration}`);
+      duration = Number(videoInfo.durationSec) || 0;
+      if (videoInfo.displayBarrage === false) {
+        log("info", "[iQiyi] \u7231\u5947\u827A\u89C6\u9891\u672A\u5F00\u542F\u5F39\u5E55");
+        return new SegmentListResponse({
+          "type": "qiyi",
+          "duration": duration,
+          "segmentList": []
+        });
+      }
+      log("info", `[iQiyi] \u65F6\u957F: ${duration}`);
     } catch (error) {
-      log("error", "\u8BF7\u6C42\u89C6\u9891\u57FA\u7840\u4FE1\u606F\u5931\u8D25:", error);
+      log("error", "[iQiyi] \u8BF7\u6C42\u89C6\u9891\u57FA\u7840\u4FE1\u606F\u5931\u8D25:", error);
+    }
+    if (!duration && originalTvid && originalTvid !== tvid) {
+      log("info", `[iQiyi] decode \u540E tvid \u65E0\u6548\uFF0C\u7528\u539F\u59CB tvid \u91CD\u8BD5: ${originalTvid}`);
+      try {
+        const retryUrl = `${api_video_info}${originalTvid}`;
+        const retryRes = await Widget.http.get(retryUrl, {
+          headers: {
+            "Content-Type": "application/json",
+            "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
+          }
+        });
+        const retryData = typeof retryRes.data === "string" ? JSON.parse(retryRes.data) : retryRes.data;
+        const retryDuration = Number(retryData.data.durationSec) || 0;
+        if (retryDuration > 0) {
+          tvid = originalTvid;
+          duration = retryDuration;
+          log("info", `[iQiyi] \u539F\u59CB tvid \u6709\u6548\uFF0C\u65F6\u957F: ${duration}`);
+        }
+      } catch (retryError) {
+        log("error", "[iQiyi] \u539F\u59CB tvid \u91CD\u8BD5\u4E5F\u5931\u8D25:", retryError);
+      }
+    }
+    if (!duration) {
       return new SegmentListResponse({
         "type": "qiyi",
         "segmentList": []
       });
     }
-    const page = Math.ceil(duration / (60 * 5));
-    log("info", `\u5F39\u5E55\u5206\u6BB5\u6570\u91CF: ${page}`);
+    const segmentDuration = 60;
+    const page = Math.ceil(duration / segmentDuration);
+    log("info", `[iQiyi] \u5F39\u5E55\u5206\u6BB5\u6570\u91CF: ${page}`);
     const segmentList = [];
+    const paddedTvid = `0000${tvid}`;
+    const bulletPath = `${paddedTvid.slice(-4, -2)}/${paddedTvid.slice(-2)}`;
     for (let i = 0; i < page; i++) {
-      const params = {
-        rn: "0.0123456789123456",
-        business: "danmu",
-        is_iqiyi: "true",
-        is_video_page: "true",
-        tvid,
-        albumid,
-        categoryid,
-        qypid: "010102101000000000"
-      };
-      let queryParams = buildQueryString(params);
-      const api_url = `https://cmts.iqiyi.com/bullet/${tvid.slice(-4, -2)}/${tvid.slice(-2)}/${tvid}_300_${i + 1}.z?${queryParams.toString()}`;
+      const pageNo = i + 1;
+      const sign = md5(`${tvid}_${segmentDuration}_${pageNo}cbzuw1259a`).slice(-8);
+      const api_url = `https://cmts.iqiyi.com/bullet/${bulletPath}/${tvid}_${segmentDuration}_${pageNo}_${sign}.br`;
       segmentList.push({
         "type": "qiyi",
-        "segment_start": i * 5 * 60,
-        // 每段5分钟
-        "segment_end": Math.min((i + 1) * 5 * 60, duration),
+        "segment_start": i * segmentDuration,
+        "segment_end": Math.min((i + 1) * segmentDuration, duration),
         "url": api_url
       });
     }
     return new SegmentListResponse({
       "type": "qiyi",
+      "duration": duration,
       "segmentList": segmentList
     });
   }
   async getEpisodeSegmentDanmu(segment) {
     try {
-      let extract = function(xml, tag) {
-        const reg = new RegExp(`<${tag}>(.*?)</${tag}>`, "g");
-        const res = xml.match(reg)?.map((x) => x.substring(tag.length + 2, x.length - tag.length - 3));
-        return res || [];
-      };
       const response = await Widget.http.get(segment.url, {
         headers: {
-          "Accpet-Encoding": "gzip",
-          "Content-Type": "application/xml",
+          "Accept-Encoding": "br",
+          "Content-Type": "application/octet-stream",
           "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
         },
-        zlibMode: true,
+        base64Data: true,
+        validStatusCodes: [404],
         retries: 1
       });
-      let contents = [];
-      if (response && response.data) {
-        const xml = response.data;
-        const danmaku = extract(xml, "content");
-        const showTime = extract(xml, "showTime");
-        const color = extract(xml, "color");
-        const like = extract(xml, "likeCount");
-        contents.push(...danmaku.map((content, i) => ({
-          content,
-          showTime: showTime[i],
-          color: color[i],
-          like: parseInt(like[i]) || 0
-        })));
+      if (!response || response.status === 404 || !response.data) {
+        return [];
       }
-      return contents;
+      const compressed = base64ToBytes(response.data);
+      const payload = await this._decompressBrotli(compressed);
+      if (payload[0] === 60) {
+        return this._parseIqiyiXmlDanmu(utf8BytesToString(payload));
+      }
+      return this._parseIqiyiProtoDanmu(payload);
     } catch (error) {
-      log("error", "\u8BF7\u6C42\u5206\u7247\u5F39\u5E55\u5931\u8D25:", error);
+      log("error", "[iQiyi] \u8BF7\u6C42\u5206\u7247\u5F39\u5E55\u5931\u8D25:", error);
       return [];
     }
+  }
+  async _decompressBrotli(bytes) {
+    return decompressBrotli(bytes);
+  }
+  _parseIqiyiXmlDanmu(xml) {
+    function extract(tag) {
+      const reg = new RegExp(`<${tag}>(.*?)</${tag}>`, "g");
+      return xml.match(reg)?.map((x) => x.substring(tag.length + 2, x.length - tag.length - 3)) || [];
+    }
+    const danmaku = extract("content");
+    const showTime = extract("showTime");
+    const color = extract("color");
+    const like = extract("likeCount");
+    return danmaku.map((content, i) => ({
+      content,
+      showTime: showTime[i],
+      color: color[i],
+      like: parseInt(like[i], 10) || 0
+    }));
+  }
+  _parseIqiyiProtoDanmu(bytes) {
+    const contents = [];
+    const fields = this._parseIqiyiProtoFields(bytes);
+    for (const field of fields) {
+      if (field.number !== 6 || !field.bytes) continue;
+      const danmuBlock = this._parseIqiyiProtoFields(field.bytes);
+      const blockShowTime = this._getIqiyiProtoString(danmuBlock, 1);
+      for (const itemField of danmuBlock) {
+        if (itemField.number !== 2 || !itemField.bytes) continue;
+        const item = this._parseIqiyiProtoFields(itemField.bytes);
+        const content = this._getIqiyiProtoString(item, 2);
+        if (!content) continue;
+        contents.push({
+          content,
+          showTime: this._getIqiyiProtoString(item, 6) || blockShowTime || "0",
+          color: this._getIqiyiProtoString(item, 8) || "ffffff",
+          like: parseInt(this._getIqiyiProtoString(item, 14), 10) || 0
+        });
+      }
+    }
+    return contents;
+  }
+  _parseIqiyiProtoFields(bytes) {
+    const fields = [];
+    let offset = 0;
+    while (offset < bytes.length) {
+      const keyResult = this._readIqiyiVarint(bytes, offset);
+      const key = keyResult.value;
+      offset = keyResult.offset;
+      const number = Number(key >> 3n);
+      const wireType = Number(key & 7n);
+      if (number === 0) break;
+      if (wireType === 0) {
+        const valueResult = this._readIqiyiVarint(bytes, offset);
+        fields.push({ number, wireType, value: valueResult.value.toString() });
+        offset = valueResult.offset;
+      } else if (wireType === 1) {
+        fields.push({ number, wireType });
+        offset += 8;
+      } else if (wireType === 2) {
+        const lengthResult = this._readIqiyiVarint(bytes, offset);
+        const length = Number(lengthResult.value);
+        offset = lengthResult.offset;
+        const end2 = offset + length;
+        if (end2 > bytes.length) break;
+        const raw = bytes.subarray(offset, end2);
+        fields.push({ number, wireType, bytes: raw, value: utf8BytesToString(raw) });
+        offset = end2;
+      } else if (wireType === 5) {
+        fields.push({ number, wireType });
+        offset += 4;
+      } else {
+        break;
+      }
+    }
+    return fields;
+  }
+  _readIqiyiVarint(bytes, offset) {
+    let value = 0n;
+    let shift = 0n;
+    let pos = offset;
+    while (pos < bytes.length) {
+      const byte = bytes[pos++];
+      value |= BigInt(byte & 127) << shift;
+      if ((byte & 128) === 0) {
+        return { value, offset: pos };
+      }
+      shift += 7n;
+    }
+    throw new Error("\u7231\u5947\u827A\u5F39\u5E55 protobuf varint \u4E0D\u5B8C\u6574");
+  }
+  _getIqiyiProtoString(fields, number) {
+    return fields.find((field) => field.number === number)?.value || "";
   }
   formatComments(comments) {
     return comments.map((item) => {
@@ -11728,13 +20297,17 @@ var MangoSource = class extends BaseSource {
   async search(keyword) {
     try {
       log("info", `[Mango] \u5F00\u59CB\u641C\u7D22: ${keyword}`);
+      if (!this._deviceId) {
+        this._deviceId = md5(`danmu-api-mango-${Date.now()}`);
+      }
+      const timestamp = Date.now();
+      const seqId = md5(this._deviceId + "." + timestamp);
       const encodedKeyword = encodeURIComponent(keyword);
-      const searchUrl = `https://mobileso.bz.mgtv.com/msite/search/v2?q=${encodedKeyword}&pc=30&pn=1&sort=-99&ty=0&du=0&pt=0&corr=1&abroad=0&_support=10000000000000000`;
+      const searchUrl = `https://mobileso.bz.mgtv.com/aphone/search/rebirth/v2?q=${encodedKeyword}&_support=10100001&device=23127PN0CC&osVersion=16&appVersion=9.3.3&did=${this._deviceId}&mac=${this._deviceId}&seqId=${seqId}&ticket=&userId=0&osType=android&type=10&abroad=0`;
       const response = await Widget.http.get(searchUrl, {
         headers: {
-          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-          "Accept": "application/json",
-          "Referer": "https://www.mgtv.com/"
+          "User-Agent": "Dalvik/2.1.0 (Linux; U; Android 16; 23127PN0CC Build/AP1A.240505.003)",
+          "Accept": "application/json"
         }
       });
       if (!response || !response.data) {
@@ -11748,22 +20321,22 @@ var MangoSource = class extends BaseSource {
       }
       const results = [];
       for (const content of data.data.contents) {
-        if (content.type !== "media") {
+        if (content.type !== "mediaRebirthV2") {
           continue;
         }
         for (const item of content.data) {
-          if (item.source !== "imgo") {
+          if (item.source && item.source !== "imgo") {
             continue;
           }
-          const urlMatch = item.url ? item.url.match(/\/b\/(\d+)/) : null;
-          if (!urlMatch) {
+          if (!item.clipId) {
             continue;
           }
-          const mediaId = urlMatch[1];
+          const mediaId = String(item.clipId);
           const cleanedTitle = item.title ? item.title.replace(/<[^>]+>/g, "").replace(/:/g, "\uFF1A") : "";
-          const yearMatch = item.desc && item.desc[0] ? item.desc[0].match(/[12][890][0-9][0-9]/) : null;
+          const descText = Array.isArray(item.desc) ? item.desc[0] || "" : item.desc || "";
+          const yearMatch = descText.match(/[12][890][0-9][0-9]/);
           const year = yearMatch ? parseInt(yearMatch[0]) : null;
-          const typeMatch = item.desc && item.desc[0] ? item.desc[0].split("/")[0].replace("\u7C7B\u578B:", "").trim() : "";
+          const typeMatch = descText.split("/")[0].replace("\u7C7B\u578B:", "").trim();
           const mediaType = this._extractMediaType(typeMatch);
           results.push({
             provider: "imgo",
@@ -11823,11 +20396,11 @@ var MangoSource = class extends BaseSource {
       const episodes = allEpisodes.filter((ep) => {
         const fullTitle = `${ep.t2 || ""} ${ep.t1 || ""}`.trim();
         if (ep.isnew === "2") {
-          log("debug", `[Mango] \u8FC7\u6EE4\u9884\u544A\u7247: ${fullTitle}`);
+          log("info", `[Mango] \u8FC7\u6EE4\u9884\u544A\u7247: ${fullTitle}`);
           return false;
         }
         if (mangoBlacklist.test(fullTitle)) {
-          log("debug", `[Mango] \u9ED1\u540D\u5355\u8FC7\u6EE4: ${fullTitle}`);
+          log("info", `[Mango] \u9ED1\u540D\u5355\u8FC7\u6EE4: ${fullTitle}`);
           return false;
         }
         return true;
@@ -11887,12 +20460,12 @@ var MangoSource = class extends BaseSource {
     if (!rawEpisodes || rawEpisodes.length === 0) {
       return [];
     }
-    log("debug", `[Mango] \u7EFC\u827A\u5904\u7406\u5F00\u59CB\uFF0C\u539F\u59CB\u5206\u96C6\u6570: ${rawEpisodes.length}`);
+    log("info", `[Mango] \u7EFC\u827A\u5904\u7406\u5F00\u59CB\uFF0C\u539F\u59CB\u5206\u96C6\u6570: ${rawEpisodes.length}`);
     const hasQiFormat = rawEpisodes.some((ep) => {
       const fullTitle = `${ep.t2 || ""} ${ep.t1 || ""}`.trim();
       return /第\d+期/.test(fullTitle);
     });
-    log("debug", `[Mango] \u7EFC\u827A\u683C\u5F0F\u5206\u6790: \u6709\u671F\u6570\u683C\u5F0F=${hasQiFormat}`);
+    log("info", `[Mango] \u7EFC\u827A\u683C\u5F0F\u5206\u6790: \u6709\u671F\u6570\u683C\u5F0F=${hasQiFormat}`);
     const episodeInfos = [];
     const qiInfoMap = /* @__PURE__ */ new Map();
     for (const ep of rawEpisodes) {
@@ -11910,25 +20483,25 @@ var MangoSource = class extends BaseSource {
           if (!hasInvalidSuffix) {
             qiInfoMap.set(ep, [parseInt(qiNum), upMidDown]);
             episodeInfos.push(ep);
-            log("debug", `[Mango] \u7EFC\u827A\u4FDD\u7559\u4E0A\u4E2D\u4E0B\u683C\u5F0F: ${fullTitle}`);
+            log("info", `[Mango] \u7EFC\u827A\u4FDD\u7559\u4E0A\u4E2D\u4E0B\u683C\u5F0F: ${fullTitle}`);
           } else {
-            log("debug", `[Mango] \u7EFC\u827A\u8FC7\u6EE4\u4E0A\u4E2D\u4E0B\u683C\u5F0F+\u540E\u7F00: ${fullTitle}`);
+            log("info", `[Mango] \u7EFC\u827A\u8FC7\u6EE4\u4E0A\u4E2D\u4E0B\u683C\u5F0F+\u540E\u7F00: ${fullTitle}`);
           }
         } else if (qiPureMatch && !hasUpMidDown && !/会员版|纯享版|特别版|独家版|加更|Plus|\+|花絮|预告|彩蛋|抢先|精选|未播|回顾|特辑|幕后|访谈|采访|混剪|合集|盘点|总结|删减|未播放|NG|番外|片段|看点|精彩|制作|导演|演员|拍摄|片尾曲|插曲|主题曲|背景音乐|OST|音乐|歌曲/.test(fullTitle)) {
           const qiNum = qiPureMatch[1];
           qiInfoMap.set(ep, [parseInt(qiNum), ""]);
           episodeInfos.push(ep);
-          log("debug", `[Mango] \u7EFC\u827A\u4FDD\u7559\u6807\u51C6\u671F\u6570: ${fullTitle}`);
+          log("info", `[Mango] \u7EFC\u827A\u4FDD\u7559\u6807\u51C6\u671F\u6570: ${fullTitle}`);
         } else {
-          log("debug", `[Mango] \u7EFC\u827A\u8FC7\u6EE4\u975E\u6807\u51C6\u671F\u6570\u683C\u5F0F: ${fullTitle}`);
+          log("info", `[Mango] \u7EFC\u827A\u8FC7\u6EE4\u975E\u6807\u51C6\u671F\u6570\u683C\u5F0F: ${fullTitle}`);
         }
       } else {
         if (fullTitle.includes("\u5E7F\u544A") || fullTitle.includes("\u63A8\u5E7F")) {
-          log("debug", `[Mango] \u8DF3\u8FC7\u5E7F\u544A\u5185\u5BB9: ${fullTitle}`);
+          log("info", `[Mango] \u8DF3\u8FC7\u5E7F\u544A\u5185\u5BB9: ${fullTitle}`);
           continue;
         }
         episodeInfos.push(ep);
-        log("debug", `[Mango] \u7EFC\u827A\u4FDD\u7559\u539F\u59CB\u6807\u9898: ${fullTitle}`);
+        log("info", `[Mango] \u7EFC\u827A\u4FDD\u7559\u539F\u59CB\u6807\u9898: ${fullTitle}`);
       }
     }
     if (hasQiFormat) {
@@ -11958,7 +20531,7 @@ var MangoSource = class extends BaseSource {
         return numA - numB;
       });
     }
-    log("debug", `[Mango] \u7EFC\u827A\u5904\u7406\u5B8C\u6210\uFF0C\u8FC7\u6EE4\u540E\u5206\u96C6\u6570: ${episodeInfos.length}`);
+    log("info", `[Mango] \u7EFC\u827A\u5904\u7406\u5B8C\u6210\uFF0C\u8FC7\u6EE4\u540E\u5206\u96C6\u6570: ${episodeInfos.length}`);
     return episodeInfos;
   }
   /**
@@ -12061,13 +20634,13 @@ var MangoSource = class extends BaseSource {
     return processMangoAnimes;
   }
   async getEpisodeDanmu(id) {
-    log("info", "\u5F00\u59CB\u4ECE\u672C\u5730\u8BF7\u6C42\u8292\u679CTV\u5F39\u5E55...", id);
+    log("info", "[Mango] \u5F00\u59CB\u4ECE\u672C\u5730\u8BF7\u6C42\u8292\u679CTV\u5F39\u5E55...", id);
     const segmentResult = await this.getEpisodeDanmuSegments(id);
     if (!segmentResult || !segmentResult.segmentList || segmentResult.segmentList.length === 0) {
       return [];
     }
     const segmentList = segmentResult.segmentList;
-    log("info", `\u5F39\u5E55\u5206\u6BB5\u6570\u91CF: ${segmentList.length}`);
+    log("info", `[Mango] \u5F39\u5E55\u5206\u6BB5\u6570\u91CF: ${segmentList.length}`);
     const promises = [];
     for (const segment of segmentList) {
       promises.push(
@@ -12096,14 +20669,14 @@ var MangoSource = class extends BaseSource {
         }
       });
     } catch (error) {
-      log("error", "\u89E3\u6790\u5F39\u5E55\u6570\u636E\u5931\u8D25:", error);
+      log("error", "[Mango] \u89E3\u6790\u5F39\u5E55\u6570\u636E\u5931\u8D25:", error);
       return [];
     }
     printFirst200Chars(contents);
     return contents;
   }
   async getEpisodeDanmuSegments(id) {
-    log("info", "\u83B7\u53D6\u8292\u679CTV\u5F39\u5E55\u5206\u6BB5\u5217\u8868...", id);
+    log("info", "[Mango] \u83B7\u53D6\u8292\u679CTV\u5F39\u5E55\u5206\u6BB5\u5217\u8868...", id);
     const api_video_info = "https://pcweb.api.mgtv.com/video/info";
     const api_ctl_barrage = "https://galaxy.bz.mgtv.com/getctlbarrage";
     const api_rd_barrage = "https://galaxy.bz.mgtv.com/rdbarrage";
@@ -12113,7 +20686,7 @@ var MangoSource = class extends BaseSource {
     if (match) {
       path2 = match[2].split("/").filter(Boolean);
     } else {
-      log("error", "Invalid URL");
+      log("error", "[Mango] Invalid URL");
       return new SegmentListResponse({
         "type": "imgo",
         "segmentList": []
@@ -12121,7 +20694,7 @@ var MangoSource = class extends BaseSource {
     }
     const cid = path2[path2.length - 2];
     const vid2 = path2[path2.length - 1].split(".")[0];
-    log("info", `\u83B7\u53D6\u5F39\u5E55\u5206\u6BB5\u5217\u8868 - cid: ${cid}, vid: ${vid2}`);
+    log("info", `[Mango] \u83B7\u53D6\u5F39\u5E55\u5206\u6BB5\u5217\u8868 - cid: ${cid}, vid: ${vid2}`);
     let res;
     try {
       const videoInfoUrl = `${api_video_info}?cid=${cid}&vid=${vid2}`;
@@ -12138,7 +20711,7 @@ var MangoSource = class extends BaseSource {
           "segmentList": []
         });
       }
-      log("error", "\u8BF7\u6C42\u89C6\u9891\u4FE1\u606F\u5931\u8D25:", error);
+      log("error", "[Mango] \u8BF7\u6C42\u89C6\u9891\u4FE1\u606F\u5931\u8D25:", error);
       return new SegmentListResponse({
         "type": "imgo",
         "segmentList": []
@@ -12157,7 +20730,7 @@ var MangoSource = class extends BaseSource {
       });
       const ctlBarrage = typeof res2.data === "string" ? JSON.parse(res2.data) : res2.data;
       if (!ctlBarrage.data || !ctlBarrage.data.cdn_list || !ctlBarrage.data.cdn_version) {
-        log("warn", `\u65B0API\u7F3A\u5C11\u5FC5\u8981\u5B57\u6BB5\uFF0C\u8FD4\u56DE\u7A7A\u5206\u6BB5\u5217\u8868`);
+        log("warn", `[Mango] \u65B0API\u7F3A\u5C11\u5FC5\u8981\u5B57\u6BB5\uFF0C\u8FD4\u56DE\u7A7A\u5206\u6BB5\u5217\u8868`);
         useNewApi = false;
       }
       const segmentList = [];
@@ -12196,7 +20769,7 @@ var MangoSource = class extends BaseSource {
         "segmentList": segmentList
       });
     } catch (error) {
-      log("error", "\u8BF7\u6C42\u5F39\u5E55\u5206\u6BB5\u6570\u636E\u5931\u8D25:", error);
+      log("error", "[Mango] \u8BF7\u6C42\u5F39\u5E55\u5206\u6BB5\u6570\u636E\u5931\u8D25:", error);
       return new SegmentListResponse({
         "type": "imgo",
         "segmentList": []
@@ -12221,7 +20794,7 @@ var MangoSource = class extends BaseSource {
       }
       return contents;
     } catch (error) {
-      log("error", "\u8BF7\u6C42\u5206\u7247\u5F39\u5E55\u5931\u8D25:", error);
+      log("error", "[Mango] \u8BF7\u6C42\u5206\u7247\u5F39\u5E55\u5931\u8D25:", error);
       return [];
     }
   }
@@ -12267,7 +20840,7 @@ var _BilibiliSource = class _BilibiliSource extends BaseSource {
   async resolveB23Link(shortUrl) {
     let timeoutId;
     try {
-      log("info", `\u6B63\u5728\u89E3\u6790 b23.tv \u77ED\u94FE\u63A5: ${shortUrl}`);
+      log("info", `[Bilibili] \u6B63\u5728\u89E3\u6790 b23.tv \u77ED\u94FE\u63A5: ${shortUrl}`);
       const timeout = parseInt(globals.vodRequestTimeout || "5000", 10) || 5e3;
       const controller = new AbortController();
       timeoutId = setTimeout(() => controller.abort(), timeout);
@@ -12283,13 +20856,13 @@ var _BilibiliSource = class _BilibiliSource extends BaseSource {
       const location = response.headers?.get?.("location") || response.headers?.get?.("Location");
       const finalUrl = location ? new URL(location, shortUrl).toString() : response.url;
       if (finalUrl && finalUrl !== shortUrl) {
-        log("info", `b23.tv \u77ED\u94FE\u63A5\u5DF2\u89E3\u6790\u4E3A: ${finalUrl}`);
+        log("info", `[Bilibili] b23.tv \u77ED\u94FE\u63A5\u5DF2\u89E3\u6790\u4E3A: ${finalUrl}`);
         return finalUrl;
       }
-      log("error", "\u65E0\u6CD5\u89E3\u6790 b23.tv \u77ED\u94FE\u63A5");
+      log("error", "[Bilibili] \u65E0\u6CD5\u89E3\u6790 b23.tv \u77ED\u94FE\u63A5");
       return shortUrl;
     } catch (error) {
-      log("error", "\u89E3\u6790 b23.tv \u77ED\u94FE\u63A5\u5931\u8D25:", error);
+      log("error", "[Bilibili] \u89E3\u6790 b23.tv \u77ED\u94FE\u63A5\u5931\u8D25:", error);
       return shortUrl;
     } finally {
       if (timeoutId) clearTimeout(timeoutId);
@@ -12391,14 +20964,8 @@ var _BilibiliSource = class _BilibiliSource extends BaseSource {
           }
         } catch (e) {
         }
-        const cleanedTitle = (item.title || "").replace(/<[^>]+>/g, "").replace(/&[^;]+;/g, (match) => {
-          const entities = { "&lt;": "<", "&gt;": ">", "&amp;": "&", "&quot;": '"', "&#39;": "'" };
-          return entities[match] || match;
-        }).replace(/:/g, "\uFF1A").trim();
-        const cleanedOrgTitle = (item.org_title || "").replace(/<[^>]+>/g, "").replace(/&[^;]+;/g, (match) => {
-          const entities = { "&lt;": "<", "&gt;": ">", "&amp;": "&", "&quot;": '"', "&#39;": "'" };
-          return entities[match] || match;
-        }).trim();
+        const cleanedTitle = decodeHtmlEntities((item.title || "").replace(/<[^>]+>/g, "")).replace(/:/g, "\uFF1A").trim();
+        const cleanedOrgTitle = decodeHtmlEntities((item.org_title || "").replace(/<[^>]+>/g, "")).trim();
         const resultItem = {
           provider: "bilibili",
           mediaId,
@@ -12456,7 +21023,7 @@ var _BilibiliSource = class _BilibiliSource extends BaseSource {
         "bilibili_hk_mo",
         "bilibili_tw"
       ]);
-      log("info", `[Bilibili] Bangumi-Data \u672C\u5730\u547D\u4E2D ${localMatches.length} \u6761\u6570\u636E`);
+      log("info", `[Bilibili] Bangumi-Data \u672C\u5730\u547D\u4E2D ${localMatches.length} \u6761\u6570\u636E\uFF08\u68C0\u7D22\u8BCD\uFF1A${keyword}\uFF09`);
     }
     const localOverseas = localMatches.filter(
       (m) => ["bilibili_hk_mo_tw", "bilibili_hk_mo", "bilibili_tw"].includes(m.matchedSiteKey)
@@ -12496,34 +21063,65 @@ var _BilibiliSource = class _BilibiliSource extends BaseSource {
       }
       const missingLocalMatches = localMatches.filter((m) => !consumedLocalMdIds.has(`md${m.siteId}`));
       if (missingLocalMatches.length > 0) {
-        log("info", `[Bilibili] \u4ECE\u672C\u5730 Bangumi-Data \u8865\u5145 ${missingLocalMatches.length} \u6761\u7F3A\u6F0F\u8BB0\u5F55\u5E76\u8BF7\u6C42\u8BE6\u60C5...`);
-        const missingPromises = missingLocalMatches.map(async (m) => {
-          const mediaInfo = await this._resolveMediaInfo(m.siteId);
-          const displayTitle = m.titles.find((t) => t && t.includes(keyword)) || m.titles[1] || m.title;
-          const finalTitle = displayTitle + (m.titleSuffix || "");
-          return {
-            provider: "bilibili",
-            mediaId: mediaInfo.seasonId || `md${m.siteId}`,
-            mdId: `md${m.siteId}`,
-            title: finalTitle,
-            org_title: m.title,
-            aliases: [...m.titles],
-            _displayTitle: finalTitle,
-            type: m.typeStr,
-            year: m.begin ? parseInt(m.begin.substring(0, 4)) : null,
-            imageUrl: mediaInfo.cover,
-            episodeCount: 0,
-            isOversea: ["bilibili_hk_mo_tw", "bilibili_hk_mo", "bilibili_tw"].includes(m.matchedSiteKey),
-            isLocalPriority: true
-          };
-        });
-        const missingResults = await Promise.all(missingPromises);
-        for (const item of missingResults) {
-          const idKey = item.mediaId;
-          if (idKey && seenIds.has(idKey)) continue;
-          if (idKey) {
-            seenIds.add(idKey);
-            finalResults.unshift(item);
+        const missingWithSeason = missingLocalMatches.filter((m) => m.season_id);
+        const missingWithoutSeason = missingLocalMatches.filter((m) => !m.season_id);
+        if (missingWithSeason.length > 0) {
+          log("info", `[Bilibili] \u4ECE\u672C\u5730 Bangumi-Data \u8865\u5145 ${missingWithSeason.length} \u6761\u7F3A\u6F0F\u8BB0\u5F55\u5E76\u8BF7\u6C42\u8BE6\u60C5....\uFF08\u5305\u542B season_id \uFF09`);
+          for (const m of missingWithSeason) {
+            const displayTitle = m.titles.find((t) => t && t.includes(keyword)) || m.titles[1] || m.title;
+            const finalTitle = displayTitle + (m.titleSuffix || "");
+            const item = {
+              provider: "bilibili",
+              mediaId: `ss${m.season_id}`,
+              mdId: `md${m.siteId}`,
+              title: finalTitle,
+              org_title: m.title,
+              aliases: [...m.titles],
+              _displayTitle: finalTitle,
+              type: m.typeStr,
+              year: m.begin ? parseInt(m.begin.substring(0, 4)) : null,
+              imageUrl: "",
+              episodeCount: 0,
+              isOversea: ["bilibili_hk_mo_tw", "bilibili_hk_mo", "bilibili_tw"].includes(m.matchedSiteKey),
+              isLocalPriority: true
+            };
+            const idKey = item.mediaId;
+            if (idKey && !seenIds.has(idKey)) {
+              seenIds.add(idKey);
+              finalResults.unshift(item);
+            }
+          }
+        }
+        if (missingWithoutSeason.length > 0) {
+          log("info", `[Bilibili] \u4ECE\u672C\u5730 Bangumi-Data \u8865\u5145 ${missingWithoutSeason.length} \u6761\u7F3A\u6F0F\u8BB0\u5F55\u5E76\u8BF7\u6C42\u8BE6\u60C5...`);
+          const missingPromises = missingWithoutSeason.map(async (m) => {
+            const mediaInfo = await this._resolveMediaInfo(m.siteId);
+            const displayTitle = m.titles.find((t) => t && t.includes(keyword)) || m.titles[1] || m.title;
+            const finalTitle = displayTitle + (m.titleSuffix || "");
+            return {
+              provider: "bilibili",
+              mediaId: mediaInfo.seasonId || `md${m.siteId}`,
+              mdId: `md${m.siteId}`,
+              title: finalTitle,
+              org_title: m.title,
+              aliases: [...m.titles],
+              _displayTitle: finalTitle,
+              type: m.typeStr,
+              year: m.begin ? parseInt(m.begin.substring(0, 4)) : null,
+              imageUrl: mediaInfo.cover,
+              episodeCount: 0,
+              isOversea: ["bilibili_hk_mo_tw", "bilibili_hk_mo", "bilibili_tw"].includes(m.matchedSiteKey),
+              isLocalPriority: true
+            };
+          });
+          const missingResults = await Promise.all(missingPromises);
+          for (const item of missingResults) {
+            const idKey = item.mediaId;
+            if (idKey && seenIds.has(idKey)) continue;
+            if (idKey) {
+              seenIds.add(idKey);
+              finalResults.unshift(item);
+            }
           }
         }
       }
@@ -12576,6 +21174,7 @@ var _BilibiliSource = class _BilibiliSource extends BaseSource {
         const data = typeof response.data === "string" ? JSON.parse(response.data) : response.data;
         if (data.code === 0 && data.result) {
           rawEpisodes = data.result.main_section?.episodes || data.result.episodes || [];
+          if (data.result.cover) rawEpisodes._cover = data.result.cover;
           if (rawEpisodes.length > 0) break;
         }
       } catch (e) {
@@ -12604,6 +21203,7 @@ var _BilibiliSource = class _BilibiliSource extends BaseSource {
         link: `https://www.bilibili.com/bangumi/play/ep${ep.id}`
       };
     });
+    if (rawEpisodes._cover) episodes._cover = rawEpisodes._cover;
     log("info", `[Bilibili] \u83B7\u53D6\u5230 ${episodes.length} \u4E2A\u756A\u5267\u5206\u96C6`);
     return episodes;
   }
@@ -12726,15 +21326,17 @@ var _BilibiliSource = class _BilibiliSource extends BaseSource {
             return {
               name: realVal,
               url: linkUrl,
-              title: `\u3010bilibili1\u3011 ${displayTitle2.trim()}`
+              title: `\u3010bilibili1\u3011 ${displayTitle2.trim()}`,
+              _id: parseInt(epId, 10) || 0
             };
           });
-          links.sort((a, b) => {
-            const numA = parseFloat(a.name);
-            const numB = parseFloat(b.name);
-            if (!isNaN(numA) && !isNaN(numB)) return numA - numB;
-            return 0;
-          });
+          const sortKeys = links.map((l) => extractEpisodeNumberFromTitle(l.name));
+          if (sortKeys.every((k) => k !== null)) {
+            links.forEach((l, i) => l._sortKey = sortKeys[i]);
+            links.sort((a, b) => a._sortKey - b._sortKey);
+          } else {
+            links.sort((a, b) => a._id - b._id);
+          }
           log("info", `[Bilibili] \u76F4\u63A5\u4F7F\u7528\u641C\u7D22\u7ED3\u679C\u4E2D\u7684 ${links.length} \u96C6\u5206\u96C6`);
         } else {
           const eps = await this.getEpisodes(anime.mediaId);
@@ -12742,15 +21344,18 @@ var _BilibiliSource = class _BilibiliSource extends BaseSource {
             log("info", `[Bilibili] ${anime.title} \u65E0\u5206\u96C6\uFF0C\u8DF3\u8FC7`);
             return;
           }
+          if (eps._cover) anime.imageUrl = eps._cover;
           links = eps.map((ep, index) => {
             let linkUrl = ep.link + `?season_id=${anime.mediaId.substring(2)}`;
             if (anime.isOversea) linkUrl += "&area=hkmt";
             return {
               name: `${index + 1}`,
               url: linkUrl,
-              title: `\u3010bilibili1\u3011 ${ep.title}`
+              title: `\u3010bilibili1\u3011 ${ep.title}`,
+              _id: parseInt(ep.id, 10) || 0
             };
           });
+          links.sort((a, b) => a._id - b._id);
         }
         if (links.length === 0) return;
         const numericAnimeId = convertToAsciiSum(anime.mediaId);
@@ -12784,7 +21389,7 @@ var _BilibiliSource = class _BilibiliSource extends BaseSource {
   }
   // 提取视频信息的公共方法
   async _extractVideoInfo(id) {
-    log("info", "\u63D0\u53D6B\u7AD9\u89C6\u9891\u4FE1\u606F...", id);
+    log("info", "[Bilibili] \u63D0\u53D6B\u7AD9\u89C6\u9891\u4FE1\u606F...", id);
     const api_video_info = "https://api.bilibili.com/x/web-interface/view";
     const api_epid_cid = "https://api.bilibili.com/pgc/view/web/season";
     const regex = /^(https?:\/\/[^\/]+)(\/[^?#]*)/;
@@ -12793,9 +21398,9 @@ var _BilibiliSource = class _BilibiliSource extends BaseSource {
     if (match) {
       path2 = match[2].split("/").filter(Boolean);
       path2.unshift("");
-      log("info", path2);
+      log("info", "[Bilibili] ", path2);
     } else {
-      log("error", "Invalid URL");
+      log("error", "[Bilibili] Invalid URL");
       return null;
     }
     let cid, aid, duration, title;
@@ -12812,7 +21417,7 @@ var _BilibiliSource = class _BilibiliSource extends BaseSource {
             }
           }
         }
-        log("info", `p: ${p}`);
+        log("info", `[Bilibili] p: ${p}`);
         let videoInfoUrl;
         if (id.includes("BV")) {
           videoInfoUrl = `${api_video_info}?bvid=${path2[2]}`;
@@ -12828,13 +21433,13 @@ var _BilibiliSource = class _BilibiliSource extends BaseSource {
         });
         const data = typeof res.data === "string" ? JSON.parse(res.data) : res.data;
         if (data.code !== 0) {
-          log("error", "\u83B7\u53D6\u666E\u901A\u6295\u7A3F\u89C6\u9891\u4FE1\u606F\u5931\u8D25:", data.message);
+          log("error", "[Bilibili] \u83B7\u53D6\u666E\u901A\u6295\u7A3F\u89C6\u9891\u4FE1\u606F\u5931\u8D25:", data.message);
           return null;
         }
         duration = data.data.duration;
         cid = data.data.pages[p - 1].cid;
       } catch (error) {
-        log("error", "\u8BF7\u6C42\u666E\u901A\u6295\u7A3F\u89C6\u9891\u4FE1\u606F\u5931\u8D25:", error);
+        log("error", "[Bilibili] \u8BF7\u6C42\u666E\u901A\u6295\u7A3F\u89C6\u9891\u4FE1\u606F\u5931\u8D25:", error);
         return null;
       }
     } else if (id.includes("bangumi/") && id.includes("ep")) {
@@ -12899,19 +21504,19 @@ var _BilibiliSource = class _BilibiliSource extends BaseSource {
           }
         }
         if (!cid) {
-          log("error", "\u672A\u627E\u5230\u5339\u914D\u7684\u756A\u5267\u96C6\u4FE1\u606F");
+          log("error", "[Bilibili] \u672A\u627E\u5230\u5339\u914D\u7684\u756A\u5267\u96C6\u4FE1\u606F");
           return null;
         }
         if (!duration && duration !== 0) duration = 0;
       } catch (error) {
-        log("error", "\u8BF7\u6C42\u756A\u5267\u89C6\u9891\u4FE1\u606F\u5931\u8D25:", error);
+        log("error", "[Bilibili] \u8BF7\u6C42\u756A\u5267\u89C6\u9891\u4FE1\u606F\u5931\u8D25:", error);
         return null;
       }
     } else if (id.includes("bangumi/") && id.includes("ss")) {
       try {
         const ssid = path2.slice(-1)[0].slice(2).split("?")[0];
         const ssInfoUrl = `${api_epid_cid}?season_id=${ssid}`;
-        log("info", `\u83B7\u53D6\u756A\u5267\u4FE1\u606F: season_id=${ssid}`);
+        log("info", `[Bilibili] \u83B7\u53D6\u756A\u5267\u4FE1\u606F: season_id=${ssid}`);
         const res = await Widget.http.get(ssInfoUrl, {
           headers: {
             "Content-Type": "application/json",
@@ -12920,37 +21525,37 @@ var _BilibiliSource = class _BilibiliSource extends BaseSource {
         });
         const data = typeof res.data === "string" ? JSON.parse(res.data) : res.data;
         if (data.code !== 0) {
-          log("error", "\u83B7\u53D6\u756A\u5267\u89C6\u9891\u4FE1\u606F\u5931\u8D25:", data.message);
+          log("error", "[Bilibili] \u83B7\u53D6\u756A\u5267\u89C6\u9891\u4FE1\u606F\u5931\u8D25:", data.message);
           return null;
         }
         if (!data.result.episodes || data.result.episodes.length === 0) {
-          log("error", "\u756A\u5267\u6CA1\u6709\u53EF\u7528\u7684\u96C6\u6570");
+          log("error", "[Bilibili] \u756A\u5267\u6CA1\u6709\u53EF\u7528\u7684\u96C6\u6570");
           return null;
         }
         const firstEpisode = data.result.episodes[0];
         cid = firstEpisode.cid;
         duration = firstEpisode.duration / 1e3;
         title = firstEpisode.share_copy;
-        log("info", `\u4F7F\u7528\u7B2C\u4E00\u96C6: ${title}, cid=${cid}`);
+        log("info", `[Bilibili] \u4F7F\u7528\u7B2C\u4E00\u96C6: ${title}, cid=${cid}`);
       } catch (error) {
-        log("error", "\u8BF7\u6C42\u756A\u5267\u89C6\u9891\u4FE1\u606F\u5931\u8D25:", error);
+        log("error", "[Bilibili] \u8BF7\u6C42\u756A\u5267\u89C6\u9891\u4FE1\u606F\u5931\u8D25:", error);
         return null;
       }
     } else {
-      log("error", "\u4E0D\u652F\u6301\u7684B\u7AD9\u89C6\u9891\u7F51\u5740\uFF0C\u4EC5\u652F\u6301\u666E\u901A\u89C6\u9891(av,bv)\u3001\u5267\u96C6\u89C6\u9891(ep,ss)");
+      log("error", "[Bilibili] \u4E0D\u652F\u6301\u7684B\u7AD9\u89C6\u9891\u7F51\u5740\uFF0C\u4EC5\u652F\u6301\u666E\u901A\u89C6\u9891(av,bv)\u3001\u5267\u96C6\u89C6\u9891(ep,ss)");
       return null;
     }
-    log("info", `\u63D0\u53D6\u89C6\u9891\u4FE1\u606F\u5B8C\u6210: cid=${cid}, aid=${aid}, duration=${duration}`);
+    log("info", `[Bilibili] \u63D0\u53D6\u89C6\u9891\u4FE1\u606F\u5B8C\u6210: cid=${cid}, aid=${aid}, duration=${duration}`);
     return { cid, aid, duration, title };
   }
   async getEpisodeDanmu(id) {
-    log("info", "\u5F00\u59CB\u4ECE\u672C\u5730\u8BF7\u6C42B\u7AD9\u5F39\u5E55...", id);
+    log("info", "[Bilibili] \u5F00\u59CB\u4ECE\u672C\u5730\u8BF7\u6C42B\u7AD9\u5F39\u5E55...", id);
     const segmentResult = await this.getEpisodeDanmuSegments(id);
     if (!segmentResult || !segmentResult.segmentList || segmentResult.segmentList.length === 0) {
       return [];
     }
     const segmentList = segmentResult.segmentList;
-    log("info", `\u5F39\u5E55\u5206\u6BB5\u6570\u91CF: ${segmentList.length}`);
+    log("info", `[Bilibili] \u5F39\u5E55\u5206\u6BB5\u6570\u91CF: ${segmentList.length}`);
     const BATCH_SIZE = 6;
     let contents = [];
     for (let i = 0; i < segmentList.length; i += BATCH_SIZE) {
@@ -12975,7 +21580,7 @@ var _BilibiliSource = class _BilibiliSource extends BaseSource {
    * 对于合并分P，将其拆解为标准分段任务队列并注入时间轴平移元数据
    */
   async getEpisodeDanmuSegments(id) {
-    log("info", "\u83B7\u53D6B\u7AD9\u5F39\u5E55\u5206\u6BB5\u5217\u8868...", id);
+    log("info", "[Bilibili] \u83B7\u53D6B\u7AD9\u5F39\u5E55\u5206\u6BB5\u5217\u8868...", id);
     if (typeof id === "string" && id.includes("/combine?")) {
       const segmentList2 = [];
       let currentOffset = 0;
@@ -13017,12 +21622,12 @@ var _BilibiliSource = class _BilibiliSource extends BaseSource {
       });
     }
     const { cid, aid, duration } = videoInfo;
-    log("info", `\u89C6\u9891\u4FE1\u606F: cid=${cid}, aid=${aid}, duration=${duration}`);
+    log("info", `[Bilibili] \u89C6\u9891\u4FE1\u606F: cid=${cid}, aid=${aid}, duration=${duration}`);
     if (duration <= 0) {
       log("info", "[Bilibili] \u672A\u83B7\u53D6\u5230\u7CBE\u51C6\u65F6\u957F\uFF0C\u4F7F\u7528\u9884\u8BBE 36 \u5206\u6BB5");
     }
     const maxLen = duration > 0 ? Math.ceil(duration / 360) : 36;
-    log("info", `maxLen: ${maxLen}`);
+    log("info", `[Bilibili] maxLen: ${maxLen}`);
     const segmentList = [];
     for (let i = 0; i < maxLen; i += 1) {
       let danmakuUrl;
@@ -13137,8 +21742,8 @@ var _BilibiliSource = class _BilibiliSource extends BaseSource {
           return (data.data?.items || data.data?.result || data.data || []).filter((i) => i.goto !== "recommend_tips" && i.area !== "\u6F2B\u6E38" && i.badge !== "\u516C\u544A").map((i) => ({
             provider: "bilibili",
             mediaId: i.season_id ? `ss${i.season_id}` : i.uri.match(/season\/(\d+)/)?.[1] ? `ss${i.uri.match(/season\/(\d+)/)[1]}` : "",
-            title: (i.title || "").replace(/<[^>]+>/g, "").trim(),
-            org_title: (i.org_title || "").replace(/<[^>]+>/g, "").trim(),
+            title: decodeHtmlEntities((i.title || "").replace(/<[^>]+>/g, "")).trim(),
+            org_title: decodeHtmlEntities((i.org_title || "").replace(/<[^>]+>/g, "")).trim(),
             type: this._extractMediaType(i.season_type_name),
             year: i.ptime ? new Date(i.ptime * 1e3).getFullYear() : null,
             imageUrl: i.cover || i.pic || "",
@@ -13176,11 +21781,8 @@ var _BilibiliSource = class _BilibiliSource extends BaseSource {
           provider: "bilibili",
           mediaId: i.season_id ? `ss${i.season_id}` : "",
           mdId: i.media_id ? `md${i.media_id}` : null,
-          title: (i.title || "").replace(/<[^>]+>/g, "").trim(),
-          org_title: (i.org_title || "").replace(/<[^>]+>/g, "").replace(/&[^;]+;/g, (match) => {
-            const entities = { "&lt;": "<", "&gt;": ">", "&amp;": "&", "&quot;": '"', "&#39;": "'" };
-            return entities[match] || match;
-          }).trim(),
+          title: decodeHtmlEntities((i.title || "").replace(/<[^>]+>/g, "")).trim(),
+          org_title: decodeHtmlEntities((i.org_title || "").replace(/<[^>]+>/g, "")).trim(),
           type: this._extractMediaType(i.season_type_name),
           year: i.pubtime ? new Date(i.pubtime * 1e3).getFullYear() : null,
           imageUrl: i.cover || null,
@@ -13623,7 +22225,7 @@ var YoukuSource = class extends BaseSource {
     return "drama";
   }
   async getEpisodeDanmu(id) {
-    log("info", "\u5F00\u59CB\u4ECE\u672C\u5730\u8BF7\u6C42\u4F18\u9177\u5F39\u5E55...", id);
+    log("info", "[Youku] \u5F00\u59CB\u4ECE\u672C\u5730\u8BF7\u6C42\u4F18\u9177\u5F39\u5E55...", id);
     if (!id) {
       return [];
     }
@@ -13661,14 +22263,14 @@ var YoukuSource = class extends BaseSource {
           }
         }
       } catch (e) {
-        log("error", "\u4F18\u9177\u5206\u6BB5\u6279\u91CF\u8BF7\u6C42\u5931\u8D25:", e.message);
+        log("error", "[Youku] \u4F18\u9177\u5206\u6BB5\u6279\u91CF\u8BF7\u6C42\u5931\u8D25:", e.message);
       }
     }
     printFirst200Chars(contents);
     return contents;
   }
   async getEpisodeDanmuSegments(id) {
-    log("info", "\u83B7\u53D6\u4F18\u9177\u5F39\u5E55\u5206\u6BB5\u5217\u8868...", id);
+    log("info", "[Youku] \u83B7\u53D6\u4F18\u9177\u5F39\u5E55\u5206\u6BB5\u5217\u8868...", id);
     if (!id) {
       return new SegmentListResponse({
         "type": "youku",
@@ -13686,13 +22288,13 @@ var YoukuSource = class extends BaseSource {
     if (match) {
       path2 = match[2].split("/").filter(Boolean);
       path2.unshift("");
-      log("info", path2);
+      log("info", "[Youku]", path2);
     } else {
-      log("error", "Invalid URL");
+      log("error", "[Youku] Invalid URL");
       return [];
     }
     const video_id = path2[path2.length - 1].split(".")[0].slice(3);
-    log("info", `video_id: ${video_id}`);
+    log("info", `[Youku] video_id: ${video_id}`);
     let res;
     try {
       const videoInfoUrl = `${api_video_info}?client_id=53e6cc67237fc59a&video_id=${video_id}&package=com.huawei.hwvplayer.youku&ext=show`;
@@ -13704,13 +22306,13 @@ var YoukuSource = class extends BaseSource {
         allow_redirects: false
       });
     } catch (error) {
-      log("error", "\u8BF7\u6C42\u89C6\u9891\u4FE1\u606F\u5931\u8D25:", error);
+      log("error", "[Youku] \u8BF7\u6C42\u89C6\u9891\u4FE1\u606F\u5931\u8D25:", error);
       return [];
     }
     const data = typeof res.data === "string" ? JSON.parse(res.data) : res.data;
     const title = data.title;
     const duration = data.duration;
-    log("info", `\u6807\u9898: ${title}, \u65F6\u957F: ${duration}`);
+    log("info", `[Youku] \u6807\u9898: ${title}, \u65F6\u957F: ${duration}`);
     let cna, _m_h5_tk_enc, _m_h5_tk;
     try {
       const cnaUrl = "https://log.mmstat.com/eg.js";
@@ -13722,12 +22324,12 @@ var YoukuSource = class extends BaseSource {
         },
         allow_redirects: false
       });
-      log("info", `cnaRes: ${JSON.stringify(cnaRes)}`);
-      log("info", `cnaRes.headers: ${JSON.stringify(cnaRes.headers)}`);
+      log("info", `[Youku] cnaRes: ${JSON.stringify(cnaRes)}`);
+      log("info", `[Youku] cnaRes.headers: ${JSON.stringify(cnaRes.headers)}`);
       const etag = cnaRes.headers["etag"] || cnaRes.headers["Etag"];
-      log("info", `etag: ${etag}`);
+      log("info", `[Youku] etag: ${etag}`);
       cna = etag.replace(/^"|"$/g, "");
-      log("info", `cna: ${cna}`);
+      log("info", `[Youku] cna: ${cna}`);
       let tkEncRes;
       while (!tkEncRes) {
         tkEncRes = await Widget.http.get(tkEncUrl, {
@@ -13738,18 +22340,18 @@ var YoukuSource = class extends BaseSource {
           allow_redirects: false
         });
       }
-      log("info", `tkEncRes: ${JSON.stringify(tkEncRes)}`);
-      log("info", `tkEncRes.headers: ${JSON.stringify(tkEncRes.headers)}`);
+      log("info", `[Youku] tkEncRes: ${JSON.stringify(tkEncRes)}`);
+      log("info", `[Youku] tkEncRes.headers: ${JSON.stringify(tkEncRes.headers)}`);
       const tkEncSetCookie = tkEncRes.headers["set-cookie"] || tkEncRes.headers["Set-Cookie"];
-      log("info", `tkEncSetCookie: ${tkEncSetCookie}`);
+      log("info", `[Youku] tkEncSetCookie: ${tkEncSetCookie}`);
       const tkEncMatch = tkEncSetCookie.match(/_m_h5_tk_enc=([^;]+)/);
       _m_h5_tk_enc = tkEncMatch ? tkEncMatch[1] : null;
       const tkH5Match = tkEncSetCookie.match(/_m_h5_tk=([^;]+)/);
       _m_h5_tk = tkH5Match ? tkH5Match[1] : null;
-      log("info", `_m_h5_tk_enc: ${_m_h5_tk_enc}`);
-      log("info", `_m_h5_tk: ${_m_h5_tk}`);
+      log("info", `[Youku] _m_h5_tk_enc: ${_m_h5_tk_enc}`);
+      log("info", `[Youku] _m_h5_tk: ${_m_h5_tk}`);
     } catch (error) {
-      log("error", "\u83B7\u53D6 cna \u6216 tk_enc \u5931\u8D25:", error);
+      log("error", "[Youku] \u83B7\u53D6 cna \u6216 tk_enc \u5931\u8D25:", error);
       return [];
     }
     const step = 60;
@@ -13821,7 +22423,7 @@ var YoukuSource = class extends BaseSource {
       };
       const queryString = buildQueryString(params);
       const url = `${api_danmaku}?${queryString}`;
-      log("info", `piece_url: ${url}`);
+      log("info", `[Youku] piece_url: ${url}`);
       return {
         "type": "youku",
         "segment_start": mat * step,
@@ -13843,7 +22445,7 @@ var YoukuSource = class extends BaseSource {
     });
   }
   async getEpisodeSegmentDanmu(segment) {
-    log("info", "\u5F00\u59CB\u4ECE\u672C\u5730\u8BF7\u6C42\u4F18\u9177\u5206\u6BB5\u5F39\u5E55...", segment.url);
+    log("info", "[Youku] \u5F00\u59CB\u4ECE\u672C\u5730\u8BF7\u6C42\u4F18\u9177\u5206\u6BB5\u5F39\u5E55...", segment.url);
     const response = await Widget.http.post(segment.url, buildQueryString({ data: segment.data }), {
       headers: {
         "Cookie": `_m_h5_tk=${segment._m_h5_tk};_m_h5_tk_enc=${segment._m_h5_tk_enc};`,
@@ -13910,7 +22512,7 @@ var DandanSource = class extends BaseSource {
     if (globals.useBangumiData && !isFallback) {
       const localMatches = await searchBangumiData4(keyword, ["anidb"]);
       if (localMatches.length > 0) {
-        log("info", `[Dandan] Bangumi-Data \u672C\u5730\u547D\u4E2D ${localMatches.length} \u6761\u6570\u636E`);
+        log("info", `[Dandan] Bangumi-Data \u672C\u5730\u547D\u4E2D ${localMatches.length} \u6761\u6570\u636E\uFF08\u68C0\u7D22\u8BCD\uFF1A${keyword}\uFF09`);
         return localMatches.map((m) => {
           const displayTitle = m.titles.find((t) => t && t.includes(keyword)) || m.titles[1] || m.title;
           const finalTitle = displayTitle + (m.titleSuffix || "");
@@ -13949,11 +22551,11 @@ var DandanSource = class extends BaseSource {
           }
           tmdbAbortController.abort();
           const animes = resp.data.animes;
-          log("info", `dandanSearchresp (original): ${JSON.stringify(animes)}`);
+          log("info", `[Dandan] dandanSearchresp (original): ${JSON.stringify(animes)}`);
           log("info", `[Dandan] \u8FD4\u56DE ${animes.length} \u6761\u7ED3\u679C (source: original)`);
           return { success: true, data: animes, source: "original" };
         } catch (error) {
-          log("error", "getDandanAnimes error:", {
+          log("error", "[Dandan] getDandanAnimes error:", {
             message: error.message,
             name: error.name,
             stack: error.stack
@@ -13992,7 +22594,7 @@ var DandanSource = class extends BaseSource {
             anime.isTmdbSource = true;
             anime._tmdbCnAlias = cnAlias;
           }
-          log("info", `dandanSearchresp (tmdb): ${JSON.stringify(animes)}`);
+          log("info", `[Dandan] dandanSearchresp (tmdb): ${JSON.stringify(animes)}`);
           log("info", `[Dandan] \u8FD4\u56DE ${animes.length} \u6761\u7ED3\u679C (source: tmdb)`);
           return { success: true, data: animes, source: "tmdb" };
         } catch (error) {
@@ -14023,7 +22625,7 @@ var DandanSource = class extends BaseSource {
       }
       return [];
     } catch (error) {
-      log("error", "getDandanAnimes error:", {
+      log("error", "[Dandan] getDandanAnimes error:", {
         message: error.message,
         name: error.name,
         stack: error.stack
@@ -14042,11 +22644,11 @@ var DandanSource = class extends BaseSource {
         retries: 1
       });
       if (!resp || !resp.data) {
-        log("info", "getDandanEposides: \u8BF7\u6C42\u5931\u8D25\u6216\u65E0\u6570\u636E\u8FD4\u56DE");
+        log("info", "[Dandan] getDandanEposides: \u8BF7\u6C42\u5931\u8D25\u6216\u65E0\u6570\u636E\u8FD4\u56DE");
         return { episodes: [], titles: [], relateds: [], type: null, typeDescription: null };
       }
       if (!resp.data.bangumi) {
-        log("info", "getDandanEposides: bangumi \u6570\u636E\u4E0D\u5B58\u5728");
+        log("info", "[Dandan] getDandanEposides: bangumi \u6570\u636E\u4E0D\u5B58\u5728");
         return { episodes: [], titles: [], relateds: [], type: null, typeDescription: null };
       }
       const bangumiData = resp.data.bangumi;
@@ -14069,10 +22671,10 @@ var DandanSource = class extends BaseSource {
         typeDescription = "2D" + (typeDescription || "");
       }
       const imageUrl = bangumiData.imageUrl || null;
-      log("info", `getDandanEposides: ${JSON.stringify(resp.data.bangumi.episodes)}`);
+      log("info", `[Dandan] getDandanEposides: ${JSON.stringify(resp.data.bangumi.episodes)}`);
       return { episodes, titles, relateds, type, typeDescription, imageUrl };
     } catch (error) {
-      log("error", "getDandanEposides error:", {
+      log("error", "[Dandan] getDandanEposides error:", {
         message: error.message,
         name: error.name,
         stack: error.stack
@@ -14243,7 +22845,7 @@ var DandanSource = class extends BaseSource {
         },
         retries: 1
       }).catch((e) => {
-        log("error", `dandan base comments error: ${e.message}`);
+        log("error", `[Dandan] dandan base comments error: ${e.message}`);
         return null;
       });
       const resp = await dandanPromise;
@@ -14254,7 +22856,7 @@ var DandanSource = class extends BaseSource {
         stats["dandan"] = 0;
       }
     } catch (error) {
-      log("error", "getEpisodeDanmu error:", {
+      log("error", "[Dandan] getEpisodeDanmu error:", {
         message: error.message,
         name: error.name,
         stack: error.stack
@@ -14263,7 +22865,7 @@ var DandanSource = class extends BaseSource {
     return allDanmus;
   }
   async getEpisodeDanmuSegments(id) {
-    log("info", "\u83B7\u53D6\u5F39\u5F39play\u5F39\u5E55\u5206\u6BB5\u5217\u8868...", id);
+    log("info", "[Dandan] \u83B7\u53D6\u5F39\u5F39play\u5F39\u5E55\u5206\u6BB5\u5217\u8868...", id);
     return new SegmentListResponse({
       "type": "dandan",
       "segmentList": [{
@@ -14312,17 +22914,17 @@ var CustomSource = class extends BaseSource {
         }
       });
       if (!resp || !resp.data) {
-        log("info", "customSourceSearchresp: \u8BF7\u6C42\u5931\u8D25\u6216\u65E0\u6570\u636E\u8FD4\u56DE");
+        log("info", "[Custom] customSourceSearchresp: \u8BF7\u6C42\u5931\u8D25\u6216\u65E0\u6570\u636E\u8FD4\u56DE");
         return [];
       }
       if (!resp.data.animes) {
-        log("info", "customSourceSearchresp: seriesData \u6216 seriesList \u4E0D\u5B58\u5728");
+        log("info", "[Custom] customSourceSearchresp: seriesData \u6216 seriesList \u4E0D\u5B58\u5728");
         return [];
       }
       log("info", `[Custom] \u641C\u7D22\u627E\u5230 ${resp.data.animes.length} \u4E2A\u6709\u6548\u7ED3\u679C`);
       return resp.data.animes;
     } catch (error) {
-      log("error", "getCustomSourceAnimes error:", {
+      log("error", "[Custom] getCustomSourceAnimes error:", {
         message: error.message,
         name: error.name,
         stack: error.stack
@@ -14339,17 +22941,17 @@ var CustomSource = class extends BaseSource {
         }
       });
       if (!resp || !resp.data) {
-        log("info", "getCustomSourceEposides: \u8BF7\u6C42\u5931\u8D25\u6216\u65E0\u6570\u636E\u8FD4\u56DE");
+        log("info", "[Custom] getCustomSourceEposides: \u8BF7\u6C42\u5931\u8D25\u6216\u65E0\u6570\u636E\u8FD4\u56DE");
         return [];
       }
       if (!resp.data.bangumi || !resp.data.bangumi.episodes) {
-        log("info", `getCustomSourceEposides: episodes \u4E0D\u5B58\u5728. Response: ${JSON.stringify(resp.data)}`);
+        log("info", `[Custom] getCustomSourceEposides: episodes \u4E0D\u5B58\u5728. Response: ${JSON.stringify(resp.data)}`);
         return [];
       }
-      log("info", `getCustomSourceEposides: ${JSON.stringify(resp.data.bangumi.episodes)}`);
+      log("info", `[Custom] getCustomSourceEposides: ${JSON.stringify(resp.data.bangumi.episodes)}`);
       return resp.data.bangumi.episodes;
     } catch (error) {
-      log("error", "getCustomSourceEposides error:", {
+      log("error", "[Custom] getCustomSourceEposides error:", {
         message: error.message,
         name: error.name,
         stack: error.stack
@@ -14360,7 +22962,7 @@ var CustomSource = class extends BaseSource {
   async handleAnimes(sourceAnimes, queryTitle, curAnimes, detailStore = null) {
     const tmpAnimes = [];
     if (!sourceAnimes || !Array.isArray(sourceAnimes)) {
-      log("error", "[Custom Source] sourceAnimes is not a valid array");
+      log("error", "[Custom] sourceAnimes is not a valid array");
       return [];
     }
     const processCustomSourceAnimes = await Promise.all(
@@ -14395,7 +22997,7 @@ var CustomSource = class extends BaseSource {
             if (globals.animes.length > globals.MAX_ANIMES) removeEarliestAnime();
           }
         } catch (error) {
-          log("error", `[Custom Source] Error processing anime: ${error.message}`);
+          log("error", `[Custom] Error processing anime: ${error.message}`);
         }
       })
     );
@@ -14417,7 +23019,7 @@ var CustomSource = class extends BaseSource {
       }
       return allDanmus;
     } catch (error) {
-      log("error", "fetchCustomSourceEpisodeDanmu error:", {
+      log("error", "[Custom] fetchCustomSourceEpisodeDanmu error:", {
         message: error.message,
         name: error.name,
         stack: error.stack
@@ -14426,7 +23028,7 @@ var CustomSource = class extends BaseSource {
     }
   }
   async getEpisodeDanmuSegments(id) {
-    log("info", "\u83B7\u53D6Custom Source\u5F39\u5E55\u5206\u6BB5\u5217\u8868...", id);
+    log("info", "[Custom] \u83B7\u53D6Custom Source\u5F39\u5E55\u5206\u6BB5\u5217\u8868...", id);
     return new SegmentListResponse({
       "type": "custom",
       "segmentList": [{
@@ -15329,7 +23931,7 @@ var MiguSource = class extends BaseSource {
       log("info", `[Migu] \u641C\u7D22\u627E\u5230 ${animes.length} \u4E2A\u6709\u6548\u7ED3\u679C`);
       return animes;
     } catch (error) {
-      log("error", "getMiguAnimes error:", {
+      log("error", "[Migu] getMiguAnimes error:", {
         message: error.message,
         name: error.name,
         stack: error.stack
@@ -15350,14 +23952,14 @@ var MiguSource = class extends BaseSource {
         }
       });
       if (!resp || !resp.data) {
-        log("info", "getMiguDetail: \u8BF7\u6C42\u5931\u8D25\u6216\u65E0\u6570\u636E\u8FD4\u56DE");
+        log("info", "[Migu] getMiguDetail: \u8BF7\u6C42\u5931\u8D25\u6216\u65E0\u6570\u636E\u8FD4\u56DE");
         return { duration: 0, epsID: null };
       }
       const duration = resp.data?.body?.data?.playing?.duration || 0;
       const epsID = resp.data?.body?.data?.epsID || null;
       return { duration, epsID };
     } catch (error) {
-      log("error", "getMiguDetail error:", {
+      log("error", "[Migu] getMiguDetail error:", {
         message: error.message,
         name: error.name,
         stack: error.stack
@@ -15373,7 +23975,7 @@ var MiguSource = class extends BaseSource {
         }
       });
       if (!detailResp || !detailResp.data) {
-        log("info", "getMiguEposides: \u8BF7\u6C42\u5931\u8D25\u6216\u65E0\u6570\u636E\u8FD4\u56DE");
+        log("info", "[Migu] getMiguEposides: \u8BF7\u6C42\u5931\u8D25\u6216\u65E0\u6570\u636E\u8FD4\u56DE");
         return [];
       }
       const eps = detailResp.data?.body?.data?.datas;
@@ -15388,11 +23990,11 @@ var MiguSource = class extends BaseSource {
             pID
           }];
         }
-        log("info", "getMiguEposides: eps \u4E0D\u5B58\u5728");
+        log("info", "[Migu] getMiguEposides: eps \u4E0D\u5B58\u5728");
         return [];
       }
     } catch (error) {
-      log("error", "getMiguEposides error:", {
+      log("error", "[Migu] getMiguEposides error:", {
         message: error.message,
         name: error.name,
         stack: error.stack
@@ -15466,13 +24068,13 @@ var MiguSource = class extends BaseSource {
     return processMiguAnimes;
   }
   async getEpisodeDanmu(id) {
-    log("info", "\u5F00\u59CB\u4ECE\u672C\u5730\u8BF7\u6C42\u54AA\u5495\u89C6\u9891\u5F39\u5E55...", id);
+    log("info", "[Migu] \u5F00\u59CB\u4ECE\u672C\u5730\u8BF7\u6C42\u54AA\u5495\u89C6\u9891\u5F39\u5E55...", id);
     const segmentResult = await this.getEpisodeDanmuSegments(id);
     if (!segmentResult || !segmentResult.segmentList || segmentResult.segmentList.length === 0) {
       return [];
     }
     const segmentList = segmentResult.segmentList;
-    log("info", `\u5F39\u5E55\u5206\u6BB5\u6570\u91CF: ${segmentList.length}`);
+    log("info", `[Migu] \u5F39\u5E55\u5206\u6BB5\u6570\u91CF: ${segmentList.length}`);
     const MAX_CONCURRENT = 100;
     const allComments = [];
     for (let i = 0; i < segmentList.length; i += MAX_CONCURRENT) {
@@ -15490,7 +24092,7 @@ var MiguSource = class extends BaseSource {
             allComments.push(...comments);
           }
         } else {
-          log("error", `\u83B7\u53D6\u5F39\u5E55\u6BB5\u5931\u8D25 (${start2}-${end2}s):`, result.reason.message);
+          log("error", `[Migu] \u83B7\u53D6\u5F39\u5E55\u6BB5\u5931\u8D25 (${start2}-${end2}s):`, result.reason.message);
         }
       }
       if (i + MAX_CONCURRENT < segmentList.length) {
@@ -15498,20 +24100,20 @@ var MiguSource = class extends BaseSource {
       }
     }
     if (allComments.length === 0) {
-      log("info", `\u54AA\u5495\u89C6\u9891: \u8BE5\u89C6\u9891\u6682\u65E0\u5F39\u5E55\u6570\u636E (vid=${id})`);
+      log("info", `[Migu] \u54AA\u5495\u89C6\u9891: \u8BE5\u89C6\u9891\u6682\u65E0\u5F39\u5E55\u6570\u636E (vid=${id})`);
       return [];
     }
     printFirst200Chars(allComments);
     return allComments;
   }
   async getEpisodeDanmuSegments(id) {
-    log("info", "\u83B7\u53D6\u54AA\u5495\u89C6\u9891\u5F39\u5E55\u5206\u6BB5\u5217\u8868...", id);
+    log("info", "[Migu] \u83B7\u53D6\u54AA\u5495\u89C6\u9891\u5F39\u5E55\u5206\u6BB5\u5217\u8868...", id);
     const itemId = this.extractEpId(id);
     const detail = await this.getDetail(itemId);
     const durationSec = time_to_second(detail.duration);
-    log("info", "itemId:", itemId);
-    log("info", "durationSec:", durationSec);
-    log("info", "epsID:", detail.epsID);
+    log("info", "[Migu] itemId:", itemId);
+    log("info", "[Migu] durationSec:", durationSec);
+    log("info", "[Migu] epsID:", detail.epsID);
     const segmentDuration = 30;
     const segmentList = [];
     for (let i = 0; i < durationSec; i += segmentDuration) {
@@ -15548,7 +24150,7 @@ var MiguSource = class extends BaseSource {
       }
       return contents;
     } catch (error) {
-      log("error", "\u8BF7\u6C42\u5206\u7247\u5F39\u5E55\u5931\u8D25:", error);
+      log("error", "[Migu] \u8BF7\u6C42\u5206\u7247\u5F39\u5E55\u5931\u8D25:", error);
       return [];
     }
   }
@@ -15694,7 +24296,7 @@ var SohuSource = class extends BaseSource {
       if (start2 > 0 && end2 > start2) {
         data = JSON.parse(data.substring(start2, end2));
       } else {
-        log("error", "\u641C\u72D0\u89C6\u9891: \u65E0\u6CD5\u89E3\u6790JSONP\u54CD\u5E94");
+        log("error", "[Sohu] \u641C\u72D0\u89C6\u9891: \u65E0\u6CD5\u89E3\u6790JSONP\u54CD\u5E94");
         return null;
       }
     } else if (typeof data === "string") {
@@ -15712,7 +24314,7 @@ var SohuSource = class extends BaseSource {
       }
       const videosData = data.videos || [];
       if (!videosData || videosData.length === 0) {
-        log("warning", `\u641C\u72D0\u89C6\u9891: \u672A\u627E\u5230\u5206\u96C6\u5217\u8868 (media_id=${id})`);
+        log("warn", `[Sohu] \u641C\u72D0\u89C6\u9891: \u672A\u627E\u5230\u5206\u96C6\u5217\u8868 (media_id=${id})`);
         return [];
       }
       const episodes = [];
@@ -15849,13 +24451,13 @@ var SohuSource = class extends BaseSource {
     return { vid: vid2, aid };
   }
   async getEpisodeDanmu(id) {
-    log("info", "\u5F00\u59CB\u4ECE\u672C\u5730\u8BF7\u6C42\u641C\u72D0\u89C6\u9891\u5F39\u5E55...", id);
+    log("info", "[Sohu] \u5F00\u59CB\u4ECE\u672C\u5730\u8BF7\u6C42\u641C\u72D0\u89C6\u9891\u5F39\u5E55...", id);
     const segmentResult = await this.getEpisodeDanmuSegments(id);
     if (!segmentResult || !segmentResult.segmentList || segmentResult.segmentList.length === 0) {
       return [];
     }
     const segmentList = segmentResult.segmentList;
-    log("info", `\u5F39\u5E55\u5206\u6BB5\u6570\u91CF: ${segmentList.length}`);
+    log("info", `[Sohu] \u5F39\u5E55\u5206\u6BB5\u6570\u91CF: ${segmentList.length}`);
     const MAX_CONCURRENT = 10;
     const allComments = [];
     for (let i = 0; i < segmentList.length; i += MAX_CONCURRENT) {
@@ -15875,7 +24477,7 @@ var SohuSource = class extends BaseSource {
             break;
           }
         } else {
-          log("error", `\u83B7\u53D6\u5F39\u5E55\u6BB5\u5931\u8D25 (${start2}-${end2}s):`, result.reason.message);
+          log("error", `[Sohu] \u83B7\u53D6\u5F39\u5E55\u6BB5\u5931\u8D25 (${start2}-${end2}s):`, result.reason.message);
         }
       }
       if (i + MAX_CONCURRENT < segmentList.length) {
@@ -15883,7 +24485,7 @@ var SohuSource = class extends BaseSource {
       }
     }
     if (allComments.length === 0) {
-      log("info", `\u641C\u72D0\u89C6\u9891: \u8BE5\u89C6\u9891\u6682\u65E0\u5F39\u5E55\u6570\u636E (vid=${id})`);
+      log("info", `[Sohu] \u641C\u72D0\u89C6\u9891: \u8BE5\u89C6\u9891\u6682\u65E0\u5F39\u5E55\u6570\u636E (vid=${id})`);
       return [];
     }
     printFirst200Chars(allComments);
@@ -15897,27 +24499,27 @@ var SohuSource = class extends BaseSource {
       };
       const response = await Widget.http.get(segment.url, { headers, timeout: 1e4 });
       if (!response || !response.data) {
-        log("error", `\u641C\u72D0\u89C6\u9891: \u5F39\u5E55\u6BB5\u54CD\u5E94\u4E3A\u7A7A (${segment.segment_start}-${segment.segment_end}s)`);
+        log("error", `[Sohu] \u641C\u72D0\u89C6\u9891: \u5F39\u5E55\u6BB5\u54CD\u5E94\u4E3A\u7A7A (${segment.segment_start}-${segment.segment_end}s)`);
         return [];
       }
       try {
         const data = typeof response.data === "string" ? JSON.parse(response.data) : response.data;
         const comments = data.info?.comments || [];
         if (comments && comments.length > 0) {
-          log("info", `\u641C\u72D0\u89C6\u9891: \u83B7\u53D6\u5230 ${comments.length} \u6761\u5F39\u5E55 (${segment.segment_start}-${segment.segment_end}s)`);
+          log("info", `[Sohu] \u641C\u72D0\u89C6\u9891: \u83B7\u53D6\u5230 ${comments.length} \u6761\u5F39\u5E55 (${segment.segment_start}-${segment.segment_end}s)`);
         }
         return comments || [];
       } catch (error) {
-        log("error", `\u641C\u72D0\u89C6\u9891: \u89E3\u6790\u5F39\u5E55\u54CD\u5E94\u5931\u8D25: ${error.message}`);
+        log("error", `[Sohu] \u641C\u72D0\u89C6\u9891: \u89E3\u6790\u5F39\u5E55\u54CD\u5E94\u5931\u8D25: ${error.message}`);
         return [];
       }
     } catch (error) {
-      log("error", `\u641C\u72D0\u89C6\u9891: \u83B7\u53D6\u5F39\u5E55\u6BB5\u5931\u8D25 (vid=${vid}, ${start}-${end}s): ${error.message}`);
+      log("error", `[Sohu] \u641C\u72D0\u89C6\u9891: \u83B7\u53D6\u5F39\u5E55\u6BB5\u5931\u8D25 (vid=${vid}, ${start}-${end}s): ${error.message}`);
       return [];
     }
   }
   async getEpisodeDanmuSegments(id) {
-    log("info", "\u83B7\u53D6\u641C\u72D0\u89C6\u9891\u5F39\u5E55\u5206\u6BB5\u5217\u8868...", id);
+    log("info", "[Sohu] \u83B7\u53D6\u641C\u72D0\u89C6\u9891\u5F39\u5E55\u5206\u6BB5\u5217\u8868...", id);
     const { vid: vid2, aid } = await this.extractVidAndAid(id);
     const duration = await this.getEpisodeDuration(aid, vid2);
     const maxTime = duration > 0 ? Math.ceil(duration) : 10800;
@@ -15954,7 +24556,7 @@ var SohuSource = class extends BaseSource {
       }
       return contents;
     } catch (error) {
-      log("error", "\u8BF7\u6C42\u5206\u7247\u5F39\u5E55\u5931\u8D25:", error);
+      log("error", "[Sohu] \u8BF7\u6C42\u5206\u7247\u5F39\u5E55\u5931\u8D25:", error);
       return [];
     }
   }
@@ -15987,7 +24589,7 @@ var SohuSource = class extends BaseSource {
           like: comment.fcount
         };
       } catch (error) {
-        log("error", `\u683C\u5F0F\u5316\u5F39\u5E55\u5931\u8D25: ${error.message}, \u5F39\u5E55\u6570\u636E:`, comment);
+        log("error", `[Sohu] \u683C\u5F0F\u5316\u5F39\u5E55\u5931\u8D25: ${error.message}, \u5F39\u5E55\u6570\u636E:`, comment);
         return null;
       }
     }).filter((comment) => comment !== null);
@@ -16067,7 +24669,7 @@ var LeshiSource = class extends BaseSource {
         return [];
       }
       const htmlContent = response.data;
-      log("debug", `[Leshi] \u641C\u7D22\u8BF7\u6C42\u6210\u529F\uFF0C\u54CD\u5E94\u957F\u5EA6: ${htmlContent.length} \u5B57\u7B26`);
+      log("info", `[Leshi] \u641C\u7D22\u8BF7\u6C42\u6210\u529F\uFF0C\u54CD\u5E94\u957F\u5EA6: ${htmlContent.length} \u5B57\u7B26`);
       const results = [];
       const pattern = /<div class="So-detail[^"]*"[^>]*data-info="({.*?})"[^>]*>/g;
       let match;
@@ -16075,15 +24677,15 @@ var LeshiSource = class extends BaseSource {
       while ((match = pattern.exec(htmlContent)) !== null) {
         matches.push(match);
       }
-      log("debug", `[Leshi] \u4ECEHTML\u4E2D\u627E\u5230 ${matches.length} \u4E2A data-info \u5757`);
+      log("info", `[Leshi] \u4ECEHTML\u4E2D\u627E\u5230 ${matches.length} \u4E2A data-info \u5757`);
       for (const match2 of matches) {
         try {
           let dataInfoStr = match2[1];
-          log("debug", `[Leshi] \u63D0\u53D6\u5230 data-info \u539F\u59CB\u5B57\u7B26\u4E32: ${dataInfoStr.substring(0, 200)}...`);
+          log("info", `[Leshi] \u63D0\u53D6\u5230 data-info \u539F\u59CB\u5B57\u7B26\u4E32: ${dataInfoStr.substring(0, 200)}...`);
           dataInfoStr = dataInfoStr.replace(/'/g, '"');
           dataInfoStr = dataInfoStr.replace(/([{,])(\w+):/g, '$1"$2":');
           const dataInfo = JSON.parse(dataInfoStr);
-          log("debug", `[Leshi] \u6210\u529F\u89E3\u6790 data-info\uFF0Cpid=${dataInfo.pid}, type=${dataInfo.type}`);
+          log("info", `[Leshi] \u6210\u529F\u89E3\u6790 data-info\uFF0Cpid=${dataInfo.pid}, type=${dataInfo.type}`);
           let pid = dataInfo.pid || "";
           const mediaTypeStr = dataInfo.type || "";
           const total = dataInfo.total || "0";
@@ -16156,9 +24758,9 @@ var LeshiSource = class extends BaseSource {
             episodeCount
           };
           results.push(result);
-          log("debug", `[Leshi] \u89E3\u6790\u6210\u529F - ${title} (pid=${pid}, type=${resultType}, episodes=${episodeCount})`);
+          log("info", `[Leshi] \u89E3\u6790\u6210\u529F - ${title} (pid=${pid}, type=${resultType}, episodes=${episodeCount})`);
         } catch (e) {
-          log("warning", `[Leshi] \u89E3\u6790\u641C\u7D22\u7ED3\u679C\u9879\u5931\u8D25: ${e}`);
+          log("warn", `[Leshi] \u89E3\u6790\u641C\u7D22\u7ED3\u679C\u9879\u5931\u8D25: ${e}`);
           continue;
         }
       }
@@ -16166,7 +24768,7 @@ var LeshiSource = class extends BaseSource {
         log("info", `[Leshi] \u7F51\u7EDC\u641C\u7D22 '${keyword}' \u5B8C\u6210\uFF0C\u627E\u5230 ${results.length} \u4E2A\u6709\u6548\u7ED3\u679C\u3002`);
         log("info", `[Leshi] \u641C\u7D22\u7ED3\u679C\u5217\u8868:`);
         for (const r of results) {
-          log("info", `  - ${r.title} (ID: ${r.mediaId}, \u7C7B\u578B: ${r.type}, \u5E74\u4EFD: ${r.year})`);
+          log("info", `[Leshi]   - ${r.title} (ID: ${r.mediaId}, \u7C7B\u578B: ${r.type}, \u5E74\u4EFD: ${r.year})`);
         }
       } else {
         log("info", `[Leshi] \u7F51\u7EDC\u641C\u7D22 '${keyword}' \u5B8C\u6210\uFF0C\u627E\u5230 0 \u4E2A\u7ED3\u679C\u3002`);
@@ -16192,35 +24794,35 @@ var LeshiSource = class extends BaseSource {
           const response = await Widget.http.get(url, { timeout: 1e4 });
           if (response && response.data && response.status === 200) {
             htmlContent = response.data;
-            log("debug", `\u6210\u529F\u83B7\u53D6\u9875\u9762: ${url}`);
+            log("info", `[Leshi] \u6210\u529F\u83B7\u53D6\u9875\u9762: ${url}`);
             break;
           }
         } catch (e) {
-          log("debug", `\u5C1D\u8BD5URL\u5931\u8D25 ${url}: ${e}`);
+          log("info", `[Leshi] \u5C1D\u8BD5URL\u5931\u8D25 ${url}: ${e}`);
           continue;
         }
       }
       if (!htmlContent) {
-        log("error", `\u65E0\u6CD5\u83B7\u53D6\u4F5C\u54C1\u9875\u9762: media_id=${id}`);
+        log("error", `[Leshi] \u65E0\u6CD5\u83B7\u53D6\u4F5C\u54C1\u9875\u9762: media_id=${id}`);
         return [];
       }
       const twxjContainerMatch = /<div class="show_cnt twxj-[^"]*">[\s\S]*?<\/div>\s*<\/div>\s*<\/div>/.exec(htmlContent);
       if (twxjContainerMatch) {
-        log("debug", `\u627E\u5230\u56FE\u6587\u9009\u96C6\u5BB9\u5668`);
+        log("info", `[Leshi] \u627E\u5230\u56FE\u6587\u9009\u96C6\u5BB9\u5668`);
         return this.parseEpisodesFromHtml(twxjContainerMatch[0], id);
       }
       const sjxjContainerMatch = /<div class="show_cnt sjxj-[^"]*">[\s\S]*?<\/div>\s*<\/div>\s*<\/div>/.exec(htmlContent);
       if (sjxjContainerMatch) {
-        log("debug", `\u627E\u5230\u6570\u5B57\u9009\u96C6\u5BB9\u5668`);
+        log("info", `[Leshi] \u627E\u5230\u6570\u5B57\u9009\u96C6\u5BB9\u5668`);
         return this.parseEpisodesFromHtml(sjxjContainerMatch[0], id);
       }
-      log("debug", `\u672A\u627E\u5230\u7279\u5B9A\u9009\u96C6\u5BB9\u5668\uFF0C\u5C1D\u8BD5\u67E5\u627E\u7B2C\u4E00\u96C6\u89C6\u9891\u5217\u8868...`);
+      log("info", `[Leshi] \u672A\u627E\u5230\u7279\u5B9A\u9009\u96C6\u5BB9\u5668\uFF0C\u5C1D\u8BD5\u67E5\u627E\u7B2C\u4E00\u96C6\u89C6\u9891\u5217\u8868...`);
       const firstVideoListMatch = /<div class="show_play first_videolist[\s\S]*?<\/div>\s*<\/div>\s*<\/div>/.exec(htmlContent);
       if (firstVideoListMatch) {
         const containerHtml = firstVideoListMatch[0];
         return this.parseEpisodesFromHtml(containerHtml, id);
       }
-      log("error", `\u65E0\u6CD5\u627E\u5230\u5267\u96C6\u5217\u8868\u5BB9\u5668: media_id=${id}`);
+      log("error", `[Leshi] \u65E0\u6CD5\u627E\u5230\u5267\u96C6\u5217\u8868\u5BB9\u5668: media_id=${id}`);
       const regex = /https:\/\/www\.le\.com\/ptv\/vplay\/(\d+)\.html/g;
       const matches = htmlContent.matchAll(regex);
       const episodes = [];
@@ -16251,15 +24853,15 @@ var LeshiSource = class extends BaseSource {
       const episodeContainerRegex = /<div class="col_4"[^>]*>[\s\S]*?<\/div>/g;
       const containerMatches = htmlContent.match(episodeContainerRegex);
       if (!containerMatches || containerMatches.length === 0) {
-        log("debug", `\u5728HTML\u4E2D\u672A\u627E\u5230\u5267\u96C6\u5BB9\u5668div.col_4\uFF0C\u5C1D\u8BD5\u67E5\u627Edl.dl_temp\u5143\u7D20`);
+        log("info", `[Leshi] \u5728HTML\u4E2D\u672A\u627E\u5230\u5267\u96C6\u5BB9\u5668div.col_4\uFF0C\u5C1D\u8BD5\u67E5\u627Edl.dl_temp\u5143\u7D20`);
         const episodeRegex = /<dl class="dl_temp">[\s\S]*?<\/dl>/g;
         const matches = htmlContent.match(episodeRegex);
         if (!matches || matches.length === 0) {
-          log("debug", `\u5728HTML\u4E2D\u672A\u627E\u5230\u5267\u96C6\u5143\u7D20\uFF0C\u5C1D\u8BD5\u66F4\u5E7F\u6CDB\u7684\u9009\u62E9\u5668`);
+          log("info", `[Leshi] \u5728HTML\u4E2D\u672A\u627E\u5230\u5267\u96C6\u5143\u7D20\uFF0C\u5C1D\u8BD5\u66F4\u5E7F\u6CDB\u7684\u9009\u62E9\u5668`);
           const broaderRegex = /<dl[^>]*class="[^"]*dl_temp[^"]*"[^>]*>[\s\S]*?<\/dl>/g;
           const broaderMatches = htmlContent.match(broaderRegex);
           if (!broaderMatches || broaderMatches.length === 0) {
-            log("error", `\u65E0\u6CD5\u4ECEHTML\u4E2D\u89E3\u6790\u5230\u4EFB\u4F55\u5267\u96C6: media_id=${mediaId}`);
+            log("error", `[Leshi] \u65E0\u6CD5\u4ECEHTML\u4E2D\u89E3\u6790\u5230\u4EFB\u4F55\u5267\u96C6: media_id=${mediaId}`);
             return [];
           }
           return this.extractEpisodes(broaderMatches, mediaId);
@@ -16274,7 +24876,7 @@ var LeshiSource = class extends BaseSource {
         }
       }
       if (dlElements.length === 0) {
-        log("error", `\u4ECE\u5BB9\u5668\u4E2D\u672A\u80FD\u63D0\u53D6\u5230\u4EFB\u4F55dl.dl_temp\u5143\u7D20: media_id=${mediaId}`);
+        log("error", `[Leshi] \u4ECE\u5BB9\u5668\u4E2D\u672A\u80FD\u63D0\u53D6\u5230\u4EFB\u4F55dl.dl_temp\u5143\u7D20: media_id=${mediaId}`);
         return [];
       }
       return this.extractEpisodes(dlElements, mediaId);
@@ -16289,7 +24891,7 @@ var LeshiSource = class extends BaseSource {
       try {
         const linkMatch = /<a[^>]+href="(\/\/www\.le\.com\/ptv\/vplay\/(\d+)\.html)"[^>]*>/.exec(element);
         if (!linkMatch) {
-          log("debug", `\u8DF3\u8FC7\u65E0\u6CD5\u89E3\u6790\u94FE\u63A5\u7684\u5267\u96C6\u5143\u7D20`);
+          log("info", `[Leshi] \u8DF3\u8FC7\u65E0\u6CD5\u89E3\u6790\u94FE\u63A5\u7684\u5267\u96C6\u5143\u7D20`);
           continue;
         }
         const fullUrl = linkMatch[1];
@@ -16328,7 +24930,7 @@ var LeshiSource = class extends BaseSource {
         }
         const isPreview = /预告|Preview|preview/.test(title);
         if (isPreview) {
-          log("debug", `\u8DF3\u8FC7\u9884\u544A\u7247: ${title}`);
+          log("info", `[Leshi] \u8DF3\u8FC7\u9884\u544A\u7247: ${title}`);
           continue;
         }
         const episode = {
@@ -16340,7 +24942,7 @@ var LeshiSource = class extends BaseSource {
         };
         episodes.push(episode);
       } catch (e) {
-        log("warning", `[Leshi] \u89E3\u6790\u5355\u4E2A\u5267\u96C6\u5931\u8D25: ${e.message}`);
+        log("warn", `[Leshi] \u89E3\u6790\u5355\u4E2A\u5267\u96C6\u5931\u8D25: ${e.message}`);
         continue;
       }
     }
@@ -16415,13 +25017,13 @@ var LeshiSource = class extends BaseSource {
     return processLeshiAnimes;
   }
   async getEpisodeDanmu(id) {
-    log("info", "\u5F00\u59CB\u4ECE\u672C\u5730\u8BF7\u6C42\u4E50\u89C6\u7F51\u5F39\u5E55...", id);
+    log("info", "[Leshi] \u5F00\u59CB\u4ECE\u672C\u5730\u8BF7\u6C42\u4E50\u89C6\u7F51\u5F39\u5E55...", id);
     const segmentResult = await this.getEpisodeDanmuSegments(id);
     if (!segmentResult || !segmentResult.segmentList || segmentResult.segmentList.length === 0) {
       return [];
     }
     const segmentList = segmentResult.segmentList;
-    log("info", `\u5F39\u5E55\u5206\u6BB5\u6570\u91CF: ${segmentList.length}`);
+    log("info", `[Leshi] \u5F39\u5E55\u5206\u6BB5\u6570\u91CF: ${segmentList.length}`);
     const MAX_CONCURRENT = 10;
     const allComments = [];
     for (let i = 0; i < segmentList.length; i += MAX_CONCURRENT) {
@@ -16441,7 +25043,7 @@ var LeshiSource = class extends BaseSource {
             break;
           }
         } else {
-          log("error", `\u83B7\u53D6\u5F39\u5E55\u6BB5\u5931\u8D25 (${start2}-${end2}s):`, result.reason.message);
+          log("error", `[Leshi] \u83B7\u53D6\u5F39\u5E55\u6BB5\u5931\u8D25 (${start2}-${end2}s):`, result.reason.message);
         }
       }
       if (i + MAX_CONCURRENT < segmentList.length) {
@@ -16449,7 +25051,7 @@ var LeshiSource = class extends BaseSource {
       }
     }
     if (allComments.length === 0) {
-      log("info", `\u4E50\u89C6\u7F51: \u8BE5\u89C6\u9891\u6682\u65E0\u5F39\u5E55\u6570\u636E (vid=${id})`);
+      log("info", `[Leshi] \u4E50\u89C6\u7F51: \u8BE5\u89C6\u9891\u6682\u65E0\u5F39\u5E55\u6570\u636E (vid=${id})`);
       return [];
     }
     printFirst200Chars(allComments);
@@ -16477,12 +25079,12 @@ var LeshiSource = class extends BaseSource {
       }
       return contents;
     } catch (error) {
-      log("error", "\u8BF7\u6C42\u5206\u7247\u5F39\u5E55\u5931\u8D25:", error);
+      log("error", "[Leshi] \u8BF7\u6C42\u5206\u7247\u5F39\u5E55\u5931\u8D25:", error);
       return [];
     }
   }
   async getEpisodeDanmuSegments(id) {
-    log("info", "\u83B7\u53D6\u4E50\u89C6\u7F51\u5F39\u5E55\u5206\u6BB5\u5217\u8868...", id);
+    log("info", "[Leshi] \u83B7\u53D6\u4E50\u89C6\u7F51\u5F39\u5E55\u5206\u6BB5\u5217\u8868...", id);
     let videoId = id;
     const match = id.match(/\/vplay\/(\d+)\.html/);
     if (match) {
@@ -16500,7 +25102,7 @@ var LeshiSource = class extends BaseSource {
         "url": `https://hd-my.le.com/danmu/list?vid=${videoId}&start=${startTime}&end=${endTime}&callback=vjs_${Date.now()}`
       });
     }
-    log("info", `\u4E50\u89C6\u7F51: \u89C6\u9891\u65F6\u957F ${duration}\u79D2\uFF0C\u5206\u4E3A ${segments.length} \u4E2A\u65F6\u95F4\u6BB5`);
+    log("info", `[Leshi] \u4E50\u89C6\u7F51: \u89C6\u9891\u65F6\u957F ${duration}\u79D2\uFF0C\u5206\u4E3A ${segments.length} \u4E2A\u65F6\u95F4\u6BB5`);
     return new SegmentListResponse({
       "type": "leshi",
       "segmentList": segments
@@ -16513,7 +25115,7 @@ var LeshiSource = class extends BaseSource {
     try {
       const response = await Widget.http.get(`https://www.le.com/ptv/vplay/${videoId}.html`, { timeout: 1e4 });
       if (!response || !response.data) {
-        log("warning", `\u4E50\u89C6\u7F51: \u83B7\u53D6\u89C6\u9891\u65F6\u957F\u5931\u8D25\uFF0C\u4F7F\u7528\u9ED8\u8BA4\u503C2400\u79D2`);
+        log("warn", `[Leshi] \u4E50\u89C6\u7F51: \u83B7\u53D6\u89C6\u9891\u65F6\u957F\u5931\u8D25\uFF0C\u4F7F\u7528\u9ED8\u8BA4\u503C2400\u79D2`);
         return 2400;
       }
       const durationMatch = /duration['"]?\s*:\s*['"]?(\d{2}):(\d{2}):(\d{2})['"]?|duration['"]?\s*:\s*['"]?(\d{2}):(\d{2})['"]?|duration['"]?\s*:\s*(\d+)['"]?/.exec(response.data);
@@ -16534,7 +25136,7 @@ var LeshiSource = class extends BaseSource {
       }
       return 2400;
     } catch (e) {
-      log("warning", `\u83B7\u53D6\u89C6\u9891\u65F6\u957F\u5931\u8D25: ${e}\uFF0C\u4F7F\u7528\u9ED8\u8BA4\u503C2400\u79D2`);
+      log("warn", `[Leshi] \u83B7\u53D6\u89C6\u9891\u65F6\u957F\u5931\u8D25: ${e}\uFF0C\u4F7F\u7528\u9ED8\u8BA4\u503C2400\u79D2`);
       return 2400;
     }
   }
@@ -16555,7 +25157,7 @@ var LeshiSource = class extends BaseSource {
           t: Math.round(timeVal * 100) / 100
         };
       } catch (error) {
-        log("error", `\u683C\u5F0F\u5316\u5F39\u5E55\u5931\u8D25: ${error.message}, \u5F39\u5E55\u6570\u636E:`, comment);
+        log("error", `[Leshi] \u683C\u5F0F\u5316\u5F39\u5E55\u5931\u8D25: ${error.message}, \u5F39\u5E55\u6570\u636E:`, comment);
         return null;
       }
     }).filter((comment) => comment !== null);
@@ -16610,13 +25212,13 @@ var XiguaSource = class extends BaseSource {
           }
         });
       } else {
-        log("info", "xiguaSearchresp: \u76F8\u5173\u89C6\u9891\u7684section \u4E0D\u5B58\u5728");
+        log("info", "[Xigua] xiguaSearchresp: \u76F8\u5173\u89C6\u9891\u7684section \u4E0D\u5B58\u5728");
         return [];
       }
       log("info", `[Xigua] \u641C\u7D22\u627E\u5230 ${animes.length} \u4E2A\u6709\u6548\u7ED3\u679C`);
       return animes;
     } catch (error) {
-      log("error", "getXiguaAnimes error:", {
+      log("error", "[Xigua] getXiguaAnimes error:", {
         message: error.message,
         name: error.name,
         stack: error.stack
@@ -16634,13 +25236,13 @@ var XiguaSource = class extends BaseSource {
         }
       });
       if (!resp || !resp.data) {
-        log("info", "getXiguaDetail: \u8BF7\u6C42\u5931\u8D25\u6216\u65E0\u6570\u636E\u8FD4\u56DE");
+        log("info", "[Xigua] getXiguaDetail: \u8BF7\u6C42\u5931\u8D25\u6216\u65E0\u6570\u636E\u8FD4\u56DE");
         return 0;
       }
       const match = resp.data.match(/"duration"\s*:\s*([\d.]+)/);
       return match ? parseFloat(match[1]) : 0;
     } catch (error) {
-      log("error", "getXiguaDetail error:", {
+      log("error", "[Xigua] getXiguaDetail error:", {
         message: error.message,
         name: error.name,
         stack: error.stack
@@ -16657,7 +25259,7 @@ var XiguaSource = class extends BaseSource {
         }
       });
       if (!detailResp || !detailResp.data) {
-        log("info", "getXiguaEposides: \u8BF7\u6C42\u5931\u8D25\u6216\u65E0\u6570\u636E\u8FD4\u56DE");
+        log("info", "[Xigua] getXiguaEposides: \u8BF7\u6C42\u5931\u8D25\u6216\u65E0\u6570\u636E\u8FD4\u56DE");
         return [];
       }
       const episodesMatch = detailResp.data.match(/"episodes_list"\s*:\s*(\[[\s\S]*?\})\s*\]/);
@@ -16674,14 +25276,14 @@ var XiguaSource = class extends BaseSource {
           }));
           return playlistUrls;
         } catch (e) {
-          log("error", "\u89E3\u6790episodes_list\u5931\u8D25:", e);
+          log("error", "[Xigua] \u89E3\u6790episodes_list\u5931\u8D25:", e);
         }
       } else {
-        log("info", "getXiguaEposides: episodes_list \u4E0D\u5B58\u5728");
+        log("info", "[Xigua] getXiguaEposides: episodes_list \u4E0D\u5B58\u5728");
         return [];
       }
     } catch (error) {
-      log("error", "getXiguaEposides error:", {
+      log("error", "[Xigua] getXiguaEposides error:", {
         message: error.message,
         name: error.name,
         stack: error.stack
@@ -16756,13 +25358,13 @@ var XiguaSource = class extends BaseSource {
     return processXiguaAnimes;
   }
   async getEpisodeDanmu(id) {
-    log("info", "\u5F00\u59CB\u4ECE\u672C\u5730\u8BF7\u6C42\u897F\u74DC\u89C6\u9891\u5F39\u5E55...", id);
+    log("info", "[Xigua] \u5F00\u59CB\u4ECE\u672C\u5730\u8BF7\u6C42\u897F\u74DC\u89C6\u9891\u5F39\u5E55...", id);
     const segmentResult = await this.getEpisodeDanmuSegments(id);
     if (!segmentResult || !segmentResult.segmentList || segmentResult.segmentList.length === 0) {
       return [];
     }
     const segmentList = segmentResult.segmentList;
-    log("info", `\u5F39\u5E55\u5206\u6BB5\u6570\u91CF: ${segmentList.length}`);
+    log("info", `[Xigua] \u5F39\u5E55\u5206\u6BB5\u6570\u91CF: ${segmentList.length}`);
     const MAX_CONCURRENT = 100;
     const allComments = [];
     for (let i = 0; i < segmentList.length; i += MAX_CONCURRENT) {
@@ -16780,7 +25382,7 @@ var XiguaSource = class extends BaseSource {
             allComments.push(...comments);
           }
         } else {
-          log("error", `\u83B7\u53D6\u5F39\u5E55\u6BB5\u5931\u8D25 (${start2}-${end2}s):`, result.reason.message);
+          log("error", `[Xigua] \u83B7\u53D6\u5F39\u5E55\u6BB5\u5931\u8D25 (${start2}-${end2}s):`, result.reason.message);
         }
       }
       if (i + MAX_CONCURRENT < segmentList.length) {
@@ -16788,18 +25390,18 @@ var XiguaSource = class extends BaseSource {
       }
     }
     if (allComments.length === 0) {
-      log("info", `\u897F\u74DC\u89C6\u9891: \u8BE5\u89C6\u9891\u6682\u65E0\u5F39\u5E55\u6570\u636E (vid=${id})`);
+      log("info", `[Xigua] \u897F\u74DC\u89C6\u9891: \u8BE5\u89C6\u9891\u6682\u65E0\u5F39\u5E55\u6570\u636E (vid=${id})`);
       return [];
     }
     printFirst200Chars(allComments);
     return allComments;
   }
   async getEpisodeDanmuSegments(id) {
-    log("info", "\u83B7\u53D6\u897F\u74DC\u89C6\u9891\u5F39\u5E55\u5206\u6BB5\u5217\u8868...", id);
+    log("info", "[Xigua] \u83B7\u53D6\u897F\u74DC\u89C6\u9891\u5F39\u5E55\u5206\u6BB5\u5217\u8868...", id);
     const itemId = id.split("/").pop();
     const duration = await this.getDetail(id) * 1e3;
-    log("info", "itemId:", itemId);
-    log("info", "duration:", duration);
+    log("info", "[Xigua] itemId:", itemId);
+    log("info", "[Xigua] duration:", duration);
     const segmentDuration = 3e5;
     const segmentList = [];
     for (let i = 0; i < duration; i += segmentDuration) {
@@ -16840,7 +25442,7 @@ var XiguaSource = class extends BaseSource {
       }
       return contents;
     } catch (error) {
-      log("error", "\u8BF7\u6C42\u5206\u7247\u5F39\u5E55\u5931\u8D25:", error);
+      log("error", "[Xigua] \u8BF7\u6C42\u5206\u7247\u5F39\u5E55\u5931\u8D25:", error);
       return [];
     }
   }
@@ -16929,7 +25531,7 @@ var MaiduiduiSource = class extends BaseSource {
       log("info", `[Maiduidui] \u641C\u7D22\u627E\u5230 ${animes.length} \u4E2A\u6709\u6548\u7ED3\u679C`);
       return animes;
     } catch (error) {
-      log("error", "getMaiduiduiAnimes error:", {
+      log("error", "[Maiduidui] getMaiduiduiAnimes error:", {
         message: error.message,
         name: error.name,
         stack: error.stack
@@ -16963,7 +25565,7 @@ var MaiduiduiSource = class extends BaseSource {
       }
       return 0;
     } catch (error) {
-      log("error", "getMaiduiduiDetail error:", {
+      log("error", "[Maiduidui] getMaiduiduiDetail error:", {
         message: error.message,
         name: error.name,
         stack: error.stack
@@ -16996,7 +25598,7 @@ var MaiduiduiSource = class extends BaseSource {
       });
       return eps;
     } catch (error) {
-      log("error", "getMaiduiduiEposides error:", {
+      log("error", "[Maiduidui] getMaiduiduiEposides error:", {
         message: error.message,
         name: error.name,
         stack: error.stack
@@ -17070,13 +25672,13 @@ var MaiduiduiSource = class extends BaseSource {
     return processMaiduiduiAnimes;
   }
   async getEpisodeDanmu(id) {
-    log("info", "\u5F00\u59CB\u4ECE\u672C\u5730\u8BF7\u6C42\u57CB\u5806\u5806\u5F39\u5E55...", id);
+    log("info", "[Maiduidui] \u5F00\u59CB\u4ECE\u672C\u5730\u8BF7\u6C42\u57CB\u5806\u5806\u5F39\u5E55...", id);
     const segmentResult = await this.getEpisodeDanmuSegments(id);
     if (!segmentResult || !segmentResult.segmentList || segmentResult.segmentList.length === 0) {
       return [];
     }
     const segmentList = segmentResult.segmentList;
-    log("info", `\u5F39\u5E55\u5206\u6BB5\u6570\u91CF: ${segmentList.length}`);
+    log("info", `[Maiduidui] \u5F39\u5E55\u5206\u6BB5\u6570\u91CF: ${segmentList.length}`);
     const MAX_CONCURRENT = 20;
     const allComments = [];
     for (let i = 0; i < segmentList.length; i += MAX_CONCURRENT) {
@@ -17094,7 +25696,7 @@ var MaiduiduiSource = class extends BaseSource {
             allComments.push(...comments);
           }
         } else {
-          log("error", `\u83B7\u53D6\u5F39\u5E55\u6BB5\u5931\u8D25 (${start2}-${end2}s):`, result.reason.message);
+          log("error", `[Maiduidui] \u83B7\u53D6\u5F39\u5E55\u6BB5\u5931\u8D25 (${start2}-${end2}s):`, result.reason.message);
         }
       }
       if (i + MAX_CONCURRENT < segmentList.length) {
@@ -17102,19 +25704,19 @@ var MaiduiduiSource = class extends BaseSource {
       }
     }
     if (allComments.length === 0) {
-      log("info", `\u57CB\u5806\u5806: \u8BE5\u89C6\u9891\u6682\u65E0\u5F39\u5E55\u6570\u636E (vid=${id})`);
+      log("info", `[Maiduidui] \u57CB\u5806\u5806: \u8BE5\u89C6\u9891\u6682\u65E0\u5F39\u5E55\u6570\u636E (vid=${id})`);
       return [];
     }
     printFirst200Chars(allComments);
     return allComments;
   }
   async getEpisodeDanmuSegments(id) {
-    log("info", "\u83B7\u53D6\u57CB\u5806\u5806\u5F39\u5E55\u5206\u6BB5\u5217\u8868...", id);
+    log("info", "[Maiduidui] \u83B7\u53D6\u57CB\u5806\u5806\u5F39\u5E55\u5206\u6BB5\u5217\u8868...", id);
     const idInfo = this.extractByRegex(id);
     const uuid = idInfo.uuid;
     const duration = await this.getDetail(id);
-    log("info", "uuid:", uuid);
-    log("info", "duration:", duration);
+    log("info", "[Maiduidui] uuid:", uuid);
+    log("info", "[Maiduidui] duration:", duration);
     const segmentDuration = 60;
     const segmentList = [];
     for (let i = 0; i < duration; i += segmentDuration) {
@@ -17158,7 +25760,7 @@ var MaiduiduiSource = class extends BaseSource {
       }
       return contents;
     } catch (error) {
-      log("error", "\u8BF7\u6C42\u5206\u7247\u5F39\u5E55\u5931\u8D25:", error);
+      log("error", "[Maiduidui] \u8BF7\u6C42\u5206\u7247\u5F39\u5E55\u5931\u8D25:", error);
       return [];
     }
   }
@@ -17285,7 +25887,7 @@ function extractPConfigFromHtml(html) {
         return signingConfig;
       }
     } catch (error) {
-      log("warn", "[Aiyifan] \u89E3\u6790 injectJson \u5931\u8D25\uFF0C\u56DE\u9000\u5230 pConfig \u63D0\u53D6: " + (error.message || "\u672A\u77E5\u9519\u8BEF"));
+      log("warn", "[Utils] [Aiyifan] \u89E3\u6790 injectJson \u5931\u8D25\uFF0C\u56DE\u9000\u5230 pConfig \u63D0\u53D6: " + (error.message || "\u672A\u77E5\u9519\u8BEF"));
     }
   }
   return parseFallbackPConfig(html);
@@ -17427,7 +26029,7 @@ var AiyifanSigningProvider = class {
     }
     this.signingConfig = signingConfig;
     this.signingConfigFetchedAt = now;
-    log("info", "[Aiyifan] \u5DF2\u66F4\u65B0\u684C\u9762\u7AD9\u7B7E\u540D\u914D\u7F6E: " + signingConfig.publicKey.slice(0, 12) + "...");
+    log("info", "[Utils] [Aiyifan] \u5DF2\u66F4\u65B0\u684C\u9762\u7AD9\u7B7E\u540D\u914D\u7F6E: " + signingConfig.publicKey.slice(0, 12) + "...");
     return signingConfig;
   }
   buildSignedParams(baseParams, signingConfig) {
@@ -17519,14 +26121,14 @@ var AiyifanSource = class extends BaseSource {
       "User-Agent": this.USER_AGENT,
       "Accept": "application/json"
     };
-    log("info", `[\u641C\u7D22] \u5173\u952E\u8BCD: ${keyword}, \u9875\u7801: ${page}`);
+    log("info", `[Aiyifan] [\u641C\u7D22] \u5173\u952E\u8BCD: ${keyword}, \u9875\u7801: ${page}`);
     try {
       const urlWithParams = updateQueryString(this.SEARCH_API, params);
       const response = await Widget.http.get(globals.makeProxyUrl(urlWithParams), { headers });
       const data = typeof response.data === "string" ? JSON.parse(response.data) : response.data;
       return data;
     } catch (error) {
-      log("error", `[\u641C\u7D22\u5931\u8D25] \u9519\u8BEF: ${error.message}`);
+      log("error", `[Aiyifan] [\u641C\u7D22\u5931\u8D25] \u9519\u8BEF: ${error.message}`);
       return null;
     }
   }
@@ -17539,7 +26141,7 @@ var AiyifanSource = class extends BaseSource {
     const dramas = [];
     const infoList = searchResult?.data?.info || [];
     if (!infoList.length) {
-      log("warn", "[\u8B66\u544A] \u641C\u7D22\u7ED3\u679C\u4E3A\u7A7A");
+      log("warn", "[Aiyifan] [\u8B66\u544A] \u641C\u7D22\u7ED3\u679C\u4E3A\u7A7A");
       return dramas;
     }
     for (const item of infoList) {
@@ -17555,7 +26157,7 @@ var AiyifanSource = class extends BaseSource {
           title,
           ...dramaInfo
         });
-        log("info", `[\u53D1\u73B0\u5267\u76EE] ${title}  vid=${vid2}`);
+        log("info", `[Aiyifan] [\u53D1\u73B0\u5267\u76EE] ${title}  vid=${vid2}`);
       }
     }
     return dramas;
@@ -17577,7 +26179,7 @@ var AiyifanSource = class extends BaseSource {
       "User-Agent": this.USER_AGENT,
       "Accept": "application/json"
     };
-    log("info", `[\u64AD\u653E\u5217\u8868] \u8BF7\u6C42 vid: ${vid2}`);
+    log("info", `[Aiyifan] [\u64AD\u653E\u5217\u8868] \u8BF7\u6C42 vid: ${vid2}`);
     try {
       const { data } = await this.signingProvider.signedGetJson(this.PLAYLIST_API, baseParams, headers, "\u64AD\u653E\u5217\u8868");
       const episodes = [];
@@ -17587,10 +26189,10 @@ var AiyifanSource = class extends BaseSource {
           episodes.push(ep);
         }
       }
-      log("info", `[\u64AD\u653E\u5217\u8868] \u5171\u83B7\u53D6\u5230 ${episodes.length} \u96C6`);
+      log("info", `[Aiyifan] [\u64AD\u653E\u5217\u8868] \u5171\u83B7\u53D6\u5230 ${episodes.length} \u96C6`);
       return episodes;
     } catch (error) {
-      log("error", `[\u64AD\u653E\u5217\u8868\u5931\u8D25] \u9519\u8BEF: ${error.message}`);
+      log("error", `[Aiyifan] [\u64AD\u653E\u5217\u8868\u5931\u8D25] \u9519\u8BEF: ${error.message}`);
       return [];
     }
   }
@@ -17616,13 +26218,13 @@ var AiyifanSource = class extends BaseSource {
       "Accept": "application/json"
     };
     const epInfo = epId ? `(ID:${epId})` : "";
-    log("info", `[\u89C6\u9891\u4FE1\u606F] \u8BF7\u6C42 key: ${epKey} ${epInfo}`);
+    log("info", `[Aiyifan] [\u89C6\u9891\u4FE1\u606F] \u8BF7\u6C42 key: ${epKey} ${epInfo}`);
     try {
       const { data, vv } = await this.signingProvider.signedGetJson(this.VIDEO_API, baseParams, headers, "\u89C6\u9891\u4FE1\u606F");
-      log("info", `[\u89C6\u9891\u4FE1\u606F] vv\u7B7E\u540D: ${vv.substring(0, 16)}...`);
+      log("info", `[Aiyifan] [\u89C6\u9891\u4FE1\u606F] vv\u7B7E\u540D: ${vv.substring(0, 16)}...`);
       return data.data || {};
     } catch (error) {
-      log("error", `[\u89C6\u9891\u4FE1\u606F\u5931\u8D25] \u9519\u8BEF: ${error.message}`);
+      log("error", `[Aiyifan] [\u89C6\u9891\u4FE1\u606F\u5931\u8D25] \u9519\u8BEF: ${error.message}`);
       return null;
     }
   }
@@ -17635,7 +26237,7 @@ var AiyifanSource = class extends BaseSource {
     const info = videoInfo.info?.[0] || {};
     const uniqueKey = info.uniqueKey;
     if (uniqueKey) {
-      log("info", `[\u89C6\u9891\u4FE1\u606F] \u83B7\u53D6\u5230 uniqueKey: ${uniqueKey}`);
+      log("info", `[Aiyifan] [\u89C6\u9891\u4FE1\u606F] \u83B7\u53D6\u5230 uniqueKey: ${uniqueKey}`);
     }
     return uniqueKey;
   }
@@ -17656,15 +26258,15 @@ var AiyifanSource = class extends BaseSource {
     const headers = {
       "User-Agent": this.USER_AGENT
     };
-    log("info", `[\u5F39\u5E55] \u8BF7\u6C42 uniqueKey: ${uniqueKey}`);
+    log("info", `[Aiyifan] [\u5F39\u5E55] \u8BF7\u6C42 uniqueKey: ${uniqueKey}`);
     try {
       const { data, vv } = await this.signingProvider.signedGetJson(this.DANMU_API, baseParams, headers, "\u5F39\u5E55");
-      log("info", `[\u5F39\u5E55] vv\u7B7E\u540D: ${vv.substring(0, 16)}...`);
+      log("info", `[Aiyifan] [\u5F39\u5E55] vv\u7B7E\u540D: ${vv.substring(0, 16)}...`);
       const danmuList = data.data?.info || [];
-      log("info", `[\u5F39\u5E55] \u83B7\u53D6\u5230 ${danmuList.length} \u6761\u5F39\u5E55`);
+      log("info", `[Aiyifan] [\u5F39\u5E55] \u83B7\u53D6\u5230 ${danmuList.length} \u6761\u5F39\u5E55`);
       return danmuList;
     } catch (error) {
-      log("error", `[\u5F39\u5E55\u5931\u8D25] \u9519\u8BEF: ${error.message}`);
+      log("error", `[Aiyifan] [\u5F39\u5E55\u5931\u8D25] \u9519\u8BEF: ${error.message}`);
       return [];
     }
   }
@@ -17677,12 +26279,12 @@ var AiyifanSource = class extends BaseSource {
     log("info", `[Aiyifan] \u5F00\u59CB\u641C\u7D22: ${keyword}`);
     const searchResult = await this.searchDrama(keyword);
     if (!searchResult) {
-      log("error", "\u641C\u7D22\u5931\u8D25\uFF0C\u9000\u51FA");
+      log("error", "[Aiyifan] \u641C\u7D22\u5931\u8D25\uFF0C\u9000\u51FA");
       return [];
     }
     const dramas = this.extractDramaList(searchResult);
     if (!dramas.length) {
-      log("warn", "\u672A\u627E\u5230\u5267\u76EE\u4FE1\u606F\uFF0C\u9000\u51FA");
+      log("warn", "[Aiyifan] \u672A\u627E\u5230\u5267\u76EE\u4FE1\u606F\uFF0C\u9000\u51FA");
       return [];
     }
     const results = dramas.map((drama) => {
@@ -17713,7 +26315,7 @@ var AiyifanSource = class extends BaseSource {
     log("info", `[Aiyifan] \u83B7\u53D6\u5267\u96C6\u8BE6\u60C5: ${id}`);
     const episodes = await this.getPlaylist(id);
     if (!episodes.length) {
-      log("error", "\u83B7\u53D6\u64AD\u653E\u5217\u8868\u5931\u8D25");
+      log("error", "[Aiyifan] \u83B7\u53D6\u64AD\u653E\u5217\u8868\u5931\u8D25");
       return [];
     }
     const result = episodes.map((ep, index) => ({
@@ -17809,17 +26411,17 @@ var AiyifanSource = class extends BaseSource {
       const videoId = requestKey;
       const videoInfo = await this.getVideoInfo(videoId);
       if (!videoInfo) {
-        log("error", "\u83B7\u53D6\u89C6\u9891\u4FE1\u606F\u5931\u8D25");
+        log("error", "[Aiyifan] \u83B7\u53D6\u89C6\u9891\u4FE1\u606F\u5931\u8D25");
         return [];
       }
       const uniqueKey = this.extractUniqueKey(videoInfo);
       if (!uniqueKey) {
-        log("error", "\u672A\u83B7\u53D6\u5230uniqueKey");
+        log("error", "[Aiyifan] \u672A\u83B7\u53D6\u5230uniqueKey");
         return [];
       }
       const danmuList = await this.fetchBarrage(uniqueKey);
       if (danmuList.length === 0) {
-        log("info", "\u672A\u83B7\u53D6\u5230\u5F39\u5E55");
+        log("info", "[Aiyifan] \u672A\u83B7\u53D6\u5230\u5F39\u5E55");
         return [];
       }
       danmuList.sort((a, b) => (a.second || 0) - (b.second || 0));
@@ -17893,8 +26495,12 @@ var AiyifanSource = class extends BaseSource {
 
 // danmu_api/sources/animeko.js
 var API_HEALTH2 = {
-  danmu: "GLOBAL"
+  danmu: null,
+  subject: null
 };
+var SUBJECT_CACHE = /* @__PURE__ */ new Map();
+var SUBJECT_CACHE_TTL = 3 * 60 * 1e3;
+var SUBJECT_CACHE_MAX_SIZE = 100;
 var AnimekoSource = class extends BaseSource {
   /**
    * 获取标准 HTTP 请求头
@@ -17907,8 +26513,209 @@ var AnimekoSource = class extends BaseSource {
     };
   }
   /**
+   * 为 Bangumi API 搜索请求应用代理（Animeko API 不走代理）
+   */
+  _applyProxyForSearch(targetUrl) {
+    return globals.makeProxyUrl(targetUrl);
+  }
+  /**
+   * 获取 Animeko 弹幕域专属节点优先级列表 (官方优先级及逻辑)
+   * 弹幕域仅存在于 Animeko 自建节点，不混入官方镜像
+   * @returns {Array<string>} 节点 URL 数组
+   */
+  _getDanmuServerPriority() {
+    const isUTC8 = (/* @__PURE__ */ new Date()).getTimezoneOffset() === -480;
+    if (isUTC8) {
+      return [
+        "https://api.animeko.org",
+        "https://danmaku-global.myani.org",
+        "https://danmaku-cn.myani.org",
+        "https://s1.animeko.openani.org"
+      ];
+    } else {
+      return [
+        "https://danmaku-global.myani.org",
+        "https://api.animeko.org",
+        "https://s1.animeko.openani.org",
+        "https://danmaku-cn.myani.org"
+      ];
+    }
+  }
+  /**
+   * 获取多源详情节点优先级列表 (含动态降级及代理感知)
+   * 支持官方(V0)、镜像(V0)及Animeko(V2)节点的融合队列调度
+   * @returns {Array<Object>} 包含节点类型与 URL 的配置数组
+   */
+  _getSubjectServerPriority() {
+    const officialBase = "https://api.bgm.tv";
+    const mirrorBase = "https://api.bangumi.lol";
+    const proxyOfficialBase = this._applyProxyForSearch(officialBase);
+    const isUTC8 = (/* @__PURE__ */ new Date()).getTimezoneOffset() === -480;
+    const animekoNodes = isUTC8 ? [
+      { type: "V2", url: "https://api.animeko.org" },
+      { type: "V2", url: "https://danmaku-global.myani.org" },
+      { type: "V2", url: "https://danmaku-cn.myani.org" },
+      { type: "V2", url: "https://s1.animeko.openani.org" }
+    ] : [
+      { type: "V2", url: "https://danmaku-global.myani.org" },
+      { type: "V2", url: "https://api.animeko.org" },
+      { type: "V2", url: "https://s1.animeko.openani.org" },
+      { type: "V2", url: "https://danmaku-cn.myani.org" }
+    ];
+    if (proxyOfficialBase !== officialBase) {
+      return [
+        ...animekoNodes,
+        { type: "V0", url: proxyOfficialBase },
+        { type: "V0", url: mirrorBase }
+      ];
+    } else {
+      return [
+        ...animekoNodes,
+        { type: "V0", url: mirrorBase },
+        { type: "V0", url: officialBase }
+      ];
+    }
+  }
+  /**
+   * 获取 V0 剧集列表完整数据（并发适配器内部辅助方法）
+   * Bangumi API 限制单次 limit=200，需循环获取完整列表以适配长篇番剧
+   * @param {string} serverUrl 节点地址
+   * @param {number} subjectId 条目 ID
+   * @returns {Promise<Array>} 剧集原始数据数组
+   */
+  async _fetchV0AllEpisodes(serverUrl, subjectId) {
+    let allEpisodes = [];
+    let offset = 0;
+    const limit = 200;
+    try {
+      while (true) {
+        const url = `${serverUrl}/v0/episodes?subject_id=${subjectId}&limit=${limit}&offset=${offset}`;
+        const resp = await Widget.http.get(url, {
+          headers: this.headers,
+          timeout: 3e3
+        });
+        if (!resp || !resp.data || !Array.isArray(resp.data.data)) {
+          if (offset === 0) {
+            log("info", `[Animeko] Subject ${subjectId} \u65E0\u5267\u96C6\u6570\u636E\u6216\u54CD\u5E94\u5F02\u5E38`);
+          }
+          break;
+        }
+        const currentBatch = resp.data.data;
+        if (currentBatch.length === 0) {
+          break;
+        }
+        allEpisodes = allEpisodes.concat(currentBatch);
+        if (currentBatch.length === limit) {
+          log("info", `[Animeko] ID:${subjectId} \u6B63\u52A0\u8F7D\u66F4\u591A\u5267\u96C6 (\u5F53\u524D\u5DF2\u83B7: ${allEpisodes.length})`);
+        }
+        if (currentBatch.length < limit) {
+          break;
+        }
+        offset += limit;
+        if (offset > 1600) {
+          log("warn", `[Animeko] ID:${subjectId} \u5267\u96C6\u6570\u91CF\u8D85\u8FC7\u5B89\u5168\u9650\u5236(1600)\uFF0C\u505C\u6B62\u7FFB\u9875`);
+          break;
+        }
+      }
+      return allEpisodes;
+    } catch (error) {
+      log("error", "[Animeko] V0\u5267\u96C6\u83B7\u53D6\u5F02\u5E38:", {
+        message: error.message,
+        id: subjectId,
+        offset
+      });
+      return [];
+    }
+  }
+  /**
+   * 通过多源聚合获取条目详情（含剧集与关联数据，支持智能路由降级）
+   * V2 节点: 单次请求聚合返回
+   * V0 节点: 采用适配器模式，并发获取子端点数据并组装归一化为 V2 格式，实现底层调用抹平
+   * 使用短效缓存策略兼顾请求去重与动态数据(剧集)的时效性
+   * @param {number} subjectId 条目 ID
+   * @returns {Promise<Object|null>}
+   */
+  async _fetchAnimekoSubject(subjectId) {
+    const cached = SUBJECT_CACHE.get(subjectId);
+    if (cached && Date.now() - cached.timestamp < SUBJECT_CACHE_TTL) {
+      return cached.data;
+    }
+    const servers = this._getSubjectServerPriority();
+    let currentUrl = API_HEALTH2.subject;
+    let startIndex = servers.findIndex((s) => s.url === currentUrl);
+    if (!currentUrl || startIndex === -1) {
+      startIndex = 0;
+      currentUrl = servers[0].url;
+      API_HEALTH2.subject = currentUrl;
+    }
+    for (let i = 0; i < servers.length; i++) {
+      const server = servers[(startIndex + i) % servers.length];
+      try {
+        let resultData = null;
+        if (server.type === "V2") {
+          log("info", `[Animeko] \u8BE6\u60C5\u63A5\u53E3\u8BF7\u6C42 V2 \u8282\u70B9: ${server.url} (${subjectId})`);
+          const resp = await Widget.http.get(`${server.url}/v2/subjects/${subjectId}`, {
+            headers: this.headers,
+            timeout: 3e3
+            // 限制节点请求超时时间，加速故障节点跳过与轮询降级
+          });
+          if (resp && resp.data && resp.data.id) {
+            resultData = resp.data;
+          }
+        } else if (server.type === "V0") {
+          log("info", `[Animeko] \u8BE6\u60C5\u8865\u5168\u8BF7\u6C42 V0 \u8282\u70B9: ${server.url} (${subjectId})`);
+          const [episodesData, relationsResp] = await Promise.all([
+            this._fetchV0AllEpisodes(server.url, subjectId),
+            httpGet(`${server.url}/v0/subjects/${subjectId}/subjects`, { headers: this.headers, timeout: 3e3 }).catch((e) => {
+              log("warn", `[Animeko] V0\u5173\u8054\u83B7\u53D6\u5F02\u5E38: ${e.message}`);
+              return null;
+            })
+          ]);
+          if (episodesData && episodesData.length > 0 || relationsResp) {
+            resultData = { id: subjectId };
+            if (episodesData && episodesData.length > 0) {
+              resultData.episodes = episodesData.map((ep) => ({
+                episodeId: ep.id,
+                sort: ep.sort,
+                ep: ep.ep,
+                type: ep.type === 0 ? "MAIN" : ep.type === 1 ? "SP" : String(ep.type),
+                name: ep.name,
+                nameCn: ep.name_cn,
+                airdate: ep.airdate
+              }));
+            }
+            if (relationsResp && relationsResp.data && Array.isArray(relationsResp.data)) {
+              resultData.relations = relationsResp.data;
+            }
+          }
+        }
+        if (resultData) {
+          if (API_HEALTH2.subject !== server.url) {
+            log("info", `[Animeko] \u8BE6\u60C5\u8282\u70B9\u5065\u5EB7\u72B6\u6001\u66F4\u65B0: ${API_HEALTH2.subject} -> ${server.url}`);
+            API_HEALTH2.subject = server.url;
+          }
+          SUBJECT_CACHE.set(subjectId, {
+            data: resultData,
+            timestamp: Date.now()
+          });
+          if (SUBJECT_CACHE.size > SUBJECT_CACHE_MAX_SIZE) {
+            const firstKey = SUBJECT_CACHE.keys().next().value;
+            SUBJECT_CACHE.delete(firstKey);
+          }
+          return resultData;
+        }
+        log("warn", `[Animeko] \u8282\u70B9 ${server.url} \u8FD4\u56DE\u65E0\u6548\u6570\u636E`);
+      } catch (error) {
+        log("warn", `[Animeko] \u8282\u70B9\u8BF7\u6C42\u5931\u8D25: ${server.url} - ${error.message}`);
+      }
+    }
+    log("warn", `[Animeko] \u6240\u6709\u8BE6\u60C5\u8282\u70B9\u5747\u5931\u8D25\uFF0C\u91CD\u7F6E\u5065\u5EB7\u72B6\u6001\u81F3\u4F18\u5148\u7EA7\u9996\u4F4D`);
+    API_HEALTH2.subject = servers[0].url;
+    return null;
+  }
+  /**
    * 搜索动画条目
-   * 使用 Bangumi V0 POST 接口进行搜索，支持偏移翻页、结果过滤及关系检测
+   * 使用 Bangumi V0 POST 接口进行搜索，支持偏移翻页、结果过滤、镜像回退及关系检测
    * @param {string} keyword 搜索关键词
    * @returns {Promise<Array>} 转换后的搜索结果列表
    */
@@ -17916,8 +26723,8 @@ var AnimekoSource = class extends BaseSource {
     if (globals.useBangumiData) {
       const localMatches = await searchBangumiData5(keyword, ["bangumi"]);
       if (localMatches.length > 0) {
-        log("info", `[Animeko] Bangumi-Data \u672C\u5730\u547D\u4E2D ${localMatches.length} \u6761\u6570\u636E`);
-        return this.transformResults(localMatches.map((m) => {
+        log("info", `[Animeko] Bangumi-Data \u672C\u5730\u547D\u4E2D ${localMatches.length} \u6761\u6570\u636E\uFF08\u68C0\u7D22\u8BCD\uFF1A${keyword}\uFF09`);
+        const mapped = localMatches.map((m) => {
           const displayTitle = m.titles.find((t) => t && t.includes(keyword)) || m.titles[1] || m.title;
           const finalTitle = displayTitle + (m.titleSuffix || "");
           return {
@@ -17930,7 +26737,13 @@ var AnimekoSource = class extends BaseSource {
             platform: m.typeStr,
             aliases: [...m.titles]
           };
-        }));
+        });
+        if (mapped.length > 1) {
+          const withRelations = await this.checkRelationsAndModifyTitles(mapped);
+          log("info", `[Animeko] \u641C\u7D22\u5B8C\u6210\uFF08Bangumi-Data + \u5173\u7CFB\u68C0\u6D4B\uFF09\uFF0C\u5171\u627E\u5230 ${withRelations.length} \u4E2A\u6709\u6548\u7ED3\u679C`);
+          return this.transformResults(withRelations);
+        }
+        return this.transformResults(mapped);
       }
     }
     try {
@@ -17940,7 +26753,22 @@ var AnimekoSource = class extends BaseSource {
       let offset = 0;
       const limit = 20;
       while (true) {
-        const searchUrl = `https://api.bgm.tv/v0/search/subjects?limit=${limit}&offset=${offset}`;
+        const searchPath = `/v0/search/subjects?limit=${limit}&offset=${offset}`;
+        const officialUrl = `https://api.bgm.tv${searchPath}`;
+        const mirrorUrl = `https://api.bangumi.lol${searchPath}`;
+        const proxySearchUrl = this._applyProxyForSearch(officialUrl);
+        let endpointQueue = [];
+        if (proxySearchUrl !== officialUrl) {
+          endpointQueue = [
+            { id: "PROXY_OFFICIAL", url: proxySearchUrl },
+            { id: "MIRROR", url: mirrorUrl }
+          ];
+        } else {
+          endpointQueue = [
+            { id: "MIRROR", url: mirrorUrl },
+            { id: "OFFICIAL", url: officialUrl }
+          ];
+        }
         const payload = {
           keyword: searchKeyword,
           filter: {
@@ -17948,11 +26776,24 @@ var AnimekoSource = class extends BaseSource {
             // 2 代表动画类型
           }
         };
-        const resp = await Widget.http.post(searchUrl, JSON.stringify(payload), {
-          headers: this.headers
-        });
+        let resp = null;
+        for (const ep of endpointQueue) {
+          try {
+            resp = await Widget.http.post(ep.url, JSON.stringify(payload), {
+              headers: this.headers,
+              timeout: 5e3
+              // 限制搜索超时时间，确保多节点故障转移的流畅性
+            });
+            if (resp && resp.data) {
+              log("info", `[Animeko] \u641C\u7D22\u8282\u70B9 [${ep.id}] \u8BF7\u6C42\u6210\u529F (offset: ${offset})`);
+              break;
+            }
+          } catch (error) {
+            log("warn", `[Animeko] \u641C\u7D22\u8282\u70B9 [${ep.id}] \u8BF7\u6C42\u5931\u8D25: ${error.message}`);
+          }
+        }
         if (!resp || !resp.data) {
-          log("info", `[Animeko] \u641C\u7D22\u8BF7\u6C42\u5931\u8D25\u6216\u65E0\u6570\u636E\u8FD4\u56DE (offset: ${offset})`);
+          log("info", `[Animeko] \u641C\u7D22\u8BF7\u6C42\u6240\u6709\u8282\u70B9\u5747\u5931\u8D25\u6216\u65E0\u6570\u636E\u8FD4\u56DE (offset: ${offset})`);
           break;
         }
         const currentBatch = resp.data.data || [];
@@ -18010,7 +26851,7 @@ var AnimekoSource = class extends BaseSource {
             });
           }
           if (info.key === "\u4E2D\u6587\u540D" && typeof info.value === "string") {
-            titles.push(info.value);
+            titles.push(item.value);
           }
         });
       }
@@ -18028,7 +26869,7 @@ var AnimekoSource = class extends BaseSource {
     return pattern.test(title);
   }
   /**
-   * 批量检查条目关系并修正标题
+   * 批量检查条目关系并修正标题（使用 Animeko API 的 relations 数据）
    * 对于检测到的续作或衍生关系，在标题后追加标识
    * @param {Array} list 条目列表
    * @returns {Promise<Array>} 修正后的列表
@@ -18046,7 +26887,8 @@ var AnimekoSource = class extends BaseSource {
           if (this.hasExplicitSeasonInfo(nameB)) {
             continue;
           }
-          const relations = await this.getSubjectRelations(subjectA.id);
+          const v2Data = await this._fetchAnimekoSubject(subjectA.id);
+          const relations = this._extractRelations(v2Data);
           const relationInfo = relations.find((r) => r.id === subjectB.id);
           if (relationInfo) {
             log("info", `[Animeko] \u68C0\u6D4B\u5230\u5173\u7CFB: [${nameA}] -> ${relationInfo.relation} -> [${nameB}]`);
@@ -18063,24 +26905,60 @@ var AnimekoSource = class extends BaseSource {
     return list;
   }
   /**
-   * 获取指定条目的关联条目列表
-   * @param {number} subjectId 条目 ID
-   * @returns {Promise<Array>} 关联条目数组
+   * 从关联数据中提取关联条目
+   * @param {Object|null} v2Data 动画详情数据
+   * @returns {Array} 关联条目数组
    */
-  async getSubjectRelations(subjectId) {
-    try {
-      const url = `https://api.bgm.tv/v0/subjects/${subjectId}/subjects`;
-      const resp = await Widget.http.get(url, { headers: this.headers });
-      if (!resp || !resp.data || !Array.isArray(resp.data)) return [];
-      return resp.data.filter((item) => item.type === 2).map((item) => ({
+  _extractRelations(v2Data) {
+    if (!v2Data || !v2Data.relations) return [];
+    const rel = v2Data.relations;
+    if (Array.isArray(rel)) {
+      return rel.filter((item) => item.type === 2).map((item) => ({
         id: item.id,
         name: item.name_cn || item.name,
         relation: item.relation
       }));
-    } catch (e) {
-      log("warn", `[Animeko] \u83B7\u53D6\u5173\u7CFB\u5931\u8D25 ID:${subjectId}: ${e.message}`);
-      return [];
     }
+    const results = [];
+    const mapRelations = (idArray, relationType) => {
+      if (Array.isArray(idArray)) {
+        idArray.forEach((id) => {
+          if (id) results.push({ id, name: "", relation: relationType });
+        });
+      }
+    };
+    mapRelations(rel.sequelSubjects, "\u7EED\u96C6");
+    mapRelations(rel.prequelSubjects, "\u524D\u4F20");
+    mapRelations(rel.sideStorySubjects, "\u756A\u5916\u7BC7");
+    mapRelations(rel.alternativeSettingSubjects, "\u4E0D\u540C\u6F14\u7ECE");
+    mapRelations(rel.characterSubjects, "\u884D\u751F");
+    return results;
+  }
+  /**
+   * 从 Animeko API 模板化 infobox 中提取指定键值
+   * @param {Object} infobox
+   * @param {string} targetKey
+   * @returns {string|null}
+   */
+  _extractInfoboxValue(infobox, targetKey) {
+    if (!infobox || !infobox.fields || !Array.isArray(infobox.fields)) return null;
+    const field = infobox.fields.find((f) => f.key === targetKey);
+    if (field && field.values && field.values.length > 0) {
+      return field.values[0].v || null;
+    }
+    return null;
+  }
+  _ExtractInfoboxAliases(infobox) {
+    const aliases = [];
+    if (!infobox || !infobox.fields || !Array.isArray(infobox.fields)) return aliases;
+    infobox.fields.forEach((field) => {
+      if (field.key === "\u522B\u540D" && Array.isArray(field.values)) {
+        field.values.forEach((v) => {
+          if (v && v.v && !aliases.includes(v.v)) aliases.push(v.v);
+        });
+      }
+    });
+    return aliases;
   }
   /**
    * 将 API 结果转换为统一的数据格式
@@ -18093,6 +26971,7 @@ var AnimekoSource = class extends BaseSource {
       if (item.platform) {
         switch (item.platform) {
           case "TV":
+          case 1:
             typeDesc = "TV\u52A8\u753B";
             break;
           case "Web":
@@ -18105,90 +26984,82 @@ var AnimekoSource = class extends BaseSource {
             typeDesc = "\u5267\u573A\u7248";
             break;
           default:
-            typeDesc = item.platform;
+            typeDesc = typeof item.platform === "number" ? "TV\u52A8\u753B" : item.platform;
         }
       }
       let is3D = false;
       let is2D = false;
       if (item.tags && Array.isArray(item.tags)) {
         item.tags.forEach((tag) => {
-          if (tag.name === "3D") is3D = true;
-          if (tag.name === "2D") is2D = true;
+          const tagName = tag.name || tag;
+          if (tagName === "3D") is3D = true;
+          if (tagName === "2D") is2D = true;
         });
       }
       if (is3D) typeDesc = "3D" + typeDesc;
       else if (is2D) typeDesc = "2D" + typeDesc;
       const titleSuffix = item._relation_mark ? ` ${item._relation_mark}` : "";
       const aliases = Array.isArray(item.aliases) ? [...item.aliases] : [];
-      if (item.infobox && Array.isArray(item.infobox)) {
-        item.infobox.forEach((info) => {
-          if (info.key === "\u522B\u540D" && Array.isArray(info.value)) {
-            info.value.forEach((v) => {
-              if (v && v.v && !aliases.includes(v.v)) aliases.push(v.v);
-            });
-          }
-        });
+      if (item.infobox) {
+        if (Array.isArray(item.infobox)) {
+          item.infobox.forEach((info) => {
+            if (info.key === "\u522B\u540D" && Array.isArray(info.value)) {
+              info.value.forEach((v) => {
+                if (v && v.v && !aliases.includes(v.v)) aliases.push(v.v);
+              });
+            }
+          });
+        } else if (item.infobox.fields) {
+          const boxAliases = this._ExtractInfoboxAliases(item.infobox);
+          boxAliases.forEach((a) => {
+            if (!aliases.includes(a)) aliases.push(a);
+          });
+        }
       }
       if (item.name_cn && item.name_cn !== item.name) {
         aliases.push(item.name_cn);
       }
+      if (item.nameCn && item.nameCn !== item.name) {
+        if (!aliases.includes(item.nameCn)) aliases.push(item.nameCn);
+      }
+      const airDate = item.airDate || item.date || "";
       return {
         id: item.id,
         name: item.name,
-        name_cn: (item.name_cn || item.name) + titleSuffix,
+        name_cn: (item.name_cn || item.nameCn || item.name) + titleSuffix,
         aliases,
         images: item.images,
-        air_date: item.date,
-        score: item.score,
+        air_date: airDate,
+        score: item.score ? parseFloat(item.score) : 0,
         typeDescription: typeDesc
       };
     });
   }
   /**
-   * 获取剧集列表
-   * Bangumi API 限制单次 limit=200，需循环获取完整列表
+   * 获取剧集列表（含多源节点层级降级适配）
    * @param {number} subjectId 条目 ID
    * @returns {Promise<Array>} 剧集数组
    */
   async getEpisodes(subjectId) {
-    let allEpisodes = [];
-    let offset = 0;
-    const limit = 200;
     try {
-      while (true) {
-        const url = `https://api.bgm.tv/v0/episodes?subject_id=${subjectId}&limit=${limit}&offset=${offset}`;
-        const resp = await Widget.http.get(url, {
-          headers: this.headers
-        });
-        if (!resp || !resp.data || !Array.isArray(resp.data.data)) {
-          if (offset === 0) {
-            log("info", `[Animeko] Subject ${subjectId} \u65E0\u5267\u96C6\u6570\u636E\u6216\u54CD\u5E94\u5F02\u5E38`);
-          }
-          break;
-        }
-        const currentBatch = resp.data.data;
-        if (currentBatch.length === 0) {
-          break;
-        }
-        allEpisodes = allEpisodes.concat(currentBatch);
-        if (currentBatch.length === limit) {
-          log("info", `[Animeko] ID:${subjectId} \u6B63\u52A0\u8F7D\u66F4\u591A\u5267\u96C6 (\u5F53\u524D\u5DF2\u83B7: ${allEpisodes.length})`);
-        }
-        if (currentBatch.length < limit) {
-          break;
-        }
-        offset += limit;
-        if (offset > 1600) {
-          log("warn", `[Animeko] ID:${subjectId} \u5267\u96C6\u6570\u91CF\u8D85\u8FC7\u5B89\u5168\u9650\u5236(1600)\uFF0C\u505C\u6B62\u7FFB\u9875`);
-          break;
-        }
+      const v2Data = await this._fetchAnimekoSubject(subjectId);
+      if (!v2Data || !v2Data.episodes || !Array.isArray(v2Data.episodes)) {
+        if (v2Data) log("info", `[Animeko] Subject ${subjectId} \u65E0\u5267\u96C6\u6570\u636E`);
+        return [];
       }
-      return allEpisodes;
+      return v2Data.episodes.map((ep) => ({
+        id: ep.episodeId,
+        sort: parseInt(ep.sort) || 0,
+        ep: ep.ep,
+        type: ep.type === "MAIN" ? 0 : ep.type === "SP" ? 1 : ep.type,
+        name: ep.name || "",
+        name_cn: ep.nameCn || "",
+        airdate: ep.airdate || ""
+      }));
     } catch (error) {
       log("error", "[Animeko] GetEpisodes error:", {
         message: error.message,
-        id: subjectId,
-        offset
+        id: subjectId
       });
       return [];
     }
@@ -18273,7 +27144,7 @@ var AnimekoSource = class extends BaseSource {
   }
   /**
    * 获取完整弹幕列表
-   * 支持自动降级：Global -> CN
+   * 采用与详情一致的独立健康检查轮询机制与动态时区优先级
    * @param {string} episodeId 剧集 ID 或 完整 API URL
    * @returns {Promise<Array>} 弹幕数组
    */
@@ -18290,45 +27161,43 @@ var AnimekoSource = class extends BaseSource {
       log("error", "[Animeko] \u65E0\u6548\u7684 episodeId");
       return [];
     }
-    const endpoints = {
-      "GLOBAL": "https://danmaku-global.myani.org",
-      "CN": "https://danmaku-cn.myani.org"
-    };
-    const tiers = ["GLOBAL", "CN"];
-    const fetchDanmu = async (hostUrl) => {
+    const servers = this._getDanmuServerPriority();
+    let currentHost = API_HEALTH2.danmu;
+    let startIndex = servers.indexOf(currentHost);
+    if (!currentHost || startIndex === -1) {
+      startIndex = 0;
+      currentHost = servers[0];
+      API_HEALTH2.danmu = currentHost;
+    }
+    for (let i = 0; i < servers.length; i++) {
+      const hostIndex = (startIndex + i) % servers.length;
+      const hostUrl = servers[hostIndex];
       const targetUrl = `${hostUrl}/v1/danmaku/${realId}`;
+      log("info", `[Animeko] \u5C1D\u8BD5\u4F7F\u7528 ${hostUrl} \u8282\u70B9\u83B7\u53D6\u5F39\u5E55`);
       try {
-        const resp = await Widget.http.get(targetUrl, { headers: this.headers });
-        if (!resp || !resp.data) return null;
-        const body = resp.data;
-        if (body.danmakuList) return body.danmakuList;
-        return null;
+        const resp = await Widget.http.get(targetUrl, {
+          headers: this.headers,
+          timeout: 3e3
+          // 限制节点请求超时时间为 3000 毫秒，加速故障节点跳过与轮询降级
+        });
+        if (resp && resp.data) {
+          const danmuList = resp.data.danmakuList;
+          if (danmuList && Array.isArray(danmuList)) {
+            if (API_HEALTH2.danmu !== hostUrl) {
+              log("info", `[Animeko] \u5F39\u5E55\u57DF\u8282\u70B9\u5065\u5EB7\u72B6\u6001\u66F4\u65B0: ${API_HEALTH2.danmu} -> ${hostUrl}`);
+              API_HEALTH2.danmu = hostUrl;
+            }
+            log("info", `[Animeko] \u6210\u529F\u83B7\u53D6\u5F39\u5E55\uFF0C\u5171 ${danmuList.length} \u6761 (${hostUrl}\u8282\u70B9)`);
+            return danmuList;
+          }
+        }
+        log("info", `[Animeko] ${hostUrl} \u8282\u70B9\u83B7\u53D6\u5931\u8D25/\u65E0\u6570\u636E\uFF0C\u89E6\u53D1\u964D\u7EA7`);
       } catch (error) {
         log("warn", `[Animeko] \u8BF7\u6C42\u8282\u70B9\u5931\u8D25: ${hostUrl} - ${error.message}`);
-        return null;
-      }
-    };
-    let danmuList = null;
-    let currentTierIndex = tiers.indexOf(API_HEALTH2.danmu);
-    if (currentTierIndex === -1) currentTierIndex = 0;
-    for (let i = currentTierIndex; i < tiers.length; i++) {
-      const tier = tiers[i];
-      const hostUrl = endpoints[tier];
-      log("info", `[Animeko] \u5C1D\u8BD5\u4F7F\u7528 ${tier} \u8282\u70B9\u83B7\u53D6\u5F39\u5E55`);
-      danmuList = await fetchDanmu(hostUrl);
-      if (danmuList && Array.isArray(danmuList)) {
-        if (API_HEALTH2.danmu !== tier) {
-          log("info", `[Animeko] \u5F39\u5E55\u57DF\u8282\u70B9\u5065\u5EB7\u72B6\u6001\u66F4\u65B0: ${API_HEALTH2.danmu} -> ${tier}`);
-          API_HEALTH2.danmu = tier;
-        }
-        log("info", `[Animeko] \u6210\u529F\u83B7\u53D6\u5F39\u5E55\uFF0C\u5171 ${danmuList.length} \u6761 (${tier}\u8282\u70B9)`);
-        return danmuList;
-      } else {
-        log("info", `[Animeko] ${tier} \u8282\u70B9\u83B7\u53D6\u5931\u8D25/\u65E0\u6570\u636E\uFF0C\u89E6\u53D1\u964D\u7EA7`);
       }
     }
-    log("info", `[Animeko] \u5F39\u5E55\u57DF\u6240\u6709\u964D\u7EA7\u8282\u70B9\u5747\u5931\u8D25\uFF0C\u91CD\u7F6E\u5065\u5EB7\u72B6\u6001\u81F3 GLOBAL \u8282\u70B9`);
-    API_HEALTH2.danmu = "GLOBAL";
+    log("info", `[Animeko] \u5F39\u5E55\u57DF\u6240\u6709\u964D\u7EA7\u8282\u70B9\u5747\u5931\u8D25\uFF0C\u91CD\u7F6E\u5065\u5EB7\u72B6\u6001\u81F3\u9996\u9009\u8282\u70B9`);
+    API_HEALTH2.danmu = servers[0];
     return [];
   }
   /**
@@ -18397,16 +27266,16 @@ var OtherSource = class extends BaseSource {
           }
         }
       );
-      log("info", `danmu response from ${globals.otherServer}: \u2193\u2193\u2193`);
+      log("info", `[Other] danmu response from ${globals.otherServer}: \u2193\u2193\u2193`);
       printFirst200Chars(response.data);
       return response.data;
     } catch (error) {
-      log("error", `\u8BF7\u6C42 ${globals.otherServer} \u5931\u8D25:`, error);
+      log("error", `[Other] \u8BF7\u6C42 ${globals.otherServer} \u5931\u8D25:`, error);
       return [];
     }
   }
   async getEpisodeDanmuSegments(id) {
-    log("info", "\u83B7\u53D6\u7B2C\u4E09\u65B9\u670D\u52A1\u5668\u5F39\u5E55\u5206\u6BB5\u5217\u8868...", id);
+    log("info", "[Other] \u83B7\u53D6\u7B2C\u4E09\u65B9\u670D\u52A1\u5668\u5F39\u5E55\u5206\u6BB5\u5217\u8868...", id);
     return new SegmentListResponse({
       "type": "other_server",
       "segmentList": [{
@@ -18482,34 +27351,34 @@ async function resolveUrlDuration(url) {
     let targetUrl = url;
     let segmentResult = null;
     if (targetUrl.includes(".qq.com")) {
-      segmentResult = await tencentSource2.getComments(targetUrl, "qq", true);
+      segmentResult = await sourceLogContext.run("tencent", () => tencentSource2.getComments(targetUrl, "qq", true));
     } else if (targetUrl.includes(".iqiyi.com")) {
-      segmentResult = await iqiyiSource2.getComments(targetUrl, "qiyi", true);
+      segmentResult = await sourceLogContext.run("iqiyi", () => iqiyiSource2.getComments(targetUrl, "qiyi", true));
     } else if (targetUrl.includes(".mgtv.com")) {
-      segmentResult = await mangoSource2.getComments(targetUrl, "imgo", true);
+      segmentResult = await sourceLogContext.run("mango", () => mangoSource2.getComments(targetUrl, "imgo", true));
     } else if (targetUrl.includes(".bilibili.com") || targetUrl.includes("b23.tv")) {
       if (targetUrl.includes("b23.tv")) {
-        targetUrl = await bilibiliSource2.resolveB23Link(targetUrl);
+        targetUrl = await sourceLogContext.run("bilibili", () => bilibiliSource2.resolveB23Link(targetUrl));
       }
-      segmentResult = await bilibiliSource2.getComments(targetUrl, "bilibili1", true);
+      segmentResult = await sourceLogContext.run("bilibili", () => bilibiliSource2.getComments(targetUrl, "bilibili1", true));
     } else if (targetUrl.includes(".youku.com")) {
-      segmentResult = await youkuSource2.getComments(targetUrl, "youku", true);
+      segmentResult = await sourceLogContext.run("youku", () => youkuSource2.getComments(targetUrl, "youku", true));
     } else if (targetUrl.includes(".miguvideo.com")) {
-      segmentResult = await miguSource.getComments(targetUrl, "migu", true);
+      segmentResult = await sourceLogContext.run("migu", () => miguSource.getComments(targetUrl, "migu", true));
     } else if (targetUrl.includes(".sohu.com")) {
-      segmentResult = await sohuSource.getComments(targetUrl, "sohu", true);
+      segmentResult = await sourceLogContext.run("sohu", () => sohuSource.getComments(targetUrl, "sohu", true));
     } else if (targetUrl.includes(".le.com")) {
-      segmentResult = await leshiSource.getComments(targetUrl, "leshi", true);
+      segmentResult = await sourceLogContext.run("leshi", () => leshiSource.getComments(targetUrl, "leshi", true));
     } else if (targetUrl.includes(".douyin.com") || targetUrl.includes(".ixigua.com")) {
-      segmentResult = await xiguaSource.getComments(targetUrl, "xigua", true);
+      segmentResult = await sourceLogContext.run("xigua", () => xiguaSource.getComments(targetUrl, "xigua", true));
     } else if (targetUrl.includes(".mddcloud.com.cn")) {
-      segmentResult = await maiduiduiSource.getComments(targetUrl, "maiduidui", true);
+      segmentResult = await sourceLogContext.run("maiduidui", () => maiduiduiSource.getComments(targetUrl, "maiduidui", true));
     } else if (targetUrl.includes(".yfsp.tv")) {
-      segmentResult = await aiyifanSource.getComments(targetUrl, "aiyifan", true);
+      segmentResult = await sourceLogContext.run("aiyifan", () => aiyifanSource.getComments(targetUrl, "aiyifan", true));
     }
     return extractDurationFromSegments(segmentResult);
   } catch (error) {
-    log("warn", `[Duration] \u83B7\u53D6\u65F6\u957F\u5931\u8D25: ${error.message}`);
+    log("warn", `[system] [Duration] \u83B7\u53D6\u65F6\u957F\u5931\u8D25: ${error.message}`);
     return 0;
   }
 }
@@ -18527,7 +27396,7 @@ async function resolveMergedDuration(url) {
     const durations = await Promise.all(targetUrls.map(resolveUrlDuration));
     return durations.reduce((maxValue, currentValue) => Math.max(maxValue, currentValue || 0), 0);
   } catch (error) {
-    log("warn", `[Duration] \u83B7\u53D6\u65F6\u957F\u5931\u8D25: ${error.message}`);
+    log("warn", `[system] [Duration] \u83B7\u53D6\u65F6\u957F\u5931\u8D25: ${error.message}`);
     return 0;
   }
 }
@@ -18556,11 +27425,181 @@ function matchSeason(anime, queryTitle, season) {
     return false;
   }
 }
-async function searchAnime(url, preferAnimeId = null, preferSource = null, detailStore = null) {
+function checkEpisodeSatisfied(animesList, querySeason, queryEpisode, requestAnimeDetailsMap, targetPlatform) {
+  if (queryEpisode === null || querySeason === null) return true;
+  let targetPlatforms = [];
+  if (targetPlatform) {
+    targetPlatforms = targetPlatform.split("&").map((s) => s.trim().toLowerCase()).filter((s) => s);
+  }
+  if (targetPlatforms.length === 0) {
+    targetPlatforms = ["_any_"];
+  }
+  let allSatisfied = true;
+  for (const tPlat of targetPlatforms) {
+    let isEpisodeSatisfied = false;
+    const seasonCapacities = /* @__PURE__ */ new Map();
+    let platformHasData = false;
+    for (const anime of animesList) {
+      const actualPlatform = extractPlatformFromTitle(anime.animeTitle) || anime.source;
+      if (tPlat !== "_any_" && getPlatformMatchScore(actualPlatform, tPlat) === 0) {
+        continue;
+      }
+      platformHasData = true;
+      const bData = getBangumiDataForMatch(anime, requestAnimeDetailsMap);
+      if (bData?.success && bData.bangumi?.episodes) {
+        const validEps = bData.bangumi.episodes.filter((ep) => !globals.episodeTitleFilter.test(ep.episodeTitle));
+        const filtered = filterSameEpisodeTitle(validEps);
+        if (filtered.some((ep) => extractEpisodeNumberFromTitle(ep.episodeTitle) === queryEpisode)) {
+          isEpisodeSatisfied = true;
+          break;
+        }
+        const candidateTitles = [anime.animeTitle];
+        if (anime.aliases && Array.isArray(anime.aliases)) candidateTitles.push(...anime.aliases);
+        let sNum = null;
+        for (const candTitle of candidateTitles) {
+          if (!candTitle) continue;
+          const s = extractSeasonNumberFromAnimeTitle(candTitle).season;
+          if (s !== null) {
+            sNum = s;
+            break;
+          }
+        }
+        if (sNum === null) sNum = 1;
+        const currentMax = seasonCapacities.get(sNum) || 0;
+        if (filtered.length > currentMax) {
+          seasonCapacities.set(sNum, filtered.length);
+        }
+      }
+    }
+    if (!platformHasData) {
+      continue;
+    }
+    if (!isEpisodeSatisfied) {
+      let totalValidEpisodes = 0;
+      for (const capacity of seasonCapacities.values()) {
+        totalValidEpisodes += capacity;
+      }
+      if (totalValidEpisodes < queryEpisode) {
+        allSatisfied = false;
+        break;
+      }
+    }
+  }
+  return allSatisfied;
+}
+async function executeSourceHandlers(resultData, queryTitle, targetAnimesList, requestAnimeDetailsMap, targetSeason, preferAnimeId = null, preferSource = null) {
+  const {
+    vod: animesVodResults,
+    360: animes360,
+    tmdb: animesTmdb,
+    douban: animesDouban,
+    renren: animesRenren,
+    hanjutv: animesHanjutv,
+    bahamut: animesBahamut,
+    dandan: animesDandan,
+    custom: animesCustom,
+    tencent: animesTencent,
+    youku: animesYouku,
+    iqiyi: animesIqiyi,
+    imgo: animesImgo,
+    bilibili: animesBilibili,
+    migu: animesMigu,
+    sohu: animesSohu,
+    leshi: animesLeshi,
+    xigua: animesXigua,
+    maiduidui: animesMaiduidui,
+    aiyifan: animesAiyifan,
+    animeko: animesAnimeko
+  } = resultData;
+  const activeSourceKeys = globals.sourceOrderArr.filter((key) => resultData[key] !== void 0);
+  const sourceTasks = [];
+  for (const key of activeSourceKeys) {
+    const isolatedAnimes = [];
+    const isolatedDetailStore = /* @__PURE__ */ new Map();
+    if (key === "360") {
+      sourceTasks.push({ key, animes: isolatedAnimes, detailStore: isolatedDetailStore, promise: sourceLogContext.run(toLogSourceName(key), () => kan360Source.handleAnimes(animes360, queryTitle, isolatedAnimes, isolatedDetailStore, targetSeason)) });
+    } else if (key === "vod") {
+      if (animesVodResults && Array.isArray(animesVodResults)) {
+        const vodPromise = sourceLogContext.run(key, () => (async () => {
+          for (const vodResult of animesVodResults) {
+            if (vodResult && vodResult.list && vodResult.list.length > 0) {
+              await vodSource.handleAnimes(vodResult.list, queryTitle, isolatedAnimes, vodResult.serverName, isolatedDetailStore, targetSeason);
+            }
+          }
+        })());
+        sourceTasks.push({ key, animes: isolatedAnimes, detailStore: isolatedDetailStore, promise: vodPromise });
+      }
+    } else if (key === "tmdb") {
+      sourceTasks.push({ key, animes: isolatedAnimes, detailStore: isolatedDetailStore, promise: sourceLogContext.run(key, () => tmdbSource.handleAnimes(animesTmdb, queryTitle, isolatedAnimes, isolatedDetailStore, targetSeason)) });
+    } else if (key === "douban") {
+      sourceTasks.push({ key, animes: isolatedAnimes, detailStore: isolatedDetailStore, promise: sourceLogContext.run(key, () => doubanSource.handleAnimes(animesDouban, queryTitle, isolatedAnimes, isolatedDetailStore, targetSeason)) });
+    } else if (key === "renren") {
+      sourceTasks.push({ key, animes: isolatedAnimes, detailStore: isolatedDetailStore, promise: sourceLogContext.run(key, () => renrenSource.handleAnimes(animesRenren, queryTitle, isolatedAnimes, isolatedDetailStore, targetSeason)) });
+    } else if (key === "hanjutv") {
+      sourceTasks.push({ key, animes: isolatedAnimes, detailStore: isolatedDetailStore, promise: sourceLogContext.run(key, () => hanjutvSource.handleAnimes(animesHanjutv, queryTitle, isolatedAnimes, isolatedDetailStore, targetSeason)) });
+    } else if (key === "bahamut") {
+      sourceTasks.push({ key, animes: isolatedAnimes, detailStore: isolatedDetailStore, promise: sourceLogContext.run(key, () => bahamutSource2.handleAnimes(animesBahamut, queryTitle, isolatedAnimes, isolatedDetailStore, targetSeason)) });
+    } else if (key === "dandan") {
+      sourceTasks.push({ key, animes: isolatedAnimes, detailStore: isolatedDetailStore, promise: sourceLogContext.run(key, () => dandanSource.handleAnimes(animesDandan, queryTitle, isolatedAnimes, isolatedDetailStore, targetSeason)) });
+    } else if (key === "custom") {
+      sourceTasks.push({ key, animes: isolatedAnimes, detailStore: isolatedDetailStore, promise: sourceLogContext.run(key, () => customSource.handleAnimes(animesCustom, queryTitle, isolatedAnimes)) });
+    } else if (key === "tencent") {
+      sourceTasks.push({ key, animes: isolatedAnimes, detailStore: isolatedDetailStore, promise: sourceLogContext.run(key, () => tencentSource2.handleAnimes(animesTencent, queryTitle, isolatedAnimes, isolatedDetailStore, targetSeason)) });
+    } else if (key === "youku") {
+      sourceTasks.push({ key, animes: isolatedAnimes, detailStore: isolatedDetailStore, promise: sourceLogContext.run(key, () => youkuSource2.handleAnimes(animesYouku, queryTitle, isolatedAnimes, isolatedDetailStore, targetSeason)) });
+    } else if (key === "iqiyi") {
+      sourceTasks.push({ key, animes: isolatedAnimes, detailStore: isolatedDetailStore, promise: sourceLogContext.run(key, () => iqiyiSource2.handleAnimes(animesIqiyi, queryTitle, isolatedAnimes, isolatedDetailStore, targetSeason)) });
+    } else if (key === "imgo") {
+      sourceTasks.push({ key, animes: isolatedAnimes, detailStore: isolatedDetailStore, promise: sourceLogContext.run(toLogSourceName(key), () => mangoSource2.handleAnimes(animesImgo, queryTitle, isolatedAnimes, isolatedDetailStore, targetSeason)) });
+    } else if (key === "bilibili") {
+      sourceTasks.push({ key, animes: isolatedAnimes, detailStore: isolatedDetailStore, promise: sourceLogContext.run(key, () => bilibiliSource2.handleAnimes(animesBilibili, queryTitle, isolatedAnimes, isolatedDetailStore, targetSeason)) });
+    } else if (key === "migu") {
+      sourceTasks.push({ key, animes: isolatedAnimes, detailStore: isolatedDetailStore, promise: sourceLogContext.run(key, () => miguSource.handleAnimes(animesMigu, queryTitle, isolatedAnimes, isolatedDetailStore, targetSeason)) });
+    } else if (key === "sohu") {
+      sourceTasks.push({ key, animes: isolatedAnimes, detailStore: isolatedDetailStore, promise: sourceLogContext.run(key, () => sohuSource.handleAnimes(animesSohu, queryTitle, isolatedAnimes, isolatedDetailStore, targetSeason)) });
+    } else if (key === "leshi") {
+      sourceTasks.push({ key, animes: isolatedAnimes, detailStore: isolatedDetailStore, promise: sourceLogContext.run(key, () => leshiSource.handleAnimes(animesLeshi, queryTitle, isolatedAnimes, isolatedDetailStore, targetSeason)) });
+    } else if (key === "xigua") {
+      sourceTasks.push({ key, animes: isolatedAnimes, detailStore: isolatedDetailStore, promise: sourceLogContext.run(key, () => xiguaSource.handleAnimes(animesXigua, queryTitle, isolatedAnimes, isolatedDetailStore, targetSeason)) });
+    } else if (key === "maiduidui") {
+      sourceTasks.push({ key, animes: isolatedAnimes, detailStore: isolatedDetailStore, promise: sourceLogContext.run(key, () => maiduiduiSource.handleAnimes(animesMaiduidui, queryTitle, isolatedAnimes, isolatedDetailStore, targetSeason)) });
+    } else if (key === "aiyifan") {
+      sourceTasks.push({ key, animes: isolatedAnimes, detailStore: isolatedDetailStore, promise: sourceLogContext.run(key, () => aiyifanSource.handleAnimes(animesAiyifan, queryTitle, isolatedAnimes, isolatedDetailStore, targetSeason)) });
+    } else if (key === "animeko") {
+      sourceTasks.push({ key, animes: isolatedAnimes, detailStore: isolatedDetailStore, promise: sourceLogContext.run(key, () => animekoSource.handleAnimes(animesAnimeko, queryTitle, isolatedAnimes, isolatedDetailStore, targetSeason)) });
+    }
+  }
+  const results = await Promise.allSettled(sourceTasks.map((task) => task.promise));
+  const existingAnimeIds = new Set(targetAnimesList.map((a) => a.animeId));
+  for (let i = 0; i < sourceTasks.length; i++) {
+    if (results[i].status === "rejected") {
+      log("error", `[system] [executeSourceHandlers] \u6E90 ${sourceTasks[i].key} \u5904\u7406\u5931\u8D25: ${results[i].reason}`);
+      continue;
+    }
+    const { animes: isolatedAnimes, detailStore: isolatedDetailStore } = sourceTasks[i];
+    for (const anime of isolatedAnimes) {
+      if (!existingAnimeIds.has(anime.animeId)) {
+        targetAnimesList.push(anime);
+        existingAnimeIds.add(anime.animeId);
+      }
+    }
+    for (const [key, value] of isolatedDetailStore) {
+      if (!requestAnimeDetailsMap.has(key)) {
+        requestAnimeDetailsMap.set(key, value);
+      }
+    }
+  }
+}
+async function searchAnime(url, preferAnimeId = null, preferSource = null, detailStore = null, targetPlatform = null) {
   let queryTitle = url.searchParams.get("keyword");
+  if (globals.titleNoiseFilter) {
+    queryTitle = queryTitle.replace(globals.titleNoiseFilter, "").trim();
+  }
   let querySeason = url.searchParams.get("season");
   querySeason = querySeason ? parseInt(querySeason, 10) : null;
-  log("info", `Search anime with keyword: ${queryTitle}, target season: ${querySeason}`);
+  let queryEpisode = url.searchParams.get("episode");
+  queryEpisode = queryEpisode ? parseInt(queryEpisode, 10) : null;
+  log("info", `[system] [searchAnime] Search anime with keyword: ${queryTitle}, target season: ${querySeason}, target episode: ${queryEpisode}`);
   if (queryTitle === "") {
     return jsonResponse({
       errorCode: 0,
@@ -18571,22 +27610,114 @@ async function searchAnime(url, preferAnimeId = null, preferSource = null, detai
   }
   if (globals.animeTitleSimplified) {
     const simplifiedTitle = simplized(queryTitle);
-    log("info", `searchAnime converted traditional to simplified: ${queryTitle} -> ${simplifiedTitle}`);
+    log("info", `[system] [searchAnime] searchAnime converted traditional to simplified: ${queryTitle} -> ${simplifiedTitle}`);
     queryTitle = simplifiedTitle;
   }
   const requestAnimeDetailsMap = detailStore instanceof Map ? detailStore : /* @__PURE__ */ new Map();
   const cacheKey = querySeason !== null ? `${queryTitle}_S${querySeason}` : queryTitle;
-  const cachedResults = getSearchCache(cacheKey, requestAnimeDetailsMap);
+  let cachedResults = getSearchCache(cacheKey, requestAnimeDetailsMap);
+  if (cachedResults === null && querySeason !== null) {
+    const genericCachedResults = getSearchCache(queryTitle, requestAnimeDetailsMap);
+    if (genericCachedResults !== null) {
+      log("info", `[system] [searchAnime] Cache miss for ${cacheKey}, fallback to generic cache for ${queryTitle}`);
+      cachedResults = genericCachedResults;
+    }
+  }
   if (cachedResults !== null) {
-    return jsonResponse({
-      errorCode: 0,
-      success: true,
-      errorMessage: "",
-      animes: cachedResults
-    });
+    let satisfied = checkEpisodeSatisfied(cachedResults, querySeason, queryEpisode, requestAnimeDetailsMap, targetPlatform);
+    if (satisfied) {
+      return jsonResponse({
+        errorCode: 0,
+        success: true,
+        errorMessage: "",
+        animes: cachedResults
+      });
+    } else {
+      let currentS = querySeason + 1;
+      let combinedCachedResults = [...cachedResults];
+      let cacheMissed = false;
+      while (!satisfied && !cacheMissed) {
+        const nextCacheKey = `${queryTitle}_S${currentS}`;
+        const nextCache = getSearchCache(nextCacheKey, requestAnimeDetailsMap);
+        if (nextCache !== null && nextCache.length > 0) {
+          combinedCachedResults.push(...nextCache);
+          satisfied = checkEpisodeSatisfied(combinedCachedResults, querySeason, queryEpisode, requestAnimeDetailsMap, targetPlatform);
+          currentS++;
+        } else {
+          cacheMissed = true;
+        }
+      }
+      if (satisfied) {
+        log("info", `[system] [LogVar-API] Episode ${queryEpisode} satisfied by combining cached seasons S${querySeason} to S${currentS - 1}`);
+        return jsonResponse({
+          errorCode: 0,
+          success: true,
+          errorMessage: "",
+          animes: combinedCachedResults
+        });
+      }
+      log("info", `[system] [LogVar-API] Episode ${queryEpisode} not satisfied in cache. Proceeding to network search.`);
+    }
   }
   const curAnimes = [];
   const urlRegex = /^(https?:\/\/)?([a-zA-Z0-9-]+\.)+[a-zA-Z]{2,6}(:\d+)?(\/[^\s]*)?$/;
+  const spaceSeparatedUrls = queryTitle.split(/\s+/).filter((u) => {
+    const cleanUrl = u.replace(/@%?-?\d+(?:\.\d+)?$/, "");
+    return urlRegex.test(cleanUrl);
+  });
+  if (spaceSeparatedUrls.length >= 2) {
+    const mergeParts = spaceSeparatedUrls.map((singleUrl) => {
+      const { source, realId } = resolveSourceAndRealId(singleUrl);
+      return source ? `${source}:${realId}` : "";
+    }).filter(Boolean);
+    if (mergeParts.length >= 2) {
+      const mergeUrl = mergeParts.join(MERGE_DELIMITER);
+      const titles = [];
+      for (const singleUrl of spaceSeparatedUrls) {
+        const { source } = resolveSourceAndRealId(singleUrl);
+        if (source === "animeko") {
+          const bgmId = singleUrl.match(/(?:bgm\.tv|bangumi\.tv|bangumi\.lol|chii\.in)\/ep\/(\d+)/);
+          titles.push(`\u3010animeko\u3011 BGMEp${bgmId ? bgmId[1] : "?"}`);
+        } else if (source === "bahamut") {
+          titles.push(`\u3010bahamut\u3011 BahaSn${singleUrl.match(/sn=(\d+)/)?.[1] || "?"}`);
+        } else {
+          const pt = await sourceLogContext.run(toLogSourceName(source), () => getPageTitle(singleUrl));
+          titles.push(`\u3010${source}\u3011 ${pt}`);
+        }
+      }
+      const mergedTitle = titles.join("\uFF06");
+      const tmpAnime = Anime.fromJson({
+        "animeId": 0,
+        "bangumiId": "0",
+        "animeTitle": queryTitle,
+        "type": "",
+        "typeDescription": "\u94FE\u63A5\u5408\u5E76",
+        "imageUrl": "",
+        "startDate": "",
+        "episodeCount": 1,
+        "rating": 0,
+        "isFavorited": true
+      });
+      const links = [{
+        "name": "\u624B\u52A8\u5408\u5E76\u5F39\u5E55",
+        "url": mergeUrl,
+        "title": mergedTitle
+      }];
+      curAnimes.push(tmpAnime);
+      addAnime(Anime.fromJson({ ...tmpAnime, links }), requestAnimeDetailsMap);
+      if (globals.animes.length > globals.MAX_ANIMES) removeEarliestAnime();
+      if (globals.localCacheValid && curAnimes.length !== 0) await updateLocalCaches();
+      if (globals.redisValid && curAnimes.length !== 0) await updateRedisCaches();
+
+      const responseAnimes2 = curAnimes.map(({ links: links2, ...pureAnime }) => pureAnime);
+      return jsonResponse({
+        errorCode: 0,
+        success: true,
+        errorMessage: "",
+        animes: responseAnimes2
+      });
+    }
+  }
   if (urlRegex.test(queryTitle)) {
     const tmpAnime = Anime.fromJson({
       "animeId": 0,
@@ -18609,7 +27740,7 @@ async function searchAnime(url, preferAnimeId = null, preferSource = null, detai
       platform = "imgo";
     } else if (queryTitle.includes(".youku.com")) {
       platform = "youku";
-    } else if (queryTitle.includes(".bilibili.com")) {
+    } else if (queryTitle.includes(".bilibili.com") || queryTitle.includes("b23.tv")) {
       platform = "bilibili1";
     } else if (queryTitle.includes(".miguvideo.com")) {
       platform = "migu";
@@ -18623,11 +27754,27 @@ async function searchAnime(url, preferAnimeId = null, preferSource = null, detai
       platform = "maiduidui";
     } else if (queryTitle.includes(".yfsp.tv")) {
       platform = "aiyifan";
+    } else if (/(?:bgm|bangumi)\.(?:tv|lol)\/ep\/|chii\.in\/ep\//.test(queryTitle)) {
+      platform = "animeko";
+    } else if (queryTitle.includes("ani.gamer.com.tw")) {
+      platform = "bahamut";
     }
-    const pageTitle = await getPageTitle(queryTitle);
+    let extractedId = queryTitle;
+    let pageTitle = queryTitle;
+    if (platform === "animeko") {
+      const m = queryTitle.match(/(?:bgm\.tv|bangumi\.tv|bangumi\.lol|chii\.in)\/ep\/(\d+)/);
+      extractedId = m ? m[1] : queryTitle;
+      pageTitle = `BGMEp${extractedId}`;
+    } else if (platform === "bahamut") {
+      const m = queryTitle.match(/sn=(\d+)/);
+      extractedId = m ? m[1] : queryTitle;
+      pageTitle = `BahaSn${extractedId}`;
+    } else {
+      pageTitle = await sourceLogContext.run(toLogSourceName(platform), () => getPageTitle(queryTitle));
+    }
     const links = [{
       "name": "\u624B\u52A8\u89E3\u6790\u94FE\u63A5\u5F39\u5E55",
-      "url": queryTitle,
+      "url": extractedId,
       "title": `\u3010${platform}\u3011 ${pageTitle}`
     }];
     curAnimes.push(tmpAnime);
@@ -18651,113 +27798,105 @@ async function searchAnime(url, preferAnimeId = null, preferSource = null, detai
     });
   }
   try {
-    log("info", `Search sourceOrderArr: ${globals.sourceOrderArr}`);
-    const requestPromises = globals.sourceOrderArr.map((source) => {
-      if (source === "360") return kan360Source.search(queryTitle);
-      if (source === "vod") return vodSource.search(queryTitle, preferAnimeId, preferSource);
-      if (source === "tmdb") return tmdbSource.search(queryTitle);
-      if (source === "douban") return doubanSource.search(queryTitle);
-      if (source === "renren") return renrenSource.search(queryTitle);
-      if (source === "hanjutv") return hanjutvSource.search(queryTitle);
-      if (source === "bahamut") return bahamutSource2.search(queryTitle);
-      if (source === "dandan") return dandanSource.search(queryTitle);
-      if (source === "custom") return customSource.search(queryTitle);
-      if (source === "tencent") return tencentSource2.search(queryTitle);
-      if (source === "youku") return youkuSource2.search(queryTitle);
-      if (source === "iqiyi") return iqiyiSource2.search(queryTitle);
-      if (source === "imgo") return mangoSource2.search(queryTitle);
-      if (source === "bilibili") return bilibiliSource2.search(queryTitle);
-      if (source === "migu") return miguSource.search(queryTitle);
-      if (source === "sohu") return sohuSource.search(queryTitle);
-      if (source === "leshi") return leshiSource.search(queryTitle);
-      if (source === "xigua") return xiguaSource.search(queryTitle);
-      if (source === "maiduidui") return maiduiduiSource.search(queryTitle);
-      if (source === "aiyifan") return aiyifanSource.search(queryTitle);
-      if (source === "animeko") return animekoSource.search(queryTitle);
-    });
-    const results = await Promise.all(requestPromises);
+    log("info", `[system] [LogVar-API] Search sourceOrderArr: ${globals.sourceOrderArr}`);
     const resultData = {};
-    globals.sourceOrderArr.forEach((source, index) => {
-      resultData[source] = results[index];
+    const sourceSearchMap = {};
+    for (const source of globals.sourceOrderArr) {
+      if (source === "360") sourceSearchMap[source] = sourceLogContext.run(toLogSourceName(source), () => kan360Source.search(queryTitle));
+      else if (source === "vod") sourceSearchMap[source] = sourceLogContext.run(toLogSourceName(source), () => vodSource.search(queryTitle, preferAnimeId, preferSource));
+      else if (source === "tmdb") sourceSearchMap[source] = sourceLogContext.run(toLogSourceName(source), () => tmdbSource.search(queryTitle));
+      else if (source === "douban") sourceSearchMap[source] = sourceLogContext.run(toLogSourceName(source), () => doubanSource.search(queryTitle));
+      else if (source === "renren") sourceSearchMap[source] = sourceLogContext.run(toLogSourceName(source), () => renrenSource.search(queryTitle));
+      else if (source === "hanjutv") sourceSearchMap[source] = sourceLogContext.run(toLogSourceName(source), () => hanjutvSource.search(queryTitle));
+      else if (source === "bahamut") sourceSearchMap[source] = sourceLogContext.run(toLogSourceName(source), () => bahamutSource2.search(queryTitle));
+      else if (source === "dandan") sourceSearchMap[source] = sourceLogContext.run(toLogSourceName(source), () => dandanSource.search(queryTitle));
+      else if (source === "custom") sourceSearchMap[source] = sourceLogContext.run(toLogSourceName(source), () => customSource.search(queryTitle));
+      else if (source === "tencent") sourceSearchMap[source] = sourceLogContext.run(toLogSourceName(source), () => tencentSource2.search(queryTitle));
+      else if (source === "youku") sourceSearchMap[source] = sourceLogContext.run(toLogSourceName(source), () => youkuSource2.search(queryTitle));
+      else if (source === "iqiyi") sourceSearchMap[source] = sourceLogContext.run(toLogSourceName(source), () => iqiyiSource2.search(queryTitle));
+      else if (source === "imgo") sourceSearchMap[source] = sourceLogContext.run(toLogSourceName(source), () => mangoSource2.search(queryTitle));
+      else if (source === "bilibili") sourceSearchMap[source] = sourceLogContext.run(toLogSourceName(source), () => bilibiliSource2.search(queryTitle));
+      else if (source === "migu") sourceSearchMap[source] = sourceLogContext.run(toLogSourceName(source), () => miguSource.search(queryTitle));
+      else if (source === "sohu") sourceSearchMap[source] = sourceLogContext.run(toLogSourceName(source), () => sohuSource.search(queryTitle));
+      else if (source === "leshi") sourceSearchMap[source] = sourceLogContext.run(toLogSourceName(source), () => leshiSource.search(queryTitle));
+      else if (source === "xigua") sourceSearchMap[source] = sourceLogContext.run(toLogSourceName(source), () => xiguaSource.search(queryTitle));
+      else if (source === "maiduidui") sourceSearchMap[source] = sourceLogContext.run(toLogSourceName(source), () => maiduiduiSource.search(queryTitle));
+      else if (source === "aiyifan") sourceSearchMap[source] = sourceLogContext.run(toLogSourceName(source), () => aiyifanSource.search(queryTitle));
+      else if (source === "animeko") sourceSearchMap[source] = sourceLogContext.run(toLogSourceName(source), () => animekoSource.search(queryTitle));
+    }
+    const pipelineTasks = globals.sourceOrderArr.map((source) => {
+      const isolatedAnimes = [];
+      const isolatedDetailStore = /* @__PURE__ */ new Map();
+      const pipelinePromise = sourceSearchMap[source].then(async (searchResult) => {
+        resultData[source] = searchResult;
+        await executeSourceHandlers({ [source]: searchResult }, queryTitle, isolatedAnimes, isolatedDetailStore, querySeason, preferAnimeId, preferSource);
+      });
+      return { key: source, animes: isolatedAnimes, detailStore: isolatedDetailStore, promise: pipelinePromise };
     });
-    const {
-      vod: animesVodResults,
-      360: animes360,
-      tmdb: animesTmdb,
-      douban: animesDouban,
-      renren: animesRenren,
-      hanjutv: animesHanjutv,
-      bahamut: animesBahamut,
-      dandan: animesDandan,
-      custom: animesCustom,
-      tencent: animesTencent,
-      youku: animesYouku,
-      iqiyi: animesIqiyi,
-      imgo: animesImgo,
-      bilibili: animesBilibili,
-      migu: animesMigu,
-      sohu: animesSohu,
-      leshi: animesLeshi,
-      xigua: animesXigua,
-      maiduidui: animesMaiduidui,
-      aiyifan: animesAiyifan,
-      animeko: animesAnimeko
-    } = resultData;
-    for (const key of globals.sourceOrderArr) {
-      if (key === "360") {
-        await kan360Source.handleAnimes(animes360, queryTitle, curAnimes, requestAnimeDetailsMap, querySeason);
-      } else if (key === "vod") {
-        if (animesVodResults && Array.isArray(animesVodResults)) {
-          for (const vodResult of animesVodResults) {
-            if (vodResult && vodResult.list && vodResult.list.length > 0) {
-              await vodSource.handleAnimes(vodResult.list, queryTitle, curAnimes, vodResult.serverName, requestAnimeDetailsMap, querySeason);
+    const pipelineResults = await Promise.allSettled(pipelineTasks.map((task) => task.promise));
+    const existingAnimeIds = new Set(curAnimes.map((a) => a.animeId));
+    for (let i = 0; i < pipelineTasks.length; i++) {
+      if (pipelineResults[i].status === "rejected") {
+        log("error", `[system] [searchAnime] \u6E90 ${pipelineTasks[i].key} \u7BA1\u9053\u5904\u7406\u5931\u8D25: ${pipelineResults[i].reason}`);
+        continue;
+      }
+      const { animes: isolatedAnimes, detailStore: isolatedDetailStore } = pipelineTasks[i];
+      for (const anime of isolatedAnimes) {
+        if (!existingAnimeIds.has(anime.animeId)) {
+          curAnimes.push(anime);
+          existingAnimeIds.add(anime.animeId);
+        }
+      }
+      for (const [key, value] of isolatedDetailStore) {
+        if (!requestAnimeDetailsMap.has(key)) {
+          requestAnimeDetailsMap.set(key, value);
+        }
+      }
+    }
+    if (curAnimes.length > 0) {
+      setSearchCache(cacheKey, curAnimes.map(({ links, ...pureAnime }) => pureAnime), requestAnimeDetailsMap);
+    }
+    const isEpisodeSatisfied = checkEpisodeSatisfied(curAnimes, querySeason, queryEpisode, requestAnimeDetailsMap, targetPlatform);
+    if (!isEpisodeSatisfied && querySeason !== null) {
+      let maxSeason = querySeason;
+      for (const source of globals.sourceOrderArr) {
+        const rawAnimes = resultData[source];
+        if (Array.isArray(rawAnimes)) {
+          for (const item of rawAnimes) {
+            const list = item && Array.isArray(item.list) ? item.list : [item];
+            for (const a of list) {
+              if (!a) continue;
+              const s = extractSeasonNumberFromAnimeTitle(a.animeTitle || a.title || "").season;
+              if (s !== null && s > maxSeason) maxSeason = s;
             }
           }
         }
-      } else if (key === "tmdb") {
-        await tmdbSource.handleAnimes(animesTmdb, queryTitle, curAnimes, requestAnimeDetailsMap, querySeason);
-      } else if (key === "douban") {
-        await doubanSource.handleAnimes(animesDouban, queryTitle, curAnimes, requestAnimeDetailsMap, querySeason);
-      } else if (key === "renren") {
-        await renrenSource.handleAnimes(animesRenren, queryTitle, curAnimes, requestAnimeDetailsMap, querySeason);
-      } else if (key === "hanjutv") {
-        await hanjutvSource.handleAnimes(animesHanjutv, queryTitle, curAnimes, requestAnimeDetailsMap, querySeason);
-      } else if (key === "bahamut") {
-        await bahamutSource2.handleAnimes(animesBahamut, queryTitle, curAnimes, requestAnimeDetailsMap, querySeason);
-      } else if (key === "dandan") {
-        await dandanSource.handleAnimes(animesDandan, queryTitle, curAnimes, requestAnimeDetailsMap, querySeason);
-      } else if (key === "custom") {
-        await customSource.handleAnimes(animesCustom, queryTitle, curAnimes, requestAnimeDetailsMap);
-      } else if (key === "tencent") {
-        await tencentSource2.handleAnimes(animesTencent, queryTitle, curAnimes, requestAnimeDetailsMap, querySeason);
-      } else if (key === "youku") {
-        await youkuSource2.handleAnimes(animesYouku, queryTitle, curAnimes, requestAnimeDetailsMap, querySeason);
-      } else if (key === "iqiyi") {
-        await iqiyiSource2.handleAnimes(animesIqiyi, queryTitle, curAnimes, requestAnimeDetailsMap, querySeason);
-      } else if (key === "imgo") {
-        await mangoSource2.handleAnimes(animesImgo, queryTitle, curAnimes, requestAnimeDetailsMap, querySeason);
-      } else if (key === "bilibili") {
-        await bilibiliSource2.handleAnimes(animesBilibili, queryTitle, curAnimes, requestAnimeDetailsMap, querySeason);
-      } else if (key === "migu") {
-        await miguSource.handleAnimes(animesMigu, queryTitle, curAnimes, requestAnimeDetailsMap, querySeason);
-      } else if (key === "sohu") {
-        await sohuSource.handleAnimes(animesSohu, queryTitle, curAnimes, requestAnimeDetailsMap, querySeason);
-      } else if (key === "leshi") {
-        await leshiSource.handleAnimes(animesLeshi, queryTitle, curAnimes, requestAnimeDetailsMap, querySeason);
-      } else if (key === "xigua") {
-        await xiguaSource.handleAnimes(animesXigua, queryTitle, curAnimes, requestAnimeDetailsMap, querySeason);
-      } else if (key === "maiduidui") {
-        await maiduiduiSource.handleAnimes(animesMaiduidui, queryTitle, curAnimes, requestAnimeDetailsMap, querySeason);
-      } else if (key === "aiyifan") {
-        await aiyifanSource.handleAnimes(animesAiyifan, queryTitle, curAnimes, requestAnimeDetailsMap, querySeason);
-      } else if (key === "animeko") {
-        await animekoSource.handleAnimes(animesAnimeko, queryTitle, curAnimes, requestAnimeDetailsMap, querySeason);
+      }
+      if (maxSeason > querySeason) {
+        log("info", `[system] [LogVar-API] Episode ${queryEpisode} not satisfied in Season ${querySeason}. Parallel mapping to S${querySeason + 1}~S${maxSeason}...`);
+        const expandPromises = [];
+        for (let s = querySeason + 1; s <= maxSeason; s++) {
+          expandPromises.push((async () => {
+            const seasonAnimes = [];
+            await executeSourceHandlers(resultData, queryTitle, seasonAnimes, requestAnimeDetailsMap, s, preferAnimeId, preferSource);
+            if (seasonAnimes.length > 0) {
+              setSearchCache(`${queryTitle}_S${s}`, seasonAnimes.map(({ links, ...pureAnime }) => pureAnime), requestAnimeDetailsMap);
+            }
+            return seasonAnimes;
+          })());
+        }
+        const expandedResults = await Promise.all(expandPromises);
+        for (const res of expandedResults) {
+          curAnimes.push(...res);
+        }
       }
     }
   } catch (error) {
-    log("error", "\u53D1\u751F\u9519\u8BEF:", error);
+    log("error", "[system] [LogVar-API] \u53D1\u751F\u9519\u8BEF:", error);
   }
-  if (globals.mergeSourcePairs.length > 0) {
+  const hasMergePairs = globals.mergeSourcePairs && globals.mergeSourcePairs.length > 0;
+  const hasCustomRules = globals.customMergeRules && globals.customMergeRules.length > 0;
+  if (hasMergePairs || hasCustomRules) {
     await applyMergeLogic(curAnimes, requestAnimeDetailsMap);
   }
   storeAnimeIdsToMap(curAnimes, queryTitle);
@@ -18809,11 +27948,75 @@ async function searchAnime(url, preferAnimeId = null, preferSource = null, detai
     animes: responseAnimes
   });
 }
+function filterSameEpisodeTitle(filteredTmpEpisodes) {
+  const filteredEpisodes = filteredTmpEpisodes.filter((episode, index, episodes) => {
+    return !episodes.slice(0, index).some((prevEpisode) => {
+      return prevEpisode.episodeTitle === episode.episodeTitle;
+    });
+  });
+  return filteredEpisodes;
+}
+function getPlatformMatchScore(candidatePlatform, targetPlatform) {
+  if (!candidatePlatform || !targetPlatform) return 0;
+  const cParts = candidatePlatform.split("&").map((s) => s.trim().toLowerCase()).filter((s) => s);
+  const tParts = targetPlatform.split("&").map((s) => s.trim().toLowerCase()).filter((s) => s);
+  let matchCount = 0;
+  for (const tPart of tParts) {
+    const isFound = cParts.some(
+      (cPart) => cPart === tPart || cPart.includes(tPart) && tPart.length > 2 || tPart.includes(cPart) && cPart.length > 2
+    );
+    if (isFound) {
+      matchCount++;
+    }
+  }
+  if (matchCount === 0) return 0;
+  return matchCount * 1e3 - cParts.length;
+}
+function extractPlatformFromTitle(title) {
+  const match = title.match(/from\s+([a-zA-Z0-9&]+)/i);
+  return match ? match[1] : null;
+}
+function getBangumiDataForMatch(anime, detailStore = null) {
+  const detailAnime = resolveAnimeByIdFromDetailStore(anime?.bangumiId, detailStore, anime?.source) || resolveAnimeByIdFromDetailStore(anime?.animeId, detailStore, anime?.source);
+  if (!detailAnime) {
+    log("warn", `[matchAnime] Missing request detail snapshot for anime ${anime?.animeId ?? anime?.bangumiId}`);
+    return null;
+  }
+  return buildBangumiData(detailAnime, anime?.bangumiId || anime?.animeId || "");
+}
+function resolveSourceAndRealId(url) {
+  const bgmMatch = url.match(/(?:bgm\.tv|bangumi\.tv|bangumi\.lol|chii\.in)\/ep\/(\d+)/);
+  if (bgmMatch) {
+    const offsetMatch = url.match(/@(-?\d+(?:\.\d+)?)$/);
+    return { source: "animeko", realId: bgmMatch[1] + (offsetMatch ? offsetMatch[0] : "") };
+  }
+  const bahaMatch = url.match(/ani\.gamer\.com\.tw\/animeVideo\.php\?sn=(\d+)/);
+  if (bahaMatch) {
+    const offsetMatch = url.match(/@(-?\d+(?:\.\d+)?)$/);
+    return { source: "bahamut", realId: bahaMatch[1] + (offsetMatch ? offsetMatch[0] : "") };
+  }
+  const source = detectPlatformFromUrl(url);
+  return { source, realId: url };
+}
+function detectPlatformFromUrl(url) {
+  if (url.includes(".qq.com")) return "tencent";
+  if (url.includes(".iqiyi.com")) return "iqiyi";
+  if (url.includes(".mgtv.com")) return "imgo";
+  if (url.includes(".youku.com")) return "youku";
+  if (url.includes(".bilibili.com") || url.includes("b23.tv")) return "bilibili";
+  if (url.includes(".miguvideo.com")) return "migu";
+  if (url.includes(".sohu.com")) return "sohu";
+  if (url.includes(".le.com")) return "leshi";
+  if (url.includes(".douyin.com") || url.includes(".ixigua.com")) return "xigua";
+  if (url.includes(".mddcloud.com.cn")) return "maiduidui";
+  if (url.includes(".yfsp.tv")) return "aiyifan";
+  return "unknown";
+}
 async function getBangumi(path2, detailStore = null, source = null) {
   const idParam = path2.split("/").pop();
   const anime = resolveAnimeByIdFromDetailStore(idParam, detailStore, source) || resolveAnimeById(idParam);
   if (!anime) {
-    log("error", `Anime with ID ${idParam} not found`);
+    log("error", `[system] [Bangumi] Anime with ID ${idParam} not found`);
     return jsonResponse(
       { errorCode: 404, success: false, errorMessage: "Anime not found", bangumi: null },
       404
@@ -18822,7 +28025,7 @@ async function getBangumi(path2, detailStore = null, source = null) {
   return jsonResponse(buildBangumiData(anime, idParam));
 }
 function buildBangumiData(anime, idParam = "") {
-  log("info", `Fetched details for anime ID: ${idParam || anime.bangumiId}`);
+  log("info", `[system] [Bangumi] Fetched details for anime ID: ${idParam || anime.bangumiId}`);
   let episodesList = [];
   for (let i = 0; i < anime.links.length; i++) {
     const link = anime.links[i];
@@ -18838,9 +28041,9 @@ function buildBangumiData(anime, idParam = "") {
     episodesList = episodesList.filter((episode) => {
       return !globals.episodeTitleFilter.test(episode.episodeTitle);
     });
-    log("info", `[getBangumi] Episode filter enabled. Filtered episodes: ${episodesList.length}/${anime.links.length}`);
+    log("info", `[system] [getBangumi] Episode filter enabled. Filtered episodes: ${episodesList.length}/${anime.links.length}`);
     if (episodesList.length === 0) {
-      log("warn", `[getBangumi] No valid episodes after filtering for anime ID ${idParam || anime.bangumiId}`);
+      log("warn", `[system] [getBangumi] No valid episodes after filtering for anime ID ${idParam || anime.bangumiId}`);
       return {
         errorCode: 404,
         success: false,
@@ -18893,18 +28096,36 @@ async function fetchMergedComments(url, animeTitle, commentId) {
       };
     }
     const sourceName = part.substring(0, firstColonIndex);
-    const realId = part.substring(firstColonIndex + 1);
+    let realId = part.substring(firstColonIndex + 1);
+    let manualOffset = 0;
+    let manualOffsetPercent = false;
+    const percentMatch = realId.match(/@%(-?\d+(?:\.\d+)?)$/);
+    if (percentMatch) {
+      manualOffset = parseFloat(percentMatch[1]);
+      manualOffsetPercent = true;
+      realId = realId.substring(0, realId.length - percentMatch[0].length);
+    } else {
+      const offsetMatch = realId.match(/@(-?\d+(?:\.\d+)?)$/);
+      if (offsetMatch) {
+        manualOffset = parseFloat(offsetMatch[1]);
+        realId = realId.substring(0, realId.length - offsetMatch[0].length);
+      }
+    }
     if (sourceName !== "hanjutv") {
       return {
         realId,
         logicalSource: sourceName,
-        sourceLabel: sourceName
+        sourceLabel: sourceName,
+        manualOffset,
+        manualOffsetPercent
       };
     }
     return {
       realId,
       logicalSource: "hanjutv",
-      sourceLabel: getHanjutvSourceLabel(realId)
+      sourceLabel: getHanjutvSourceLabel(realId),
+      manualOffset,
+      manualOffsetPercent
     };
   });
   const sourceNames = partMetas.map((meta) => meta.logicalSource).filter(Boolean);
@@ -18932,7 +28153,7 @@ async function fetchMergedComments(url, animeTitle, commentId) {
         return [];
       }
     }
-    const fetchTask = (async () => {
+    const fetchTask = sourceLogContext.run(toLogSourceName(sourceName), async () => {
       let sourceInstance = null;
       if (sourceName === "renren") sourceInstance = renrenSource;
       else if (sourceName === "hanjutv") sourceInstance = hanjutvSource;
@@ -18952,8 +28173,23 @@ async function fetchMergedComments(url, animeTitle, commentId) {
       else if (sourceName === "animeko") sourceInstance = animekoSource;
       if (sourceInstance) {
         try {
-          const raw = await sourceInstance.getEpisodeDanmu(realId, parts);
-          const formatted = sourceInstance.formatComments(raw);
+          let resolvedId = realId;
+          if (sourceName === "bilibili" && String(resolvedId).includes("b23.tv")) {
+            resolvedId = await bilibiliSource2.resolveB23Link(resolvedId);
+          }
+          const raw = await sourceInstance.getEpisodeDanmu(resolvedId, parts);
+          let formatted = sourceInstance.formatComments(raw);
+          log("info", `[${sourceLabel}] \u83B7\u53D6\u5F39\u5E55 ${formatted.length} \u6761`);
+          if (meta.manualOffset && formatted && Array.isArray(formatted)) {
+            if (meta.manualOffsetPercent) {
+              const maxTime = Math.max(...formatted.map((d) => parseFloat(String(d.p).split(",")[0]) || 0), 0);
+              formatted = applyOffset(formatted, meta.manualOffset, { usePercent: true, videoDuration: maxTime || 1 });
+              log("info", `[${sourceLabel}] \u5E94\u7528\u767E\u5206\u6BD4\u504F\u79FB ${meta.manualOffset}s (\u65F6\u957F=${maxTime}s)`);
+            } else {
+              formatted = applyOffset(formatted, meta.manualOffset);
+              log("info", `[${sourceLabel}] \u5E94\u7528\u624B\u52A8\u504F\u79FB ${meta.manualOffset}s`);
+            }
+          }
           if (formatted && Array.isArray(formatted)) {
             formatted.forEach((item) => {
               if (!item._sourceLabel) item._sourceLabel = sourceLabel;
@@ -18968,7 +28204,7 @@ async function fetchMergedComments(url, animeTitle, commentId) {
         }
       }
       return [];
-    })();
+    });
     PENDING_DANMAKU_REQUESTS.set(pendingKey, fetchTask);
     try {
       return await fetchTask;
@@ -19021,16 +28257,16 @@ async function getComment(path2, queryFormat, segmentFlag, clientIp, includeDura
   let animeTitle = findAnimeTitleById(commentId);
   let url = findUrlById(commentId);
   let title = findTitleById(commentId);
-  let plat = title ? (title.match(/【(.*?)】/) || [null])[0]?.replace(/[【】]/g, "") : null;
+  let plat = title ? extractEpisodeTitle(title) : null;
   const shouldAttachDuration = shouldIncludeVideoDuration(queryFormat, includeDuration);
-  log("info", "comment url...", url);
-  log("info", "comment title...", title);
-  log("info", "comment platform...", plat);
+  log("info", "[system] [LogVar-API] comment url...", url);
+  log("info", "[system] [LogVar-API] comment title...", title);
+  log("info", "[system] [LogVar-API] comment platform...", plat);
   if (!url) {
-    log("error", `Comment with ID ${commentId} not found`);
+    log("error", `[system] [LogVar-API] Comment with ID ${commentId} not found`);
     return jsonResponse({ count: 0, comments: [] }, 404);
   }
-  log("info", `Fetched comment ID: ${commentId}`);
+  log("info", `[system] [LogVar-API] Fetched comment ID: ${commentId}`);
   const cachedComments = getCommentCache(url);
   if (cachedComments !== null) {
     const responseData2 = buildDanmuResponse(
@@ -19039,59 +28275,94 @@ async function getComment(path2, queryFormat, segmentFlag, clientIp, includeDura
     );
     return formatDanmuResponse(responseData2, queryFormat);
   }
-  log("info", "\u5F00\u59CB\u4ECE\u672C\u5730\u8BF7\u6C42\u5F39\u5E55...", url);
+  log("info", "[system] [LogVar-API] \u5F00\u59CB\u4ECE\u672C\u5730\u8BF7\u6C42\u5F39\u5E55...", url);
   let danmus = [];
   const durationPromise = shouldAttachDuration ? resolveMergedDuration(url) : null;
+  let singleUrlOffset = 0;
+  let singleUrlOffsetPercent = false;
+  let cleanUrl = url;
+  const percentMatch = url.match(/@%(-?\d+(?:\.\d+)?)$/);
+  if (percentMatch) {
+    singleUrlOffset = parseFloat(percentMatch[1]);
+    singleUrlOffsetPercent = true;
+    cleanUrl = url.substring(0, url.length - percentMatch[0].length);
+    log("info", `[system] [LogVar-API] \u68C0\u6D4B\u5230\u94FE\u63A5\u767E\u5206\u6BD4\u504F\u79FB: ${singleUrlOffset}s`);
+  } else {
+    const offsetMatch = url.match(/@(-?\d+(?:\.\d+)?)$/);
+    if (offsetMatch) {
+      singleUrlOffset = parseFloat(offsetMatch[1]);
+      cleanUrl = url.substring(0, url.length - offsetMatch[0].length);
+      log("info", `[system] [LogVar-API] \u68C0\u6D4B\u5230\u94FE\u63A5\u504F\u79FB: ${singleUrlOffset}s`);
+    }
+  }
   if (url && url.includes(MERGE_DELIMITER)) {
     danmus = await fetchMergedComments(url, animeTitle, commentId);
   } else {
+    const commentUrl = cleanUrl;
     if (url.includes(".qq.com")) {
-      danmus = await tencentSource2.getComments(url, plat, segmentFlag);
+      danmus = await sourceLogContext.run("tencent", () => tencentSource2.getComments(commentUrl, plat, segmentFlag));
     } else if (url.includes(".iqiyi.com")) {
-      danmus = await iqiyiSource2.getComments(url, plat, segmentFlag);
+      danmus = await sourceLogContext.run("iqiyi", () => iqiyiSource2.getComments(commentUrl, plat, segmentFlag));
     } else if (url.includes(".mgtv.com")) {
-      danmus = await mangoSource2.getComments(url, plat, segmentFlag);
+      danmus = await sourceLogContext.run("mango", () => mangoSource2.getComments(commentUrl, plat, segmentFlag));
     } else if (url.includes(".bilibili.com") || url.includes("b23.tv")) {
-      if (url.includes("b23.tv")) {
-        url = await bilibiliSource2.resolveB23Link(url);
+      let resolvedUrl = commentUrl;
+      if (resolvedUrl.includes("b23.tv")) {
+        resolvedUrl = await sourceLogContext.run("bilibili", () => bilibiliSource2.resolveB23Link(resolvedUrl));
       }
-      danmus = await bilibiliSource2.getComments(url, plat, segmentFlag);
+      danmus = await sourceLogContext.run("bilibili", () => bilibiliSource2.getComments(resolvedUrl, plat, segmentFlag));
     } else if (url.includes(".youku.com")) {
-      danmus = await youkuSource2.getComments(url, plat, segmentFlag);
+      danmus = await sourceLogContext.run("youku", () => youkuSource2.getComments(commentUrl, plat, segmentFlag));
     } else if (url.includes(".miguvideo.com")) {
-      danmus = await miguSource.getComments(url, plat, segmentFlag);
+      danmus = await sourceLogContext.run("migu", () => miguSource.getComments(commentUrl, plat, segmentFlag));
     } else if (url.includes(".sohu.com")) {
-      danmus = await sohuSource.getComments(url, plat, segmentFlag);
+      danmus = await sourceLogContext.run("sohu", () => sohuSource.getComments(commentUrl, plat, segmentFlag));
     } else if (url.includes(".le.com")) {
-      danmus = await leshiSource.getComments(url, plat, segmentFlag);
+      danmus = await sourceLogContext.run("leshi", () => leshiSource.getComments(commentUrl, plat, segmentFlag));
     } else if (url.includes(".douyin.com") || url.includes(".ixigua.com")) {
-      danmus = await xiguaSource.getComments(url, plat, segmentFlag);
+      danmus = await sourceLogContext.run("xigua", () => xiguaSource.getComments(commentUrl, plat, segmentFlag));
     } else if (url.includes(".mddcloud.com.cn")) {
-      danmus = await maiduiduiSource.getComments(url, plat, segmentFlag);
+      danmus = await sourceLogContext.run("maiduidui", () => maiduiduiSource.getComments(commentUrl, plat, segmentFlag));
     } else if (url.includes(".yfsp.tv")) {
-      danmus = await aiyifanSource.getComments(url, plat, segmentFlag);
+      danmus = await sourceLogContext.run("aiyifan", () => aiyifanSource.getComments(commentUrl, plat, segmentFlag));
+    } else if (/(?:bgm|bangumi)\.(?:tv|lol)\/ep\/|chii\.in\/ep\//.test(url)) {
+      const bgmMatch = commentUrl.match(/(?:bgm\.tv|bangumi\.tv|bangumi\.lol|chii\.in)\/ep\/(\d+)/);
+      danmus = await sourceLogContext.run("animeko", () => animekoSource.getComments(bgmMatch ? bgmMatch[1] : commentUrl, plat, segmentFlag));
+    } else if (url.includes("ani.gamer.com.tw")) {
+      const bahaMatch = commentUrl.match(/sn=(\d+)/);
+      danmus = await sourceLogContext.run("bahamut", () => bahamutSource2.getComments(bahaMatch ? bahaMatch[1] : commentUrl, plat, segmentFlag));
     }
     const urlPattern = /^(https?:\/\/)?([\w.-]+)\.([a-z]{2,})(\/.*)?$/i;
     if (!urlPattern.test(url)) {
       if (plat === "renren") {
-        danmus = await renrenSource.getComments(url, plat, segmentFlag);
+        danmus = await sourceLogContext.run("renren", () => renrenSource.getComments(url, plat, segmentFlag));
       } else if (plat === "hanjutv") {
-        danmus = await hanjutvSource.getComments(url, plat, segmentFlag);
+        danmus = await sourceLogContext.run("hanjutv", () => hanjutvSource.getComments(url, plat, segmentFlag));
       } else if (plat === "bahamut") {
-        danmus = await bahamutSource2.getComments(url, plat, segmentFlag);
+        danmus = await sourceLogContext.run("bahamut", () => bahamutSource2.getComments(url, plat, segmentFlag));
       } else if (plat === "dandan") {
-        danmus = await dandanSource.getComments(url, plat, segmentFlag);
+        danmus = await sourceLogContext.run("dandan", () => dandanSource.getComments(url, plat, segmentFlag));
       } else if (plat === "custom") {
-        danmus = await customSource.getComments(url, plat, segmentFlag);
+        danmus = await sourceLogContext.run("custom", () => customSource.getComments(url, plat, segmentFlag));
       } else if (plat === "animeko") {
-        danmus = await animekoSource.getComments(url, plat, segmentFlag);
+        danmus = await sourceLogContext.run("animeko", () => animekoSource.getComments(url, plat, segmentFlag));
       }
     }
     if ((!danmus || danmus.length === 0) && urlPattern.test(url)) {
-      danmus = await otherSource.getComments(url, "other_server", segmentFlag);
+      danmus = await sourceLogContext.run("other", () => otherSource.getComments(url, "other_server", segmentFlag));
     }
   }
-  const [animeId, source, episodeTitle] = findAnimeIdByCommentId(commentId);
+  if (singleUrlOffset !== 0 && danmus && Array.isArray(danmus) && danmus.length > 0) {
+    if (singleUrlOffsetPercent) {
+      const maxTime = Math.max(...danmus.map((d) => parseFloat(String(d.p).split(",")[0]) || 0), 0);
+      danmus = applyOffset(danmus, singleUrlOffset, { usePercent: true, videoDuration: maxTime || 1 });
+      log("info", `[system] [LogVar-API] \u5E94\u7528\u94FE\u63A5\u767E\u5206\u6BD4\u504F\u79FB ${singleUrlOffset}s (\u65F6\u957F=${maxTime}s)`);
+    } else {
+      danmus = applyOffset(danmus, singleUrlOffset);
+      log("info", `[system] [LogVar-API] \u5E94\u7528\u94FE\u63A5\u504F\u79FB ${singleUrlOffset}s`);
+    }
+  }
+  const [animeId, source, episodeTitle, animeAliases] = findAnimeIdByCommentId(commentId);
   if (animeId && source) {
     let lastTitle = null;
     let lastSeason = null;
@@ -19102,19 +28373,20 @@ async function getComment(path2, queryFormat, segmentFlag, clientIp, includeDura
         lastTitle = lastSearch.title;
         lastSeason = lastSearch.season;
         offset = `${lastSearch.episode}:${episodeTitle}`;
-        log("info", `Calculated episode offset for IP ${clientIp}: Query E${lastSearch.episode}, Selected ${episodeTitle} -> Offset ${offset} (Season ${lastSeason})`);
+        log("info", `[system] [LogVar-API] Calculated episode offset for IP ${clientIp}: Query E${lastSearch.episode}, Selected ${episodeTitle} -> Offset ${offset} (Season ${lastSeason})`);
       }
     }
-    log("info", `animeTitle\uFF1A${animeTitle}; lastTitle\uFF1A${lastTitle}; titleMatches\uFF1A${titleMatches(animeTitle, lastTitle)}`);
-    if (titleMatches(animeTitle, lastTitle)) {
-      log("info", `excute setPreferByAnimeId`);
+    log("info", `[system] [LogVar-API] animeTitle\uFF1A${animeTitle}; lastTitle\uFF1A${lastTitle}; titleMatches\uFF1A${titleMatches(animeTitle, lastTitle)}`);
+    const titleOrAliasMatches = titleMatches(animeTitle, lastTitle) || Array.isArray(animeAliases) && animeAliases.some((alias) => titleMatches(alias, lastTitle));
+    if (titleOrAliasMatches) {
+      log("info", `[system] [LogVar-API] excute setPreferByAnimeId`);
       setPreferByAnimeId(animeId, source, lastSeason, offset);
     }
     if (globals.localCacheValid && animeId) {
       writeCacheToFile("lastSelectMap", JSON.stringify(Object.fromEntries(globals.lastSelectMap)));
     }
     if (globals.redisValid && animeId) {
-      setRedisKey("lastSelectMap", globals.lastSelectMap).catch((e) => log("error", "Redis set error", e));
+      setRedisKey("lastSelectMap", globals.lastSelectMap).catch((e) => log("error", "[system] [LogVar-API] Redis set error", e));
     }
     if (globals.localRedisValid && animeId) {
 
@@ -19135,7 +28407,7 @@ async function getComment(path2, queryFormat, segmentFlag, clientIp, includeDura
     const offset = offsetRule?.offset || 0;
     if (offset !== 0) {
       const videoDuration = offsetRule?.usePercent ? await resolveUrlDuration(url) : 0;
-      log("info", `Applying danmu offset: ${offset}${offsetRule?.usePercent ? "%" : "s"} for ${baseTitle}/${seasonStr}/${episodeStr}${offsetRule?.usePercent ? `, duration=${videoDuration}s` : ""}`);
+      log("info", `[system] [LogVar-API] Applying danmu offset: ${offset}${offsetRule?.usePercent ? "%" : "s"} for ${baseTitle}/${seasonStr}/${episodeStr}${offsetRule?.usePercent ? `, duration=${videoDuration}s` : ""}`);
       danmus = applyOffset(danmus, offset, {
         usePercent: offsetRule?.usePercent,
         videoDuration
@@ -19160,14 +28432,14 @@ async function getSegmentComment(segment, queryFormat) {
     let url = segment.url;
     let platform = segment.type;
     if (!url || typeof url !== "string") {
-      log("error", "Missing or invalid url parameter");
+      log("error", "[system] [SegmentComment] Missing or invalid url parameter");
       return jsonResponse(
         { errorCode: 400, success: false, errorMessage: "Missing or invalid url parameter", count: 0, comments: [] },
         400
       );
     }
     url = url.trim();
-    log("info", `Processing segment comment request for URL: ${url}`);
+    log("info", `[system] [SegmentComment] Processing segment comment request for URL: ${url}`);
     const cachedComments = getCommentCache(url);
     if (cachedComments !== null) {
       const responseData2 = {
@@ -19179,46 +28451,46 @@ async function getSegmentComment(segment, queryFormat) {
       };
       return formatDanmuResponse(responseData2, queryFormat);
     }
-    log("info", `\u5F00\u59CB\u4ECE\u672C\u5730\u8BF7\u6C42\u5206\u6BB5\u5F39\u5E55... URL: ${url}`);
+    log("info", `[system] [SegmentComment] \u5F00\u59CB\u4ECE\u672C\u5730\u8BF7\u6C42\u5206\u6BB5\u5F39\u5E55... URL: ${url}`);
     let danmus = [];
     if (platform === "qq") {
-      danmus = await tencentSource2.getSegmentComments(segment);
+      danmus = await sourceLogContext.run("tencent", () => tencentSource2.getSegmentComments(segment));
     } else if (platform === "qiyi") {
-      danmus = await iqiyiSource2.getSegmentComments(segment);
+      danmus = await sourceLogContext.run("iqiyi", () => iqiyiSource2.getSegmentComments(segment));
     } else if (platform === "imgo") {
-      danmus = await mangoSource2.getSegmentComments(segment);
+      danmus = await sourceLogContext.run("mango", () => mangoSource2.getSegmentComments(segment));
     } else if (platform === "bilibili1") {
-      danmus = await bilibiliSource2.getSegmentComments(segment);
+      danmus = await sourceLogContext.run("bilibili", () => bilibiliSource2.getSegmentComments(segment));
     } else if (platform === "youku") {
-      danmus = await youkuSource2.getSegmentComments(segment);
+      danmus = await sourceLogContext.run("youku", () => youkuSource2.getSegmentComments(segment));
     } else if (platform === "migu") {
-      danmus = await miguSource.getSegmentComments(segment);
+      danmus = await sourceLogContext.run("migu", () => miguSource.getSegmentComments(segment));
     } else if (platform === "sohu") {
-      danmus = await sohuSource.getSegmentComments(segment);
+      danmus = await sourceLogContext.run("sohu", () => sohuSource.getSegmentComments(segment));
     } else if (platform === "leshi") {
-      danmus = await leshiSource.getSegmentComments(segment);
+      danmus = await sourceLogContext.run("leshi", () => leshiSource.getSegmentComments(segment));
     } else if (platform === "xigua") {
-      danmus = await xiguaSource.getSegmentComments(segment);
+      danmus = await sourceLogContext.run("xigua", () => xiguaSource.getSegmentComments(segment));
     } else if (platform === "maiduidui") {
-      danmus = await maiduiduiSource.getSegmentComments(segment);
+      danmus = await sourceLogContext.run("maiduidui", () => maiduiduiSource.getSegmentComments(segment));
     } else if (platform === "aiyifan") {
-      danmus = await aiyifanSource.getSegmentComments(segment);
+      danmus = await sourceLogContext.run("aiyifan", () => aiyifanSource.getSegmentComments(segment));
     } else if (platform === "hanjutv") {
-      danmus = await hanjutvSource.getSegmentComments(segment);
+      danmus = await sourceLogContext.run("hanjutv", () => hanjutvSource.getSegmentComments(segment));
     } else if (platform === "bahamut") {
-      danmus = await bahamutSource2.getSegmentComments(segment);
+      danmus = await sourceLogContext.run("bahamut", () => bahamutSource2.getSegmentComments(segment));
     } else if (platform === "renren") {
-      danmus = await renrenSource.getSegmentComments(segment);
+      danmus = await sourceLogContext.run("renren", () => renrenSource.getSegmentComments(segment));
     } else if (platform === "dandan") {
-      danmus = await dandanSource.getSegmentComments(segment);
+      danmus = await sourceLogContext.run("dandan", () => dandanSource.getSegmentComments(segment));
     } else if (platform === "animeko") {
-      danmus = await animekoSource.getSegmentComments(segment);
+      danmus = await sourceLogContext.run("animeko", () => animekoSource.getSegmentComments(segment));
     } else if (platform === "custom") {
-      danmus = await customSource.getSegmentComments(segment);
+      danmus = await sourceLogContext.run("custom", () => customSource.getSegmentComments(segment));
     } else if (platform === "other_server") {
-      danmus = await otherSource.getSegmentComments(segment);
+      danmus = await sourceLogContext.run("other", () => otherSource.getSegmentComments(segment));
     }
-    log("info", `Successfully fetched ${danmus.length} segment comments from URL`);
+    log("info", `[system] [SegmentComment] Successfully fetched ${danmus.length} segment comments from URL`);
     if (danmus.length > 0) {
       setCommentCache(url, danmus);
     }
@@ -19231,7 +28503,7 @@ async function getSegmentComment(segment, queryFormat) {
     };
     return formatDanmuResponse(responseData, queryFormat);
   } catch (error) {
-    log("error", `Failed to process segment comment request: ${error.message}`);
+    log("error", `[system] [SegmentComment] Failed to process segment comment request: ${error.message}`);
     return jsonResponse(
       { errorCode: 500, success: false, errorMessage: "Internal server error", count: 0, comments: [] },
       500
@@ -19240,7 +28512,7 @@ async function getSegmentComment(segment, queryFormat) {
 }
 
 // forward/forward-widget.js
-var wv = true ? "1.19.6" : Globals.VERSION;
+var wv = true ? "1.19.17" : Globals.VERSION;
 WidgetMetadata = {
   id: "forward.auto.danmu2",
   title: "\u81EA\u52A8\u94FE\u63A5\u5F39\u5E55v2",
@@ -19253,7 +28525,7 @@ WidgetMetadata = {
     // 源配置
     {
       name: "sourceOrder",
-      title: "\u6E90\u6392\u5E8F\u914D\u7F6E\uFF0C\u9ED8\u8BA4'360,vod,renren,hanjutv'\uFF0C\u53EF\u9009['360', 'vod', 'tmdb', 'douban', 'tencent', 'youku', 'iqiyi', 'imgo', 'bilibili', 'migu', 'sohu', 'leshi', 'xigua', 'maiduidui', 'aiyifan', 'renren', 'hanjutv', 'bahamut', 'dandan', 'custom']",
+      title: "\u6E90\u6392\u5E8F\u914D\u7F6E\uFF0C\u9ED8\u8BA4'douban,360,renren,hanjutv'\uFF0C\u53EF\u9009['360', 'vod', 'tmdb', 'douban', 'tencent', 'youku', 'iqiyi', 'imgo', 'bilibili', 'migu', 'sohu', 'leshi', 'xigua', 'maiduidui', 'aiyifan', 'renren', 'hanjutv', 'bahamut', 'dandan', 'custom']",
       type: "input",
       placeholders: [
         {
@@ -19261,8 +28533,8 @@ WidgetMetadata = {
           value: "tencent,iqiyi,imgo,bilibili,youku,renren,hanjutv"
         },
         {
-          title: "\u914D\u7F6E2",
-          value: "douban,360,vod,renren,hanjutv"
+          title: "\u914D\u7F6E2\uFF08\u63A8\u8350\uFF09",
+          value: "douban,360,renren,hanjutv"
         },
         {
           title: "\u914D\u7F6E3",
@@ -19776,7 +29048,7 @@ async function initGlobals(sourceOrder, otherServer, customSourceApiUrl, vodServ
 }
 async function getCaches() {
   if (globals2.animes.length === 0) {
-    log("info", "getCaches start.");
+    log("info", "[Forward] getCaches start.");
     const [kv_animes, kv_episodeIds, kv_episodeNum, kv_logBuffer, kv_lastSelectMap] = await Promise.all([
       Widget.storage.get("animes"),
       Widget.storage.get("episodeIds"),
@@ -19797,7 +29069,7 @@ async function getCaches() {
   }
 }
 async function updateCaches() {
-  log("info", "updateCaches start.");
+  log("info", "[Forward] updateCaches start.");
   await Promise.all([
     Widget.storage.set("animes", globals2.animes),
     Widget.storage.set("episodeIds", globals2.episodeIds),
@@ -19873,7 +29145,7 @@ async function searchDanmu(params) {
   let simplifiedTitle = title;
   if (globals2.animeTitleSimplified) {
     simplifiedTitle = simplized(title);
-    log("info", `searchAnime converted traditional to simplified: ${title} -> ${simplifiedTitle}`);
+    log("info", `[Forward] searchAnime converted traditional to simplified: ${title} -> ${simplifiedTitle}`);
   }
   const response = await searchAnime(new URL(`${PREFIX_URL}/api/v2/search/anime?keyword=${simplifiedTitle}`));
   const resJson = await response.json();
@@ -19915,7 +29187,7 @@ async function searchDanmu(params) {
       animes = [...matchedAnimes, ...nonMatchedAnimes];
     }
   }
-  log("info", "animes: ", animes);
+  log("info", "[Forward] animes: ", animes);
   await updateCaches();
   return {
     animes
@@ -19981,7 +29253,7 @@ async function getDetailById(params) {
   );
   const response = await getBangumi(`${PREFIX_URL}/api/v2/bangumi/${animeId}`);
   const resJson = await response.json();
-  log("info", "bangumi", resJson);
+  log("info", "[Forward] bangumi", resJson);
   await updateCaches();
   return resJson.bangumi.episodes;
 }
@@ -20056,11 +29328,11 @@ async function getCommentsById(params) {
     const commentIdKey = `${storeKey}.${commentId}`;
     const segmentList = Widget.storage.get(storeKey);
     const lastCommentId = Widget.storage.get(commentIdKey);
-    log("info", "storeKey:", storeKey);
-    log("info", "commentIdKey:", commentIdKey);
-    log("info", "commentId:", commentId);
-    log("info", "lastCommentId:", lastCommentId);
-    log("info", "segmentList:", segmentList);
+    log("info", "[Forward] storeKey:", storeKey);
+    log("info", "[Forward] commentIdKey:", commentIdKey);
+    log("info", "[Forward] commentId:", commentId);
+    log("info", "[Forward] lastCommentId:", lastCommentId);
+    log("info", "[Forward] segmentList:", segmentList);
     if (lastCommentId === commentId && segmentList) {
       return await getDanmuWithSegmentTime({
         segmentTime,
@@ -20100,10 +29372,9 @@ async function getCommentsById(params) {
     }
     const response = await getComment(`${PREFIX_URL}/api/v2/comment/${commentId}`, "json", true);
     const resJson = await response.json();
-    log("info", "segmentList:", resJson.comments.segmentList);
+    log("info", "[Forward] segmentList:", resJson.comments.segmentList);
     Widget.storage.set(storeKey, resJson.comments.segmentList);
     Widget.storage.set(commentIdKey, commentId);
-    console.log("segmentList", resJson.comments.segmentList);
     await updateCaches();
     return resJson.comments.segmentList;
   }
@@ -20179,7 +29450,7 @@ async function getDanmuWithSegmentTime(params) {
       const time = Number(segmentTime);
       return time >= start2 && time < end2;
     });
-    log("info", "segment:", segment);
+    log("info", "[Forward] segment:", segment);
     const response = await getSegmentComment(segment);
     const resJson = await response.json();
     await updateCaches();
@@ -20188,3 +29459,8 @@ async function getDanmuWithSegmentTime(params) {
   return null;
 }
 
+/*! Bundled license information:
+
+pako/dist/pako.esm.mjs:
+  (*! pako 2.1.0 https://github.com/nodeca/pako @license (MIT AND Zlib) *)
+*/
