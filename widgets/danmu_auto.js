@@ -5241,11 +5241,11 @@ function getExplicitSeasonNumber(text) {
   }
   return null;
 }
-function titleMatches(title, query, parsedSeason = null) {
+function titleMatches(title, query, parsedSeason = null, forceNonStrict = !1, threshold = 0.8) {
   if (title == null || query == null) return !1;
   let titleText = String(title), queryText = String(query);
   if (!titleText || !queryText) return !1;
-  if (globals.strictTitleMatch) return strictTitleMatch(titleText, queryText);
+  if (!forceNonStrict && globals.strictTitleMatch) return strictTitleMatch(titleText, queryText);
   let tagFilter = globals.titleNoiseFilter || null, cleanTitle = tagFilter ? titleText.replace(tagFilter, "").trim() : titleText, t = normalizeSpaces(cleanTitle).toLowerCase(), qList = [normalizeSpaces(queryText).toLowerCase()];
   try {
     qList = [.../* @__PURE__ */ new Set([queryText, simplized(queryText), traditionalized(queryText)])].map((kw) => normalizeSpaces(kw).toLowerCase()).filter(Boolean);
@@ -5276,7 +5276,7 @@ function titleMatches(title, query, parsedSeason = null) {
       let foundIdx = t.indexOf(char, tIndex);
       foundIdx !== -1 && (matchCount++, tIndex = foundIdx + 1);
     }
-    return matchCount / kw.length > 0.8;
+    return matchCount / kw.length > threshold;
   })) {
     let yearStripped = queryText.replace(/[\(\（]\s*(?:19|20)\d{2}\s*[\)\）]|\b(?:19|20)\d{2}\b/g, "").trim();
     if (yearStripped && yearStripped !== queryText) {
@@ -5318,11 +5318,13 @@ function extractSeasonNumberFromAnimeTitle(animeTitle) {
       baseTitle: titleWithoutYear.replace(partMatch[0], "").trim()
     };
   let trailingNumber = titleWithoutYear.match(/(?:^|\s|[^\d])(\d{1,2})$/);
-  if (trailingNumber)
-    return {
-      season: parseInt(trailingNumber[1], 10),
+  if (trailingNumber) {
+    let season = parseInt(trailingNumber[1], 10);
+    return season === 0 ? { season: null, baseTitle: titleWithoutYear } : {
+      season,
       baseTitle: titleWithoutYear.slice(0, titleWithoutYear.lastIndexOf(trailingNumber[1])).trim()
     };
+  }
   let trailingChinese = titleWithoutYear.match(/([一二三四五六七八九十壹贰叁肆伍陆柒捌玖拾]+)$/);
   return trailingChinese ? {
     season: convertChineseNumber(trailingChinese[1]),
@@ -5744,7 +5746,7 @@ var Envs = class {
    * @returns {RegExp|null} 全局正则，显式设为空时返回 null（禁用）
    */
   static resolveTitleNoiseFilter() {
-    let defaultPattern = "[\uFF08(](?:\u81FB\u5F69|\u771F\u5F69|\u9AD8\u6E05|\u6807\u6E05|\u8D85\u6E05|\u56FD\u914D|\u4E2D\u914D|\u65E5\u914D|\u7CA4\u8BED|\u539F\u58F0|\u53F0\u914D|\u65E0\u4FEE|\u672A\u5220\u51CF|\u5B8C\u6574\u7248)[\uFF09)]", raw = this.get("TITLE_NOISE_FILTER", "", "string").trim(), hasKey = this.env && "TITLE_NOISE_FILTER" in this.env || typeof process < "u" && "TITLE_NOISE_FILTER" in process.env;
+    let defaultPattern = "[\uFF08(\\[](?:\u81FB\u5F69|\u771F\u5F69|\u9AD8\u6E05|\u6807\u6E05|\u8D85\u6E05|\u56FD\u914D|\u4E2D\u914D|\u65E5\u914D|\u7CA4\u8BED|\u539F\u58F0|\u53F0\u914D|\u65E0\u4FEE|\u672A\u5220\u51CF|\u5B8C\u6574\u7248|\u65E5\u8BED\u7248|\u56FD\u8BED\u7248|\u82F1\u8BED\u7248|\u4E2D\u5B57|\u5B57\u5E55|\u52A9\u542C|\u539F\u7248)[\\])\uFF09]", raw = this.get("TITLE_NOISE_FILTER", "", "string").trim(), hasKey = this.env && "TITLE_NOISE_FILTER" in this.env || typeof process < "u" && "TITLE_NOISE_FILTER" in process.env;
     if (raw)
       this.accessedEnvVars.set("TITLE_NOISE_FILTER", raw);
     else {
@@ -5840,7 +5842,7 @@ var Envs = class {
       TITLE_TO_CHINESE: { category: "match", type: "boolean", description: "\u5916\u8BED\u6807\u9898\u8F6C\u6362\u4E2D\u6587\u5F00\u5173" },
       ANIME_TITLE_SIMPLIFIED: { category: "match", type: "boolean", description: "\u641C\u7D22\u7684\u5267\u540D\u6807\u9898\u81EA\u52A8\u7E41\u8F6C\u7B80" },
       TITLE_MAPPING_TABLE: { category: "match", type: "map", description: '\u5267\u540D\u6620\u5C04\u8868\uFF0C\u7528\u4E8E\u81EA\u52A8\u5339\u914D\u65F6\u66FF\u6362\u6807\u9898\u8FDB\u884C\u641C\u7D22\uFF0C\u683C\u5F0F\uFF1A\u539F\u59CB\u6807\u9898->\u6620\u5C04\u6807\u9898;\u539F\u59CB\u6807\u9898->\u6620\u5C04\u6807\u9898;... \uFF0C\u4F8B\u5982\uFF1A"\u5510\u671D\u8BE1\u4E8B\u5F55->\u5510\u671D\u8BE1\u4E8B\u5F55\u4E4B\u897F\u884C;\u56FD\u8272\u82B3\u534E->\u9526\u7EE3\u82B3\u534E"' },
-      TITLE_NOISE_FILTER: { category: "match", type: "text", description: "\u5267\u540D\u6742\u97F3\u6E05\u7406\u89C4\u5219\uFF0C\u6309\u6B63\u5219\u8868\u8FBE\u5F0F\u6E05\u7406\u641C\u7D22\u4E0E\u5339\u914D\u9636\u6BB5\u7684\u5267\u540D\u6742\u97F3\u8BCD\uFF08\u5982`\u767E\u82B1\u6740\uFF08\u771F\u5F69\uFF09`\u2192`\u767E\u82B1\u6740`\uFF09\u3002\u9ED8\u8BA4\u503C\uFF1A[\uFF08(](?:\u81FB\u5F69|\u771F\u5F69|\u9AD8\u6E05|\u6807\u6E05|\u8D85\u6E05|\u56FD\u914D|\u4E2D\u914D|\u65E5\u914D|\u7CA4\u8BED|\u539F\u58F0|\u53F0\u914D|\u65E0\u4FEE|\u672A\u5220\u51CF|\u5B8C\u6574\u7248)[\uFF09)]\uFF0C\u4E2D\u82F1\u6587\u62EC\u53F7\u5747\u5339\u914D\u3002\u8BBE\u4E3A\u7A7A\u503C\u53EF\u7981\u7528" },
+      TITLE_NOISE_FILTER: { category: "match", type: "text", description: "\u5267\u540D\u6742\u97F3\u6E05\u7406\u89C4\u5219\uFF0C\u6309\u6B63\u5219\u8868\u8FBE\u5F0F\u6E05\u7406\u641C\u7D22\u4E0E\u5339\u914D\u9636\u6BB5\u7684\u5267\u540D\u6742\u97F3\u8BCD\uFF08\u5982`\u767E\u82B1\u6740\uFF08\u771F\u5F69\uFF09`\u2192`\u767E\u82B1\u6740`\uFF09\u3002\u9ED8\u8BA4\u503C\uFF1A[\uFF08(\\[](?:\u81FB\u5F69|\u771F\u5F69|\u9AD8\u6E05|\u6807\u6E05|\u8D85\u6E05|\u56FD\u914D|\u4E2D\u914D|\u65E5\u914D|\u7CA4\u8BED|\u539F\u58F0|\u53F0\u914D|\u65E0\u4FEE|\u672A\u5220\u51CF|\u5B8C\u6574\u7248|\u65E5\u8BED\u7248|\u56FD\u8BED\u7248|\u82F1\u8BED\u7248|\u4E2D\u5B57|\u5B57\u5E55|\u52A9\u542C|\u539F\u7248)[\\])\uFF09]\uFF0C\u4E2D\u82F1\u6587\u5706\u65B9\u62EC\u53F7\u5747\u5339\u914D\u3002\u8BBE\u4E3A\u7A7A\u503C\u53EF\u7981\u7528" },
       AI_BASE_URL: { category: "match", type: "text", description: "AI\u670D\u52A1\u57FA\u7840URL\uFF0C\u4E0D\u586B\u9ED8\u8BA4\u4E3Ahttps://api.openai.com/v1" },
       AI_MODEL: { category: "match", type: "text", description: "AI\u6A21\u578B\u540D\u79F0\uFF0C\u4E0D\u586B\u9ED8\u8BA4\u4E3Agpt-4o" },
       AI_API_KEY: { category: "match", type: "text", description: "AI\u670D\u52A1API\u5BC6\u94A5\uFF0C\u9ED8\u8BA4\u4E3A\u7A7A\uFF0C\u9700\u624B\u52A8\u586B\u5199" },
@@ -5871,7 +5873,7 @@ var Envs = class {
       LOCAL_REDIS_URL: { category: "cache", type: "text", description: "\u672C\u5730 Redis \u8FDE\u63A5URL\uFF0C\u793A\u4F8B\uFF1Aredis://:password@127.0.0.1:6379/0\uFF0C\u53EA\u652F\u6301\u672C\u5730\u90E8\u7F72\u548Cdocker\u90E8\u7F72" },
       BANGUMI_DATA_CACHE_DAYS: { category: "cache", type: "number", description: "Bangumi Data \u7F13\u5B58\u6709\u6548\u671F(\u5929)\uFF0C\u8BBE\u7F6E0\u5219\u6BCF\u6B21\u8BF7\u6C42\u65F6\u5F3A\u5236\u5F02\u6B65\u66F4\u65B0\uFF0C\u9ED8\u8BA47\u5929", min: 0, max: 30 },
       // 系统配置
-      UI_THEME: { category: "system", type: "select", options: ["ocean", "forest", "graphite", "berry", "monochrome", "sunset", "aurora", "lavender", "mist", "terminal"], description: "\u7BA1\u7406\u754C\u9762\u4E3B\u9898" },
+      UI_THEME: { category: "system", type: "select", options: ["ocean", "forest", "graphite", "berry", "monochrome", "sunset", "aurora", "mist", "terminal", "lavender"], description: "\u7BA1\u7406\u754C\u9762\u4E3B\u9898" },
       PROXY_URL: { category: "system", type: "text", description: "\u4EE3\u7406/\u53CD\u4EE3\u5730\u5740" },
       TMDB_API_KEY: { category: "system", type: "text", description: "TMDB API\u5BC6\u94A5" },
       LOG_LEVEL: { category: "system", type: "select", options: ["debug", "info", "warn", "error"], description: "\u65E5\u5FD7\u7EA7\u522B\u914D\u7F6E" },
@@ -6058,7 +6060,7 @@ var Globals = {
   originalEnvVars: {},
   accessedEnvVars: {},
   // 静态常量
-  VERSION: "1.20.0",
+  VERSION: "1.20.2",
   MAX_LOGS: 1e3,
   // 日志存储，最多保存 1000 行
   MAX_RECORDS: 100,
@@ -7062,12 +7064,31 @@ function keyExpansion(key) {
   }
   return w;
 }
+function keyExpansionForKeySize(key) {
+  if (!(key instanceof Uint8Array) || ![16, 24, 32].includes(key.length))
+    throw new RangeError("AES key must be 16, 24, or 32 bytes");
+  if (key.length === 16) return keyExpansion(key);
+  let Nk = key.length / 4, Nb = 4, Nr = Nk + 6, w = new Array(Nb * (Nr + 1));
+  for (let i = 0; i < Nk; i++) w[i] = key.slice(4 * i, 4 * i + 4);
+  for (let i = Nk; i < Nb * (Nr + 1); i++) {
+    let temp = w[i - 1];
+    i % Nk === 0 ? temp = xor(subWord(rotWord(temp)), Uint8Array.from([RCON[i / Nk], 0, 0, 0])) : Nk > 6 && i % Nk === 4 && (temp = subWord(temp)), w[i] = xor(w[i - Nk], temp);
+  }
+  return w;
+}
 function aesDecryptBlock(input, w) {
   let state = new Uint8Array(input);
   state = addRoundKey(state, w.slice(40, 44));
   for (let round = 9; round >= 1; round--)
     state = invShiftRows(state), state = invSubBytes(state), state = addRoundKey(state, w.slice(round * 4, (round + 1) * 4)), state = invMixColumns(state);
   return state = invShiftRows(state), state = invSubBytes(state), state = addRoundKey(state, w.slice(0, 4)), state;
+}
+function aesDecryptBlockForKeySize(input, w) {
+  let Nr = w.length / 4 - 1, state = new Uint8Array(input);
+  state = addRoundKey(state, w.slice(Nr * 4, (Nr + 1) * 4));
+  for (let round = Nr - 1; round >= 1; round--)
+    state = invShiftRows(state), state = invSubBytes(state), state = addRoundKey(state, w.slice(round * 4, (round + 1) * 4)), state = invMixColumns(state);
+  return state = invShiftRows(state), state = invSubBytes(state), addRoundKey(state, w.slice(0, 4));
 }
 function addRoundKey(state, w) {
   let out = new Uint8Array(16);
@@ -7151,6 +7172,19 @@ function aesDecryptECB(cipherBytes, keyBytes) {
   for (let i = 0; i < cipherBytes.length; i += blockSize) {
     let block = cipherBytes.slice(i, i + blockSize), decrypted = aesDecryptBlock(block, w);
     result.set(decrypted, i);
+  }
+  return result;
+}
+function aesEcbDecrypt(cipherBytes, keyBytes) {
+  if (!(cipherBytes instanceof Uint8Array) || cipherBytes.length % 16 !== 0)
+    throw new RangeError("AES-ECB ciphertext must contain complete 16-byte blocks");
+  if (!(keyBytes instanceof Uint8Array) || ![16, 24, 32].includes(keyBytes.length))
+    throw new RangeError("AES key must be 16, 24, or 32 bytes");
+  if (keyBytes.length === 16) return aesDecryptECB(cipherBytes, keyBytes);
+  let w = keyExpansionForKeySize(keyBytes), result = new Uint8Array(cipherBytes.length);
+  for (let i = 0; i < cipherBytes.length; i += 16) {
+    let block = cipherBytes.slice(i, i + 16);
+    result.set(aesDecryptBlockForKeySize(block, w), i);
   }
   return result;
 }
@@ -7518,14 +7552,15 @@ var Anime = class _Anime {
   }
 };
 var Episode = class {
-  constructor({ episodeId = "", episodeTitle = "" } = {}) {
-    this.episodeId = episodeId, this.episodeTitle = episodeTitle;
+  constructor({ episodeId = "", episodeTitle = "", url = "" } = {}) {
+    this.episodeId = episodeId, this.episodeTitle = episodeTitle, this.url = url;
   }
 };
 Episode.prototype.toJson = function() {
   return {
     episodeId: this.episodeId,
-    episodeTitle: this.episodeTitle
+    episodeTitle: this.episodeTitle,
+    url: this.url
   };
 };
 var Season = class _Season {
@@ -7548,9 +7583,10 @@ var Season = class _Season {
     episodeId = 10001,
     episodeTitle = "",
     episodeNumber = "",
-    airDate = ""
+    airDate = "",
+    url = ""
   } = {}) {
-    validateType(seasonId, "string"), validateType(episodeId, "number"), validateType(episodeTitle, "string"), validateType(episodeNumber, "string"), validateType(airDate, "string"), Object.assign(this, { seasonId, episodeId, episodeTitle, episodeNumber, airDate });
+    validateType(seasonId, "string"), validateType(episodeId, "number"), validateType(episodeTitle, "string"), validateType(episodeNumber, "string"), validateType(airDate, "string"), validateType(url, "string"), Object.assign(this, { seasonId, episodeId, episodeTitle, episodeNumber, airDate, url });
   }
   // ---- 静态方法：从 JSON 创建 BangumiEpisode 对象 ----
   static fromJson(json) {
@@ -8269,6 +8305,10 @@ async function getTmdbJaOriginalTitle(title, signal = null, sourceLabel = "Unkno
   if (cleanTitle !== title && log("info", `[system] [tmdb] \u4F18\u5316\u641C\u7D22\u5173\u952E\u8BCD: "${title}" -> "${cleanTitle}"`), globals.useBangumiData) {
     let localMatches = await searchBangumiData(cleanTitle, ["tmdb", "bangumi", "anidb"]);
     if (localMatches && localMatches.length > 0) {
+      localMatches.length > 1 && localMatches.sort((a, b) => {
+        let aExact = a.titles.some((t) => t === cleanTitle), bExact = b.titles.some((t) => t === cleanTitle);
+        return aExact && !bExact ? -1 : !aExact && bExact ? 1 : 0;
+      });
       let m = localMatches[0], displayTitle = m.titles.find((t) => t && t.includes(cleanTitle)) || m.titles[1] || m.title, jaOriginalTitle = m.title;
       return log("info", `[system] [tmdb] Bangumi-Data \u672C\u5730\u547D\u4E2D\uFF0C\u63D0\u53D6\u539F\u540D\u6210\u529F: \u539F\u540D=${jaOriginalTitle}, \u522B\u540D=${displayTitle}\uFF08\u68C0\u7D22\u8BCD\uFF1A${cleanTitle}\uFF09`), { title: jaOriginalTitle, cnAlias: displayTitle };
     }
@@ -12969,14 +13009,50 @@ var TencentSource = class extends BaseSource {
       let results = [];
       for (let item of itemList) {
         let filtered = this.filterTencentSearchItem(item, keyword);
-        filtered && results.push(filtered);
+        if (filtered) {
+          let chapters = this.extractChapterContexts(item.videoInfo);
+          chapters.length > 0 && (filtered.chapterContexts = chapters), results.push(filtered);
+        }
       }
       return log("info", `[tencent] \u641C\u7D22\u627E\u5230 ${results.length} \u4E2A\u6709\u6548\u7ED3\u679C`), results;
     } catch (error) {
       return log("error", "[tencent] \u641C\u7D22\u51FA\u9519:", error.message), [];
     }
   }
-  async getEpisodes(id) {
+  // 从 videoInfo 的 episodeSites/playSites 中提取各季章节标题，用于综艺等多季内容逐季补全分集
+  extractChapterContexts(videoInfo) {
+    let chapters = [];
+    if (!videoInfo) return chapters;
+    let sites = [...videoInfo.episodeSites || [], ...videoInfo.playSites || []];
+    for (let site of sites)
+      if (site && site.chapterInfo && Array.isArray(site.chapterInfo.chapters))
+        for (let ch of site.chapterInfo.chapters)
+          ch && ch.title && chapters.push({ title: ch.title });
+    return chapters;
+  }
+  // 子分类式章节仅取“正片”子分类：该值直接作为请求参数 chapter_name 发往分页接口，
+  // 与 tabs 分页路径以 chapter_name=正片 标识正片的方式一致；其余子分类（花絮/直播回放/彩蛋等）不请求。
+  isZhengpianChapter(ch) {
+    return !!ch && ch.title === "\u6B63\u7247";
+  }
+  // 将季标题(如 2021冬)转为可排序的时间键，用于多季按时间先后排列；
+  // 取标题中首个四位年份为高位，并以 春=1/夏=2/秋=3/冬=4 的播出季序为低位。
+  seasonOrderKey(title) {
+    if (!title) return 0;
+    let yearMatch = title.match(/(?:19|20)\d{2}/), year = yearMatch ? parseInt(yearMatch[0], 10) : 0, seasonWeight = { \u6625: 1, \u590F: 2, \u79CB: 3, \u51AC: 4 }, season = 0;
+    for (let name of Object.keys(seasonWeight))
+      if (title.includes(name)) {
+        season = seasonWeight[name];
+        break;
+      }
+    return year * 10 + season;
+  }
+  // 按分页 tabs 下发的 page_context 结构构造章节请求参数；
+  // chapterInfo 自带的 pageContext 缺少 cid/page_num/req_type 等必填项，服务端会忽略并回落默认视图
+  buildChapterPageContext(cid, chapterName, pageNum) {
+    return `lid=&cid=${cid}&page_num=${pageNum}&page_size=30&id_type=1&req_type=6&req_from=web_vsite&req_from_second_type=&detail_page_type=1&year=&tab_type=4&chapter_name=${chapterName}&is_nocopyright=false`;
+  }
+  async getEpisodes(id, chapterContexts = []) {
     try {
       log("info", `[tencent] \u83B7\u53D6\u5206\u96C6\u5217\u8868: cid=${id}`);
       let episodesUrl = "https://pbaccess.video.qq.com/trpc.universal_backend_service.page_server_rpc.PageServer/GetPageData?video_appid=3000010&vversion_name=8.2.96&vversion_platform=2", payload = {
@@ -13020,22 +13096,76 @@ var TencentSource = class extends BaseSource {
               }
           if (tabs.length > 0) break;
         }
-      let allEpisodes = [];
+      let allEpisodes = [], seenVids = /* @__PURE__ */ new Set();
       if (tabs.length === 0) {
         if (log("info", "[tencent] \u672A\u627E\u5230\u5206\u9875\u4FE1\u606F,\u5C1D\u8BD5\u4ECE\u521D\u59CB\u54CD\u5E94\u4E2D\u63D0\u53D6\u5206\u96C6"), data.data && data.data.module_list_datas) {
           for (let moduleListData of data.data.module_list_datas)
             for (let moduleData of moduleListData.module_datas)
               if (moduleData.item_data_lists && moduleData.item_data_lists.item_datas)
                 for (let item of moduleData.item_data_lists.item_datas)
-                  item.item_params && item.item_params.vid && item.item_params.is_trailer !== "1" && allEpisodes.push({
+                  item.item_params && item.item_params.vid && item.item_params.is_trailer !== "1" && (seenVids.has(item.item_params.vid) || (seenVids.add(item.item_params.vid), allEpisodes.push({
                     vid: item.item_params.vid,
                     title: item.item_params.title,
                     unionTitle: item.item_params.union_title || item.item_params.title
-                  });
+                  })));
+        }
+        if (chapterContexts.length > 0) {
+          let zhengpianChapters = chapterContexts.filter((ch) => this.isZhengpianChapter(ch)), targetChapters = zhengpianChapters.length > 0 ? zhengpianChapters : chapterContexts, orderedChapters = zhengpianChapters.length > 0 ? targetChapters : targetChapters.slice().sort((a, b) => this.seasonOrderKey(a.title) - this.seasonOrderKey(b.title));
+          for (let ch of orderedChapters)
+            try {
+              let seasonEpisodes = [], pageNum = 0, hasNext = !0;
+              for (; hasNext; ) {
+                let chapterPayload = {
+                  has_cache: 1,
+                  page_params: {
+                    req_from: "web_vsite",
+                    page_id: "vsite_episode_list",
+                    page_type: "detail_operation",
+                    id_type: "1",
+                    page_size: "",
+                    cid: id,
+                    vid: "",
+                    lid: "",
+                    page_num: "",
+                    page_context: this.buildChapterPageContext(id, ch.title, pageNum),
+                    detail_page_type: "1"
+                  }
+                }, chapterResponse = await Widget.http.post(episodesUrl, JSON.stringify(chapterPayload), { headers });
+                if (!chapterResponse || !chapterResponse.data) break;
+                let chapterData = typeof chapterResponse.data == "string" ? JSON.parse(chapterResponse.data) : chapterResponse.data;
+                if (chapterData.ret !== 0 || !chapterData.data) break;
+                hasNext = !1;
+                let pageItemCount = 0;
+                if (chapterData.data.module_list_datas)
+                  for (let moduleListData of chapterData.data.module_list_datas)
+                    for (let moduleData of moduleListData.module_datas) {
+                      let hasNextFlag = moduleData.module_params && moduleData.module_params.has_next;
+                      if ((hasNextFlag === !0 || hasNextFlag === "true") && (hasNext = !0), moduleData.item_data_lists && moduleData.item_data_lists.item_datas)
+                        for (let item of moduleData.item_data_lists.item_datas)
+                          item.item_params && item.item_params.vid && item.item_params.is_trailer !== "1" && (pageItemCount++, seasonEpisodes.push({
+                            vid: item.item_params.vid,
+                            title: item.item_params.title,
+                            unionTitle: item.item_params.union_title || item.item_params.title,
+                            order: parseInt(item.item_params.episode_on_chapter, 10) || 0
+                          }));
+                    }
+                if (pageItemCount === 0) break;
+                pageNum++;
+              }
+              seasonEpisodes.sort((a, b) => a.order - b.order);
+              for (let ep of seasonEpisodes)
+                seenVids.has(ep.vid) || (seenVids.add(ep.vid), allEpisodes.push({
+                  vid: ep.vid,
+                  title: ep.title,
+                  unionTitle: ep.unionTitle
+                }));
+            } catch (error) {
+              log("error", `[tencent] \u5206\u5B63\u5206\u96C6\u8BF7\u6C42\u5931\u8D25: ${error.message}`);
+            }
         }
         if (allEpisodes.length === 0)
           return log("info", "[tencent] \u521D\u59CB\u54CD\u5E94\u4E2D\u4E5F\u672A\u627E\u5230\u5206\u96C6\u4FE1\u606F"), [];
-        log("info", `[tencent] \u4ECE\u521D\u59CB\u54CD\u5E94\u4E2D\u63D0\u53D6\u5230 ${allEpisodes.length} \u96C6`);
+        log("info", `[tencent] \u5171\u83B7\u53D6 ${allEpisodes.length} \u96C6(\u542B\u591A\u5B63\u5408\u5E76)`);
       } else {
         log("info", `[tencent] \u627E\u5230 ${tabs.length} \u4E2A\u5206\u9875`);
         for (let tab of tabs) {
@@ -13099,7 +13229,7 @@ var TencentSource = class extends BaseSource {
     let processTencentAnimes = await Promise.all(
       filteredAnimes.map(async (anime) => {
         try {
-          let eps = await this.getEpisodes(anime.mediaId), links = [];
+          let eps = await this.getEpisodes(anime.mediaId, anime.chapterContexts), links = [];
           for (let i = 0; i < eps.length; i++) {
             let ep = eps[i], epTitle = ep.unionTitle || ep.title || `\u7B2C${i + 1}\u96C6`, fullUrl = `https://v.qq.com/x/cover/${anime.mediaId}/${ep.vid}.html`;
             links.push({
@@ -13274,7 +13404,7 @@ var _IqiyiSource = class _IqiyiSource extends BaseSource {
    */
   async search(keyword) {
     try {
-      log("info", `[iQiyi] \u5F00\u59CB\u641C\u7D22: ${keyword}`);
+      log("info", `[iqiyi] \u5F00\u59CB\u641C\u7D22: ${keyword}`);
       let params = {
         key: keyword,
         current_page: "1",
@@ -13308,29 +13438,29 @@ var _IqiyiSource = class _IqiyiSource extends BaseSource {
           }
         });
         return !resp || !resp.data ? null : typeof resp.data == "string" ? JSON.parse(resp.data) : resp.data;
-      }, MAX_RETRIES2 = 2, data = await doSearch();
-      for (let attempt = 0; attempt < MAX_RETRIES2 && (!data || data.code === "-1"); attempt++) {
+      }, MAX_RETRIES = 2, data = await doSearch();
+      for (let attempt = 0; attempt < MAX_RETRIES && (!data || data.code === "-1"); attempt++) {
         let reason = data ? `\u641C\u7D22\u63A5\u53E3\u98CE\u63A7 (code=${data.code})` : "\u641C\u7D22\u54CD\u5E94\u4E3A\u7A7A";
-        log("info", `[iQiyi] ${reason}\uFF0C\u7B49\u5F85 3 \u79D2\u540E\u91CD\u8BD5 (${attempt + 1}/${MAX_RETRIES2})`), await new Promise((r) => setTimeout(r, 3e3)), data = await doSearch();
+        log("info", `[iqiyi] ${reason}\uFF0C\u7B49\u5F85 3 \u79D2\u540E\u91CD\u8BD5 (${attempt + 1}/${MAX_RETRIES})`), await new Promise((r) => setTimeout(r, 3e3)), data = await doSearch();
       }
       if (!data)
-        return log("info", "[iQiyi] \u641C\u7D22\u54CD\u5E94\u4E3A\u7A7A"), [];
+        return log("info", "[iqiyi] \u641C\u7D22\u54CD\u5E94\u4E3A\u7A7A"), [];
       if (data.code === "-1")
-        return log("info", "[iQiyi] \u641C\u7D22\u63A5\u53E3\u98CE\u63A7 (code=-1)\uFF0C\u91CD\u8BD5\u540E\u4ECD\u5931\u8D25"), log("info", `[iQiyi] \u641C\u7D22\u539F\u59CB\u6570\u636E: ${JSON.stringify(data)}`), [];
+        return log("info", "[iqiyi] \u641C\u7D22\u63A5\u53E3\u98CE\u63A7 (code=-1)\uFF0C\u91CD\u8BD5\u540E\u4ECD\u5931\u8D25"), log("info", `[iqiyi] \u641C\u7D22\u539F\u59CB\u6570\u636E: ${JSON.stringify(data)}`), [];
       if (!data.data || !data.data.templates)
-        return log("info", "[iQiyi] \u641C\u7D22\u65E0\u7ED3\u679C"), log("info", `[iQiyi] \u641C\u7D22\u539F\u59CB\u6570\u636E: ${JSON.stringify(data)}`), [];
+        return log("info", "[iqiyi] \u641C\u7D22\u65E0\u7ED3\u679C"), log("info", `[iqiyi] \u641C\u7D22\u539F\u59CB\u6570\u636E: ${JSON.stringify(data)}`), [];
       let results = [], templates = data.data.templates;
       for (let template of templates) {
         let albumsToProcess = [];
-        template.template === 112 && template.intentAlbumInfos ? (log("info", `[iQiyi] \u627E\u5230\u610F\u56FE\u5361\u7247 (template 112)\uFF0C\u5904\u7406 ${template.intentAlbumInfos.length} \u4E2A\u7ED3\u679C`), albumsToProcess = template.intentAlbumInfos) : [101, 102, 103].includes(template.template) && template.albumInfo && (log("info", `[iQiyi] \u627E\u5230\u666E\u901A\u7ED3\u679C\u5361\u7247 (template ${template.template})`), albumsToProcess = [template.albumInfo]);
+        template.template === 112 && template.intentAlbumInfos ? (log("info", `[iqiyi] \u627E\u5230\u610F\u56FE\u5361\u7247 (template 112)\uFF0C\u5904\u7406 ${template.intentAlbumInfos.length} \u4E2A\u7ED3\u679C`), albumsToProcess = template.intentAlbumInfos) : [101, 102, 103].includes(template.template) && template.albumInfo && (log("info", `[iqiyi] \u627E\u5230\u666E\u901A\u7ED3\u679C\u5361\u7247 (template ${template.template})`), albumsToProcess = [template.albumInfo]);
         for (let album of albumsToProcess) {
           let filtered = this._filterIqiyiSearchItem(album, keyword);
           filtered && results.push(filtered);
         }
       }
-      return log("info", `[iQiyi] \u641C\u7D22\u627E\u5230 ${results.length} \u4E2A\u6709\u6548\u7ED3\u679C`), results;
+      return log("info", `[iqiyi] \u641C\u7D22\u627E\u5230 ${results.length} \u4E2A\u6709\u6548\u7ED3\u679C`), results;
     } catch (error) {
-      return log("error", "[iQiyi] \u641C\u7D22\u51FA\u9519:", error.message), [];
+      return log("error", "[iqiyi] \u641C\u7D22\u51FA\u9519:", error.message), [];
     }
   }
   /**
@@ -13343,7 +13473,7 @@ var _IqiyiSource = class _IqiyiSource extends BaseSource {
     if (!album.title)
       return null;
     if (album.btnText === "\u5916\u7AD9\u4ED8\u8D39\u64AD\u653E")
-      return log("info", `[iQiyi] \u8FC7\u6EE4\u6389\u5916\u7AD9\u4ED8\u8D39\u64AD\u653E\u5185\u5BB9: ${album.title}`), null;
+      return log("info", `[iqiyi] \u8FC7\u6EE4\u6389\u5916\u7AD9\u4ED8\u8D39\u64AD\u653E\u5185\u5BB9: ${album.title}`), null;
     let channel = album.channel || "", mediaType = "\u7535\u89C6\u5267";
     if (channel.includes("\u7535\u5F71"))
       mediaType = "\u7535\u5F71";
@@ -13365,7 +13495,7 @@ var _IqiyiSource = class _IqiyiSource extends BaseSource {
     }), is3D ? mediaType = "3D" + mediaType : is2D && (mediaType = "2D" + mediaType), mediaType.includes("\u7535\u5F71")) {
       let qipuId = album.qipuId || album.playQipuId;
       if (!qipuId)
-        return log("info", `[iQiyi] \u7535\u5F71\u7F3A\u5C11 qipuId: ${album.title}`), null;
+        return log("info", `[iqiyi] \u7535\u5F71\u7F3A\u5C11 qipuId: ${album.title}`), null;
       let year2 = null, yearStr2 = album.year && (album.year.value || album.year.name) || album.superscript;
       yearStr2 && typeof yearStr2 == "string" && /^\d{4}$/.test(yearStr2) && (year2 = parseInt(yearStr2));
       let cleanedTitle2 = album.title.replace(/<[^>]+>/g, "").replace(/:/g, "\uFF1A");
@@ -13385,10 +13515,10 @@ var _IqiyiSource = class _IqiyiSource extends BaseSource {
     }
     let url = album.pageUrl;
     if (!url)
-      return log("info", `[iQiyi] \u975E\u7535\u5F71\u5185\u5BB9\u7F3A\u5C11 pageUrl: ${album.title}`), null;
+      return log("info", `[iqiyi] \u975E\u7535\u5F71\u5185\u5BB9\u7F3A\u5C11 pageUrl: ${album.title}`), null;
     let linkIdMatch = url.match(/v_(\w+?)\.html/);
     if (!linkIdMatch)
-      return log("info", `[iQiyi] \u65E0\u6CD5\u4ECE pageUrl \u63D0\u53D6 link_id: ${url}`), null;
+      return log("info", `[iqiyi] \u65E0\u6CD5\u4ECE pageUrl \u63D0\u53D6 link_id: ${url}`), null;
     let linkId = linkIdMatch[1], year = null, yearStr = album.year && (album.year.value || album.year.name) || album.superscript;
     yearStr && typeof yearStr == "string" && /^\d{4}$/.test(yearStr) && (year = parseInt(yearStr));
     let episodeCount = null;
@@ -13417,68 +13547,43 @@ var _IqiyiSource = class _IqiyiSource extends BaseSource {
   /**
    * 获取分集列表
    * @param {string} id - 视频 ID (link_id 或 movie_qipuId)
+   * @param {number|null} querySeason - 目标季，指定时只获取该季分集
+   * @param {Map|null} seasonAlbumCache - 跨多次调用共享的分季数据缓存，避免同一 album 重复请求
    * @returns {Promise<Array>} 分集列表
    */
-  async getEpisodes(id) {
+  async getEpisodes(id, querySeason = null, seasonAlbumCache = null, inlinedAlbumIds = null, baseInfoCache = null) {
     try {
-      if (log("info", `[iQiyi] \u83B7\u53D6\u5206\u96C6\u5217\u8868: media_id=${id}`), id.startsWith("movie_")) {
+      if (log("info", `[iqiyi] \u83B7\u53D6\u5206\u96C6\u5217\u8868: media_id=${id}`), id.startsWith("movie_")) {
         let qipuId = id.substring(6);
-        log("info", `[iQiyi] \u7535\u5F71\u7C7B\u578B\uFF0C\u8C03\u7528 base_info API \u83B7\u53D6\u89C6\u9891ID: qipuId=${qipuId}`);
+        log("info", `[iqiyi] \u7535\u5F71\u7C7B\u578B\uFF0C\u8C03\u7528 base_info API \u83B7\u53D6\u89C6\u9891ID: qipuId=${qipuId}`);
         let videoId = await this._getMovieVideoId(qipuId);
-        return videoId ? (log("info", `[iQiyi] \u7535\u5F71\u89C6\u9891ID: ${videoId}`), [{
+        return videoId ? (log("info", `[iqiyi] \u7535\u5F71\u89C6\u9891ID: ${videoId}`), [{
           id: videoId,
           title: "\u6B63\u7247",
           order: 1,
           link: `https://www.iqiyi.com/v_${videoId}.html`
-        }]) : (log("error", `[iQiyi] \u65E0\u6CD5\u83B7\u53D6\u7535\u5F71\u7684\u89C6\u9891ID: qipuId=${qipuId}`), []);
+        }]) : (log("error", `[iqiyi] \u65E0\u6CD5\u83B7\u53D6\u7535\u5F71\u7684\u89C6\u9891ID: qipuId=${qipuId}`), []);
       }
       let entityId = /^\d+$/.test(id) ? id : this._videoIdToEntityId(id);
       if (!entityId)
-        return log("error", `[iQiyi] \u65E0\u6CD5\u5C06 media_id '${id}' \u8F6C\u6362\u4E3A entity_id`), [];
-      let params = {
-        entity_id: entityId,
-        device_id: "qd5fwuaj4hunxxdgzwkcqmefeb3ww5hx",
-        auth_cookie: "",
-        user_id: "0",
-        vip_type: "-1",
-        vip_status: "0",
-        conduit_id: "",
-        pcv: "13.082.22866",
-        app_version: "13.082.22866",
-        ext: "",
-        app_mode: "standard",
-        scale: "100",
-        timestamp: String(Date.now()),
-        src: "pca_tvg",
-        os: "",
-        ad_ext: '{"r":"2.2.0-ares6-pure"}'
-      };
-      params.sign = this._createSign(params);
-      let url = `https://www.iqiyi.com/prelw/tvg/v2/lw/base_info?${buildQueryString(params)}`, response = await Widget.http.get(url, {
-        headers: {
-          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-          Referer: "https://www.iqiyi.com/"
-        }
-      });
-      if (!response || !response.data)
-        return log("error", "[iQiyi] \u83B7\u53D6\u5206\u96C6\u54CD\u5E94\u4E3A\u7A7A"), [];
-      let data = typeof response.data == "string" ? JSON.parse(response.data) : response.data;
-      if (data.status_code !== 0 || !data.data || !data.data.template)
-        return log("error", `[iQiyi] API \u8FD4\u56DE\u9519\u8BEF\uFF0Cstatus_code: ${data.status_code}`), [];
+        return log("error", `[iqiyi] \u65E0\u6CD5\u5C06 media_id '${id}' \u8F6C\u6362\u4E3A entity_id`), [];
+      let data;
+      if (baseInfoCache && baseInfoCache.has(id) ? data = baseInfoCache.get(id) : data = await this._fetchBaseInfoData(entityId), !data || data.status_code !== 0 || !data.data || !data.data.template)
+        return [];
       let allEpisodes = [], tabs = data.data.template.tabs || [];
       if (tabs.length === 0)
-        return log("info", "[iQiyi] \u672A\u627E\u5230\u5206\u96C6\u6807\u7B7E\u9875"), [];
-      let blocks = tabs[0].blocks || [], foundEpisodes = !1;
+        return log("info", "[iqiyi] \u672A\u627E\u5230\u5206\u96C6\u6807\u7B7E\u9875"), [];
+      let blocks = tabs[0].blocks || [], foundEpisodes = !1, fetchedSeasons = seasonAlbumCache || /* @__PURE__ */ new Map();
       for (let block of blocks)
         if (block.bk_type === "video_list" && block.data?.data) {
-          if (log("info", `[iQiyi] \u627E\u5230 video_list \u7C7B\u578B\u7684\u5206\u96C6\u6570\u636E\u5757, bk_id: ${block.bk_id}`), !block.tag || !block.tag.includes("episodes")) {
-            log("info", `[iQiyi] \u8DF3\u8FC7\u975E\u5206\u96C6\u5757: ${block.bk_id}`);
+          if (log("info", `[iqiyi] \u627E\u5230 video_list \u7C7B\u578B\u7684\u5206\u96C6\u6570\u636E\u5757, bk_id: ${block.bk_id}`), !block.tag || !block.tag.includes("episodes")) {
+            log("info", `[iqiyi] \u8DF3\u8FC7\u975E\u5206\u96C6\u5757: ${block.bk_id}`);
             continue;
           }
           foundEpisodes = !0;
           let dataGroups = block.data.data;
           if (!Array.isArray(dataGroups)) {
-            log("warn", "[iQiyi] data.data \u4E0D\u662F\u6570\u7EC4\uFF0C\u8DF3\u8FC7\u6B64\u5757");
+            log("warn", "[iqiyi] data.data \u4E0D\u662F\u6570\u7EC4\uFF0C\u8DF3\u8FC7\u6B64\u5757");
             continue;
           }
           for (let group of dataGroups)
@@ -13501,17 +13606,30 @@ var _IqiyiSource = class _IqiyiSource extends BaseSource {
                   }
             }
         } else if (block.bk_type === "album_episodes" && block.data?.data) {
-          log("info", "[iQiyi] \u627E\u5230 album_episodes \u7C7B\u578B\u7684\u5206\u96C6\u6570\u636E\u5757"), foundEpisodes = !0;
+          log("info", "[iqiyi] \u627E\u5230 album_episodes \u7C7B\u578B\u7684\u5206\u96C6\u6570\u636E\u5757"), foundEpisodes = !0;
           let episodeGroups = block.data.data;
           for (let group of episodeGroups) {
+            if (querySeason !== null && group.tab_name) {
+              let groupSeason = getExplicitSeasonNumber(group.tab_name);
+              if (groupSeason !== null && groupSeason !== querySeason) continue;
+            }
             let videosData = group.videos;
             if (typeof videosData == "string") {
-              log("info", `[iQiyi] \u53D1\u73B0\u5206\u5B63URL\uFF0C\u6B63\u5728\u83B7\u53D6: ${videosData}`);
-              try {
+              let groupAlbumId = group.entity_id ? String(group.entity_id) : videosData.match(/album_id=(\d+)/)?.[1] || videosData;
+              if (inlinedAlbumIds && inlinedAlbumIds.has(groupAlbumId)) {
+                log("info", `[iqiyi] \u8BE5\u5B63\u5206\u96C6\u5DF2\u901A\u8FC7\u5185\u8054\u6570\u636E\u83B7\u53D6\uFF0C\u8DF3\u8FC7\u5206\u5B63URL: ${groupAlbumId}`);
+                continue;
+              }
+              let albumIdKey = groupAlbumId, seasonPromise = fetchedSeasons.get(albumIdKey);
+              seasonPromise ? log("info", `[iqiyi] \u5206\u5B63URL\u5DF2\u83B7\u53D6\u8FC7\uFF0C\u8DF3\u8FC7\u91CD\u590D\u8BF7\u6C42: ${albumIdKey}`) : (seasonPromise = (async () => {
+                log("info", `[iqiyi] \u53D1\u73B0\u5206\u5B63URL\uFF0C\u6B63\u5728\u83B7\u53D6: ${videosData}`);
                 let seasonResponse = await Widget.http.get(videosData);
-                videosData = typeof seasonResponse.data == "string" ? JSON.parse(seasonResponse.data) : seasonResponse.data;
+                return typeof seasonResponse.data == "string" ? JSON.parse(seasonResponse.data) : seasonResponse.data;
+              })(), fetchedSeasons.set(albumIdKey, seasonPromise));
+              try {
+                videosData = await seasonPromise;
               } catch (error) {
-                log("error", `[iQiyi] \u83B7\u53D6\u5206\u5B63\u6570\u636E\u5931\u8D25: ${error.message}`);
+                fetchedSeasons.delete(albumIdKey), log("error", `[iqiyi] \u83B7\u53D6\u5206\u5B63\u6570\u636E\u5931\u8D25: ${error.message}`);
                 continue;
               }
             }
@@ -13536,14 +13654,80 @@ var _IqiyiSource = class _IqiyiSource extends BaseSource {
           }
         }
       if (!foundEpisodes)
-        return log("info", "[iQiyi] \u672A\u627E\u5230\u5206\u96C6\u6570\u636E\u5757"), [];
+        return log("info", "[iqiyi] \u672A\u627E\u5230\u5206\u96C6\u6570\u636E\u5757"), [];
       let uniqueEpisodes = Array.from(
         new Map(allEpisodes.map((ep) => [ep.id, ep])).values()
       );
-      return uniqueEpisodes.sort((a, b) => a.order - b.order), log("info", `[iQiyi] \u6210\u529F\u83B7\u53D6 ${uniqueEpisodes.length} \u4E2A\u5206\u96C6`), uniqueEpisodes;
+      return uniqueEpisodes.sort((a, b) => a.order - b.order), log("info", `[iqiyi] \u6210\u529F\u83B7\u53D6 ${uniqueEpisodes.length} \u4E2A\u5206\u96C6`), uniqueEpisodes;
     } catch (error) {
-      return log("error", "[iQiyi] \u83B7\u53D6\u5206\u96C6\u51FA\u9519:", error.message), [];
+      return log("error", "[iqiyi] \u83B7\u53D6\u5206\u96C6\u51FA\u9519:", error.message), [];
     }
+  }
+  /**
+   * 请求分集列表接口并解析响应，接口返回空响应或结构残缺时最多重试两次
+   * @param {string} entityId - 实体 id
+   * @returns {Promise<Object|null>} 解析后的响应数据，失败返回 null
+   */
+  async _fetchBaseInfoData(entityId) {
+    let params = {
+      entity_id: entityId,
+      device_id: "qd5fwuaj4hunxxdgzwkcqmefeb3ww5hx",
+      auth_cookie: "",
+      user_id: "0",
+      vip_type: "-1",
+      vip_status: "0",
+      conduit_id: "",
+      pcv: "13.082.22866",
+      app_version: "13.082.22866",
+      ext: "",
+      app_mode: "standard",
+      scale: "100",
+      timestamp: String(Date.now()),
+      src: "pca_tvg",
+      os: "",
+      ad_ext: '{"r":"2.2.0-ares6-pure"}'
+    };
+    params.sign = this._createSign(params);
+    let url = `https://www.iqiyi.com/prelw/tvg/v2/lw/base_info?${buildQueryString(params)}`, MAX_EPISODE_RETRIES = 2, fetchEpisodeData = async () => {
+      try {
+        let resp = await Widget.http.get(url, {
+          headers: {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+            Referer: "https://www.iqiyi.com/"
+          }
+        });
+        return !resp || !resp.data ? null : typeof resp.data == "string" ? JSON.parse(resp.data) : resp.data;
+      } catch (error) {
+        return log("error", `[iqiyi] \u83B7\u53D6\u5206\u96C6\u5217\u8868\u8BF7\u6C42\u5931\u8D25: ${error.message}`), null;
+      }
+    }, data = await fetchEpisodeData();
+    for (let attempt = 0; attempt < MAX_EPISODE_RETRIES && (!data || data.status_code !== 0 || !data.data || !data.data.template); attempt++)
+      log("info", `[iqiyi] \u5206\u96C6\u63A5\u53E3\u8FD4\u56DE\u5F02\u5E38${data ? ` (status_code: ${data.status_code})` : " (\u54CD\u5E94\u4E3A\u7A7A\u6216\u89E3\u6790\u5931\u8D25)"}\uFF0C\u7B49\u5F85 3 \u79D2\u540E\u91CD\u8BD5 (${attempt + 1}/${MAX_EPISODE_RETRIES})`), await new Promise((r) => setTimeout(r, 3e3)), data = await fetchEpisodeData();
+    return !data || data.status_code !== 0 || !data.data || !data.data.template ? (log("error", `[iqiyi] \u83B7\u53D6\u5206\u96C6\u5217\u8868\u5931\u8D25: ${data ? `status_code: ${data.status_code}` : "\u54CD\u5E94\u4E3A\u7A7A\u6216\u89E3\u6790\u5931\u8D25"}`), null) : data;
+  }
+  /**
+   * 全季搜索时统一拉取各结果的分集列表，收集其中以内联方式返回的季 album_id；
+   * 这些季无需再经分季URL获取，供 getEpisodes 判断跳过对应请求
+   * @param {Array} animes - 搜索结果数组
+   * @param {Map} baseInfoCache - 复用已拉取的分集列表数据，避免重复请求
+   * @returns {Promise<Set<string>>} 已被内联的季 album_id 集合
+   */
+  async _collectInlinedAlbumIds(animes, baseInfoCache) {
+    let inlined = /* @__PURE__ */ new Set();
+    return await Promise.all(animes.map(async (anime) => {
+      if (anime.mediaId.startsWith("movie_")) return;
+      let entityId = /^\d+$/.test(anime.mediaId) ? anime.mediaId : this._videoIdToEntityId(anime.mediaId);
+      if (!entityId) return;
+      let data = await this._fetchBaseInfoData(entityId);
+      if (baseInfoCache.set(anime.mediaId, data), !data || !data.data || !data.data.template) return;
+      let tabs = data.data.template.tabs || [];
+      if (tabs.length !== 0) {
+        for (let block of tabs[0].blocks || [])
+          if (block.bk_type === "album_episodes" && block.data?.data)
+            for (let group of block.data.data)
+              group.videos && typeof group.videos == "object" && group.videos.feature_paged && group.entity_id && inlined.add(String(group.entity_id));
+      }
+    })), inlined;
   }
   /**
    * 获取电影的视频ID（从 qipuId 获取正确的 video_id）
@@ -13572,7 +13756,7 @@ var _IqiyiSource = class _IqiyiSource extends BaseSource {
       };
       params.sign = this._createSign(params);
       let url = `https://mesh.if.iqiyi.com/tvg/v2/lw/base_info?${buildQueryString(params)}`;
-      log("info", `[iQiyi] \u8BF7\u6C42\u7535\u5F71\u8BE6\u60C5: ${url}`);
+      log("info", `[iqiyi] \u8BF7\u6C42\u7535\u5F71\u8BE6\u60C5: ${url}`);
       let response = await Widget.http.get(url, {
         headers: {
           accept: "*/*",
@@ -13582,24 +13766,24 @@ var _IqiyiSource = class _IqiyiSource extends BaseSource {
         }
       });
       if (!response || !response.data)
-        return log("error", "[iQiyi] base_info API \u54CD\u5E94\u4E3A\u7A7A"), null;
+        return log("error", "[iqiyi] base_info API \u54CD\u5E94\u4E3A\u7A7A"), null;
       let data = typeof response.data == "string" ? JSON.parse(response.data) : response.data;
       if (data.data && data.data.base_data) {
         let baseData = data.data.base_data;
         if (baseData.share_url) {
           let match = baseData.share_url.match(/v_(\w+)\.html/);
           if (match)
-            return log("info", `[iQiyi] \u4ECE share_url \u63D0\u53D6\u89C6\u9891ID: ${match[1]}`), match[1];
+            return log("info", `[iqiyi] \u4ECE share_url \u63D0\u53D6\u89C6\u9891ID: ${match[1]}`), match[1];
         }
         if (baseData.page_url) {
           let match = baseData.page_url.match(/v_(\w+)\.html/);
           if (match)
-            return log("info", `[iQiyi] \u4ECE page_url \u63D0\u53D6\u89C6\u9891ID: ${match[1]}`), match[1];
+            return log("info", `[iqiyi] \u4ECE page_url \u63D0\u53D6\u89C6\u9891ID: ${match[1]}`), match[1];
         }
       }
-      return log("info", `[iQiyi] \u54CD\u5E94\u4E2D\u672A\u627E\u5230 v_xxx \u683C\u5F0F\u89C6\u9891ID\uFF0C\u4F7F\u7528 entity_id: ${qipuId}`), log("info", `[iQiyi] \u54CD\u5E94\u6570\u636E\u7ED3\u6784: ${JSON.stringify(data).substring(0, 1e3)}...`), qipuId;
+      return log("info", `[iqiyi] \u54CD\u5E94\u4E2D\u672A\u627E\u5230 v_xxx \u683C\u5F0F\u89C6\u9891ID\uFF0C\u4F7F\u7528 entity_id: ${qipuId}`), log("info", `[iqiyi] \u54CD\u5E94\u6570\u636E\u7ED3\u6784: ${JSON.stringify(data).substring(0, 1e3)}...`), qipuId;
     } catch (error) {
-      return log("error", `[iQiyi] \u83B7\u53D6\u7535\u5F71\u89C6\u9891ID\u65F6\u51FA\u9519: ${error.message}`), null;
+      return log("error", `[iqiyi] \u83B7\u53D6\u7535\u5F71\u89C6\u9891ID\u65F6\u51FA\u9519: ${error.message}`), null;
     }
   }
   /**
@@ -13612,7 +13796,7 @@ var _IqiyiSource = class _IqiyiSource extends BaseSource {
       let base36Decoded = parseInt(videoId, 36), xorResult = this._xorOperation(base36Decoded), finalResult = xorResult < 9e5 ? 100 * (xorResult + 9e5) : xorResult;
       return String(finalResult);
     } catch (error) {
-      return log("error", `[iQiyi] \u5C06 video_id '${videoId}' \u8F6C\u6362\u4E3A entity_id \u65F6\u51FA\u9519: ${error.message}`), null;
+      return log("error", `[iqiyi] \u5C06 video_id '${videoId}' \u8F6C\u6362\u4E3A entity_id \u65F6\u51FA\u9519: ${error.message}`), null;
     }
   }
   /**
@@ -13657,19 +13841,21 @@ var _IqiyiSource = class _IqiyiSource extends BaseSource {
   async handleAnimes(sourceAnimes, queryTitle, curAnimes, detailStore = null, querySeason = null) {
     let tmpAnimes = [];
     if (!sourceAnimes || !Array.isArray(sourceAnimes))
-      return log("error", "[iQiyi] sourceAnimes is not a valid array"), [];
+      return log("error", "[iqiyi] sourceAnimes is not a valid array"), [];
     let filteredAnimes = sourceAnimes.filter((s) => titleMatches(s.title, queryTitle, querySeason)), resolvedQuerySeason = querySeason !== null ? querySeason : getExplicitSeasonNumber(queryTitle);
     if (resolvedQuerySeason !== null) {
       let seasonFiltered = filteredAnimes.filter((anime) => {
         let s = extractSeasonNumberFromAnimeTitle(anime.title).season;
         return s === resolvedQuerySeason || resolvedQuerySeason === 1 && s === null;
       });
-      seasonFiltered.length > 0 && (filteredAnimes = seasonFiltered, log("info", `[iQiyi] \u7ED3\u679C\u5DF2\u547D\u4E2D\u76EE\u6807\u5B63(\u7B2C${resolvedQuerySeason}\u5B63)\uFF0C\u8DF3\u8FC7\u975E\u76EE\u6807\u5B63\u76F8\u5173\u8BF7\u6C42`));
+      seasonFiltered.length > 0 && (filteredAnimes = seasonFiltered, log("info", `[iqiyi] \u7ED3\u679C\u5DF2\u547D\u4E2D\u76EE\u6807\u5B63(\u7B2C${resolvedQuerySeason}\u5B63)\uFF0C\u8DF3\u8FC7\u975E\u76EE\u6807\u5B63\u76F8\u5173\u8BF7\u6C42`));
     }
+    let seasonAlbumCache = /* @__PURE__ */ new Map(), inlinedAlbumIds = null, baseInfoCache = /* @__PURE__ */ new Map();
+    resolvedQuerySeason === null && (inlinedAlbumIds = await this._collectInlinedAlbumIds(filteredAnimes, baseInfoCache));
     let processIqiyiAnimes = await Promise.all(
       filteredAnimes.map(async (anime) => {
         try {
-          let eps = await this.getEpisodes(anime.mediaId), links = [];
+          let eps = await this.getEpisodes(anime.mediaId, resolvedQuerySeason, seasonAlbumCache, inlinedAlbumIds, baseInfoCache), links = [];
           for (let ep of eps) {
             let fullUrl = ep.link || `https://www.iqiyi.com/v_${anime.mediaId}.html`;
             links.push({
@@ -13695,14 +13881,14 @@ var _IqiyiSource = class _IqiyiSource extends BaseSource {
             tmpAnimes.push(transformedAnime), addAnime({ ...transformedAnime, links }, detailStore), globals.animes.length > globals.MAX_ANIMES && removeEarliestAnime();
           }
         } catch (error) {
-          log("error", `[iQiyi] Error processing anime: ${error.message}`);
+          log("error", `[iqiyi] Error processing anime: ${error.message}`);
         }
       })
     );
     return this.sortAndPushAnimesByYear(tmpAnimes, curAnimes), processIqiyiAnimes;
   }
   async getEpisodeDanmu(id) {
-    log("info", "[iQiyi] \u5F00\u59CB\u4ECE\u672C\u5730\u8BF7\u6C42\u7231\u5947\u827A\u5F39\u5E55...", id);
+    log("info", "[iqiyi] \u5F00\u59CB\u4ECE\u672C\u5730\u8BF7\u6C42\u7231\u5947\u827A\u5F39\u5E55...", id);
     let res;
     try {
       res = await Widget.http.get(id, {
@@ -13712,15 +13898,15 @@ var _IqiyiSource = class _IqiyiSource extends BaseSource {
         }
       });
     } catch (error) {
-      return log("error", "[iQiyi] \u8BF7\u6C42\u9875\u9762\u5931\u8D25:", error), [];
+      return log("error", "[iqiyi] \u8BF7\u6C42\u9875\u9762\u5931\u8D25:", error), [];
     }
     let titleMatch = res.data.match(/<title[^>]*>(.*?)<\/title>/i), title = titleMatch ? titleMatch[1].split("_")[0] : "\u672A\u77E5\u6807\u9898";
-    log("info", `[iQiyi] \u6807\u9898: ${title}`);
+    log("info", `[iqiyi] \u6807\u9898: ${title}`);
     let segmentResult = await this.getEpisodeDanmuSegments(id);
     if (!segmentResult || !segmentResult.segmentList || segmentResult.segmentList.length === 0)
       return [];
     let segmentList = segmentResult.segmentList;
-    log("info", `[iQiyi] \u5F39\u5E55\u5206\u6BB5\u6570\u91CF: ${segmentList.length}`);
+    log("info", `[iqiyi] \u5F39\u5E55\u5206\u6BB5\u6570\u91CF: ${segmentList.length}`);
     let promises = [];
     for (let segment of segmentList)
       promises.push(this.getEpisodeSegmentDanmu(segment));
@@ -13730,30 +13916,30 @@ var _IqiyiSource = class _IqiyiSource extends BaseSource {
         contents.push(...data);
       });
     } catch (error) {
-      return log("error", "[iQiyi] \u89E3\u6790\u5F39\u5E55\u6570\u636E\u5931\u8D25:", error), [];
+      return log("error", "[iqiyi] \u89E3\u6790\u5F39\u5E55\u6570\u636E\u5931\u8D25:", error), [];
     }
     return printFirst200Chars(contents), contents;
   }
   async getEpisodeDanmuSegments(id) {
-    log("info", "[iQiyi] \u83B7\u53D6\u7231\u5947\u827A\u89C6\u9891\u5F39\u5E55\u5206\u6BB5\u5217\u8868...", id);
+    log("info", "[iqiyi] \u83B7\u53D6\u7231\u5947\u827A\u89C6\u9891\u5F39\u5E55\u5206\u6BB5\u5217\u8868...", id);
     let api_decode_base = "https://pcw-api.iq.com/api/decode/", api_video_info = "https://pcw-api.iqiyi.com/video/video/baseinfo/", tvid, originalTvid;
     try {
       let idMatch = id.match(/v_(\w+)/);
       if (!idMatch)
-        return log("error", "[iQiyi] \u65E0\u6CD5\u4ECE URL \u4E2D\u63D0\u53D6 tvid"), new SegmentListResponse({
+        return log("error", "[iqiyi] \u65E0\u6CD5\u4ECE URL \u4E2D\u63D0\u53D6 tvid"), new SegmentListResponse({
           type: "qiyi",
           segmentList: []
         });
-      tvid = idMatch[1], log("info", `[iQiyi] tvid: ${tvid}`), originalTvid = tvid;
+      tvid = idMatch[1], log("info", `[iqiyi] tvid: ${tvid}`), originalTvid = tvid;
       let decodeUrl = `${api_decode_base}${tvid}?platformId=3&modeCode=intl&langCode=sg`, res = await Widget.http.get(decodeUrl, {
         headers: {
           "Content-Type": "application/json",
           "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
         }
       });
-      tvid = (typeof res.data == "string" ? JSON.parse(res.data) : res.data).data.toString(), log("info", `[iQiyi] \u89E3\u7801\u540E tvid: ${tvid}`);
+      tvid = (typeof res.data == "string" ? JSON.parse(res.data) : res.data).data.toString(), log("info", `[iqiyi] \u89E3\u7801\u540E tvid: ${tvid}`);
     } catch (error) {
-      return log("error", "[iQiyi] \u8BF7\u6C42\u89E3\u7801\u4FE1\u606F\u5931\u8D25:", error), new SegmentListResponse({
+      return log("error", "[iqiyi] \u8BF7\u6C42\u89E3\u7801\u4FE1\u606F\u5931\u8D25:", error), new SegmentListResponse({
         type: "qiyi",
         segmentList: []
       });
@@ -13767,17 +13953,17 @@ var _IqiyiSource = class _IqiyiSource extends BaseSource {
         }
       }), videoInfo = (typeof res.data == "string" ? JSON.parse(res.data) : res.data).data;
       if (duration = Number(videoInfo.durationSec) || 0, videoInfo.displayBarrage === !1)
-        return log("info", "[iQiyi] \u7231\u5947\u827A\u89C6\u9891\u672A\u5F00\u542F\u5F39\u5E55"), new SegmentListResponse({
+        return log("info", "[iqiyi] \u7231\u5947\u827A\u89C6\u9891\u672A\u5F00\u542F\u5F39\u5E55"), new SegmentListResponse({
           type: "qiyi",
           duration,
           segmentList: []
         });
-      log("info", `[iQiyi] \u65F6\u957F: ${duration}`);
+      log("info", `[iqiyi] \u65F6\u957F: ${duration}`);
     } catch (error) {
-      log("error", "[iQiyi] \u8BF7\u6C42\u89C6\u9891\u57FA\u7840\u4FE1\u606F\u5931\u8D25:", error);
+      log("error", "[iqiyi] \u8BF7\u6C42\u89C6\u9891\u57FA\u7840\u4FE1\u606F\u5931\u8D25:", error);
     }
     if (!duration && originalTvid && originalTvid !== tvid) {
-      log("info", `[iQiyi] decode \u540E tvid \u65E0\u6548\uFF0C\u7528\u539F\u59CB tvid \u91CD\u8BD5: ${originalTvid}`);
+      log("info", `[iqiyi] decode \u540E tvid \u65E0\u6548\uFF0C\u7528\u539F\u59CB tvid \u91CD\u8BD5: ${originalTvid}`);
       try {
         let retryUrl = `${api_video_info}${originalTvid}`, retryRes = await Widget.http.get(retryUrl, {
           headers: {
@@ -13785,9 +13971,9 @@ var _IqiyiSource = class _IqiyiSource extends BaseSource {
             "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
           }
         }), retryData = typeof retryRes.data == "string" ? JSON.parse(retryRes.data) : retryRes.data, retryDuration = Number(retryData.data.durationSec) || 0;
-        retryDuration > 0 && (tvid = originalTvid, duration = retryDuration, log("info", `[iQiyi] \u539F\u59CB tvid \u6709\u6548\uFF0C\u65F6\u957F: ${duration}`));
+        retryDuration > 0 && (tvid = originalTvid, duration = retryDuration, log("info", `[iqiyi] \u539F\u59CB tvid \u6709\u6548\uFF0C\u65F6\u957F: ${duration}`));
       } catch (retryError) {
-        log("error", "[iQiyi] \u539F\u59CB tvid \u91CD\u8BD5\u4E5F\u5931\u8D25:", retryError);
+        log("error", "[iqiyi] \u539F\u59CB tvid \u91CD\u8BD5\u4E5F\u5931\u8D25:", retryError);
       }
     }
     if (!duration)
@@ -13796,7 +13982,7 @@ var _IqiyiSource = class _IqiyiSource extends BaseSource {
         segmentList: []
       });
     let segmentDuration = 60, page = Math.ceil(duration / segmentDuration);
-    log("info", `[iQiyi] \u5F39\u5E55\u5206\u6BB5\u6570\u91CF: ${page}`);
+    log("info", `[iqiyi] \u5F39\u5E55\u5206\u6BB5\u6570\u91CF: ${page}`);
     let segmentList = [], paddedTvid = `0000${tvid}`, bulletPath = `${paddedTvid.slice(-4, -2)}/${paddedTvid.slice(-2)}`;
     for (let i = 0; i < page; i++) {
       let pageNo = i + 1, sign = md5(`${tvid}_${segmentDuration}_${pageNo}cbzuw1259a`).slice(-8), api_url = `https://cmts.iqiyi.com/bullet/${bulletPath}/${tvid}_${segmentDuration}_${pageNo}_${sign}.br`;
@@ -13830,7 +14016,7 @@ var _IqiyiSource = class _IqiyiSource extends BaseSource {
       let compressed = base64ToBytes(response.data), payload = await this._decompressBrotli(compressed);
       return payload[0] === 60 ? this._parseIqiyiXmlDanmu(utf8BytesToString(payload)) : this._parseIqiyiProtoDanmu(payload);
     } catch (error) {
-      return log("error", "[iQiyi] \u8BF7\u6C42\u5206\u7247\u5F39\u5E55\u5931\u8D25:", error), [];
+      return log("error", "[iqiyi] \u8BF7\u6C42\u5206\u7247\u5F39\u5E55\u5931\u8D25:", error), [];
     }
   }
   async _decompressBrotli(bytes) {
@@ -15869,753 +16055,74 @@ var CustomSource = class extends BaseSource {
 };
 
 // danmu_api/utils/migu-util.js
-var WASM_BASE64 = `
-AGFzbQEAAAABWA5gAn9/AX9gA39/fwF/YAJ/fwBgA39/fwBgAX8Bf2ABfwBgBX9/f39/AX9gBX9/f39/AGAAAX9gBH9/f38AYAR/
-f39/AX9gAn5/AX9gBn9/f39/fwBgAAACXAMDd2JnGl9fd2JpbmRnZW5fb2JqZWN0X2Ryb3BfcmVmAAUDd2JnFV9fd2JpbmRnZW5f
-c3RyaW5nX25ldwAAA3diZxdfX3diaW5kZ2VuX2RlYnVnX3N0cmluZwACA4gBhgEEAgUBAAIGBQMFAQMBAgMCAwMCAgAGAAsABQIB
-CAcHAAIHBgMJAwwDAAMDCQAAAAACBwIDAwMDAAIDAwUAAQIBAwAABg0CCgAAAgUFAwIFBAQCAQAFAAoDBAAAAAAAAgICAgQABAQE
-BAIEAAAEBQAAAAQEBAQAAAIAAAECAgABAQgAAAQEBQQFAXABOTkFAwEAEQYJAX8BQYCAwAALB58BCQZtZW1vcnkCAAZlbnNpZ24A
-JA9nYXRld2F5X2VuY3J5cHQAIA9nYXRld2F5X2RlY3J5cHQAIQdnZXRfa2V5AIMBEV9fd2JpbmRnZW5fbWFsbG9jAEUSX193Ymlu
-ZGdlbl9yZWFsbG9jAEkfX193YmluZGdlbl9hZGRfdG9fc3RhY2tfcG9pbnRlcgBvD19fd2JpbmRnZW5fZnJlZQBaCUgBAEEBCzhw
-RF5fL4gBKzJXMYgBcnFfiAFKS247UUAZc2OIAWJBZE4jM4gBYYgBSlFCe3mIAVZ4UTptXWaIAWGIAQ8/fIABGyIKv+YChgG+IQIP
-fwF+IwBBEGsiCyQAAkACQAJ/AkAgAEH1AU8EQEEIQQgQWCEGQRRBCBBYIQVBEEEIEFghAUEAQRBBCBBYQQJ0ayICQYCAfCABIAUg
-Bmpqa0F3cUEDayIBIAEgAksbIABNDQQgAEEEakEIEFghBEG0psAAKAIARQ0DQQAgBGshAwJ/QQAgBEGAAkkNABpBHyAEQf///wdL
-DQAaIARBBiAEQQh2ZyIAa3ZBAXEgAEEBdGtBPmoLIgZBAnRBmKPAAGooAgAiAUUEQEEAIQBBACEFDAILIAQgBhBTdCEHQQAhAEEA
-IQUDQAJAIAEQdCICIARJDQAgAiAEayICIANPDQAgASEFIAIiAw0AQQAhAyABIQBBAAwECyABQRRqKAIAIgIgACACIAEgB0EddkEE
-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
-QQE6ACAgACgCFCIJIAAoAhgiCyAMIAEgAhBGDQEgByAGa0EBaiEFAkADQCAFQQFrIgVFDQEgCUEwIAsoAhARAABFDQALQQEPC0EB
-IQUgCSADIAQgCygCDBEBAA0BIAAgCjoAICAAIAg2AhBBACEFDAELIAcgBmshBgJAAkACQCAALQAgIgVBAWsOAwABAAILIAYhBUEA
-IQYMAQsgBkEBdiEFIAZBAWpBAXYhBgsgBUEBaiEFIABBGGooAgAhCCAAKAIQIQogACgCFCEAAkADQCAFQQFrIgVFDQEgACAKIAgo
-AhARAABFDQALQQEPC0EBIQUgACAIIAwgASACEEYNACAAIAMgBCAIKAIMEQEADQBBACEFA0AgBSAGRgRAQQAPCyAFQQFqIQUgACAK
-IAgoAhARAABFDQALIAVBAWsgBkkPCyAFDwsgBiADIAQgACgCDBEBAAvYBAEcfyAAIAAoAggiBCAAKAIEIgVzIgwgACgCHCINIAAo
-AhAiAXMiFiAAKAIYIgJzIhcgFnFzIAIgDXMiAyAAKAIMIgYgACgCACIHcyIIcyIJcyADIAUgB3MiCnMiEyABIAJzIg8gBCAAKAIU
-IgRzIhBzIhlxIhRzIAYgF3MiFSABIAZzIgEgDHMiGHEgCSAYcyABcSILcyIOcyIRIA4gDyABIAdzIhpxIAIgBXMiBSAEIAZzcyIH
-IAEgCnMiDnJzcyIScSICIAsgAyAJcXMiCyAHIA5xIAogD3MiCiAEcyIbIAUgCHMiHHFzIAFzIARzcyIGcyARIBQgCiANIBBzIhRx
-IAhzcyALcyIEcyIIcSAEcyIFIAYgEnMiCyACIARzcSAGcyINcyIQIAFxIAogDXEiCnMgDSALIAQgEnFBf3NxIAJzIgFzIgQgE3Eg
-AyACIAYgEXEgCHFzIAhzIgIgAXMiA3EiCHMiEXM2AgAgACAHIAIgBXMiB3EiBiAFIBtxIhJzIAMgEHMiEyAVcSIVIAMgCXEiA3Mi
-CyAQIAkgDHNxIgwgByAOcSIHIAIgD3EiD3NzIg5zIglzNgIcIAAgDCACIBpxIgIgASAXcXMiDCAGIAUgHHFzc3MiBSADIA0gFHEi
-AyABIBZxcyIBIA9zcyARc3M2AhggACABIApzIgEgB3MgC3MgBXM2AhQgACADIAQgGXEiA3MgCXM2AhAgACATIBhxIAJzIA5zIgIg
-ASADIBJzIgEgCHNzczYCDCAAIAEgDHMgCXM2AgggACAGIBVzIAJzNgIEC9QFAgZ/An4CQCACRQ0AIAJBB2siA0EAIAIgA08bIQcg
-AUEDakF8cSABayEIQQAhAwNAAkACQAJAIAEgA2otAAAiBcAiBkEATgRAIAggA2tBA3ENASADIAdPDQIDQCABIANqIgRBBGooAgAg
-BCgCAHJBgIGChHhxDQMgA0EIaiIDIAdJDQALDAILQoCAgICAICEKQoCAgIAQIQkCQAJAAn4CQAJAAkACQAJAAkACQAJAAkAgBUGM
-oMAAai0AAEECaw4DAAECCgsgA0EBaiIEIAJJDQJCACEKQgAhCQwJC0IAIQogA0EBaiIEIAJJDQJCACEJDAgLQgAhCiADQQFqIgQg
-AkkNAkIAIQkMBwsgASAEaiwAAEG/f0oNBgwHCyABIARqLAAAIQQCQAJAIAVB4AFrIgUEQCAFQQ1GBEAMAgUMAwsACyAEQWBxQaB/
-Rg0EDAMLIARBn39KDQIMAwsgBkEfakH/AXFBDE8EQCAGQX5xQW5HDQIgBEFASA0DDAILIARBQEgNAgwBCyABIARqLAAAIQQCQAJA
-AkACQCAFQfABaw4FAQAAAAIACyAGQQ9qQf8BcUECSyAEQUBOcg0DDAILIARB8ABqQf8BcUEwTw0CDAELIARBj39KDQELIAIgA0EC
-aiIETQRAQgAhCQwFCyABIARqLAAAQb9/Sg0CQgAhCSADQQNqIgQgAk8NBCABIARqLAAAQb9/TA0FQoCAgICA4AAMAwtCgICAgIAg
-DAILQgAhCSADQQJqIgQgAk8NAiABIARqLAAAQb9/TA0DC0KAgICAgMAACyEKQoCAgIAQIQkLIAAgCiADrYQgCYQ3AgQgAEEBNgIA
-DwsgBEEBaiEDDAILIANBAWohAwwBCyACIANNDQADQCABIANqLAAAQQBIDQEgAiADQQFqIgNHDQALDAILIAIgA0sNAAsLIAAgATYC
-BCAAQQhqIAI2AgAgAEEANgIAC6YEARt/IAAgACgCHCIBIAAoAgQiBHMiByAAKAIQIgUgACgCCCIKcyIMcyIRIAAoAgxzIgggACgC
-GCIGcyILIAEgBXMiEnMiCSAGIAAoAhRzIgJzIgMgBCACIAAoAgAiBHMiBnMiEyAGcXMgAyAHcSINcyAHcyAJIBJxIg4gAiAIIApz
-IgJzIgggCXMiFyAMcXMiD3MiECAPIAIgEXEiDyALIAIgBHMiGCATIAEgCnMiCnMiGXFzc3MiFHEiCyAIIApxIA5zIg4gDyAFIAZz
-Ig8gBHEgCnMgCHNzcyIFcyAOIA0gAyAEIAlzIg0gASAGcyIOcXNzIAFzcyIBIBBzcSIVIAtzIAFxIhYgEHMiECACcSIaIAQgASAV
-cyIEcXMiFSAFIAEgC3MiAiAFIBRzIgVxcyIBIA1xcyADIAIgFnMgAXEgBXMiAyABcyILcSINcyIUIAMgE3FzIAwgAyAEIBBzIgJz
-IgUgASAEcyIMcyITcSAMIBJxIhJzIhZzIhsgDSADIAZxcyIGIBMgF3FzIgMgByALcSIHIAUgCHEgFXNzcyIIczYCBCAAIAcgG3M2
-AgAgACAWIAIgGXFzIgcgECARcXMiESADIAkgDHFzIglzNgIcIAAgCCABIA5xcyIDIAUgCnEgEnMgCXNzNgIUIAAgAiAYcSAacyAG
-cyARcyIBNgIQIAAgByAEIA9xcyADczYCCCAAIAEgCXM2AhggACABIBRzNgIMC4YFAQp/IwBBMGsiAyQAIANBJGogATYCACADQQM6
-ACwgA0EgNgIcIANBADYCKCADIAA2AiAgA0EANgIUIANBADYCDAJ/AkACQAJAIAIoAhAiCkUEQCACQQxqKAIAIgBFDQEgAigCCCEB
-IABBA3QhBSAAQQFrQf////8BcUEBaiEHIAIoAgAhAANAIABBBGooAgAiBARAIAMoAiAgACgCACAEIAMoAiQoAgwRAQANBAsgASgC
-ACADQQxqIAFBBGooAgARAAANAyABQQhqIQEgAEEIaiEAIAVBCGsiBQ0ACwwBCyACQRRqKAIAIgBFDQAgAEEFdCELIABBAWtB////
-P3FBAWohByACKAIIIQggAigCACEAA0AgAEEEaigCACIBBEAgAygCICAAKAIAIAEgAygCJCgCDBEBAA0DCyADIAUgCmoiAUEQaigC
-ADYCHCADIAFBHGotAAA6ACwgAyABQRhqKAIANgIoIAFBDGooAgAhBkEAIQlBACEEAkACQAJAIAFBCGooAgBBAWsOAgACAQsgBkED
-dCAIaiIMKAIEQS1HDQEgDCgCACgCACEGC0EBIQQLIAMgBjYCECADIAQ2AgwgAUEEaigCACEEAkACQAJAIAEoAgBBAWsOAgACAQsg
-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
-EGoQPiAHKAIYIQEgBygCECEEQQAhA0EABUEBCzYCDCAAIAM2AgggACABNgIEIAAgBDYCACAHQSBqJAALjQIBAn8jAEEQayICJAAC
-QCAAKAIAIgMtAABFBEAgASgCFEGNosAAQQQgAUEYaigCACgCDBEBACEADAELQQEhACACIANBAWo2AgAgAiABKAIUQZGiwABBBCAB
-QRhqKAIAKAIMEQEAOgAMIAIgATYCCCACQQA6AA0gAkEANgIEIAJBBGogAkHsnMAAEB4gAi0ADCEBKAIAIgNFBEAgAUEARyEADAEL
-IAENACACKAIIIQECQCADQQFHDQAgAi0ADUUNACABLQAcQQRxDQAgASgCFEHonMAAQQEgAUEYaigCACgCDBEBAA0BCyABKAIUQcSb
-wABBASABQRhqKAIAKAIMEQEAIQALIAJBEGokACAAC/ABAgR/AX4jAEEwayICJAAgAUEEaiEEIAEoAgRFBEAgASgCACEDIAJBLGoi
-BUEANgIAIAJCATcCJCACQSRqQaCXwAAgAxANGiACQSBqIAUoAgAiAzYCACACIAIpAiQiBjcDGCAEQQhqIAM2AgAgBCAGNwIACyAC
-QRBqIgMgBEEIaigCADYCACABQQxqQQA2AgAgBCkCACEGIAFCATcCBEHdosAALQAAGiACIAY3AwhBDEEEEGAiAUUEQEEEQQwQegAL
-IAEgAikDCDcCACABQQhqIAMoAgA2AgAgAEHQmMAANgIEIAAgATYCACACQTBqJAAL1wYBCn8jAEEQayIFJAAgBSACNgIIIAUgAjYC
-BCAFIAE2AgAgBRA+IAUoAgghCyAFKAIAIQEgBSAENgIIIAUgBDYCBCAFIAM2AgAgBRA+IAUoAgAiDCEEIAUoAgghAyMAQfABayIC
-JAAgAiALNgIEIAIgATYCACACIAM2AgwgAiAENgIIIAJBmAFqQYSJwABBLBATIAIoApgBRQRAIAIgAigCnAE2AkBB3IfAAEErIAJB
-QGtBqIjAAEGwicAAEDQACyACQRhqIAJBoAFqKAIANgIAIAIgAikCmAE3AxAgAkHMAGpCAzcCACACQawBakEDNgIAIAJBpAFqIg1B
-BDYCACACQQM2AkQgAkHAicAANgJAIAJBAzYCnAEgAiACQZgBaiIHNgJIIAIgAkEIajYCqAEgAiACQRBqIg42AqABIAIgAjYCmAEg
-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
-DAELIAAoAhRB4pzAAEEBIAAoAhgoAgwRAQALIAJBEGokACADQRBqJAALNwACQCABaUEBR0GAgICAeCABayAASXINACAABEBB3aLA
-AC0AABogACABEGAiAUUNAQsgAQ8LAAs5AAJAAn8gAkGAgMQARwRAQQEgACACIAEoAhARAAANARoLIAMNAUEACw8LIAAgAyAEIAEo
-AgwRAQALPwEBfyMAQSBrIgAkACAAQRRqQgA3AgAgAEEBNgIMIABBgJrAADYCCCAAQbiZwAA2AhAgAEEIakGImsAAEEgAC8kCAQJ/
-IwBBIGsiAiQAIAJBATsBHCACIAE2AhggAiAANgIUIAJB1JvAADYCECACQcSbwAA2AgwjAEEQayIBJAACQCACQQxqIgAoAgwiAgRA
-IAAoAggiA0UNASABIAI2AgwgASAANgIIIAEgAzYCBCMAQRBrIgAkACABQQRqIgEoAgAiAkEMaigCACEDAkACfwJAAkAgAigCBA4C
-AAEDCyADDQJBACECQfSWwAAMAQsgAw0BIAIoAgAiAygCBCECIAMoAgALIQMgACACNgIEIAAgAzYCACAAQfCYwAAgASgCBCIAKAII
-IAEoAgggAC0AECAALQARECkACyAAQQA2AgQgACACNgIAIABBhJnAACABKAIEIgAoAgggASgCCCAALQAQIAAtABEQKQALQfSWwABB
-K0GwmMAAEEMAC0H0lsAAQStBwJjAABBDAAstAAJAIANpQQFHQYCAgIB4IANrIAFJckUEQCAAIAEgAyACEFkiAA0BCwALIAALsgEB
-A38gACgCACEAIAEQZ0UEQCABEGhFBEAgADEAACABEBoPCyMAQYABayIDJAAgAC0AACEAA0AgAiADakH/AGpBMEE3IABBD3EiBEEK
-SRsgBGo6AAAgAkEBayECIAAiBEEEdiEAIARBEE8NAAsgAkGAAWoiAEGAAUsEQCAAQYABQZidwAAQNgALIAFBqJ3AAEECIAIgA2pB
-gAFqQQAgAmsQCSADQYABaiQADwsgACABEDALpwIBA38gARBnRQRAIAEQaEUEQCAAIAEQbg8LIwBBgAFrIgMkACAAKAIAIQADQCAC
-IANqQf8AakEwQTcgAEEPcSIEQQpJGyAEajoAACACQQFrIQIgAEEQSSAAQQR2IQBFDQALIAJBgAFqIgBBgAFLBEAgAEGAAUGYncAA
-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
-CQsgBEGAAWokAAwCCyAAQYABQZidwAAQNgALIABBgAFBmJ3AABA2AAsLrwEBA38gASEFAkAgAkEQSQRAIAAhAQwBCyAAQQAgAGtB
-A3EiA2ohBCADBEAgACEBA0AgASAFOgAAIAFBAWoiASAESQ0ACwsgBCACIANrIgJBfHEiA2ohASADQQBKBEAgBUH/AXFBgYKECGwh
-AwNAIAQgAzYCACAEQQRqIgQgAUkNAAsLIAJBA3EhAgsgAgRAIAEgAmohAgNAIAEgBToAACABQQFqIgEgAkkNAAsLIAALuAIBB38C
-QCACIgRBEEkEQCAAIQIMAQsgAEEAIABrQQNxIgNqIQUgAwRAIAAhAiABIQYDQCACIAYtAAA6AAAgBkEBaiEGIAJBAWoiAiAFSQ0A
-CwsgBSAEIANrIghBfHEiB2ohAgJAIAEgA2oiA0EDcQRAIAdBAEwNASADQQN0IgRBGHEhCSADQXxxIgZBBGohAUEAIARrQRhxIQQg
-BigCACEGA0AgBSAGIAl2IAEoAgAiBiAEdHI2AgAgAUEEaiEBIAVBBGoiBSACSQ0ACwwBCyAHQQBMDQAgAyEBA0AgBSABKAIANgIA
-IAFBBGohASAFQQRqIgUgAkkNAAsLIAhBA3EhBCADIAdqIQELIAQEQCACIARqIQMDQCACIAEtAAA6AAAgAUEBaiEBIAJBAWoiAiAD
-SQ0ACwsgAAsLAEGEicAAQSwQAQsHACAAIAFqCwcAIAAgAWsLBwAgAEEIagsHACAAQQhrCwMAAQsL7SEEAEGAgMAAC/MKL1VzZXJz
-L21hZ3Vhbmd6aGkvLmNhcmdvL3JlZ2lzdHJ5L3NyYy9pbmRleC5jcmF0ZXMuaW8tNmYxN2QyMmJiYTE1MDAxZi9ibG9jay1wYWRk
-aW5nLTAuMy4zL3NyYy9saWIucnNhc3NlcnRpb24gZmFpbGVkOiBuIDw9IGJzAAAAABAAZQAAAFEAAAARAAAAAQAAABQAAAAEAAAA
-AgAAAFRyaWVkIHRvIHNocmluayB0byBhIGxhcmdlciBjYXBhY2l0eaAAEAAkAAAAL3J1c3RjLzc5ZTk3MTZjOTgwNTcwYmZkMWY2
-NjZlM2IxNmFjNTgzZjAxNjg5NjIvbGlicmFyeS9hbGxvYy9zcmMvcmF3X3ZlYy5yc8wAEABMAAAArgEAAAkAAAABAAFBQkNERUZH
-SElKS0xNTk9QUVJTVFVWV1hZWmFiY2RlZmdoaWprbG1ub3BxcnN0dXZ3eHl6MDEyMzQ1Njc4OSsv////////////////////////
-/////////////////////////////////z7///8/NDU2Nzg5Ojs8Pf////////8AAQIDBAUGBwgJCgsMDQ4PEBESExQVFhcYGf//
-/////xobHB0eHyAhIiMkJSYnKCkqKywtLi8wMTIz////////////////////////////////////////////////////////////
-////////////////////////////////////////////////////////////////////////////////////////////////////
-/////////////////y9Vc2Vycy9tYWd1YW5nemhpLy5jYXJnby9yZWdpc3RyeS9zcmMvaW5kZXguY3JhdGVzLmlvLTZmMTdkMjJi
-YmExNTAwMWYvYmFzZTY0LTAuMjEuMi9zcmMvZW5jb2RlLnJzAAAAawIQAGIAAABQAAAAMwAAAHVzaXplIG92ZXJmbG93IHdoZW4g
-Y2FsY3VsYXRpbmcgYjY0IGxlbmd0aAAAawIQAGIAAABXAAAACgAAAC9Vc2Vycy9tYWd1YW5nemhpLy5jYXJnby9yZWdpc3RyeS9z
-cmMvaW5kZXguY3JhdGVzLmlvLTZmMTdkMjJiYmExNTAwMWYvYmFzZTY0LTAuMjEuMi9zcmMvZW5naW5lL21vZC5yc2ludGVnZXIg
-b3ZlcmZsb3cgd2hlbiBjYWxjdWxhdGluZyBidWZmZXIgc2l6ZQAcAxAAZgAAAHcAAAAOAAAASW52YWxpZCBVVEY4HAMQAGYAAAB8
-AAAAIAAAAGNhbGxlZCBgUmVzdWx0Ojp1bndyYXAoKWAgb24gYW4gYEVycmAgdmFsdWUABgAAAAgAAAAEAAAABwAAAAYAAAAIAAAA
-BAAAAAgAAAAJAAAABAAAAAQAAAAKAAAACwAAAAAAAAABAAAADAAAAHNyYy9saWIucnMAAEgEEAAKAAAAeQAAACUAAAADBQcADwoN
-AQsOBAYJDAgCSAQQAAoAAAB7AAAAJwAAAEFMc1BEcnNPQjdDN0RBZTN1cjhNQ3dzQnNBRUh1Z0M2QXdBQUI3OEtBQTg9SAQQAAoA
-AAAVAAAALwAAANwDEAAAAAAA3AMQAAAAAADcAxAAAAAAANwDEAAAAAAAdnd3THU3ZTZ1ZzRIQVFNQXVnOENzQThIRDdvSER3dXhB
-ZzRIQVFHNkRMQT1IBBAACgAAADcAAAAKAAAARXJyb3IgS2V5AAAASAQQAAoAAABaAAAANgAAAEVycm9yIGRlY29kaW5nIGNpcGhl
-ciB0ZXh0IDFFcnJvciBkZWNyeXB0aW5nIGNpcGhlciB0ZXh0IDKAAEG0i8AAC9gVsgUQAAAAAABKc1ZhbHVlKCkAAAC8BRAACAAA
-AMQFEAABAAAADwAAAAQAAAAEAAAAEAAAAC9Vc2Vycy9tYWd1YW5nemhpLy5jYXJnby9yZWdpc3RyeS9zcmMvaW5kZXguY3JhdGVz
-LmlvLTZmMTdkMjJiYmExNTAwMWYvYmFzZTY0LTAuMjEuMi9zcmMvZW5naW5lL2dlbmVyYWxfcHVycG9zZS9kZWNvZGVfc3VmZml4
-LnJz6AUQAIAAAAAdAAAAGQAAAOgFEACAAAAAmgAAAAkAAABpbnRlcm5hbCBlcnJvcjogZW50ZXJlZCB1bnJlYWNoYWJsZSBjb2Rl
-OiBJbXBvc3NpYmxlOiBtdXN0IG9ubHkgaGF2ZSAwIHRvIDggaW5wdXQgYnl0ZXMgaW4gbGFzdCBjaHVuaywgd2l0aCBubyBpbnZh
-bGlkIGxlbmd0aHMAAIgGEAB+AAAA6AUQAIAAAACFAAAADgAAAGludGVybmFsIGVycm9yOiBlbnRlcmVkIHVucmVhY2hhYmxlIGNv
-ZGU6IEltcG9zc2libGUgcmVtYWluZGVyAAAgBxAAPgAAAC9Vc2Vycy9tYWd1YW5nemhpLy5jYXJnby9yZWdpc3RyeS9zcmMvaW5k
-ZXguY3JhdGVzLmlvLTZmMTdkMjJiYmExNTAwMWYvYmFzZTY0LTAuMjEuMi9zcmMvZW5jb2RlLnJzAABoBxAAYgAAAG4AAAAWAAAA
-aAcQAGIAAACCAAAACQAAAA8AAAAEAAAABAAAABEAAABJbnZhbGlkTGVuZ3RoSW52YWxpZEJ5dGVJbnZhbGlkTGFzdFN5bWJvbElu
-dmFsaWRQYWRkaW5nL1VzZXJzL21hZ3Vhbmd6aGkvLmNhcmdvL3JlZ2lzdHJ5L3NyYy9pbmRleC5jcmF0ZXMuaW8tNmYxN2QyMmJi
-YTE1MDAxZi9iYXNlNjQtMC4yMS4yL3NyYy9lbmdpbmUvZ2VuZXJhbF9wdXJwb3NlL2RlY29kZS5yczMIEAB5AAAAcgAAACkAAAAz
-CBAAeQAAAHMAAAAvAAAAMwgQAHkAAACZAAAAGwAAADMIEAB5AAAAnQAAABkAAAAzCBAAeQAAALAAAAATAAAAMwgQAHkAAACzAAAA
-GAAAADMIEAB5AAAA2gAAAB8AAAAzCBAAeQAAAOAAAAAfAAAAMwgQAHkAAADpAAAAHwAAADMIEAB5AAAA8gAAAB8AAAAzCBAAeQAA
-APsAAAAfAAAAMwgQAHkAAAAEAQAAHwAAADMIEAB5AAAADQEAAB8AAAAzCBAAeQAAABYBAAAfAAAAL1VzZXJzL21hZ3Vhbmd6aGkv
-LmNhcmdvL3JlZ2lzdHJ5L3NyYy9pbmRleC5jcmF0ZXMuaW8tNmYxN2QyMmJiYTE1MDAxZi9iYXNlNjQtMC4yMS4yL3NyYy9lbmdp
-bmUvZ2VuZXJhbF9wdXJwb3NlL21vZC5ycwAAjAkQAHYAAACUAAAADQAAAIwJEAB2AAAAlgAAAEAAAACMCRAAdgAAAJUAAAANAAAA
-jAkQAHYAAACYAAAADQAAAIwJEAB2AAAAnAAAAA0AAACMCRAAdgAAAJ0AAAANAAAAjAkQAHYAAACFAAAAJQAAAIwJEAB2AAAAhgAA
-ACsAAACMCRAAdgAAAD4AAAAbAAAAjAkQAHYAAABAAAAAIAAAAC9Vc2Vycy9tYWd1YW5nemhpLy5jYXJnby9yZWdpc3RyeS9zcmMv
-aW5kZXguY3JhdGVzLmlvLTZmMTdkMjJiYmExNTAwMWYvYWVzLTAuOC4zL3NyYy9zb2Z0L2ZpeHNsaWNlMzIucnMApAoQAGcAAADd
-AQAAKQAAAKQKEABnAAAA8gEAAC0AAACkChAAZwAAAIkEAAASAAAApAoQAGcAAACJBAAAPQAAAKQKEABnAAAAFAUAACIAAACkChAA
-ZwAAABQFAAAJAAAAUGFkRXJyb3JjYWxsZWQgYE9wdGlvbjo6dW53cmFwKClgIG9uIGEgYE5vbmVgIHZhbHVlABQAAAAMAAAABAAA
-ABUAAAAWAAAAFwAAAG1lbW9yeSBhbGxvY2F0aW9uIG9mICBieXRlcyBmYWlsZWQAALgLEAAVAAAAzQsQAA0AAABsaWJyYXJ5L3N0
-ZC9zcmMvYWxsb2MucnPsCxAAGAAAAGIBAAAJAAAAbGlicmFyeS9zdGQvc3JjL3Bhbmlja2luZy5ycxQMEAAcAAAAUwIAAB8AAAAU
-DBAAHAAAAFQCAAAeAAAAFAAAAAwAAAAEAAAAGAAAABkAAAAIAAAABAAAABoAAAAZAAAACAAAAAQAAAAbAAAAHAAAAB0AAAAQAAAA
-BAAAAB4AAAAfAAAAIAAAAAAAAAABAAAAIQAAACIAAAAEAAAABAAAACMAAAAkAAAADAAAAAQAAAAlAAAAJgAAACcAAABsaWJyYXJ5
-L2FsbG9jL3NyYy9yYXdfdmVjLnJzY2FwYWNpdHkgb3ZlcmZsb3cAAADsDBAAEQAAANAMEAAcAAAAFgIAAAUAAABhIGZvcm1hdHRp
-bmcgdHJhaXQgaW1wbGVtZW50YXRpb24gcmV0dXJuZWQgYW4gZXJyb3IAKAAAAAAAAAABAAAAKQAAAGxpYnJhcnkvYWxsb2Mvc3Jj
-L2ZtdC5yc1wNEAAYAAAAYgIAACAAAADvv71ieXRlc2Vycm9yAAAAIgAAAAQAAAAEAAAAKgAAAEZyb21VdGY4RXJyb3IAAAArAAAA
-DAAAAAQAAAAsAAAAKQAAAMQNEAAAAAAAWwAAADAAAAAAAAAAAQAAADEAAABpbmRleCBvdXQgb2YgYm91bmRzOiB0aGUgbGVuIGlz
-ICBidXQgdGhlIGluZGV4IGlzIAAA5A0QACAAAAAEDhAAEgAAADogAADEDRAAAAAAACgOEAACAAAAMgAAAAwAAAAEAAAAMwAAADQA
-AAA1AAAAICAgICB7ICwgIHsKLAp9IH0oKAosCgAAMgAAAAQAAAAEAAAANgAAAF1saWJyYXJ5L2NvcmUvc3JjL2ZtdC9udW0ucnN9
-DhAAGwAAAGkAAAAXAAAAMHgwMDAxMDIwMzA0MDUwNjA3MDgwOTEwMTExMjEzMTQxNTE2MTcxODE5MjAyMTIyMjMyNDI1MjYyNzI4
-MjkzMDMxMzIzMzM0MzUzNjM3MzgzOTQwNDE0MjQzNDQ0NTQ2NDc0ODQ5NTA1MTUyNTM1NDU1NTY1NzU4NTk2MDYxNjI2MzY0NjU2
-NjY3Njg2OTcwNzE3MjczNzQ3NTc2Nzc3ODc5ODA4MTgyODM4NDg1ODY4Nzg4ODk5MDkxOTI5Mzk0OTU5Njk3OTg5OXJhbmdlIHN0
-YXJ0IGluZGV4ICBvdXQgb2YgcmFuZ2UgZm9yIHNsaWNlIG9mIGxlbmd0aCAAAHIPEAASAAAAhA8QACIAAAByYW5nZSBlbmQgaW5k
-ZXgguA8QABAAAACEDxAAIgAAAHNsaWNlIGluZGV4IHN0YXJ0cyBhdCAgYnV0IGVuZHMgYXQgANgPEAAWAAAA7g8QAA0AAAABAQEB
-AQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEB
-AQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQBBzqHAAAszAgICAgICAgICAgICAgICAgIC
-AgICAgICAgICAgICAwMDAwMDAwMDAwMDAwMDAwQEBAQEAEGNosAAC0xOb25lU29tZQAAADIAAAAEAAAABAAAADcAAABFcnJvclV0
-ZjhFcnJvcnZhbGlkX3VwX3RvZXJyb3JfbGVuAAAyAAAABAAAAAQAAAA4AHsJcHJvZHVjZXJzAghsYW5ndWFnZQEEUnVzdAAMcHJv
-Y2Vzc2VkLWJ5AwVydXN0Yx0xLjc0LjAgKDc5ZTk3MTZjOSAyMDIzLTExLTEzKQZ3YWxydXMGMC4xOS4wDHdhc20tYmluZGdlbhIw
-LjIuODcgKGYwYThhZTNiOSkALA90YXJnZXRfZmVhdHVyZXMCKw9tdXRhYmxlLWdsb2JhbHMrCHNpZ24tZXh0
-`, yf = null, Mf = null, jf = null, memoryRef = null, Pf = 0, Ef = new Array(132).fill(void 0);
-Ef.push(void 0, null, !0, !1);
-var Af = Ef.length;
-function Cf(l) {
-  let n = Ef[l];
-  return l >= 132 && (Ef[l] = Af, Af = l), n;
-}
-function If() {
-  return (jf === null || jf.byteLength === 0) && (jf = new Uint8Array(memoryRef.buffer)), jf;
-}
-function Df() {
-  return (Mf === null || Mf.byteLength === 0) && (Mf = new Int32Array(memoryRef.buffer)), Mf;
-}
-function Tf(l, n) {
-  return l = l >>> 0, utf8BytesToString(If().subarray(l, l + n));
-}
-function Nf(l, n, u) {
-  if (u === void 0) {
-    let t2 = stringToUtf8Bytes(l), e2 = n(t2.length, 1) >>> 0;
-    return If().subarray(e2, e2 + t2.length).set(t2), Pf = t2.length, e2;
-  }
-  let t = stringToUtf8Bytes(l), e = n(t.length, 1) >>> 0;
-  return If().subarray(e, e + t.length).set(t), Pf = t.length, e;
-}
-function Uf(l) {
-  return l == null;
-}
-function base64ToUint8Array(base64) {
-  let binaryString = atob(base64.replace(/\s+/g, "")), bytes = new Uint8Array(binaryString.length);
-  for (let i = 0; i < binaryString.length; i++)
-    bytes[i] = binaryString.charCodeAt(i);
-  return bytes;
-}
-async function initWasm() {
-  if (yf !== null)
-    return yf;
-  let wasmBuffer = base64ToUint8Array(WASM_BASE64), importObject = {
-    wbg: {
-      __wbindgen_object_drop_ref: (l) => Cf(l),
-      __wbindgen_string_new: (ptr, len) => {
-        let str = Tf(ptr, len);
-        Af === Ef.length && Ef.push(Ef.length + 1);
-        let idx = Af;
-        return Af = Ef[idx], Ef[idx] = str, idx;
-      },
-      __wbindgen_debug_string: () => {
-      }
-    }
-  };
-  return yf = (await WebAssembly.instantiate(wasmBuffer, importObject)).instance.exports, memoryRef = yf.memory, Mf = null, jf = null, yf;
-}
-function Hf(l, n) {
-  let u, t;
+var DEFAULT_GATEWAY_KEY = "vwwLu7e6ug4HAQMAug8CsA8HD7oHDwuxAg4HAQG6DLA=", KEY_NIBBLE_SUBSTITUTION = [3, 5, 7, 0, 15, 10, 13, 1, 11, 14, 4, 6, 9, 12, 8, 2], BASE64_PATTERN = /^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/;
+function decodeBase64(value, errorMessage) {
+  if (typeof value != "string" || value.length % 4 !== 0 || !BASE64_PATTERN.test(value))
+    throw new Error(errorMessage);
   try {
-    let e = yf.__wbindgen_add_to_stack_pointer(-16), r = Nf(l, yf.__wbindgen_malloc, yf.__wbindgen_realloc), o = Pf, i = Uf(n) ? 0 : Nf(n, yf.__wbindgen_malloc, yf.__wbindgen_realloc), a = Pf;
-    yf.gateway_decrypt(e, r, o, i, a);
-    let s = Df()[e / 4 + 0], c = Df()[e / 4 + 1], f = Df()[e / 4 + 2], p = Df()[e / 4 + 3], d = s, h = c;
-    if (p)
-      throw d = 0, h = 0, Cf(f);
-    return u = d, t = h, Tf(d, h);
-  } finally {
-    yf.__wbindgen_add_to_stack_pointer(16), u !== void 0 && t !== void 0 && yf.__wbindgen_free(u, t, 1);
+    return base64ToBytes(value);
+  } catch {
+    throw new Error(errorMessage);
   }
+}
+function deriveGatewayKey(encodedKey) {
+  let sourceKey = decodeBase64(encodedKey, "Error Key");
+  if (sourceKey.length !== 32)
+    throw new Error("Error Key");
+  let key = new Uint8Array(sourceKey.length);
+  for (let i = 0; i < sourceKey.length; i++) {
+    let value = sourceKey[i];
+    key[i] = KEY_NIBBLE_SUBSTITUTION[value >>> 4] << 4 | KEY_NIBBLE_SUBSTITUTION[value & 15];
+  }
+  return key;
+}
+function removePkcs7Padding(data) {
+  if (data.length === 0)
+    throw new Error("Invalid padding");
+  let paddingLength = data[data.length - 1];
+  if (paddingLength < 1 || paddingLength > 16 || paddingLength > data.length)
+    throw new Error("Invalid padding");
+  for (let i = data.length - paddingLength; i < data.length; i++)
+    if (data[i] !== paddingLength)
+      throw new Error("Invalid padding");
+  return data.slice(0, data.length - paddingLength);
+}
+function isValidUtf8(bytes) {
+  for (let i = 0; i < bytes.length; ) {
+    let first = bytes[i++];
+    if (first <= 127) continue;
+    let continuationCount, codePoint;
+    if (first >= 194 && first <= 223)
+      continuationCount = 1, codePoint = first & 31;
+    else if (first >= 224 && first <= 239)
+      continuationCount = 2, codePoint = first & 15;
+    else if (first >= 240 && first <= 244)
+      continuationCount = 3, codePoint = first & 7;
+    else
+      return !1;
+    if (i + continuationCount > bytes.length) return !1;
+    for (let j = 0; j < continuationCount; j++) {
+      let next = bytes[i++];
+      if ((next & 192) !== 128) return !1;
+      codePoint = codePoint << 6 | next & 63;
+    }
+    if (continuationCount === 1 && codePoint < 128 || continuationCount === 2 && codePoint < 2048 || continuationCount === 3 && codePoint < 65536 || codePoint >= 55296 && codePoint <= 57343 || codePoint > 1114111)
+      return !1;
+  }
+  return !0;
 }
 async function decrypt(encryptedData, key) {
-  return encryptedData = encryptedData.replace(/\s+/g, ""), await initWasm(), Hf(encryptedData, key);
+  let compactCipherText = typeof encryptedData == "string" ? encryptedData.replace(/\s+/g, "") : encryptedData, cipherBytes = decodeBase64(compactCipherText, "Error decoding cipher text 1"), gatewayKey = deriveGatewayKey(key ?? DEFAULT_GATEWAY_KEY);
+  if (cipherBytes.length === 0 || cipherBytes.length % 16 !== 0)
+    throw new Error("Error decrypting cipher text 2");
+  try {
+    let decryptedBytes = aesEcbDecrypt(cipherBytes, gatewayKey), unpaddedBytes = removePkcs7Padding(decryptedBytes);
+    if (!isValidUtf8(unpaddedBytes))
+      throw new Error("Invalid UTF-8");
+    return utf8BytesToString(unpaddedBytes);
+  } catch {
+    throw new Error("Error decrypting cipher text 2");
+  }
 }
 
 // danmu_api/sources/migu.js
@@ -18575,7 +18082,14 @@ var AiyifanSource = class extends BaseSource {
 
 // danmu_api/sources/hongguo.js
 var CLIENT_CONFIG = {
-  apiHost: "api5-normal-sinfonlineb.fqnovel.com",
+  apiHosts: Object.freeze([
+    "api5-normal-sinfonlinea.fqnovel.com",
+    "api5-normal-sinfonlinec.fqnovel.com",
+    "api5-normal-lf.fqnovel.com",
+    "api5-normal-lq.fqnovel.com",
+    "api5-normal-sinfonlineb.fqnovel.com",
+    "api5-normal-hl.fqnovel.com"
+  ]),
   baseQuery: {
     iid: "4439167111854618",
     device_id: "4439167111850522",
@@ -18616,7 +18130,7 @@ var CLIENT_CONFIG = {
     "passport-sdk-version": "5051452",
     "sdk-version": "2"
   }
-}, COMMENT_SOURCE = 601, SERVER_CHANNEL = 1e3, COMMENT_WINDOW_MS = 3e4, COMMENT_COUNT = 90, COMMENT_CONCURRENCY = 30, MAX_RETRIES = 3, MAX_SEARCH_ITEMS = 20, IMAGE_SHRINK = `W3siaW1hZ2VfdHlwZSI6MywiaW1hZ2Vfd2lkdGgiOjkwMCwic2hyaW5rX3R5cGUiOjN9LHsiaW1h
+}, COMMENT_SOURCE = 601, SERVER_CHANNEL = 1e3, COMMENT_WINDOW_MS = 3e4, COMMENT_COUNT = 90, COMMENT_CONCURRENCY = 30, MAX_SEARCH_ITEMS = 20, IMAGE_SHRINK = `W3siaW1hZ2VfdHlwZSI6MywiaW1hZ2Vfd2lkdGgiOjkwMCwic2hyaW5rX3R5cGUiOjN9LHsiaW1h
 Z2VfdHlwZSI6NCwiaW1hZ2Vfd2lkdGgiOjU0LCJzaHJpbmtfdHlwZSI6NH1d
 `, SIGN_KEY = hexToBytes("ac1adaae95a7af94a5114ab3b3a97dd80050aa0a39314c40528caec95256c28c"), ARGUS_HEADER = hexToBytes("3ccc"), ARGUS_PREFIX = hexToBytes("a6e783ee7001100918"), ARGUS_SUFFIX = hexToBytes("567b"), ARGUS_XOR_WORD = hexToBytes("d04ffdff"), LICENSE_ID = 1611921764, METASEC_APP_ID = 3019, SDK_VERSION = 135135744, COUNTER_VALUE = 1388734, SIMON_Z = word64(74278795, 1036602426);
 function concatBytes(...parts) {
@@ -18927,21 +18441,38 @@ function extractImageUrl(value) {
   }
   return "";
 }
+function extractYearFromTimestamp(...values) {
+  for (let value of values) {
+    if (value == null || value === "") continue;
+    let timestamp = Number(value);
+    if (!Number.isFinite(timestamp) || timestamp <= 0) continue;
+    let milliseconds = timestamp >= 1e12 ? timestamp : timestamp * 1e3, year = new Date(milliseconds).getUTCFullYear();
+    if (year >= 1900 && year <= 2100) return year;
+  }
+  return null;
+}
 function parseSearchCell(cell) {
   let seriesId = cell && (cell.book_id || cell.search_result_id);
   if (!seriesId) return null;
   let detail = cell.video_detail || {}, videoData = cell.video_data;
   Array.isArray(videoData) && (videoData = videoData[0] || {}), (!videoData || typeof videoData != "object") && (videoData = {});
-  let inner = videoData.video_detail || {}, episodeCount = detail.episode_cnt || videoData.episode_cnt || inner.episode_cnt || 0;
+  let inner = videoData.video_detail || {}, albumInfo = videoData.album_info || inner.album_info || detail.album_info || {}, episodeCount = detail.episode_cnt || videoData.episode_cnt || inner.episode_cnt || albumInfo.episode_cnt || 0;
   if (!episodeCount) return null;
-  let highlighted = cell.search_high_light && cell.search_high_light.title && cell.search_high_light.title.text, title = String(highlighted || detail.series_title || videoData.title || inner.series_title || "").replace(/<[^>]+>/g, "").trim();
+  let highlighted = cell.search_high_light && cell.search_high_light.title && cell.search_high_light.title.text, title = String(highlighted || detail.series_title || videoData.title || inner.series_title || albumInfo.title || "").replace(/<[^>]+>/g, "").trim();
   return title ? {
     seriesId: String(seriesId),
     name: title,
     episodeCount: Number(episodeCount) || 0,
-    score: videoData.score || inner.score || "",
+    score: videoData.score || inner.score || albumInfo.score || "",
+    year: extractYearFromTimestamp(
+      albumInfo.create_time,
+      inner.create_time,
+      videoData.create_time,
+      detail.create_time,
+      cell.create_time
+    ),
     imageUrl: extractImageUrl(
-      inner.series_cover || videoData.cover || detail.series_cover || cell.series_cover || cell.cover
+      inner.series_cover || videoData.cover || detail.series_cover || albumInfo.cover || cell.series_cover || cell.cover
     )
   } : null;
 }
@@ -18997,11 +18528,35 @@ function getFragmentNumber(value, name) {
 }
 var HongguoSource = class extends BaseSource {
   constructor() {
-    super(), this.nextRequestAt = 0, this.playerEpisodeResolutions = /* @__PURE__ */ new Map(), this.activeCommentRequests = 0, this.commentRequestWaiters = [];
+    super(), this.preferredApiHost = CLIENT_CONFIG.apiHosts[0], this.nextRequestAt = 0, this.playerEpisodeResolutions = /* @__PURE__ */ new Map(), this.activeCommentRequests = 0, this.commentRequestWaiters = [];
   }
-  buildUrl(path2, extraQuery = {}) {
+  buildUrl(path2, extraQuery = {}, apiHost = this.preferredApiHost) {
     let query = { ...CLIENT_CONFIG.baseQuery, ...extraQuery, _rticket: String(Date.now()) };
-    return `https://${CLIENT_CONFIG.apiHost}${path2}?${buildQueryString(query)}`;
+    return `https://${apiHost || CLIENT_CONFIG.apiHosts[0]}${path2}?${buildQueryString(query)}`;
+  }
+  getApiHosts() {
+    let preferred = this.preferredApiHost;
+    return !preferred || !CLIENT_CONFIG.apiHosts.includes(preferred) ? [...CLIENT_CONFIG.apiHosts] : [preferred, ...CLIENT_CONFIG.apiHosts.filter((host) => host !== preferred)];
+  }
+  parseApiResponse(response) {
+    let status = response && response.status != null ? `HTTP ${response.status}` : "\u672A\u77E5 HTTP \u72B6\u6001";
+    if (!response || !("data" in response)) throw new Error(`\u65E0\u6548\u54CD\u5E94 (${status})`);
+    let statusCode = response.status == null ? null : Number(response.status);
+    if (Number.isFinite(statusCode) && (statusCode < 200 || statusCode >= 300))
+      throw new Error(`\u63A5\u53E3\u8FD4\u56DE ${status}`);
+    if (typeof response.data != "string") {
+      if (!response.data || typeof response.data != "object") throw new Error(`\u65E0\u6548\u54CD\u5E94 (${status})`);
+      return response.data;
+    }
+    let text = response.data.trim();
+    if (!text) throw new Error(`\u63A5\u53E3\u8FD4\u56DE\u7A7A\u54CD\u5E94 (${status})`);
+    try {
+      let result = JSON.parse(text);
+      if (!result || typeof result != "object") throw new Error("JSON \u6839\u8282\u70B9\u4E0D\u662F\u5BF9\u8C61");
+      return result;
+    } catch (error) {
+      throw new Error(`\u63A5\u53E3\u8FD4\u56DE\u65E0\u6548 JSON (${status}): ${error.message}`);
+    }
   }
   async throttle() {
     let now = Date.now(), scheduled = Math.max(now, this.nextRequestAt);
@@ -19015,13 +18570,13 @@ var HongguoSource = class extends BaseSource {
     throw [401, 403, 8, 1001].includes(Number(code)) || ["token", "login", "\u767B\u5F55", "\u672A\u767B\u5F55", "expire"].some((word) => normalizedMessage.includes(word)) ? new Error(`\u9274\u6743\u5931\u8D25 code=${code}: ${message}`) : new Error(`\u98CE\u63A7\u6216\u5E73\u53F0\u5F02\u5E38 code=${code}: ${message}`);
   }
   async request(method, path2, { body = null, extraQuery = {}, comment = !1 } = {}) {
-    let lastError;
-    for (let attempt = 0; attempt < MAX_RETRIES; attempt++)
+    let apiHosts = this.getApiHosts(), failures = [], payload = body == null ? null : JSON.stringify(body);
+    for (let index = 0; index < apiHosts.length; index++) {
+      let apiHost = apiHosts[index];
       try {
-        let url = this.buildUrl(path2, extraQuery), headers = {};
+        let url = this.buildUrl(path2, extraQuery, apiHost), headers = {};
         for (let [key, value] of Object.entries(CLIENT_CONFIG.sessionHeaders))
           value && (headers[key] = String(value));
-        let payload = body == null ? null : JSON.stringify(body);
         headers["content-type"] = "application/json; charset=utf-8", comment ? (headers["comment-source"] = String(COMMENT_SOURCE), headers["server-channel"] = String(SERVER_CHANNEL), headers["x-ss-stub"] = "") : payload != null && (headers["x-ss-stub"] = md5(stringToUtf8Bytes(payload)).toUpperCase()), Object.assign(headers, signHongguoRequest(url, { headers }));
         let releaseCommentSlot = comment ? await this.acquireCommentSlot() : null;
         comment || await this.throttle();
@@ -19031,12 +18586,23 @@ var HongguoSource = class extends BaseSource {
         } finally {
           releaseCommentSlot && releaseCommentSlot();
         }
-        let result = typeof response.data == "string" ? JSON.parse(response.data) : response.data;
-        return this.checkResponse(result), result;
+        let result = this.parseApiResponse(response);
+        try {
+          this.checkResponse(result);
+        } catch (error) {
+          throw error.retryable = !1, error;
+        }
+        return this.preferredApiHost = apiHost, result;
       } catch (error) {
-        lastError = error, attempt + 1 < MAX_RETRIES && await sleep(1500 * (attempt + 1));
+        if (error && error.retryable === !1) throw error;
+        let message = error && error.message ? error.message : String(error);
+        failures.push({ host: apiHost, message });
+        let nextApiHost = apiHosts[index + 1];
+        nextApiHost && log("warn", `[Hongguo] ${apiHost} \u8BF7\u6C42\u5931\u8D25\uFF0C\u5207\u6362\u5230 ${nextApiHost}: ${message}`);
       }
-    throw lastError || new Error("\u5E73\u53F0\u8BF7\u6C42\u5931\u8D25");
+    }
+    let details = failures.map(({ host, message }) => `${host}: ${message}`).join(" | "), requestError = new Error(`\u7EA2\u679C\u8BF7\u6C42\u5931\u8D25\uFF0C${apiHosts.length} \u6761\u7EBF\u8DEF\u5747\u4E0D\u53EF\u7528: ${details}`);
+    throw requestError.name = "HongguoHostError", requestError.failures = failures, requestError;
   }
   async search(keyword) {
     try {
@@ -19082,7 +18648,7 @@ var HongguoSource = class extends BaseSource {
           use_server_dns: !1
         },
         series_id: String(seriesId)
-      }, payload = await this.request("POST", "/novel/player/multi_video_detail/v1/", { body }), entry = payload.data && payload.data[String(seriesId)], videoData = entry && entry.video_data || {}, episodes = (videoData.video_list || []).map((item) => ({
+      }, responseData = (await this.request("POST", "/novel/player/multi_video_detail/v1/", { body })).data || {}, entry = responseData[String(seriesId)] || responseData, videoData = entry && entry.video_data || {}, episodes = (videoData.video_list || []).map((item) => ({
         index: Number(item.vid_index) || 0,
         vid: String(item.vid || ""),
         title: String(item.episode_title || "").trim().slice(0, 30),
@@ -19092,10 +18658,11 @@ var HongguoSource = class extends BaseSource {
       })).filter((item) => item.vid).sort((a, b) => a.index - b.index);
       return {
         episodes,
+        year: extractYearFromTimestamp(videoData.create_time),
         imageUrl: extractImageUrl(videoData.series_cover) || (episodes.find((episode) => episode.imageUrl) || {}).imageUrl || ""
       };
     } catch (error) {
-      return log("error", `[Hongguo] \u83B7\u53D6\u5267\u96C6\u5931\u8D25: ${error.message}`), { episodes: [], imageUrl: "" };
+      return log("error", `[Hongguo] \u83B7\u53D6\u5267\u96C6\u5931\u8D25: ${error.message}`), { episodes: [], year: null, imageUrl: "" };
     }
   }
   async resolveEpisodeInfo(value) {
@@ -19153,14 +18720,14 @@ var HongguoSource = class extends BaseSource {
         };
       });
       if (!links.length) continue;
-      let item = {
+      let year = Number.isInteger(anime.year) ? anime.year : Number.isInteger(details.year) ? details.year : null, item = {
         animeId: convertToAsciiSum(anime.seriesId),
         bangumiId: String(anime.seriesId),
-        animeTitle: `${anime.name}\u3010\u77ED\u5267\u3011from hongguo`,
+        animeTitle: `${anime.name}${year ? `(${year})` : ""}\u3010\u77ED\u5267\u3011from hongguo`,
         type: "\u77ED\u5267",
         typeDescription: "\u77ED\u5267",
         imageUrl: anime.imageUrl || details.imageUrl || "",
-        startDate: generateValidStartDate(""),
+        startDate: generateValidStartDate(year),
         episodeCount: links.length,
         rating: Number(anime.score) || 0,
         isFavorited: !0,
@@ -19967,20 +19534,22 @@ function matchSeason(anime, queryTitle, season) {
   } else
     return !1;
 }
-function checkEpisodeSatisfied(animesList, querySeason, queryEpisode, requestAnimeDetailsMap, targetPlatform) {
+function checkEpisodeSatisfied(animesList, querySeason, queryEpisode, requestAnimeDetailsMap, targetPlatform, unsatisfiedOut = null) {
   if (queryEpisode === null || querySeason === null) return !0;
   let targetPlatforms = [];
   targetPlatform && (targetPlatforms = targetPlatform.split("&").map((s) => s.trim().toLowerCase()).filter((s) => s)), targetPlatforms.length === 0 && (targetPlatforms = ["_any_"]);
   let allSatisfied = !0, anyPlatformHadData = !1;
   for (let tPlat of targetPlatforms) {
-    let isEpisodeSatisfied = !1, seasonCapacities = /* @__PURE__ */ new Map(), platformHasData = !1;
+    let isEpisodeSatisfied = !1, seasonCapacities = /* @__PURE__ */ new Map(), platformHasData = !1, providedSources = /* @__PURE__ */ new Set();
     for (let anime of animesList) {
-      let actualPlatform = extractPlatformFromTitle(anime.animeTitle) || anime.source;
-      if (tPlat !== "_any_" && getPlatformMatchScore(actualPlatform, tPlat) === 0)
-        continue;
-      platformHasData = !0;
-      let bData = getBangumiDataForMatch(anime, requestAnimeDetailsMap);
-      if (bData?.success && bData.bangumi?.episodes) {
+      let identityPlatform = extractPlatformFromTitle(anime.animeTitle) || anime.source, bData = getBangumiDataForMatch(anime, requestAnimeDetailsMap), epPlatforms = /* @__PURE__ */ new Set();
+      if (bData?.success && bData.bangumi?.episodes)
+        for (let ep of bData.bangumi.episodes) {
+          let epPlat = extractEpisodeTitle(ep.episodeTitle);
+          epPlat && epPlatforms.add(epPlat);
+        }
+      let actualPlatform = [...new Set([identityPlatform, ...epPlatforms].filter(Boolean).flatMap((p) => p.split(/[&＆]/).map((s) => s.trim().toLowerCase())).filter((s) => s))].join("&");
+      if (!(tPlat !== "_any_" && getPlatformMatchScore(actualPlatform, tPlat) === 0) && (platformHasData = !0, providedSources.add(anime.source), bData?.success && bData.bangumi?.episodes)) {
         let validEps = bData.bangumi.episodes.filter((ep) => !globals.episodeTitleFilter.test(ep.episodeTitle)), filtered = filterSameEpisodeTitle(validEps);
         if (filtered.some((ep) => extractEpisodeNumberFromTitle(ep.episodeTitle) === queryEpisode)) {
           isEpisodeSatisfied = !0;
@@ -20004,12 +19573,10 @@ function checkEpisodeSatisfied(animesList, querySeason, queryEpisode, requestAni
     }
     if (platformHasData && (anyPlatformHadData = !0, !isEpisodeSatisfied)) {
       let totalValidEpisodes = 0;
-      for (let capacity of seasonCapacities.values())
-        totalValidEpisodes += capacity;
-      if (totalValidEpisodes < queryEpisode) {
-        allSatisfied = !1;
-        break;
-      }
+      for (let [sNum, capacity] of seasonCapacities)
+        sNum <= querySeason && (totalValidEpisodes += capacity);
+      if (totalValidEpisodes < queryEpisode && (allSatisfied = !1, unsatisfiedOut))
+        for (let s of providedSources) unsatisfiedOut.add(s);
     }
   }
   return !anyPlatformHadData && targetPlatform ? checkEpisodeSatisfied(animesList, querySeason, queryEpisode, requestAnimeDetailsMap, null) : allSatisfied;
@@ -20218,7 +19785,9 @@ async function searchAnime(url, preferAnimeId = null, preferSource = null, detai
       for (let [key, value] of isolatedDetailStore)
         requestAnimeDetailsMap.has(key) || requestAnimeDetailsMap.set(key, value);
     }
-    if (curAnimes.length > 0 && setSearchCache(cacheKey, curAnimes.map(({ links, ...pureAnime }) => pureAnime), requestAnimeDetailsMap), !checkEpisodeSatisfied(curAnimes, querySeason, queryEpisode, requestAnimeDetailsMap, targetPlatform) && querySeason !== null) {
+    curAnimes.length > 0 && setSearchCache(cacheKey, curAnimes.map(({ links, ...pureAnime }) => pureAnime), requestAnimeDetailsMap);
+    let unsatisfiedPlatforms = /* @__PURE__ */ new Set();
+    if (!checkEpisodeSatisfied(curAnimes, querySeason, queryEpisode, requestAnimeDetailsMap, targetPlatform, unsatisfiedPlatforms) && querySeason !== null) {
       let maxSeason = querySeason;
       for (let source of globals.sourceOrderArr) {
         let rawAnimes = resultData[source];
@@ -20227,7 +19796,9 @@ async function searchAnime(url, preferAnimeId = null, preferSource = null, detai
             let list = item && Array.isArray(item.list) ? item.list : [item];
             for (let a of list) {
               if (!a) continue;
-              let s = extractSeasonNumberFromAnimeTitle(a.animeTitle || a.title || "").season;
+              let testTitle = a.animeTitle || a.title || a.name || a.name_cn || "";
+              if (testTitle && !titleMatches(testTitle, queryTitle, null, !0, 0.6)) continue;
+              let s = extractSeasonNumberFromAnimeTitle(testTitle).season;
               s !== null && s > maxSeason && (maxSeason = s);
             }
           }
@@ -20235,12 +19806,16 @@ async function searchAnime(url, preferAnimeId = null, preferSource = null, detai
       if (maxSeason > querySeason) {
         log("info", `[system] [LogVar-API] Episode ${queryEpisode} not satisfied in Season ${querySeason}. Parallel mapping to S${querySeason + 1}~S${maxSeason}...`);
         let expandPromises = [];
-        for (let s = querySeason + 1; s <= maxSeason; s++)
-          expandPromises.push((async () => {
-            let seasonAnimes = [];
-            return await executeSourceHandlers(resultData, queryTitle, seasonAnimes, requestAnimeDetailsMap, s, preferAnimeId, preferSource), seasonAnimes.length > 0 && setSearchCache(`${queryTitle}_S${s}`, seasonAnimes.map(({ links, ...pureAnime }) => pureAnime), requestAnimeDetailsMap), seasonAnimes;
-          })());
-        let expandedResults = await Promise.all(expandPromises);
+        for (let source of globals.sourceOrderArr)
+          resultData[source] && (targetPlatform && !unsatisfiedPlatforms.has(source) || expandPromises.push((async () => {
+            let sourceResults = [];
+            for (let s = querySeason + 1; s <= maxSeason; s++) {
+              let seasonAnimes = [];
+              await executeSourceHandlers({ [source]: resultData[source] }, queryTitle, seasonAnimes, requestAnimeDetailsMap, s, preferAnimeId, preferSource), seasonAnimes.length > 0 && setSearchCache(`${queryTitle}_S${s}`, seasonAnimes.map(({ links, ...pureAnime }) => pureAnime), requestAnimeDetailsMap), sourceResults.push(seasonAnimes);
+            }
+            return sourceResults;
+          })()));
+        let expandedResults = (await Promise.all(expandPromises)).flat();
         for (let res of expandedResults)
           curAnimes.push(...res);
       }
@@ -20282,11 +19857,15 @@ async function searchAnime(url, preferAnimeId = null, preferSource = null, detai
   });
 }
 function filterSameEpisodeTitle(filteredTmpEpisodes) {
-  return filteredTmpEpisodes.filter((episode, index, episodes) => !episodes.slice(0, index).some((prevEpisode) => prevEpisode.episodeTitle === episode.episodeTitle));
+  let filteredEpisodes = filteredTmpEpisodes.filter((episode, index, episodes) => !episodes.slice(0, index).some((prevEpisode) => prevEpisode.episodeTitle === episode.episodeTitle)), seenNumbers = /* @__PURE__ */ new Set();
+  return filteredEpisodes.filter((ep) => {
+    let num = extractEpisodeNumberFromTitle(ep.episodeTitle);
+    return num === null ? !0 : seenNumbers.has(num) ? !1 : (seenNumbers.add(num), !0);
+  });
 }
 function getPlatformMatchScore(candidatePlatform, targetPlatform) {
   if (!candidatePlatform || !targetPlatform) return 0;
-  let cParts = candidatePlatform.split("&").map((s) => s.trim().toLowerCase()).filter((s) => s), tParts = targetPlatform.split("&").map((s) => s.trim().toLowerCase()).filter((s) => s), matchCount = 0;
+  let cParts = [...new Set(candidatePlatform.split(/[&＆]/).map((s) => s.trim().toLowerCase()).filter((s) => s))], tParts = [...new Set(targetPlatform.split(/[&＆]/).map((s) => s.trim().toLowerCase()).filter((s) => s))], matchCount = 0;
   for (let tPart of tParts)
     cParts.some(
       (cPart) => cPart === tPart || cPart.includes(tPart) && tPart.length > 2 || tPart.includes(cPart) && cPart.length > 2
@@ -20294,7 +19873,7 @@ function getPlatformMatchScore(candidatePlatform, targetPlatform) {
   return matchCount === 0 ? 0 : matchCount * 1e3 - cParts.length;
 }
 function extractPlatformFromTitle(title) {
-  let match = title.match(/from\s+([a-zA-Z0-9&]+)/i);
+  let match = title.match(/from\s+([a-zA-Z0-9&＆]+)/i);
   return match ? match[1] : null;
 }
 function getBangumiDataForMatch(anime, detailStore = null) {
@@ -20334,7 +19913,8 @@ function buildBangumiData(anime, idParam = "") {
       episodeId: link.id,
       episodeTitle: `${link.title}`,
       episodeNumber: `${i + 1}`,
-      airDate: anime.startDate
+      airDate: anime.startDate,
+      url: link.url || ""
     });
   }
   if (globals.enableAnimeEpisodeFilter) {
@@ -20631,7 +20211,7 @@ async function getSegmentComment(segment, queryFormat) {
 }
 
 // forward/forward-widget.js
-var wv = "1.20.0";
+var wv = "1.20.2";
 WidgetMetadata = {
   id: "forward.auto.danmu2",
   title: "\u81EA\u52A8\u94FE\u63A5\u5F39\u5E55v2",
@@ -21144,36 +20724,75 @@ WidgetMetadata = {
   ]
 };
 typeof window < "u" && (window.WidgetMetadata = WidgetMetadata);
-var globals2;
+var globals2, forwardCachesLoaded = !1, FORWARD_CACHE_SCHEMA_VERSION = 2, FORWARD_CACHE_SCHEMA_KEY = "forward.cache.schema", FORWARD_SEGMENT_CACHE_PREFIX = `forward.segment.v${FORWARD_CACHE_SCHEMA_VERSION}`, FORWARD_SEGMENT_CACHE_TTL_MS = 300 * 60 * 1e3, FORWARD_SEGMENT_EMPTY_RETRY_MIN_AGE_MS = 60 * 1e3, FORWARD_PERSISTED_LOG_LIMIT = 200, forwardSegmentMemoryCache = /* @__PURE__ */ new Map();
 async function initGlobals(sourceOrder, otherServer, customSourceApiUrl, vodServers, vodReturnMode, vodRequestTimeout, bilibiliCookie, doubanCookie, platformOrder, episodeTitleFilter, enableAnimeEpisodeFilter, strictTitleMatch2, titleMappingTable, animeTitleFilter, animeTitleSimplified, blockedWords, groupMinute, danmuLimit, danmuSimplifiedTraditional, danmuOffset, convertTopBottomToScroll, convertColor, colorPool, proxyUrl, tmdbApiKey, likeSwitch, hongguoMergeAllEpisodes) {
   let env = {};
-  return sourceOrder !== void 0 && (env.SOURCE_ORDER = sourceOrder), otherServer !== void 0 && (env.OTHER_SERVER = otherServer), customSourceApiUrl !== void 0 && (env.CUSTOM_SOURCE_API_URL = customSourceApiUrl), vodServers !== void 0 && (env.VOD_SERVERS = vodServers), vodReturnMode !== void 0 && (env.VOD_RETURN_MODE = vodReturnMode), vodRequestTimeout !== void 0 && (env.VOD_REQUEST_TIMEOUT = vodRequestTimeout), bilibiliCookie !== void 0 && (env.BILIBILI_COOKIE = bilibiliCookie), doubanCookie !== void 0 && (env.DOUBAN_COOKIE = doubanCookie), platformOrder !== void 0 && (env.PLATFORM_ORDER = platformOrder), episodeTitleFilter !== void 0 && (env.EPISODE_TITLE_FILTER = episodeTitleFilter), enableAnimeEpisodeFilter !== void 0 && (env.ENABLE_ANIME_EPISODE_FILTER = enableAnimeEpisodeFilter), strictTitleMatch2 !== void 0 && (env.STRICT_TITLE_MATCH = strictTitleMatch2), titleMappingTable !== void 0 && (env.TITLE_MAPPING_TABLE = titleMappingTable), animeTitleFilter !== void 0 && (env.ANIME_TITLE_FILTER = animeTitleFilter), animeTitleSimplified !== void 0 && (env.ANIME_TITLE_SIMPLIFIED = animeTitleSimplified), blockedWords !== void 0 && (env.BLOCKED_WORDS = blockedWords), groupMinute !== void 0 && (env.GROUP_MINUTE = groupMinute), danmuLimit !== void 0 && (env.DANMU_LIMIT = danmuLimit), danmuSimplifiedTraditional !== void 0 && (env.DANMU_SIMPLIFIED_TRADITIONAL = danmuSimplifiedTraditional), danmuOffset !== void 0 && (env.DANMU_OFFSET = danmuOffset), convertTopBottomToScroll !== void 0 && (env.CONVERT_TOP_BOTTOM_TO_SCROLL = convertTopBottomToScroll), convertColor !== void 0 && (env.CONVERT_COLOR = convertColor), colorPool !== void 0 && (env.COLOR_POOL = colorPool), likeSwitch !== void 0 && (env.LIKE_SWITCH = likeSwitch), hongguoMergeAllEpisodes !== void 0 && (env.HONGGUO_MERGE_ALL_EPISODES = hongguoMergeAllEpisodes), proxyUrl !== void 0 && (env.PROXY_URL = proxyUrl), tmdbApiKey !== void 0 && (env.TMDB_API_KEY = tmdbApiKey), globals2 || (globals2 = Globals.init(env)), await getCaches(), globals2;
+  return sourceOrder !== void 0 && (env.SOURCE_ORDER = sourceOrder), otherServer !== void 0 && (env.OTHER_SERVER = otherServer), customSourceApiUrl !== void 0 && (env.CUSTOM_SOURCE_API_URL = customSourceApiUrl), vodServers !== void 0 && (env.VOD_SERVERS = vodServers), vodReturnMode !== void 0 && (env.VOD_RETURN_MODE = vodReturnMode), vodRequestTimeout !== void 0 && (env.VOD_REQUEST_TIMEOUT = vodRequestTimeout), bilibiliCookie !== void 0 && (env.BILIBILI_COOKIE = bilibiliCookie), doubanCookie !== void 0 && (env.DOUBAN_COOKIE = doubanCookie), platformOrder !== void 0 && (env.PLATFORM_ORDER = platformOrder), episodeTitleFilter !== void 0 && (env.EPISODE_TITLE_FILTER = episodeTitleFilter), enableAnimeEpisodeFilter !== void 0 && (env.ENABLE_ANIME_EPISODE_FILTER = enableAnimeEpisodeFilter), strictTitleMatch2 !== void 0 && (env.STRICT_TITLE_MATCH = strictTitleMatch2), titleMappingTable !== void 0 && (env.TITLE_MAPPING_TABLE = titleMappingTable), animeTitleFilter !== void 0 && (env.ANIME_TITLE_FILTER = animeTitleFilter), animeTitleSimplified !== void 0 && (env.ANIME_TITLE_SIMPLIFIED = animeTitleSimplified), blockedWords !== void 0 && (env.BLOCKED_WORDS = blockedWords), groupMinute !== void 0 && (env.GROUP_MINUTE = groupMinute), danmuLimit !== void 0 && (env.DANMU_LIMIT = danmuLimit), danmuSimplifiedTraditional !== void 0 && (env.DANMU_SIMPLIFIED_TRADITIONAL = danmuSimplifiedTraditional), danmuOffset !== void 0 && (env.DANMU_OFFSET = danmuOffset), convertTopBottomToScroll !== void 0 && (env.CONVERT_TOP_BOTTOM_TO_SCROLL = convertTopBottomToScroll), convertColor !== void 0 && (env.CONVERT_COLOR = convertColor), colorPool !== void 0 && (env.COLOR_POOL = colorPool), likeSwitch !== void 0 && (env.LIKE_SWITCH = likeSwitch), hongguoMergeAllEpisodes !== void 0 && (env.HONGGUO_MERGE_ALL_EPISODES = hongguoMergeAllEpisodes), proxyUrl !== void 0 && (env.PROXY_URL = proxyUrl), tmdbApiKey !== void 0 && (env.TMDB_API_KEY = tmdbApiKey), globals2 = Globals.init(env), await getCaches(), globals2;
 }
 async function getCaches() {
-  if (globals2.animes.length === 0) {
-    log("info", "[Forward] getCaches start.");
-    let [kv_animes, kv_episodeIds, kv_episodeNum, kv_logBuffer, kv_lastSelectMap] = await Promise.all([
-      Widget.storage.get("animes"),
-      Widget.storage.get("episodeIds"),
-      Widget.storage.get("episodeNum"),
-      Widget.storage.get("logBuffer"),
-      Widget.storage.get("lastSelectMap")
-    ]);
-    if (globals2.animes = kv_animes ? typeof kv_animes == "string" ? JSON.parse(kv_animes) : kv_animes : globals2.animes, globals2.episodeIds = kv_episodeIds ? typeof kv_episodeIds == "string" ? JSON.parse(kv_episodeIds) : kv_episodeIds : globals2.episodeIds, globals2.episodeNum = kv_episodeNum ? typeof kv_episodeNum == "string" ? JSON.parse(kv_episodeNum) : kv_episodeNum : globals2.episodeNum, globals2.logBuffer = kv_logBuffer ? typeof kv_logBuffer == "string" ? JSON.parse(kv_logBuffer) : kv_logBuffer : globals2.logBuffer, kv_lastSelectMap) {
-      let parsed = typeof kv_lastSelectMap == "string" ? JSON.parse(kv_lastSelectMap) : kv_lastSelectMap;
-      globals2.lastSelectMap = new Map(
-        Array.isArray(parsed) ? parsed : Object.entries(parsed)
-      );
-    }
+  if (forwardCachesLoaded)
+    return;
+  forwardCachesLoaded = !0, log("info", "[Forward] getCaches start.");
+  let storedSchemaVersion = await Widget.storage.get(FORWARD_CACHE_SCHEMA_KEY);
+  if (Number(storedSchemaVersion) !== FORWARD_CACHE_SCHEMA_VERSION) {
+    log("info", `[Forward] Cache schema changed to v${FORWARD_CACHE_SCHEMA_VERSION}; ignoring legacy cache.`), forwardSegmentMemoryCache.clear(), typeof Widget.storage.clear == "function" ? await Widget.storage.clear() : await removeCaches(), await Widget.storage.set(FORWARD_CACHE_SCHEMA_KEY, FORWARD_CACHE_SCHEMA_VERSION);
+    return;
+  }
+  let [kv_animes, kv_episodeIds, kv_episodeNum, kv_logBuffer, kv_lastSelectMap] = await Promise.all([
+    Widget.storage.get("animes"),
+    Widget.storage.get("episodeIds"),
+    Widget.storage.get("episodeNum"),
+    Widget.storage.get("logBuffer"),
+    Widget.storage.get("lastSelectMap")
+  ]);
+  globals2.animes = parseForwardCacheValue(kv_animes, globals2.animes, Array.isArray), globals2.episodeIds = parseForwardCacheValue(kv_episodeIds, globals2.episodeIds, Array.isArray), globals2.episodeNum = parseForwardCacheValue(
+    kv_episodeNum,
+    globals2.episodeNum,
+    (value) => Number.isFinite(Number(value))
+  ), globals2.logBuffer = parseForwardCacheValue(kv_logBuffer, globals2.logBuffer, Array.isArray);
+  let parsedLastSelectMap = parseForwardCacheValue(
+    kv_lastSelectMap,
+    null,
+    (value) => Array.isArray(value) || value && typeof value == "object"
+  );
+  parsedLastSelectMap && (globals2.lastSelectMap = new Map(
+    Array.isArray(parsedLastSelectMap) ? parsedLastSelectMap : Object.entries(parsedLastSelectMap)
+  ));
+}
+function parseForwardCacheValue(value, fallback, validator) {
+  if (value == null || value === "")
+    return fallback;
+  try {
+    let parsed = typeof value == "string" ? JSON.parse(value) : value;
+    return validator(parsed) ? parsed : fallback;
+  } catch (error) {
+    return log("warn", `[Forward] Ignoring invalid persisted cache: ${error.message}`), fallback;
   }
 }
 async function updateCaches() {
-  log("info", "[Forward] updateCaches start."), await Promise.all([
-    Widget.storage.set("animes", globals2.animes),
-    Widget.storage.set("episodeIds", globals2.episodeIds),
-    Widget.storage.set("episodeNum", globals2.episodeNum),
-    Widget.storage.set("logBuffer", globals2.logBuffer),
-    Widget.storage.set("lastSelectMap", JSON.stringify(Object.fromEntries(globals2.lastSelectMap)))
+  log("info", "[Forward] updateCaches start.");
+  let persistedLogs = Array.isArray(globals2.logBuffer) ? globals2.logBuffer.slice(-FORWARD_PERSISTED_LOG_LIMIT) : [];
+  try {
+    await Promise.all([
+      Widget.storage.set(FORWARD_CACHE_SCHEMA_KEY, FORWARD_CACHE_SCHEMA_VERSION),
+      Widget.storage.set("animes", globals2.animes),
+      Widget.storage.set("episodeIds", globals2.episodeIds),
+      Widget.storage.set("episodeNum", globals2.episodeNum),
+      Widget.storage.set("logBuffer", persistedLogs),
+      Widget.storage.set("lastSelectMap", JSON.stringify(Object.fromEntries(globals2.lastSelectMap)))
+    ]);
+  } catch (error) {
+    log("warn", `[Forward] Failed to persist optional global cache: ${error.message}`);
+  }
+}
+async function removeCaches() {
+  log("info", "[Forward] removeCaches start."), await Promise.all([
+    Widget.storage.remove(FORWARD_CACHE_SCHEMA_KEY),
+    Widget.storage.remove("animes"),
+    Widget.storage.remove("episodeIds"),
+    Widget.storage.remove("episodeNum"),
+    Widget.storage.remove("logBuffer"),
+    Widget.storage.remove("lastSelectMap")
   ]);
 }
 var PREFIX_URL = "http://localhost:9321";
@@ -21328,7 +20947,116 @@ async function getDetailByIdCore(params) {
     hongguoMergeAllEpisodes
   );
   let resJson = await (await getBangumi(`${PREFIX_URL}/api/v2/bangumi/${animeId}`)).json();
-  return log("info", "[Forward] bangumi", resJson), await updateCaches(), resJson.bangumi.episodes;
+  return log("info", "[Forward] bangumi", resJson), resJson.bangumi.episodes;
+}
+function hashForwardCacheIdentity(value) {
+  let hash = 2166136261, input = String(value);
+  for (let index = 0; index < input.length; index++)
+    hash ^= input.charCodeAt(index), hash = Math.imul(hash, 16777619);
+  return (hash >>> 0).toString(36);
+}
+function normalizeForwardCacheKeyPart(value, fallback = "none") {
+  return value == null || value === "" ? fallback : String(value).trim() || fallback;
+}
+function getSegmentCacheKey(params) {
+  let normalizedTmdbId = normalizeForwardCacheKeyPart(params.tmdbId, ""), tmdbId = ["undefined", "null", "none"].includes(normalizedTmdbId.toLowerCase()) ? "" : normalizedTmdbId, mediaIdentity = tmdbId ? `tmdb:${normalizeForwardCacheKeyPart(params.type)}:${tmdbId}` : `media:${normalizeForwardCacheKeyPart(params.type)}:${normalizeForwardCacheKeyPart(
+    params.seriesName || params.title || params.link || params.videoUrl,
+    "unknown"
+  )}`, season = normalizeForwardCacheKeyPart(params.season), episode = normalizeForwardCacheKeyPart(params.episode);
+  return `${FORWARD_SEGMENT_CACHE_PREFIX}.${hashForwardCacheIdentity(mediaIdentity)}.${season}.${episode}`;
+}
+function getLegacySegmentCacheKey(params) {
+  return params.season && params.episode ? `${params.tmdbId}.${params.season}.${params.episode}` : `${params.tmdbId}`;
+}
+function isValidSegment(segment) {
+  if (!segment || typeof segment != "object" || typeof segment.url != "string" || !segment.url.trim())
+    return !1;
+  let start2 = Number(segment.segment_start), end2 = Number(segment.segment_end);
+  return Number.isFinite(start2) && Number.isFinite(end2) && end2 > start2;
+}
+function parseSegmentCacheRecord(value) {
+  let record = parseForwardCacheValue(
+    value,
+    null,
+    (candidate) => candidate && typeof candidate == "object" && !Array.isArray(candidate)
+  );
+  return !record || record.version !== FORWARD_CACHE_SCHEMA_VERSION || record.commentId === null || record.commentId === void 0 || !Number.isFinite(Number(record.cachedAt)) || !Array.isArray(record.segmentList) || record.segmentList.length === 0 || !record.segmentList.every(isValidSegment) ? null : record;
+}
+function isSegmentCacheFresh(record) {
+  let age = Date.now() - Number(record.cachedAt);
+  return age >= 0 && age <= FORWARD_SEGMENT_CACHE_TTL_MS;
+}
+async function readSegmentCache(params) {
+  let key = getSegmentCacheKey(params), storedValue = null;
+  try {
+    storedValue = await Widget.storage.get(key);
+  } catch (error) {
+    log("warn", `[Forward] Failed to read segment cache: ${error.message}`);
+  }
+  storedValue || (storedValue = forwardSegmentMemoryCache.get(key));
+  let record = parseSegmentCacheRecord(storedValue);
+  if (storedValue && !record) {
+    forwardSegmentMemoryCache.delete(key);
+    try {
+      await Widget.storage.remove(key);
+    } catch (error) {
+      log("warn", `[Forward] Failed to remove invalid segment cache: ${error.message}`);
+    }
+  }
+  return { key, record, fresh: record ? isSegmentCacheFresh(record) : !1 };
+}
+async function removeSegmentCache(params, commentId = null) {
+  let key = getSegmentCacheKey(params), legacyKey = getLegacySegmentCacheKey(params);
+  forwardSegmentMemoryCache.delete(key);
+  let removals = [
+    Widget.storage.remove(key),
+    Widget.storage.remove(legacyKey)
+  ];
+  commentId != null && removals.push(Widget.storage.remove(`${legacyKey}.${commentId}`)), (await Promise.allSettled(removals)).some((result) => result.status === "rejected") && log("warn", "[Forward] Some stale segment cache entries could not be removed.");
+}
+async function fetchAndCacheSegmentList(commentId, params) {
+  let resJson = await (await getComment(`${PREFIX_URL}/api/v2/comment/${commentId}`, "json", !0)).json();
+  if (resJson?.success === !1 || resJson?.errorCode && Number(resJson.errorCode) !== 0)
+    throw new Error(resJson?.errorMessage || `Failed to fetch segment list for comment ${commentId}`);
+  let rawSegmentList = resJson?.comments?.segmentList, segmentList = Array.isArray(rawSegmentList) ? rawSegmentList.filter(isValidSegment) : [];
+  segmentList.length !== (Array.isArray(rawSegmentList) ? rawSegmentList.length : 0) && log("warn", `[Forward] Ignored invalid segments for comment ${commentId}.`);
+  let key = getSegmentCacheKey(params);
+  if (segmentList.length === 0) {
+    forwardSegmentMemoryCache.delete(key);
+    try {
+      await Widget.storage.remove(key);
+    } catch (error) {
+      log("warn", `[Forward] Failed to remove empty segment cache: ${error.message}`);
+    }
+    return { record: null, segmentList: [] };
+  }
+  let record = {
+    version: FORWARD_CACHE_SCHEMA_VERSION,
+    commentId: String(commentId),
+    cachedAt: Date.now(),
+    segmentList
+  };
+  forwardSegmentMemoryCache.set(key, record);
+  try {
+    await Widget.storage.set(key, record);
+  } catch (error) {
+    log("warn", `[Forward] Failed to persist segment cache; using memory cache: ${error.message}`);
+  }
+  return { record, segmentList };
+}
+function findSegmentAtTime(segmentList, segmentTime) {
+  let time = Number(segmentTime);
+  return Number.isFinite(time) && segmentList.find((item) => time >= Number(item.segment_start) && time < Number(item.segment_end)) || null;
+}
+function buildMissingSegmentResponse(segmentList, segmentTime) {
+  let starts = segmentList.map((item) => Number(item.segment_start)).filter(Number.isFinite), ends = segmentList.map((item) => Number(item.segment_end)).filter(Number.isFinite), rangeStart = starts.length ? Math.min(...starts) : null, rangeEnd = ends.length ? Math.max(...ends) : null, errorMessage = `No segment covers ${segmentTime}s; available range: ${rangeStart}-${rangeEnd}s`;
+  return log("warn", `[Forward] ${errorMessage}`), { errorCode: 404, success: !1, errorMessage, count: 0, comments: [] };
+}
+function shouldRefreshSegmentResponse(resJson, record) {
+  if (!resJson || resJson.success === !1 || Number(resJson.errorCode || 0) !== 0 || !Array.isArray(resJson.comments))
+    return !0;
+  let cacheAge = Date.now() - Number(record.cachedAt);
+  return resJson.comments.length === 0 && cacheAge >= FORWARD_SEGMENT_EMPTY_RETRY_MIN_AGE_MS;
 }
 async function getCommentsByIdCore(params) {
   let {
@@ -21397,15 +21125,13 @@ async function getCommentsByIdCore(params) {
     tmdbApiKey,
     likeSwitch,
     hongguoMergeAllEpisodes
-  ), commentId) {
-    let storeKey = season && episode ? `${tmdbId}.${season}.${episode}` : `${tmdbId}`, commentIdKey = `${storeKey}.${commentId}`, segmentList = Widget.storage.get(storeKey), lastCommentId = Widget.storage.get(commentIdKey);
-    if (log("info", "[Forward] storeKey:", storeKey), log("info", "[Forward] commentIdKey:", commentIdKey), log("info", "[Forward] commentId:", commentId), log("info", "[Forward] lastCommentId:", lastCommentId), log("info", "[Forward] segmentList:", segmentList), lastCommentId === commentId && Array.isArray(segmentList))
-      return segmentList;
-    Widget.storage.remove(storeKey), Widget.storage.remove(commentIdKey);
-    let resJson = await (await getComment(`${PREFIX_URL}/api/v2/comment/${commentId}`, "json", !0)).json();
-    return log("info", "[Forward] segmentList:", resJson.comments.segmentList), Widget.storage.set(storeKey, resJson.comments.segmentList), Widget.storage.set(commentIdKey, commentId), await updateCaches(), resJson.comments.segmentList;
-  }
-  return null;
+  ), !commentId) return null;
+  let cached = await readSegmentCache(params);
+  if (cached.fresh && String(cached.record.commentId) === String(commentId))
+    return log("info", "[Forward] Using fresh segment cache:", cached.key), cached.record.segmentList;
+  await removeSegmentCache(params, commentId);
+  let { segmentList } = await fetchAndCacheSegmentList(commentId, params);
+  return log("info", "[Forward] segmentList:", segmentList), await updateCaches(), segmentList;
 }
 async function getDanmuWithSegmentTimeCore(params) {
   let {
@@ -21470,20 +21196,41 @@ async function getDanmuWithSegmentTimeCore(params) {
     likeSwitch,
     hongguoMergeAllEpisodes
   );
-  let storeKey = season && episode ? `${tmdbId}.${season}.${episode}` : `${tmdbId}`, segmentList = Widget.storage.get(storeKey);
-  if (segmentList) {
-    let segment = segmentList.find((item) => {
-      let start2 = Number(item.segment_start), end2 = Number(item.segment_end), time = Number(segmentTime);
-      return time >= start2 && time < end2;
-    });
-    if (log("info", "[Forward] segment:", segment), !segment) {
-      let starts = segmentList.map((item) => Number(item.segment_start)).filter(Number.isFinite), ends = segmentList.map((item) => Number(item.segment_end)).filter(Number.isFinite), rangeStart = starts.length ? Math.min(...starts) : null, rangeEnd = ends.length ? Math.max(...ends) : null, errorMessage = `No segment covers ${segmentTime}s; available range: ${rangeStart}-${rangeEnd}s`;
-      return log("warn", `[Forward] ${errorMessage}`), { errorCode: 404, success: !1, errorMessage, count: 0, comments: [] };
+  let cached = await readSegmentCache(params);
+  if (!cached.record) return null;
+  let record = cached.record, refreshed = !1;
+  if (!cached.fresh)
+    try {
+      let refreshResult = await fetchAndCacheSegmentList(record.commentId, params);
+      refreshResult.record && (record = refreshResult.record), refreshed = !0;
+    } catch (error) {
+      log("warn", `[Forward] Failed to refresh expired segment cache: ${error.message}`);
     }
-    let resJson = await (await getSegmentComment(segment)).json();
-    return await updateCaches(), resJson;
+  let segment = findSegmentAtTime(record.segmentList, segmentTime);
+  if (!segment && !refreshed)
+    try {
+      let refreshResult = await fetchAndCacheSegmentList(record.commentId, params);
+      refreshResult.record && (record = refreshResult.record, segment = findSegmentAtTime(record.segmentList, segmentTime)), refreshed = !0;
+    } catch (error) {
+      log("warn", `[Forward] Failed to refresh segment range: ${error.message}`);
+    }
+  if (!segment)
+    return buildMissingSegmentResponse(record.segmentList, segmentTime);
+  log("info", "[Forward] segment:", segment);
+  let response = await getSegmentComment(segment), resJson = await response.json();
+  if (!refreshed && shouldRefreshSegmentResponse(resJson, record)) {
+    log("warn", "[Forward] Segment response is stale or invalid; refreshing segment list once.");
+    try {
+      let refreshResult = await fetchAndCacheSegmentList(record.commentId, params);
+      if (refreshed = !0, refreshResult.record) {
+        if (record = refreshResult.record, segment = findSegmentAtTime(record.segmentList, segmentTime), !segment) return buildMissingSegmentResponse(record.segmentList, segmentTime);
+        response = await getSegmentComment(segment), resJson = await response.json();
+      }
+    } catch (error) {
+      log("warn", `[Forward] Failed to retry stale segment response: ${error.message}`);
+    }
   }
-  return null;
+  return resJson;
 }
 async function searchDanmu(params = {}) {
   return searchDanmuCore(params);
