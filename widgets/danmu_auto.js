@@ -6060,7 +6060,7 @@ var Globals = {
   originalEnvVars: {},
   accessedEnvVars: {},
   // 静态常量
-  VERSION: "1.20.2",
+  VERSION: "1.20.3",
   MAX_LOGS: 1e3,
   // 日志存储，最多保存 1000 行
   MAX_RECORDS: 100,
@@ -8107,6 +8107,15 @@ function convertToDanmakuJson(contents, platform) {
       `[${currentPlatform}]`
     ].join(","), danmus.push({ p: attributes, m, cid: cidCounter++, like: item?.like });
   }
+  let textConverter = globals.danmuSimplifiedTraditional === "simplified" ? simplized : globals.danmuSimplifiedTraditional === "traditional" ? traditionalized : null;
+  if (textConverter) {
+    danmus = danmus.map((danmu) => ({
+      ...danmu,
+      m: typeof danmu.m == "string" ? textConverter(danmu.m) : danmu.m
+    }));
+    let targetLabel = globals.danmuSimplifiedTraditional === "simplified" ? "\u7B80\u4F53\u5B57" : "\u7E41\u4F53\u5B57";
+    log("info", `[system] [danmu] [danmu convert] \u8F6C\u6362\u4E86 ${danmus.length} \u6761\u5F39\u5E55\u4E3A${targetLabel}`);
+  }
   let regexArray = globals.blockedWords.split(/(?<=\/),(?=\/)/).map((str) => {
     let pattern = str.trim();
     if (pattern.startsWith("/") && pattern.endsWith("/"))
@@ -8137,10 +8146,7 @@ function convertToDanmakuJson(contents, platform) {
       return danmu;
     }), topBottomCount > 0 && log("info", `[system] [danmu] [danmu convert] \u8F6C\u6362\u4E86 ${topBottomCount} \u6761\u9876\u90E8/\u5E95\u90E8\u5F39\u5E55\u4E3A\u6D6E\u52A8\u5F39\u5E55`), colorCount > 0 && log("info", `[system] [danmu] [danmu convert] \u8F6C\u6362\u4E86 ${colorCount} \u6761\u5F39\u5E55\u989C\u8272`);
   }
-  return globals.danmuSimplifiedTraditional === "traditional" && (convertedDanmus = convertedDanmus.map((danmu) => ({
-    ...danmu,
-    m: traditionalized(danmu.m)
-  })), log("info", `[system] [danmu] [danmu convert] \u8F6C\u6362\u4E86 ${convertedDanmus.length} \u6761\u5F39\u5E55\u4E3A\u7E41\u4F53\u5B57`)), log("info", `[system] [danmu] danmus_original: ${danmus.length}`), log("info", `[system] [danmu] danmus_filter: ${filteredDanmus.length}`), log("info", `[system] [danmu] danmus_group: ${groupedDanmus.length}`), log("info", `[system] [danmu] danmus_limit: ${convertedDanmus.length}`), log("info", "[system] [danmu] Top 5 danmus:", JSON.stringify(convertedDanmus.slice(0, 5), null, 2)), convertedDanmus;
+  return log("info", `[system] [danmu] danmus_original: ${danmus.length}`), log("info", `[system] [danmu] danmus_filter: ${filteredDanmus.length}`), log("info", `[system] [danmu] danmus_group: ${groupedDanmus.length}`), log("info", `[system] [danmu] danmus_limit: ${convertedDanmus.length}`), log("info", "[system] [danmu] Top 5 danmus:", JSON.stringify(convertedDanmus.slice(0, 5), null, 2)), convertedDanmus;
 }
 function rgbToInt(color) {
   return typeof color.r != "number" || color.r < 0 || color.r > 255 || typeof color.g != "number" || color.g < 0 || color.g > 255 || typeof color.b != "number" || color.b < 0 || color.b > 255 ? -1 : color.r * 256 * 256 + color.g * 256 + color.b;
@@ -12885,8 +12891,7 @@ var BahamutSource = class extends BaseSource {
     return comments.map((c) => ({
       cid: Number(c.sn),
       p: `${(c.time / 10).toFixed(2)},${positionToMode[c.position] || c.tp},${parseInt(c.color.slice(1), 16)},[bahamut]`,
-      // 根据 globals.danmuSimplifiedTraditional 控制是否繁转简
-      m: globals.danmuSimplifiedTraditional === "simplified" ? simplized(c.text) : c.text,
+      m: c.text,
       t: c.time / 10
     }));
   }
@@ -15092,7 +15097,7 @@ var _BilibiliSource = class _BilibiliSource extends BaseSource {
     }
   }
   formatComments(comments) {
-    return comments.map((c) => (globals.danmuSimplifiedTraditional === "simplified" && c.m && (c.m = simplized(c.m)), c.like = c.like_num, c));
+    return comments.map((c) => (c.like = c.like_num, c));
   }
   // 构建代理URL
   _makeProxyUrl(targetUrl) {
@@ -15815,10 +15820,17 @@ var tencentSource = new TencentSource(), iqiyiSource = new IqiyiSource(), mangoS
       await Promise.all(currentBatch.map(async (anime) => {
         try {
           let details = await this.getEpisodes(anime.animeId), eps = details.episodes, apiAliases = details.titles || [], similarity = this.calculateSimilarity(queryTitle, anime.animeTitle), canExpandRelateds = !isTargetFoundInInitial;
-          if (similarity >= 0.1 && details.relateds && Array.isArray(details.relateds) && canExpandRelateds)
+          if (similarity >= 0.1 && details.relateds && Array.isArray(details.relateds))
             for (let rel of details.relateds) {
               let hasSeason = extractSeasonNumberFromAnimeTitle(rel.animeTitle).season !== null;
-              !existingIds.has(rel.animeId) && (hasSeason || initialCount >= 25) && (existingIds.add(rel.animeId), queue.push({
+              !existingIds.has(rel.animeId) && (hasSeason || initialCount >= 25) && (existingIds.add(rel.animeId), sourceAnimes.some((a) => a.animeId === rel.animeId) || sourceAnimes.push({
+                animeId: rel.animeId,
+                animeTitle: rel.animeTitle,
+                title: rel.animeTitle,
+                imageUrl: rel.imageUrl,
+                rating: rel.rating || 0,
+                isRelated: !0
+              }), canExpandRelateds && queue.push({
                 animeId: rel.animeId,
                 animeTitle: rel.animeTitle,
                 imageUrl: rel.imageUrl,
@@ -15921,14 +15933,13 @@ var tencentSource = new TencentSource(), iqiyiSource = new IqiyiSource(), mangoS
     return this.getEpisodeDanmu(segment.url);
   }
   formatComments(comments) {
-    return comments.map((c) => c.isRealTimePulled ? globals.danmuSimplifiedTraditional === "simplified" && c.m ? { ...c, m: simplized(c.m) } : c : {
+    return comments.map((c) => c.isRealTimePulled ? c : {
       cid: c.cid,
       p: `${c.p.replace(/([A-Za-z]+)([0-9a-fA-F]{6})/, (_, platform, hexColor) => {
         let r = parseInt(hexColor.substring(0, 2), 16), g = parseInt(hexColor.substring(2, 4), 16), b = parseInt(hexColor.substring(4, 6), 16), decimalColor = r * 256 * 256 + g * 256 + b;
         return `${platform}${decimalColor}`;
       })}`,
-      // 根据 globals.danmuSimplifiedTraditional 控制是否繁转简
-      m: globals.danmuSimplifiedTraditional === "simplified" ? simplized(c.m) : c.m
+      m: c.m
     });
   }
 };
@@ -16048,8 +16059,7 @@ var CustomSource = class extends BaseSource {
         let r = parseInt(hexColor.substring(0, 2), 16), g = parseInt(hexColor.substring(2, 4), 16), b = parseInt(hexColor.substring(4, 6), 16), decimalColor = r * 256 * 256 + g * 256 + b;
         return `${platform}${decimalColor}`;
       })}`,
-      // 根据 globals.danmuSimplifiedTraditional 控制是否繁转简
-      m: globals.danmuSimplifiedTraditional === "simplified" ? simplized(c.m) : c.m
+      m: c.m
     }));
   }
 };
@@ -18076,7 +18086,7 @@ var AiyifanSource = class extends BaseSource {
       // 点赞数
       // 保留原始数据
       ...comment
-    })).map((c) => (globals.danmuSimplifiedTraditional === "simplified" && c.m && (c.m = simplized(c.m)), c));
+    }));
   }
 };
 
@@ -19408,11 +19418,11 @@ var API_HEALTH2 = {
     if (!Array.isArray(comments)) return [];
     let locationMap = { NORMAL: 1, TOP: 5, BOTTOM: 4 };
     return comments.filter((item) => item && item.danmakuInfo).map((item) => {
-      let info = item.danmakuInfo, time = (Number(info.playTime) / 1e3).toFixed(2), mode = locationMap[info.location] || 1, color = info.color === -1 ? 16777215 : info.color, text = globals.danmuSimplifiedTraditional === "simplified" ? simplized(info.text) : info.text;
+      let info = item.danmakuInfo, time = (Number(info.playTime) / 1e3).toFixed(2), mode = locationMap[info.location] || 1, color = info.color === -1 ? 16777215 : info.color;
       return {
         cid: item.id,
         p: `${time},${mode},${color},[animeko]`,
-        m: text
+        m: info.text
       };
     });
   }
@@ -19807,7 +19817,7 @@ async function searchAnime(url, preferAnimeId = null, preferSource = null, detai
         log("info", `[system] [LogVar-API] Episode ${queryEpisode} not satisfied in Season ${querySeason}. Parallel mapping to S${querySeason + 1}~S${maxSeason}...`);
         let expandPromises = [];
         for (let source of globals.sourceOrderArr)
-          resultData[source] && (targetPlatform && !unsatisfiedPlatforms.has(source) || expandPromises.push((async () => {
+          resultData[source] && (targetPlatform && unsatisfiedPlatforms.size > 0 && !unsatisfiedPlatforms.has(source) || expandPromises.push((async () => {
             let sourceResults = [];
             for (let s = querySeason + 1; s <= maxSeason; s++) {
               let seasonAnimes = [];
@@ -20211,7 +20221,7 @@ async function getSegmentComment(segment, queryFormat) {
 }
 
 // forward/forward-widget.js
-var wv = "1.20.2";
+var wv = "1.20.3";
 WidgetMetadata = {
   id: "forward.auto.danmu2",
   title: "\u81EA\u52A8\u94FE\u63A5\u5F39\u5E55v2",
