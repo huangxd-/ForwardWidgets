@@ -5268,7 +5268,7 @@ function titleMatches(title, query, parsedSeason = null, forceNonStrict = !1, th
       return !1;
   }
   if (qList.some((kw) => t.includes(kw))) return !0;
-  if (!qList.some((kw) => {
+  let simMatch = qList.some((kw) => {
     if (Math.abs(t.length - kw.length) > Math.max(t.length, kw.length) * 0.7 || /^[a-zA-Z0-9]+$/.test(kw))
       return !1;
     let matchCount = 0, tIndex = 0;
@@ -5277,14 +5277,15 @@ function titleMatches(title, query, parsedSeason = null, forceNonStrict = !1, th
       foundIdx !== -1 && (matchCount++, tIndex = foundIdx + 1);
     }
     return matchCount / kw.length > threshold;
-  })) {
+  });
+  if (!simMatch) {
     let yearStripped = queryText.replace(/[\(\（]\s*(?:19|20)\d{2}\s*[\)\）]|\b(?:19|20)\d{2}\b/g, "").trim();
     if (yearStripped && yearStripped !== queryText) {
       let cleanYear = tagFilter ? yearStripped.replace(tagFilter, "").trim() : yearStripped, yearQ = normalizeSpaces(cleanYear).toLowerCase(), titleHasYear = /[\(\（]\s*(?:19|20)\d{2}\s*[\)\）]|\b(?:19|20)\d{2}\b/.test(titleText);
       if (yearQ && t.includes(yearQ) && !titleHasYear) return !0;
     }
   }
-  return !1;
+  return simMatch;
 }
 function validateType(value, expectedType) {
   let fieldName = value?.constructor?.name;
@@ -5471,6 +5472,85 @@ function applyOffset(danmus, offsetSeconds, options = {}) {
   });
 }
 
+// danmu_api/utils/auto-match-mapping-util.js
+function normalizeRuleTitle(value) {
+  return String(value || "").normalize("NFKC").replace(/[^\p{L}\p{N}]/gu, "").toLowerCase();
+}
+function parseEpisodeSide(value, { allowPlatform = !1 } = {}) {
+  let text = String(value || "").trim(), platform = "";
+  if (allowPlatform) {
+    let platformMatch = text.match(/\s+@([a-zA-Z0-9_-]+)\s*$/);
+    platformMatch && (platform = platformMatch[1].toLowerCase(), text = text.slice(0, platformMatch.index).trim());
+  }
+  let match = text.match(/^(.+?)\s+S(\d+)E(\d+)(?:~E?(\d+))?\s*$/i);
+  if (!match) return null;
+  let title = match[1].trim(), season = Number(match[2]), startEpisode = Number(match[3]), endEpisode = match[4] === void 0 ? null : Number(match[4]);
+  return !title || season < 1 || startEpisode < 1 || endEpisode !== null && endEpisode < startEpisode ? null : { title, season, startEpisode, endEpisode, platform };
+}
+function parseTargetTitle(value) {
+  let displayTitle = String(value || "").trim(), yearMatch = displayTitle.match(/[（(]((?:19|20)\d{2})[)）]/), typeMatches = [...displayTitle.matchAll(/【([^】]+)】/g)], mediaType = typeMatches.length > 0 ? typeMatches[typeMatches.length - 1][1].trim() : "";
+  return {
+    title: displayTitle.replace(/[（(](?:19|20)\d{2}[)）]/g, "").replace(/【[^】]+】/g, "").trim(),
+    displayTitle,
+    year: yearMatch ? Number(yearMatch[1]) : null,
+    mediaType
+  };
+}
+function parseAutoMatchMappingRules(value, allowedPlatforms = []) {
+  let rules = [], warnings = [], allowed = new Set((allowedPlatforms || []).map((item) => String(item).toLowerCase()));
+  for (let [index, rawRule] of String(value || "").split(";").entries()) {
+    let text = rawRule.trim();
+    if (!text) continue;
+    let arrowIndex = text.indexOf("->");
+    if (arrowIndex === -1 || text.indexOf("->", arrowIndex + 2) !== -1) {
+      warnings.push(`\u89C4\u5219 ${index + 1} \u7F3A\u5C11\u552F\u4E00\u7684 -> \u5206\u9694\u7B26: ${text}`);
+      continue;
+    }
+    let source = parseEpisodeSide(text.slice(0, arrowIndex)), targetSide = parseEpisodeSide(text.slice(arrowIndex + 2), { allowPlatform: !0 });
+    if (!source || !targetSide) {
+      warnings.push(`\u89C4\u5219 ${index + 1} \u7684\u5B63\u96C6\u683C\u5F0F\u65E0\u6548: ${text}`);
+      continue;
+    }
+    let bounded = source.endEpisode !== null;
+    if (bounded !== (targetSide.endEpisode !== null)) {
+      warnings.push(`\u89C4\u5219 ${index + 1} \u7684\u6E90\u548C\u76EE\u6807\u5FC5\u987B\u540C\u65F6\u58F0\u660E\u8303\u56F4: ${text}`);
+      continue;
+    }
+    if (bounded && source.endEpisode - source.startEpisode !== targetSide.endEpisode - targetSide.startEpisode) {
+      warnings.push(`\u89C4\u5219 ${index + 1} \u7684\u6E90\u548C\u76EE\u6807\u8303\u56F4\u957F\u5EA6\u4E0D\u4E00\u81F4: ${text}`);
+      continue;
+    }
+    if (targetSide.platform && allowed.size > 0 && !allowed.has(targetSide.platform)) {
+      warnings.push(`\u89C4\u5219 ${index + 1} \u4F7F\u7528\u4E86\u4E0D\u652F\u6301\u7684\u5E73\u53F0 ${targetSide.platform}: ${text}`);
+      continue;
+    }
+    let targetTitle = parseTargetTitle(targetSide.title);
+    if (!targetTitle.title) {
+      warnings.push(`\u89C4\u5219 ${index + 1} \u7684\u76EE\u6807\u6807\u9898\u4E3A\u7A7A: ${text}`);
+      continue;
+    }
+    rules.push({
+      order: index,
+      raw: text,
+      bounded,
+      sourceTitle: source.title,
+      sourceTitleKey: normalizeRuleTitle(source.title),
+      sourceSeason: source.season,
+      sourceStartEpisode: source.startEpisode,
+      sourceEndEpisode: source.endEpisode,
+      targetTitle: targetTitle.title,
+      targetDisplayTitle: targetTitle.displayTitle,
+      targetYear: targetTitle.year,
+      targetType: targetTitle.mediaType,
+      targetSeason: targetSide.season,
+      targetStartEpisode: targetSide.startEpisode,
+      targetEndEpisode: targetSide.endEpisode,
+      targetPlatform: targetSide.platform
+    });
+  }
+  return { rules, warnings };
+}
+
 // danmu_api/configs/envs.js
 var Envs = class {
   /**
@@ -5635,7 +5715,7 @@ var Envs = class {
   static resolveEpisodeTitleFilter() {
     let defaultFilter = (
       // [1] 基础物料与口语词防御，保护: 企划书, 预告犯, 被抢先了, 抢先一步, 化学反应, 一直拍, 单纯享
-      "(\u7279\u522B|\u60CA\u559C|\u7EB3\u51C9)?\u4F01\u5212(?!(\u4E66|\u6848|\u90E8))|\u5408\u4F19\u4EBA\u624B\u8BB0|\u8D85\u524D(\u8425\u4E1A|vlog)?|\u901F\u89C8|vlog|(?<!(Chain|Chemical|Nuclear|\u8FDE\u9501|\u5316\u5B66|\u6838|\u751F\u5316|\u751F\u7406|\u5E94\u6FC0))reaction|(?<!(\u5355))\u7EAF\u4EAB|\u52A0\u66F4(\u7248|\u7BC7)?|\u62A2\u5148(\u770B|\u7248|\u96C6|\u7BC7)?|(?<!(\u88AB|\u4E89|\u8C01))\u62A2[\u5148\u9C9C](?!(\u4E00\u6B65|\u624B|\u653B|\u4E86|\u544A|\u8A00|\u673A|\u8BDD))|\u62A2\u9C9C|\u9884\u544A(?!(\u51FD|\u4FE1|\u4E66|\u72AF))|(?<!(\u6B7B\u4EA1|\u6050\u6016|\u7075\u5F02|\u602A\u8C08))\u82B1\u7D6E(\u72EC\u5BB6)?|(?<!(\u4E00|\u76F4))\u76F4\u62CD|(\u5236\u4F5C|\u62CD\u6444|\u5E55\u540E|\u82B1\u7D6E|\u672A\u64AD|\u72EC\u5BB6|\u6F14\u5458|\u5BFC\u6F14|\u4E3B\u521B|\u6740\u9752|\u63A2\u73ED|\u6536\u5B98|\u5F00\u64AD|\u5148\u5BFC|\u5F69\u86CB|NG|\u56DE\u987E|\u9AD8\u5149|\u4E2A\u4EBA|\u4E3B\u521B)\u7279\u8F91|(?<!(\u884C\u52A8|\u8BA1\u5212|\u6E38\u620F|\u4EFB\u52A1|\u5371\u673A|\u795E\u79D8|\u9EC4\u91D1))\u5F69\u86CB|(?<!(\u5ACC\u7591\u4EBA|\u8BC1\u4EBA|\u5BB6\u5C5E|\u5F8B\u5E08|\u8B66\u65B9|\u51F6\u624B|\u6B7B\u8005))\u4E13\u8BBF|(?<!(\u8BC1\u4EBA))\u91C7\u8BBF(?!(\u5438\u8840\u9B3C|\u9B3C))|(\u6B63\u5F0F|\u89D2\u8272|\u5148\u5BFC|\u6982\u5FF5|\u9996\u66DD|\u5B9A\u6863|\u5267\u60C5|\u52A8\u753B|\u5BA3\u4F20|\u4E3B\u9898\u66F2|\u5370\u8C61)[\\s\\.]*[Pp\uFF30\uFF50][Vv\uFF36\uFF56]|(?<!(\u9E26|\u96EA|\u7EB8|\u76F8|\u7167|\u56FE|\u540D|\u5927))\u7247\u82B1|(?<!(\u9000\u5C45|\u56DE\u5F52|\u8D70\u5411|\u8F6C\u6218|\u9690\u8EAB|\u85CF\u8EAB|\u7684))\u5E55\u540E(?!(\u4E3B\u8C0B|\u4E3B\u4F7F|\u9ED1\u624B|\u771F\u51F6|\u73A9\u5BB6|\u8001\u677F|\u91D1\u4E3B|\u82F1\u96C4|\u529F\u81E3|\u63A8\u624B|\u5927\u4F6C|\u64CD\u7EB5|\u4EA4\u6613|\u7B56\u5212|\u535A\u5F08|BOSS|\u771F\u76F8))(\u6545\u4E8B|\u82B1\u7D6E|\u72EC\u5BB6)?|\u884D\u751F(?!(\u54C1|\u7269|\u517D))|\u756A\u5916(?!(\u5730|\u4EBA))|\u76F4\u64AD(\u966A\u770B|\u56DE\u987E)|\u672A\u64AD(\u7247\u6BB5)?|\u4F1A\u5458(\u4E13\u4EAB|\u52A0\u957F|\u5C0A\u4EAB|\u4E13\u5C5E|\u7248)?|(?<!(\u63D0\u53D6|\u5438\u6536|\u751F\u547D|\u9B54\u6CD5|\u4FEE\u62A4|\u7F8E\u767D))\u7CBE\u534E|\u770B\u70B9|\u901F\u770B|\u89E3\u8BFB(?!.*(\u5BC6\u6587|\u5BC6\u7801|\u5BC6\u7535|\u7535\u62A5|\u6863\u6848|\u4E66\u4FE1|\u9057\u4E66|\u7891\u6587|\u4EE3\u7801|\u4FE1\u53F7|\u6697\u53F7|\u8BAF\u606F|\u8C1C\u9898|\u4EBA\u5FC3|\u5507\u8BED|\u771F\u76F8|\u8C1C\u56E2|\u68A6\u5883))|(?<!(\u6848\u60C5|\u4EBA\u751F|\u6B7B\u524D|\u5386\u53F2|\u4E16\u7EAA))\u56DE\u987E|\u5F71\u8BC4|\u89E3\u8BF4|\u5410\u69FD|(?<!(\u5E74\u7EC8|\u5B63\u5EA6|\u5E93\u5B58|\u8D44\u4EA7|\u7269\u8D44|\u8D22\u52A1|\u6536\u83B7|\u6218\u5229))\u76D8\u70B9|\u62CD\u6444\u82B1\u7D6E|\u5236\u4F5C\u82B1\u7D6E|\u5E55\u540E\u82B1\u7D6E|\u672A\u64AD\u82B1\u7D6E|\u72EC\u5BB6\u82B1\u7D6E|\u82B1\u7D6E\u7279\u8F91|\u5148\u5BFC\u9884\u544A|\u7EC8\u6781\u9884\u544A|\u6B63\u5F0F\u9884\u544A|\u5B98\u65B9\u9884\u544A|\u5F69\u86CB\u7247\u6BB5|\u5220\u51CF\u7247\u6BB5|\u672A\u64AD\u7247\u6BB5|\u756A\u5916\u5F69\u86CB|\u7CBE\u5F69\u7247\u6BB5|\u7CBE\u5F69\u770B\u70B9|\u7CBE\u5F69\u96C6\u9526|\u770B\u70B9\u89E3\u6790|\u770B\u70B9\u9884\u544A|NG\u955C\u5934|NG\u82B1\u7D6E|\u756A\u5916\u7BC7|\u756A\u5916\u7279\u8F91|\u5236\u4F5C\u7279\u8F91|\u62CD\u6444\u7279\u8F91|\u5E55\u540E\u7279\u8F91|\u5BFC\u6F14\u7279\u8F91|\u6F14\u5458\u7279\u8F91|\u7247\u5C3E\u66F2|(?<!(\u751F\u547D|\u751F\u6D3B|\u60C5\u611F|\u7231\u60C5|\u4E00\u6BB5|\u5C0F|\u610F\u5916))\u63D2\u66F2|\u9AD8\u5149\u56DE\u987E|\u80CC\u666F\u97F3\u4E50|OST|\u97F3\u4E50MV|\u6B4C\u66F2MV|\u524D\u5B63\u56DE\u987E|\u5267\u60C5\u56DE\u987E|\u5F80\u671F\u56DE\u987E|\u5185\u5BB9\u603B\u7ED3|\u5267\u60C5\u76D8\u70B9|\u7CBE\u9009\u5408\u96C6|\u526A\u8F91\u5408\u96C6|\u6DF7\u526A\u89C6\u9891|\u72EC\u5BB6\u4E13\u8BBF|\u6F14\u5458\u8BBF\u8C08|\u5BFC\u6F14\u8BBF\u8C08|\u4E3B\u521B\u8BBF\u8C08|\u5A92\u4F53\u91C7\u8BBF|\u53D1\u5E03\u4F1A\u91C7\u8BBF|\u966A\u770B(\u8BB0)?|\u8BD5\u770B\u7248|\u77ED\u5267|\u7CBE\u7F16|(?<!(Love|Disney|One|C|Note|S\\d+|\\+|&|\\s))Plus|\u72EC\u5BB6\u7248|(?<!(\u5BFC\u6F14|\u52A0\u957F|\u5468\u5E74))\u7279\u522B\u7248(?!(\u56FE|\u753B))|\u77ED\u7247|(?<!(\u65B0\u95FB|\u7D27\u6025|\u4E34\u65F6|\u53EC\u5F00|\u7834\u574F|\u5927\u95F9|\u6F84\u6E05|\u9053\u6B49|\u65B0\u54C1|\u4EA7\u54C1|\u4E8B\u6545))\u53D1\u5E03\u4F1A|\u89E3\u5FE7\u5C40|\u8D70\u5FC3\u5C40|\u706B\u9505\u5C40|\u5DC5\u5CF0\u65F6\u523B|\u575E\u91CC\u90FD\u77E5\u9053|\u798F\u6301\u76EE\u6807\u575E\u6C11|\u798F\u5229(?!(\u9662|\u4F1A|\u4E3B\u4E49|\u8BFE))\u7BC7|(\u798F\u5229|\u52A0\u66F4|\u756A\u5916|\u5F69\u86CB|\u884D\u751F|\u7279\u522B|\u6536\u5B98|\u6E38\u620F|\u6574\u86CA|\u65E5\u5E38)\u7BC7|\u72EC\u5BB6(?!(\u8BB0\u5FC6|\u8BD5\u7231|\u62A5\u9053|\u79D8\u65B9|\u5360\u6709|\u5BA0\u7231|\u6069\u5BA0))|.{2,}(?<!(\u5E02|\u5206|\u8B66|\u603B|\u7701|\u536B|\u836F|\u653F|\u76D1|\u7ED3|\u5927|\u5F00|\u7834|\u5E03|\u50F5|\u56F0|\u9A97|\u8D4C|\u80DC|\u8D25|\u5B9A|\u4E71|\u5371|\u8FF7|\u8C1C|\u5165|\u6405|\u8BBE|\u4E2D|\u6B8B|\u5E73|\u548C|\u7EC8|\u53D8|\u5BF9|\u5B89|\u505A|\u4E66|\u753B|\u5BDF|\u52A1|\u6848|\u901A|\u4FE1|\u80B2|\u5546|\u8C61|\u6E90|\u4E1A|\u51B0))\u5C40(?!(\u957F|\u5EA7|\u52BF|\u9762|\u90E8|\u5185|\u5916|\u4E2D|\u9650|\u4FC3|\u6C14))|(?<!(\u91CD\u75C7|\u9694\u79BB|\u5B9E\u9A8C|\u5FC3\u7406|\u5BA1\u8BAF|\u5355\u5411|\u672F\u540E))\u89C2\u5BDF\u5BA4|\u4E0A\u73ED\u90A3\u70B9\u4E8B\u513F|\u5468top|\u8D5B\u6BB5|VLOG|(?<!(\u5927\u6848|\u8981\u6848|\u5211\u4FA6|\u4FA6\u67E5|\u7834\u6848|\u6863\u6848|\u98CE\u4E91|\u5386\u53F2|\u6218\u4E89|\u63A2\u6848|\u81EA\u7136|\u4EBA\u6587|\u79D1\u5B66|\u533B\u5B66|\u5730\u7406|\u5B87\u5B99|\u8D5B\u4E8B|\u4E16\u754C\u676F|\u5965\u8FD0))\u5168\u7EAA\u5F55|\u5F00\u64AD|\u5148\u5BFC|\u603B\u5BA3|\u5C55\u6F14|\u96C6\u9526|\u65C5\u884C\u65E5\u8BB0|\u7CBE\u5F69\u5206\u4EAB|\u5267\u60C5\u63ED\u79D8(?!(\u8005|\u4EBA))|(?:^|\u3011\\s*|\\]\\s*)(?:[SC]|SP|OP|ED|PV)\\d+(?:[\\s:\uFF1A\\.\\-]|$)"
+      "(\u7279\u522B|\u60CA\u559C|\u7EB3\u51C9)?\u4F01\u5212(?!(\u4E66|\u6848|\u90E8))|\u5408\u4F19\u4EBA\u624B\u8BB0|\u8D85\u524D(\u8425\u4E1A|vlog)?|\u901F\u89C8|vlog|(?<!(Chain|Chemical|Nuclear|\u8FDE\u9501|\u5316\u5B66|\u6838|\u751F\u5316|\u751F\u7406|\u5E94\u6FC0))reaction|(?<!(\u5355))\u7EAF\u4EAB|\u52A0\u66F4(\u7248|\u7BC7)?|\u62A2\u5148(\u770B|\u7248|\u96C6|\u7BC7)?|(?<!(\u88AB|\u4E89|\u8C01))\u62A2[\u5148\u9C9C](?!(\u4E00\u6B65|\u624B|\u653B|\u4E86|\u544A|\u8A00|\u673A|\u8BDD))|\u62A2\u9C9C|\u9884\u544A(?!(\u51FD|\u4FE1|\u4E66|\u72AF))|(?<!(\u6B7B\u4EA1|\u6050\u6016|\u7075\u5F02|\u602A\u8C08))\u82B1\u7D6E(\u72EC\u5BB6)?|(?<!(\u4E00|\u76F4))\u76F4\u62CD|(\u5236\u4F5C|\u62CD\u6444|\u5E55\u540E|\u82B1\u7D6E|\u672A\u64AD|\u72EC\u5BB6|\u6F14\u5458|\u5BFC\u6F14|\u4E3B\u521B|\u6740\u9752|\u63A2\u73ED|\u6536\u5B98|\u5F00\u64AD|\u5148\u5BFC|\u5F69\u86CB|NG|\u56DE\u987E|\u9AD8\u5149|\u4E2A\u4EBA|\u4E3B\u521B)\u7279\u8F91|(?<!(\u884C\u52A8|\u8BA1\u5212|\u6E38\u620F|\u4EFB\u52A1|\u5371\u673A|\u795E\u79D8|\u9EC4\u91D1))\u5F69\u86CB|(?<!(\u5ACC\u7591\u4EBA|\u8BC1\u4EBA|\u5BB6\u5C5E|\u5F8B\u5E08|\u8B66\u65B9|\u51F6\u624B|\u6B7B\u8005))\u4E13\u8BBF|(?<!(\u8BC1\u4EBA))\u91C7\u8BBF(?!(\u5438\u8840\u9B3C|\u9B3C))|(\u6B63\u5F0F|\u89D2\u8272|\u5148\u5BFC|\u6982\u5FF5|\u9996\u66DD|\u5B9A\u6863|\u5267\u60C5|\u52A8\u753B|\u5BA3\u4F20|\u4E3B\u9898\u66F2|\u5370\u8C61)[\\s\\.]*[Pp\uFF30\uFF50][Vv\uFF36\uFF56]|(?<!(\u9E26|\u96EA|\u7EB8|\u76F8|\u7167|\u56FE|\u540D|\u5927))\u7247\u82B1|(?<!(\u9000\u5C45|\u56DE\u5F52|\u8D70\u5411|\u8F6C\u6218|\u9690\u8EAB|\u85CF\u8EAB|\u7684))\u5E55\u540E(?!(\u4E3B\u8C0B|\u4E3B\u4F7F|\u9ED1\u624B|\u771F\u51F6|\u73A9\u5BB6|\u8001\u677F|\u91D1\u4E3B|\u82F1\u96C4|\u529F\u81E3|\u63A8\u624B|\u5927\u4F6C|\u64CD\u7EB5|\u4EA4\u6613|\u7B56\u5212|\u535A\u5F08|BOSS|\u771F\u76F8))(\u6545\u4E8B|\u82B1\u7D6E|\u72EC\u5BB6)?|\u884D\u751F(?!(\u54C1|\u7269|\u517D))|\u756A\u5916(?!(\u5730|\u4EBA))|\u76F4\u64AD(\u966A\u770B|\u56DE\u987E)|\u672A\u64AD(\u7247\u6BB5)?|\u4F1A\u5458(\u4E13\u4EAB|\u52A0\u957F|\u5C0A\u4EAB|\u4E13\u5C5E|\u7248)?|(?<!(\u63D0\u53D6|\u5438\u6536|\u751F\u547D|\u9B54\u6CD5|\u4FEE\u62A4|\u7F8E\u767D))\u7CBE\u534E|\u770B\u70B9|\u901F\u770B|\u89E3\u8BFB(?!.*(\u5BC6\u6587|\u5BC6\u7801|\u5BC6\u7535|\u7535\u62A5|\u6863\u6848|\u4E66\u4FE1|\u9057\u4E66|\u7891\u6587|\u4EE3\u7801|\u4FE1\u53F7|\u6697\u53F7|\u8BAF\u606F|\u8C1C\u9898|\u4EBA\u5FC3|\u5507\u8BED|\u771F\u76F8|\u8C1C\u56E2|\u68A6\u5883))|(?<!(\u6848\u60C5|\u4EBA\u751F|\u6B7B\u524D|\u5386\u53F2|\u4E16\u7EAA))\u56DE\u987E|\u5F71\u8BC4|\u89E3\u8BF4|(?<!(\u66F4|\u4F1A|\u80FD|\u6765|\u7684|\u6BD4|\u9002\u5408|\u64C5\u957F|\u6BD4\u8D77))\u5410\u69FD(?!.*(\u827A\u4EBA|\u5F79|\u5927\u4F1A|\u62C5\u5F53))|(?<!(\u5E74\u7EC8|\u5B63\u5EA6|\u5E93\u5B58|\u8D44\u4EA7|\u7269\u8D44|\u8D22\u52A1|\u6536\u83B7|\u6218\u5229))\u76D8\u70B9|\u62CD\u6444\u82B1\u7D6E|\u5236\u4F5C\u82B1\u7D6E|\u5E55\u540E\u82B1\u7D6E|\u672A\u64AD\u82B1\u7D6E|\u72EC\u5BB6\u82B1\u7D6E|\u82B1\u7D6E\u7279\u8F91|\u5148\u5BFC\u9884\u544A|\u7EC8\u6781\u9884\u544A|\u6B63\u5F0F\u9884\u544A|\u5B98\u65B9\u9884\u544A|\u5F69\u86CB\u7247\u6BB5|\u5220\u51CF\u7247\u6BB5|\u672A\u64AD\u7247\u6BB5|\u756A\u5916\u5F69\u86CB|\u7CBE\u5F69\u7247\u6BB5|\u7CBE\u5F69\u770B\u70B9|\u7CBE\u5F69\u96C6\u9526|\u770B\u70B9\u89E3\u6790|\u770B\u70B9\u9884\u544A|NG\u955C\u5934|NG\u82B1\u7D6E|\u756A\u5916\u7BC7|\u756A\u5916\u7279\u8F91|\u5236\u4F5C\u7279\u8F91|\u62CD\u6444\u7279\u8F91|\u5E55\u540E\u7279\u8F91|\u5BFC\u6F14\u7279\u8F91|\u6F14\u5458\u7279\u8F91|\u7247\u5C3E\u66F2|(?<!(\u751F\u547D|\u751F\u6D3B|\u60C5\u611F|\u7231\u60C5|\u4E00\u6BB5|\u5C0F|\u610F\u5916))\u63D2\u66F2|\u9AD8\u5149\u56DE\u987E|\u80CC\u666F\u97F3\u4E50|OST|\u97F3\u4E50MV|\u6B4C\u66F2MV|\u524D\u5B63\u56DE\u987E|\u5267\u60C5\u56DE\u987E|\u5F80\u671F\u56DE\u987E|\u5185\u5BB9\u603B\u7ED3|\u5267\u60C5\u76D8\u70B9|\u7CBE\u9009\u5408\u96C6|\u526A\u8F91\u5408\u96C6|\u6DF7\u526A\u89C6\u9891|\u72EC\u5BB6\u4E13\u8BBF|\u6F14\u5458\u8BBF\u8C08|\u5BFC\u6F14\u8BBF\u8C08|\u4E3B\u521B\u8BBF\u8C08|\u5A92\u4F53\u91C7\u8BBF|\u53D1\u5E03\u4F1A\u91C7\u8BBF|\u966A\u770B(\u8BB0)?|\u8BD5\u770B\u7248|\u77ED\u5267|\u7CBE\u7F16|(?<!(Love|Disney|One|C|Note|S\\d+|\\+|&|\\s))Plus|\u72EC\u5BB6\u7248|(?<!(\u5BFC\u6F14|\u52A0\u957F|\u5468\u5E74))\u7279\u522B\u7248(?!(\u56FE|\u753B))|\u77ED\u7247|(?<!(\u65B0\u95FB|\u7D27\u6025|\u4E34\u65F6|\u53EC\u5F00|\u7834\u574F|\u5927\u95F9|\u6F84\u6E05|\u9053\u6B49|\u65B0\u54C1|\u4EA7\u54C1|\u4E8B\u6545))\u53D1\u5E03\u4F1A|\u89E3\u5FE7\u5C40|\u8D70\u5FC3\u5C40|\u706B\u9505\u5C40|\u5DC5\u5CF0\u65F6\u523B|\u575E\u91CC\u90FD\u77E5\u9053|\u798F\u6301\u76EE\u6807\u575E\u6C11|\u798F\u5229(?!(\u9662|\u4F1A|\u4E3B\u4E49|\u8BFE))\u7BC7|(\u798F\u5229|\u52A0\u66F4|\u756A\u5916|\u5F69\u86CB|\u884D\u751F|\u7279\u522B|\u6536\u5B98|\u6E38\u620F|\u6574\u86CA|\u65E5\u5E38)\u7BC7|\u72EC\u5BB6(?!(\u8BB0\u5FC6|\u8BD5\u7231|\u62A5\u9053|\u79D8\u65B9|\u5360\u6709|\u5BA0\u7231|\u6069\u5BA0))|.{2,}(?<!(\u5E02|\u5206|\u8B66|\u603B|\u7701|\u536B|\u836F|\u653F|\u76D1|\u7ED3|\u5927|\u5F00|\u7834|\u5E03|\u50F5|\u56F0|\u9A97|\u8D4C|\u80DC|\u8D25|\u5B9A|\u4E71|\u5371|\u8FF7|\u8C1C|\u5165|\u6405|\u8BBE|\u4E2D|\u6B8B|\u5E73|\u548C|\u7EC8|\u53D8|\u5BF9|\u5B89|\u505A|\u4E66|\u753B|\u5BDF|\u52A1|\u6848|\u901A|\u4FE1|\u80B2|\u5546|\u8C61|\u6E90|\u4E1A|\u51B0))\u5C40(?!(\u957F|\u5EA7|\u52BF|\u9762|\u90E8|\u5185|\u5916|\u4E2D|\u9650|\u4FC3|\u6C14))|(?<!(\u91CD\u75C7|\u9694\u79BB|\u5B9E\u9A8C|\u5FC3\u7406|\u5BA1\u8BAF|\u5355\u5411|\u672F\u540E))\u89C2\u5BDF\u5BA4|\u4E0A\u73ED\u90A3\u70B9\u4E8B\u513F|\u5468top|\u8D5B\u6BB5|VLOG|(?<!(\u5927\u6848|\u8981\u6848|\u5211\u4FA6|\u4FA6\u67E5|\u7834\u6848|\u6863\u6848|\u98CE\u4E91|\u5386\u53F2|\u6218\u4E89|\u63A2\u6848|\u81EA\u7136|\u4EBA\u6587|\u79D1\u5B66|\u533B\u5B66|\u5730\u7406|\u5B87\u5B99|\u8D5B\u4E8B|\u4E16\u754C\u676F|\u5965\u8FD0))\u5168\u7EAA\u5F55|\u5F00\u64AD|\u5148\u5BFC|\u603B\u5BA3|\u5C55\u6F14|\u96C6\u9526|\u65C5\u884C\u65E5\u8BB0|\u7CBE\u5F69\u5206\u4EAB|\u5267\u60C5\u63ED\u79D8(?!(\u8005|\u4EBA))|(?:^|\u3011\\s*|\\]\\s*)(?:[SC]|SP|OP|ED|PV)\\d+(?:[\\s:\uFF1A\\.\\-]|$)"
     ), keywords = this.get("EPISODE_TITLE_FILTER", "", "string", !1).trim() || defaultFilter;
     this.accessedEnvVars.set("EPISODE_TITLE_FILTER", keywords);
     try {
@@ -5788,6 +5868,10 @@ var Envs = class {
       }
     return mappingTable;
   }
+  static resolveAutoMatchMappingTable() {
+    let mappingStr = this.get("AUTO_MATCH_MAPPING_TABLE", "", "string").trim(), { rules, warnings } = parseAutoMatchMappingRules(mappingStr, this.ALLOWED_PLATFORMS);
+    return warnings.forEach((message) => console.warn(`[auto-match-mapping] ${message}`)), rules;
+  }
   /**
    * 获取记录的环境变量 JSON
    * @returns {Map<any, any>} JSON 字符串
@@ -5842,6 +5926,11 @@ var Envs = class {
       TITLE_TO_CHINESE: { category: "match", type: "boolean", description: "\u5916\u8BED\u6807\u9898\u8F6C\u6362\u4E2D\u6587\u5F00\u5173" },
       ANIME_TITLE_SIMPLIFIED: { category: "match", type: "boolean", description: "\u641C\u7D22\u7684\u5267\u540D\u6807\u9898\u81EA\u52A8\u7E41\u8F6C\u7B80" },
       TITLE_MAPPING_TABLE: { category: "match", type: "map", description: '\u5267\u540D\u6620\u5C04\u8868\uFF0C\u7528\u4E8E\u81EA\u52A8\u5339\u914D\u65F6\u66FF\u6362\u6807\u9898\u8FDB\u884C\u641C\u7D22\uFF0C\u683C\u5F0F\uFF1A\u539F\u59CB\u6807\u9898->\u6620\u5C04\u6807\u9898;\u539F\u59CB\u6807\u9898->\u6620\u5C04\u6807\u9898;... \uFF0C\u4F8B\u5982\uFF1A"\u5510\u671D\u8BE1\u4E8B\u5F55->\u5510\u671D\u8BE1\u4E8B\u5F55\u4E4B\u897F\u884C;\u56FD\u8272\u82B3\u534E->\u9526\u7EE3\u82B3\u534E"' },
+      AUTO_MATCH_MAPPING_TABLE: { category: "match", type: "map", description: `\u81EA\u52A8\u5339\u914D\u6620\u5C04\u8868\uFF0C\u4EC5\u4F5C\u7528\u4E8E POST /api/v2/match\u3002\u591A\u4E2A\u89C4\u5219\u4F7F\u7528\u5206\u53F7\u5206\u9694\u3002
+\u5F00\u653E\u6620\u5C04\uFF1A\u6C38\u751F S05E02 -> \u6C38\u751F S01E58
+\u6709\u9650\u8303\u56F4\uFF1A\u6C38\u751F S05E02~03 -> \u6C38\u751F S01E58~59
+\u6307\u5B9A\u7ED3\u679C\uFF1A\u6D77\u8D3C\u738B S02E01 -> \u822A\u6D77\u738B(1999)\u3010\u52A8\u6F2B\u3011 S01E62
+\u6307\u5B9A\u5E73\u53F0\uFF1A\u822A\u6D77\u738B S01E01 -> \u822A\u6D77\u738B S01E01 @qiyi` },
       TITLE_NOISE_FILTER: { category: "match", type: "text", description: "\u5267\u540D\u6742\u97F3\u6E05\u7406\u89C4\u5219\uFF0C\u6309\u6B63\u5219\u8868\u8FBE\u5F0F\u6E05\u7406\u641C\u7D22\u4E0E\u5339\u914D\u9636\u6BB5\u7684\u5267\u540D\u6742\u97F3\u8BCD\uFF08\u5982`\u767E\u82B1\u6740\uFF08\u771F\u5F69\uFF09`\u2192`\u767E\u82B1\u6740`\uFF09\u3002\u9ED8\u8BA4\u503C\uFF1A[\uFF08(\\[](?:\u81FB\u5F69|\u771F\u5F69|\u9AD8\u6E05|\u6807\u6E05|\u8D85\u6E05|\u56FD\u914D|\u4E2D\u914D|\u65E5\u914D|\u7CA4\u8BED|\u539F\u58F0|\u53F0\u914D|\u65E0\u4FEE|\u672A\u5220\u51CF|\u5B8C\u6574\u7248|\u65E5\u8BED\u7248|\u56FD\u8BED\u7248|\u82F1\u8BED\u7248|\u4E2D\u5B57|\u5B57\u5E55|\u52A9\u542C|\u539F\u7248)[\\])\uFF09]\uFF0C\u4E2D\u82F1\u6587\u5706\u65B9\u62EC\u53F7\u5747\u5339\u914D\u3002\u8BBE\u4E3A\u7A7A\u503C\u53EF\u7981\u7528" },
       AI_BASE_URL: { category: "match", type: "text", description: "AI\u670D\u52A1\u57FA\u7840URL\uFF0C\u4E0D\u586B\u9ED8\u8BA4\u4E3Ahttps://api.openai.com/v1" },
       AI_MODEL: { category: "match", type: "text", description: "AI\u6A21\u578B\u540D\u79F0\uFF0C\u4E0D\u586B\u9ED8\u8BA4\u4E3Agpt-4o" },
@@ -5865,7 +5954,8 @@ var Envs = class {
       // 缓存配置
       SEARCH_CACHE_MINUTES: { category: "cache", type: "number", description: "\u641C\u7D22\u7ED3\u679C\u7F13\u5B58\u65F6\u95F4(\u5206\u949F)\uFF0C\u9ED8\u8BA43", min: 1, max: 120 },
       COMMENT_CACHE_MINUTES: { category: "cache", type: "number", description: "\u5F39\u5E55\u7F13\u5B58\u65F6\u95F4(\u5206\u949F)\uFF0C\u9ED8\u8BA43", min: 1, max: 120 },
-      REMEMBER_LAST_SELECT: { category: "cache", type: "boolean", description: "\u8BB0\u4F4F\u624B\u52A8\u9009\u62E9\u7ED3\u679C" },
+      COMMENT_CACHE_MIN_COUNT: { category: "cache", type: "number", description: "\u5F39\u5E55\u7F13\u5B58\u6700\u5C11\u6761\u6570\uFF0C\u4F4E\u4E8E\u8BE5\u503C\u65F6\u91CD\u65B0\u83B7\u53D6\uFF0C\u9ED8\u8BA4100\uFF0C\u8BBE\u7F6E0\u5173\u95ED", min: 0, max: 1e4 },
+      REMEMBER_LAST_SELECT: { category: "cache", type: "boolean", description: "\u8BB0\u4F4F\u660E\u786E\u624B\u52A8\u9009\u62E9\u7684\u7ED3\u679C\uFF1B\u81EA\u52A8\u5339\u914D\u540E\u76F4\u63A5\u83B7\u53D6\u5176\u8FD4\u56DE\u7ED3\u679C\u4E0D\u4F1A\u5199\u5165\u504F\u597D" },
       MAX_LAST_SELECT_MAP: { category: "cache", type: "number", description: "\u8BB0\u4F4F\u4E0A\u6B21\u9009\u62E9\u6620\u5C04\u7F13\u5B58\u5927\u5C0F\u9650\u5236\uFF0C\u9ED8\u8BA4100", min: 10, max: 1e3 },
       MAX_ANIMES: { category: "cache", type: "number", description: "\u52A8\u6F2B\u6807\u9898\u7F13\u5B58\u6700\u5927\u6570\u91CF\uFF0C\u9ED8\u8BA4100", min: 100, max: 1e3 },
       UPSTASH_REDIS_REST_URL: { category: "cache", type: "text", description: "Upstash Redis\u8BF7\u6C42\u94FE\u63A5" },
@@ -5873,7 +5963,7 @@ var Envs = class {
       LOCAL_REDIS_URL: { category: "cache", type: "text", description: "\u672C\u5730 Redis \u8FDE\u63A5URL\uFF0C\u793A\u4F8B\uFF1Aredis://:password@127.0.0.1:6379/0\uFF0C\u53EA\u652F\u6301\u672C\u5730\u90E8\u7F72\u548Cdocker\u90E8\u7F72" },
       BANGUMI_DATA_CACHE_DAYS: { category: "cache", type: "number", description: "Bangumi Data \u7F13\u5B58\u6709\u6548\u671F(\u5929)\uFF0C\u8BBE\u7F6E0\u5219\u6BCF\u6B21\u8BF7\u6C42\u65F6\u5F3A\u5236\u5F02\u6B65\u66F4\u65B0\uFF0C\u9ED8\u8BA47\u5929", min: 0, max: 30 },
       // 系统配置
-      UI_THEME: { category: "system", type: "select", options: ["ocean", "forest", "graphite", "berry", "monochrome", "sunset", "aurora", "mist", "terminal", "lavender"], description: "\u7BA1\u7406\u754C\u9762\u4E3B\u9898" },
+      UI_THEME: { category: "system", type: "select", options: ["lavender", "shinyo", "sakura", "tianyi", "hatsune", "sakuragi", "violet", "amber"], description: "\u7BA1\u7406\u754C\u9762\u4E3B\u9898" },
       PROXY_URL: { category: "system", type: "text", description: "\u4EE3\u7406/\u53CD\u4EE3\u5730\u5740" },
       TMDB_API_KEY: { category: "system", type: "text", description: "TMDB API\u5BC6\u94A5" },
       LOG_LEVEL: { category: "system", type: "select", options: ["debug", "info", "warn", "error"], description: "\u65E5\u5FD7\u7EA7\u522B\u914D\u7F6E" },
@@ -5926,7 +6016,7 @@ var Envs = class {
       // 分钟内合并去重（默认 1，最大值30，0表示不去重）
       danmuLimit: this.get("DANMU_LIMIT", 0, "number"),
       // 等间隔采样限制弹幕总数，单位为k，即千：默认 0，表示不限制弹幕数，若改为5，弹幕总数在超过5000的情况下会将弹幕数控制在5000
-      uiTheme: this.get("UI_THEME", "ocean", "string").toLowerCase(),
+      uiTheme: this.get("UI_THEME", "lavender", "string").toLowerCase(),
       // 管理界面主题
       proxyUrl: this.get("PROXY_URL", "", "string", !0),
       // 代理/反代地址
@@ -5958,6 +6048,8 @@ var Envs = class {
       // 搜索结果缓存时间配置（分钟，默认 3）
       commentCacheMinutes: this.get("COMMENT_CACHE_MINUTES", 3, "number"),
       // 弹幕缓存时间配置（分钟，默认 3）
+      commentCacheMinCount: this.get("COMMENT_CACHE_MIN_COUNT", 100, "number"),
+      // 弹幕缓存最少条数，低于该值时忽略缓存（默认 100，0 表示关闭）
       hongguoMergeAllEpisodes: this.get("HONGGUO_MERGE_ALL_EPISODES", !1, "boolean"),
       // 红果短剧是否合并全集弹幕（默认 false）
       convertTopBottomToScroll: this.get("CONVERT_TOP_BOTTOM_TO_SCROLL", !1, "boolean"),
@@ -5976,6 +6068,8 @@ var Envs = class {
       // 搜索的剧名标题自动繁转简
       titleMappingTable: this.resolveTitleMappingTable(),
       // 剧名映射表，用于自动匹配时替换标题进行搜索
+      autoMatchMappingTable: this.resolveAutoMatchMappingTable(),
+      // 自动匹配标题/季度/集数映射规则
       ipBlacklist: this.resolveIpBlacklist(),
       // IP 黑名单（支持正则）
       aiBaseUrl: this.get("AI_BASE_URL", "https://api.openai.com/v1", "string"),
@@ -6011,9 +6105,9 @@ var Envs = class {
 };
 __publicField(Envs, "env"), // 记录获取过的环境变量
 __publicField(Envs, "originalEnvVars", /* @__PURE__ */ new Map()), __publicField(Envs, "accessedEnvVars", /* @__PURE__ */ new Map()), __publicField(Envs, "VOD_ALLOWED_PLATFORMS", ["qiyi", "bilibili1", "imgo", "youku", "qq", "migu", "sohu", "leshi", "xigua", "maiduidui", "aiyifan"]), // vod允许的播放平台
-__publicField(Envs, "ALLOWED_PLATFORMS", ["qiyi", "bilibili1", "imgo", "youku", "qq", "migu", "renren", "hanjutv", "bahamut", "dandan", "sohu", "leshi", "xigua", "maiduidui", "aiyifan", "hongguo", "animeko", "custom"]), // 全部源允许的播放平台
-__publicField(Envs, "ALLOWED_SOURCES", ["360", "vod", "tmdb", "douban", "tencent", "youku", "iqiyi", "imgo", "bilibili", "migu", "renren", "hanjutv", "bahamut", "dandan", "sohu", "leshi", "xigua", "maiduidui", "aiyifan", "hongguo", "animeko", "custom"]), // 允许的源
-__publicField(Envs, "MERGE_ALLOWED_SOURCES", ["tencent", "youku", "iqiyi", "imgo", "bilibili", "migu", "renren", "hanjutv", "bahamut", "dandan", "sohu", "leshi", "xigua", "maiduidui", "aiyifan", "hongguo", "animeko"]), // 允许的源合并
+__publicField(Envs, "ALLOWED_PLATFORMS", ["qiyi", "bilibili1", "imgo", "youku", "qq", "migu", "renren", "hanjutv", "sohu", "leshi", "xigua", "maiduidui", "aiyifan", "hongguo", "dandan", "bahamut", "animeko", "custom"]), // 全部源允许的播放平台
+__publicField(Envs, "ALLOWED_SOURCES", ["360", "vod", "tmdb", "douban", "tencent", "youku", "iqiyi", "imgo", "bilibili", "migu", "renren", "hanjutv", "sohu", "leshi", "xigua", "maiduidui", "aiyifan", "hongguo", "dandan", "bahamut", "animeko", "custom"]), // 允许的源
+__publicField(Envs, "MERGE_ALLOWED_SOURCES", ["tencent", "youku", "iqiyi", "imgo", "bilibili", "migu", "renren", "hanjutv", "sohu", "leshi", "xigua", "maiduidui", "aiyifan", "hongguo", "dandan", "bahamut", "animeko"]), // 允许的源合并
 __publicField(Envs, "DEFAULT_AI_MATCH_PROMPT", `\u4F60\u662F\u4E00\u4E2A\u4E13\u4E1A\u7684\u5F71\u89C6\u5339\u914D\u4E13\u5BB6\uFF0C\u4F60\u7684\u7684\u4EFB\u52A1\u662F\u6839\u636E\u7528\u6237\u63D0\u4F9B\u7684 JSON \u6570\u636E\uFF0C\u4ECE\u5019\u9009\u52A8\u6F2B\u5217\u8868\u4E2D\u5339\u914D\u6700\u7B26\u5408\u6761\u4EF6\u7684\u52A8\u6F2B\u53CA\u96C6\u6570\u3002
 
 \u8F93\u5165\u5B57\u6BB5\u8BF4\u660E\uFF1A
@@ -6060,7 +6154,7 @@ var Globals = {
   originalEnvVars: {},
   accessedEnvVars: {},
   // 静态常量
-  VERSION: "1.20.3",
+  VERSION: "1.20.5",
   MAX_LOGS: 1e3,
   // 日志存储，最多保存 1000 行
   MAX_RECORDS: 100,
@@ -6098,12 +6192,15 @@ var Globals = {
     episodeNum: null,
     lastSelectMap: null,
     reqRecords: null,
-    todayReqNum: null
+    todayReqNum: null,
+    favoriteCache: null
   },
   searchCache: /* @__PURE__ */ new Map(),
   // 搜索结果缓存，存储格式：{ keyword: { results, timestamp } }
   commentCache: /* @__PURE__ */ new Map(),
   // 弹幕缓存，存储格式：{ videoUrl: { comments, timestamp } }
+  favoriteCache: /* @__PURE__ */ new Map(),
+  // 收藏剧集永久缓存，存储格式：{ keyword: { results, details, timestamp } }，无 TTL、无数量上限
   deployPlatform: "",
   // 部署平台配置
   currentToken: "",
@@ -6549,7 +6646,7 @@ function simpleHash(str) {
   return hash.toString(16);
 }
 function serializeValue(key, value) {
-  return key === "lastSelectMap" && value instanceof Map ? JSON.stringify(Object.fromEntries(value)) : JSON.stringify(value);
+  return (key === "lastSelectMap" || key === "favoriteCache") && value instanceof Map ? JSON.stringify(Object.fromEntries(value)) : JSON.stringify(value);
 }
 function md5(message) {
   function toUtf8(str) {
@@ -7416,6 +7513,37 @@ function decodeHtmlEntities(str) {
   return str.replace(/&[a-zA-Z]+;/g, (match) => namedEntities[match] || match).replace(/&#(\d+);/g, (match, num) => fromCodePoint(parseInt(num, 10))).replace(/&#x([0-9a-fA-F]+);/g, (match, hex) => fromCodePoint(parseInt(hex, 16)));
 }
 
+// danmu_api/utils/favorite-schedule-util.js
+var SHANGHAI_OFFSET_MS = 480 * 60 * 1e3, DAY_MS = 1440 * 60 * 1e3;
+
+// danmu_api/utils/favorite-util.js
+function saveFavorites() {
+  return globals.favoriteCache instanceof Map || (globals.favoriteCache = /* @__PURE__ */ new Map()), Object.fromEntries(globals.favoriteCache.entries());
+}
+function stripSeasonSuffix(keyword) {
+  return String(keyword || "").replace(/_S\d+$/i, "").trim();
+}
+function getEntryTitles(keyword, entry) {
+  let titles = /* @__PURE__ */ new Set([stripSeasonSuffix(keyword)]);
+  for (let anime of Array.isArray(entry?.results) ? entry.results : []) {
+    let title = stripSeasonSuffix(anime?.animeTitle);
+    title && titles.add(title);
+  }
+  return [...titles].filter((title) => title.length >= 2);
+}
+function resolveFavoriteForSearchKeyword(keyword) {
+  let key = String(keyword || "").trim();
+  if (!key || !(globals.favoriteCache instanceof Map) || globals.favoriteCache.size === 0) return null;
+  if (globals.favoriteCache.has(key))
+    return { keyword: key, entry: globals.favoriteCache.get(key) };
+  let queryTitle = stripSeasonSuffix(key);
+  if (!queryTitle) return null;
+  for (let [favoriteKeyword, entry] of globals.favoriteCache.entries())
+    if (stripSeasonSuffix(favoriteKeyword) === queryTitle || getEntryTitles(favoriteKeyword, entry).includes(queryTitle))
+      return { keyword: favoriteKeyword, entry };
+  return null;
+}
+
 // danmu_api/utils/redis-util.js
 async function setRedisKey(key, value) {
   let serializedValue = serializeValue(key, value), currentHash = simpleHash(serializedValue);
@@ -7463,10 +7591,11 @@ async function updateRedisCaches() {
       { key: "episodeNum", value: globals.episodeNum },
       { key: "reqRecords", value: globals.reqRecords },
       { key: "lastSelectMap", value: globals.lastSelectMap },
-      { key: "todayReqNum", value: globals.todayReqNum }
+      { key: "todayReqNum", value: globals.todayReqNum },
+      { key: "favoriteCache", value: globals.favoriteCache }
     ];
     for (let { key, value } of variables) {
-      let serializedValue = JSON.stringify(key === "lastSelectMap" ? Object.fromEntries(value) : value), currentHash = simpleHash(serializedValue);
+      let serializedValue = serializeValue(key, value), currentHash = simpleHash(serializedValue);
       currentHash !== globals.lastHashes[key] && (commands.push(["SET", key, serializedValue]), updates.push({ key, hash: currentHash }));
     }
     if (commands.length > 0) {
@@ -7727,8 +7856,11 @@ function getActiveSearchCacheEntries() {
 }
 function sweepExpiredCache(cacheMap, cacheMinutes, cacheName) {
   let now = Date.now(), sweptCount = 0;
-  for (let [key, entry] of cacheMap.entries())
-    (now - entry.timestamp) / 6e4 > cacheMinutes && (cacheMap.delete(key), sweptCount++);
+  for (let [key, entry] of cacheMap.entries()) {
+    if (cacheMap === globals.searchCache && globals.favoriteCache instanceof Map && globals.favoriteCache.has(key))
+      continue;
+    (now - entry.timestamp) / (1e3 * 60) > cacheMinutes && (cacheMap.delete(key), sweptCount++);
+  }
   sweptCount > 0 && log("info", `[cache] ${cacheName} TTL \u626B\u63CF\u5B8C\u6BD5\uFF0C\u5DF2\u79FB\u9664 ${sweptCount} \u4E2A\u8FC7\u671F\u6761\u76EE\uFF0C\u5269\u4F59 ${cacheMap.size} \u4E2A`);
 }
 function matchesAnimeId(anime, idStr) {
@@ -7752,6 +7884,14 @@ function* iterateSearchCacheDetails() {
         let identityKey = getAnimeIdentityKey(anime);
         identityKey && seen.has(identityKey) || (identityKey && seen.add(identityKey), yield anime);
       }
+  if (globals.favoriteCache instanceof Map) {
+    for (let cached of globals.favoriteCache.values())
+      if (Array.isArray(cached.details))
+        for (let anime of cached.details) {
+          let identityKey = getAnimeIdentityKey(anime);
+          identityKey && seen.has(identityKey) || (identityKey && seen.add(identityKey), yield anime);
+        }
+  }
 }
 function resolveAnimeById(id, detailStore = null, source = null) {
   let idStr = String(id), anime = findAnimeByIdInIterator(globals.animes, idStr, source);
@@ -7806,12 +7946,21 @@ function resolveEpisodeContextById(id, detailStore = null) {
   return null;
 }
 function isSearchCacheValid(keyword) {
+  if (resolveFavoriteForSearchKeyword(keyword))
+    return !0;
   if (!globals.searchCache.has(keyword))
     return !1;
   let cached = globals.searchCache.get(keyword), cacheAgeMinutes = (Date.now() - cached.timestamp) / (1e3 * 60);
   return cacheAgeMinutes > globals.searchCacheMinutes ? (globals.searchCache.delete(keyword), log("info", `[cache] Search cache for "${keyword}" expired after ${cacheAgeMinutes.toFixed(2)} minutes`), !1) : !0;
 }
 function getSearchCache(keyword, detailsMap = null) {
+  let favorite = resolveFavoriteForSearchKeyword(keyword);
+  if (favorite) {
+    let favoriteEntry = favorite.entry;
+    return log("info", `[cache] Using favorite cache for "${keyword}"`), detailsMap instanceof Map && Array.isArray(favoriteEntry.details) && favoriteEntry.details.forEach((anime) => {
+      storeAnimeDetail(detailsMap, anime);
+    }), favoriteEntry.results;
+  }
   if (isSearchCacheValid(keyword)) {
     log("info", `[cache] Using search cache for "${keyword}"`);
     let cached = globals.searchCache.get(keyword);
@@ -7836,7 +7985,10 @@ function setSearchCache(keyword, results, detailsMap = null) {
 function isCommentCacheValid(videoUrl) {
   if (!globals.commentCache.has(videoUrl))
     return !1;
-  let cached = globals.commentCache.get(videoUrl), cacheAgeMinutes = (Date.now() - cached.timestamp) / (1e3 * 60);
+  let cached = globals.commentCache.get(videoUrl), commentCount = Array.isArray(cached.comments) ? cached.comments.length : 0, minCount = Math.max(0, globals.commentCacheMinCount || 0);
+  if (minCount > 0 && commentCount < minCount)
+    return globals.commentCache.delete(videoUrl), log("info", `[cache] Comment cache for "${videoUrl}" has only ${commentCount} comments (minimum ${minCount}), refreshing`), !1;
+  let cacheAgeMinutes = (Date.now() - cached.timestamp) / (1e3 * 60);
   return cacheAgeMinutes > globals.commentCacheMinutes ? (globals.commentCache.delete(videoUrl), log("info", `[cache] Comment cache for "${videoUrl}" expired after ${cacheAgeMinutes.toFixed(2)} minutes`), !1) : !0;
 }
 function getCommentCache(videoUrl) {
@@ -7935,12 +8087,13 @@ function storeAnimeIdsToMap(curAnimes, key) {
       uniqueAnimeIds.add(id);
   for (let anime of curAnimes)
     uniqueAnimeIds.add(anime.animeId);
-  let oldPrefer = oldValue?.prefer, oldSource = oldValue?.source, oldPreferBySeason = oldValue?.preferBySeason, oldSourceBySeason = oldValue?.sourceBySeason, oldOffsets = oldValue?.offsets, preferBySeason = oldPreferBySeason ? { ...oldPreferBySeason } : {}, sourceBySeason = oldSourceBySeason ? { ...oldSourceBySeason } : {};
+  let oldPrefer = oldValue?.prefer, oldSource = oldValue?.source, oldPreferBySeason = oldValue?.preferBySeason, oldSourceBySeason = oldValue?.sourceBySeason, oldOffsets = oldValue?.offsets, oldExplicitBySeason = oldValue?.explicitBySeason, preferBySeason = oldPreferBySeason ? { ...oldPreferBySeason } : {}, sourceBySeason = oldSourceBySeason ? { ...oldSourceBySeason } : {};
   if (oldPrefer !== void 0 && (preferBySeason.default = oldPrefer), oldSource !== void 0 && (sourceBySeason.default = oldSource), globals.lastSelectMap.has(key) && globals.lastSelectMap.delete(key), globals.lastSelectMap.set(key, {
     animeIds: [...uniqueAnimeIds],
     ...Object.keys(preferBySeason).length > 0 && { preferBySeason },
     ...Object.keys(sourceBySeason).length > 0 && { sourceBySeason },
-    ...oldOffsets !== void 0 && { offsets: oldOffsets }
+    ...oldOffsets !== void 0 && { offsets: oldOffsets },
+    ...oldExplicitBySeason !== void 0 && { explicitBySeason: { ...oldExplicitBySeason } }
   }), globals.lastSelectMap.size > globals.MAX_LAST_SELECT_MAP) {
     let firstKey = globals.lastSelectMap.keys().next().value;
     globals.lastSelectMap.delete(firstKey), log("info", `[cache] Removed earliest entry from lastSelectMap: ${firstKey}`);
@@ -7954,9 +8107,23 @@ function setPreferByAnimeId(animeId, source, season = null, offset = null) {
   for (let [key, value] of globals.lastSelectMap.entries())
     if (value.animeIds && value.animeIds.includes(animeId)) {
       let seasonKey = season === null ? "default" : String(season);
-      return value.preferBySeason = value.preferBySeason || {}, value.sourceBySeason = value.sourceBySeason || {}, value.preferBySeason[seasonKey] = animeId, value.sourceBySeason[seasonKey] = source, season !== null && offset !== null && (value.offsets = value.offsets || {}, value.offsets[seasonKey] = offset), globals.lastSelectMap.set(key, value), key;
+      return value.preferBySeason = value.preferBySeason || {}, value.sourceBySeason = value.sourceBySeason || {}, value.preferBySeason[seasonKey] = animeId, value.sourceBySeason[seasonKey] = source, value.explicitBySeason = value.explicitBySeason || {}, value.explicitBySeason[seasonKey] = !0, season !== null && offset !== null && (value.offsets = value.offsets || {}, value.offsets[seasonKey] = offset), globals.lastSelectMap.set(key, value), key;
     }
   return null;
+}
+function setPreferForTitle(title, animeId, source, season = null, offset = null) {
+  let key = String(title || "").trim();
+  if (!key || animeId === null || animeId === void 0) return null;
+  let oldValue = globals.lastSelectMap.get(key) || {}, animeIds = new Set(Array.isArray(oldValue.animeIds) ? oldValue.animeIds : []);
+  animeIds.add(animeId);
+  let seasonKey = season === null ? "default" : String(season), preferBySeason = { ...oldValue.preferBySeason || {}, [seasonKey]: animeId }, sourceBySeason = { ...oldValue.sourceBySeason || {}, [seasonKey]: source }, explicitBySeason = { ...oldValue.explicitBySeason || {}, [seasonKey]: !0 }, offsets = { ...oldValue.offsets || {} };
+  return season !== null && offset !== null && (offsets[seasonKey] = offset), globals.lastSelectMap.has(key) && globals.lastSelectMap.delete(key), globals.lastSelectMap.set(key, {
+    animeIds: [...animeIds],
+    preferBySeason,
+    sourceBySeason,
+    explicitBySeason,
+    ...Object.keys(offsets).length > 0 && { offsets }
+  }), globals.lastSelectMap.size > globals.MAX_LAST_SELECT_MAP && globals.lastSelectMap.delete(globals.lastSelectMap.keys().next().value), key;
 }
 function getDirname() {
   return typeof __dirname < "u" ? __dirname : path.join(process.cwd(), "danmu_api", "utils");
@@ -7974,14 +8141,15 @@ async function updateLocalCaches() {
       { key: "episodeNum", value: globals.episodeNum },
       { key: "reqRecords", value: globals.reqRecords },
       { key: "lastSelectMap", value: globals.lastSelectMap },
-      { key: "todayReqNum", value: globals.todayReqNum }
+      { key: "todayReqNum", value: globals.todayReqNum },
+      { key: "favoritesCache", value: globals.favoriteCache }
     ];
     for (let { key, value } of variables) {
-      let serializedValue = JSON.stringify(key === "lastSelectMap" ? Object.fromEntries(value) : value), currentHash = simpleHash(serializedValue);
-      currentHash !== globals.lastHashes[key] && (writeCacheToFile(key, serializedValue), updates.push({ key, hash: currentHash }));
+      let serializedValue = JSON.stringify(key === "lastSelectMap" ? Object.fromEntries(value) : key === "favoritesCache" ? saveFavorites() : value), currentHash = simpleHash(serializedValue), hashKey = key === "favoritesCache" ? "favoriteCache" : key;
+      currentHash !== globals.lastHashes[hashKey] && (writeCacheToFile(key, serializedValue), updates.push({ key, hashKey, hash: currentHash }));
     }
-    updates.length > 0 ? (log("info", `[cache] Updated local caches for keys: ${updates.map((u) => u.key).join(", ")}`), updates.forEach(({ key, hash }) => {
-      globals.lastHashes[key] = hash;
+    updates.length > 0 ? (log("info", `[cache] Updated local caches for keys: ${updates.map((u) => u.key).join(", ")}`), updates.forEach(({ hashKey, hash }) => {
+      globals.lastHashes[hashKey] = hash;
     })) : log("info", "[cache] No changes detected, skipping local cache update.");
   } catch (error) {
     log("error", `[cache] updateLocalCaches failed: ${error.message}`, error.stack), log("error", `[cache] Error details - Name: ${error.name}, Cause: ${error.cause ? error.cause.message : "N/A"}`);
@@ -14942,7 +15110,7 @@ var _BilibiliSource = class _BilibiliSource extends BaseSource {
             ep && (cid = ep.cid, duration = ep.duration / 1e3, title = ep.share_copy, success = !0);
           }
         }
-        if ((!success || isOversea) && seasonId && this._hasBilibiliProxy()) {
+        if ((!success || isOversea) && seasonId && this._hasBilibiliProxy())
           try {
             let proxyUrl = this._makeProxyUrl(`https://api.bilibili.com/pgc/view/web/season?season_id=${seasonId}`), res = await Widget.http.get(proxyUrl, { headers: { Cookie: globals.bilibliCookie || "", "User-Agent": "Mozilla/5.0" } }), data = typeof res.data == "string" ? JSON.parse(res.data) : res.data;
             if (data.code === 0 && data.result) {
@@ -14951,16 +15119,15 @@ var _BilibiliSource = class _BilibiliSource extends BaseSource {
             }
           } catch {
           }
-          if (!success)
-            try {
-              let res = await Widget.http.get(`https://api.bilibili.com/pgc/web/season/section?season_id=${seasonId}`, { headers: { "User-Agent": "Mozilla/5.0", Cookie: globals.bilibliCookie || "" } }), data = typeof res.data == "string" ? JSON.parse(res.data) : res.data;
-              if (data.code === 0 && data.result?.main_section?.episodes) {
-                let ep = data.result.main_section.episodes.find((e) => e.id == epid);
-                ep && (cid = ep.cid, aid = ep.aid, duration = ep.duration ? ep.duration / 1e3 : 0, title = ep.long_title, success = !0);
-              }
-            } catch {
+        if (!success && seasonId)
+          try {
+            let res = await Widget.http.get(`https://api.bilibili.com/pgc/web/season/section?season_id=${seasonId}`, { headers: { "User-Agent": "Mozilla/5.0", Cookie: globals.bilibliCookie || "" } }), data = typeof res.data == "string" ? JSON.parse(res.data) : res.data;
+            if (data.code === 0 && data.result?.main_section?.episodes) {
+              let ep = data.result.main_section.episodes.find((e) => e.id == epid);
+              ep && (cid = ep.cid, aid = ep.aid, duration = ep.duration ? ep.duration / 1e3 : 0, title = ep.long_title, success = !0);
             }
-        }
+          } catch {
+          }
         if (!cid)
           return log("error", "[bilibili] \u672A\u627E\u5230\u5339\u914D\u7684\u756A\u5267\u96C6\u4FE1\u606F"), null;
         !duration && duration !== 0 && (duration = 0);
@@ -15693,7 +15860,6 @@ var tencentSource = new TencentSource(), iqiyiSource = new IqiyiSource(), mangoS
             return log("info", "[dandan] \u539F\u59CB\u641C\u7D22\u8BF7\u6C42\u5931\u8D25\u6216\u65E0\u6570\u636E\u8FD4\u56DE (source: original)"), { success: !1, source: "original" };
           if (!resp.data.animes || resp.data.animes.length === 0)
             return log("info", "[dandan] \u539F\u59CB\u641C\u7D22\u6210\u529F\uFF0C\u4F46\u672A\u8FD4\u56DE\u4EFB\u4F55\u7ED3\u679C (source: original)"), { success: !1, source: "original" };
-          tmdbAbortController.abort();
           let animes = resp.data.animes;
           return log("info", `[dandan] dandanSearchresp (original): ${JSON.stringify(animes)}`), log("info", `[dandan] \u8FD4\u56DE ${animes.length} \u6761\u7ED3\u679C (source: original)`), { success: !0, data: animes, source: "original" };
         } catch (error) {
@@ -15732,14 +15898,24 @@ var tencentSource = new TencentSource(), iqiyiSource = new IqiyiSource(), mangoS
             return log("info", "[dandan] \u539F\u59CB\u641C\u7D22\u6210\u529F\uFF0C\u4E2D\u65AD\u65E5\u8BED\u539F\u540D\u641C\u7D22"), { success: !1, source: "tmdb", aborted: !0 };
           throw error;
         }
-      })(), [originalResult, tmdbResult] = await Promise.all([
-        originalSearchPromise,
-        tmdbSearchPromise
-      ]);
-      if (originalResult.success)
-        return originalResult.data;
-      if (tmdbResult.success)
-        return tmdbResult.data;
+      })(), originalResult = await originalSearchPromise;
+      if (originalResult.success) {
+        let resolvedSeason = getExplicitSeasonNumber(keyword), preFiltered = originalResult.data.filter((anime) => {
+          if (anime.isTmdbSource) return !0;
+          let t = anime.animeTitle || anime.title || "";
+          return titleMatches(t, keyword, resolvedSeason, !0, 0.8);
+        });
+        if (preFiltered.length > 0)
+          return tmdbAbortController.abort(), preFiltered._originalAnimeIds = originalResult.data.map((a) => a.animeId), preFiltered;
+      }
+      let tmdbResult = await tmdbSearchPromise;
+      if (tmdbResult.success) {
+        let resolvedSeason = getExplicitSeasonNumber(keyword), tmdbFiltered = tmdbResult.data.filter((anime) => {
+          let t = anime.animeTitle || anime.title || "";
+          return titleMatches(t, keyword, resolvedSeason, !0, 0.19);
+        });
+        if (tmdbFiltered.length > 0) return tmdbFiltered;
+      }
       if (log("info", `[dandan] \u539F\u59CB\u641C\u7D22\u548C\u57FA\u4E8ETMDB\u7684\u641C\u7D22\u5747\u672A\u8FD4\u56DE\u4EFB\u4F55\u7ED3\u679C (\u5F53\u524D\u641C\u7D22\u8BCD: ${keyword})`), !isFallback) {
         let strippedKeyword = keyword.replace(/(?:第\s*[0-9一二三四五六七八九十百千万]+\s*[季期部])|(?:S(?:eason)?\s*\d+)|(?:Part\s*\d+)/gi, "").trim();
         if (strippedKeyword && strippedKeyword !== keyword)
@@ -15820,7 +15996,7 @@ var tencentSource = new TencentSource(), iqiyiSource = new IqiyiSource(), mangoS
       await Promise.all(currentBatch.map(async (anime) => {
         try {
           let details = await this.getEpisodes(anime.animeId), eps = details.episodes, apiAliases = details.titles || [], similarity = this.calculateSimilarity(queryTitle, anime.animeTitle), canExpandRelateds = !isTargetFoundInInitial;
-          if (similarity >= 0.1 && details.relateds && Array.isArray(details.relateds))
+          if (similarity >= 0.1 && details.relateds && Array.isArray(details.relateds)) {
             for (let rel of details.relateds) {
               let hasSeason = extractSeasonNumberFromAnimeTitle(rel.animeTitle).season !== null;
               !existingIds.has(rel.animeId) && (hasSeason || initialCount >= 25) && (existingIds.add(rel.animeId), sourceAnimes.some((a) => a.animeId === rel.animeId) || sourceAnimes.push({
@@ -15839,6 +16015,29 @@ var tencentSource = new TencentSource(), iqiyiSource = new IqiyiSource(), mangoS
                 // 标记动态挖掘出的条目为相关作品
               }));
             }
+            if (!isTargetFoundInInitial && Array.isArray(details.relateds)) {
+              let originalIds = sourceAnimes._originalAnimeIds;
+              if (Array.isArray(originalIds) && originalIds.length > 0) {
+                let recoveredIds = new Set(originalIds);
+                for (let rel of details.relateds)
+                  recoveredIds.has(rel.animeId) && !existingIds.has(rel.animeId) && (existingIds.add(rel.animeId), sourceAnimes.some((a) => a.animeId === rel.animeId) || sourceAnimes.push({
+                    animeId: rel.animeId,
+                    animeTitle: rel.animeTitle,
+                    title: rel.animeTitle,
+                    imageUrl: rel.imageUrl,
+                    rating: rel.rating || 0,
+                    isRelated: !0
+                  }), queue.push({
+                    animeId: rel.animeId,
+                    animeTitle: rel.animeTitle,
+                    imageUrl: rel.imageUrl,
+                    rating: rel.rating || 0,
+                    isRelated: !0
+                    // 标记动态挖掘出的条目为相关作品
+                  }));
+              }
+            }
+          }
           let allTitles = [
             anime.animeTitle,
             ...apiAliases,
@@ -19643,7 +19842,7 @@ async function executeSourceHandlers(resultData, queryTitle, targetAnimesList, r
       requestAnimeDetailsMap.has(key) || requestAnimeDetailsMap.set(key, value);
   }
 }
-async function searchAnime(url, preferAnimeId = null, preferSource = null, detailStore = null, targetPlatform = null) {
+async function searchAnime(url, preferAnimeId = null, preferSource = null, detailStore = null, targetPlatform = null, forceRefresh = !1) {
   let queryTitle = url.searchParams.get("keyword");
   globals.titleNoiseFilter && (queryTitle = queryTitle.replace(globals.titleNoiseFilter, "").trim());
   let querySeason = url.searchParams.get("season");
@@ -19660,7 +19859,17 @@ async function searchAnime(url, preferAnimeId = null, preferSource = null, detai
     let simplifiedTitle = simplized(queryTitle);
     log("info", `[system] [searchAnime] searchAnime converted traditional to simplified: ${queryTitle} -> ${simplifiedTitle}`), queryTitle = simplifiedTitle;
   }
-  let requestAnimeDetailsMap = detailStore instanceof Map ? detailStore : /* @__PURE__ */ new Map(), cacheKey = querySeason !== null ? `${queryTitle}_S${querySeason}` : queryTitle, cachedResults = getSearchCache(cacheKey, requestAnimeDetailsMap);
+  let requestAnimeDetailsMap = detailStore instanceof Map ? detailStore : /* @__PURE__ */ new Map(), cacheKey = querySeason !== null ? `${queryTitle}_S${querySeason}` : queryTitle;
+  if (!forceRefresh && resolveFavoriteForSearchKeyword(cacheKey)) {
+    let favoriteResults = getSearchCache(cacheKey, requestAnimeDetailsMap) || [];
+    return jsonResponse({
+      errorCode: 0,
+      success: !0,
+      errorMessage: "",
+      animes: favoriteResults
+    });
+  }
+  let cachedResults = forceRefresh ? null : getSearchCache(cacheKey, requestAnimeDetailsMap);
   if (cachedResults === null && querySeason !== null) {
     let genericCachedResults = getSearchCache(queryTitle, requestAnimeDetailsMap);
     genericCachedResults !== null && (log("info", `[system] [searchAnime] Cache miss for ${cacheKey}, fallback to generic cache for ${queryTitle}`), cachedResults = genericCachedResults);
@@ -20151,10 +20360,10 @@ async function getComment(path2, queryFormat, segmentFlag, clientIp, includeDura
       danmus = applyOffset(danmus, singleUrlOffset), log("info", `[system] [LogVar-API] \u5E94\u7528\u94FE\u63A5\u504F\u79FB ${singleUrlOffset}s`);
   let [animeId, source, episodeTitle, animeAliases] = findAnimeIdByCommentId(commentId);
   if (animeId && source) {
-    let lastTitle = null, lastSeason = null, offset = null;
-    if (clientIp) {
+    let lastTitle = null, lastSeason = null, offset = null, lastSearchContext = null;
+    if (clientIp && globals.rememberLastSelect) {
       let lastSearch = getLastSearch(clientIp);
-      lastSearch && lastSearch.title && lastSearch.season && lastSearch.episode && episodeTitle && Date.now() - lastSearch.timestamp < 18e4 && (lastTitle = lastSearch.title, lastSeason = lastSearch.season, offset = `${lastSearch.episode}:${episodeTitle}`, log("info", `[system] [LogVar-API] Calculated episode offset for IP ${clientIp}: Query E${lastSearch.episode}, Selected ${episodeTitle} -> Offset ${offset} (Season ${lastSeason})`));
+      lastSearch && lastSearch.title && lastSearch.season && lastSearch.episode && episodeTitle && Date.now() - lastSearch.timestamp < 18e4 && (lastSearchContext = lastSearch, lastSearch.episodeId !== null && lastSearch.episodeId !== void 0 && String(lastSearch.episodeId) === String(commentId) ? log("info", `[system] [match] Skip preference write for automatically returned episode ${commentId}`) : (lastTitle = lastSearch.title, lastSeason = lastSearch.season, offset = `${lastSearch.episode}:${episodeTitle}`, log("info", `[system] [LogVar-API] Calculated episode offset for IP ${clientIp}: Query E${lastSearch.episode}, Selected ${episodeTitle} -> Offset ${offset} (Season ${lastSeason})`)));
     }
   }
   if (animeTitle && episodeTitle && globals.danmuOffsetRules?.length > 0 && !(url && url.includes(MERGE_DELIMITER))) {
@@ -20221,7 +20430,7 @@ async function getSegmentComment(segment, queryFormat) {
 }
 
 // forward/forward-widget.js
-var wv = "1.20.3";
+var wv = "1.20.5";
 WidgetMetadata = {
   id: "forward.auto.danmu2",
   title: "\u81EA\u52A8\u94FE\u63A5\u5F39\u5E55v2",
