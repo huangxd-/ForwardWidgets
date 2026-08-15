@@ -5473,8 +5473,15 @@ function applyOffset(danmus, offsetSeconds, options = {}) {
 }
 
 // danmu_api/utils/auto-match-mapping-util.js
+var NON_RULE_TITLE_CHARACTERS = (() => {
+  try {
+    return new RegExp("[^\\p{L}\\p{N}]", "gu");
+  } catch {
+    return /[^0-9A-Za-z\u00C0-\u00D6\u00D8-\u00F6\u00F8-\u02FF\u0370-\u052F\u05D0-\u05EA\u05EF-\u05F2\u0620-\u063F\u0640-\u064A\u0660-\u0669\u0671-\u06D3\u06D5\u06EE-\u06FC\u06FF\u1100-\u11FF\u3005-\u3007\u3031-\u3035\u3038-\u303B\u3041-\u3096\u309D-\u309F\u30A1-\u30FA\u30FC-\u30FF\u3105-\u312F\u3131-\u318E\u31A0-\u31BF\u31F0-\u31FF\u3400-\u4DBF\u4E00-\u9FFF\uA960-\uA97F\uAC00-\uD7A3\uD7B0-\uD7FF\uF900-\uFAFF]/g;
+  }
+})();
 function normalizeRuleTitle(value) {
-  return String(value || "").normalize("NFKC").replace(/[^\p{L}\p{N}]/gu, "").toLowerCase();
+  return String(value || "").normalize("NFKC").replace(NON_RULE_TITLE_CHARACTERS, "").toLowerCase();
 }
 function parseEpisodeSide(value, { allowPlatform = !1 } = {}) {
   let text = String(value || "").trim(), platform = "";
@@ -5552,7 +5559,7 @@ function parseAutoMatchMappingRules(value, allowedPlatforms = []) {
 }
 
 // danmu_api/configs/envs.js
-var Envs = class {
+var _Envs = class _Envs {
   /**
    * 获取环境变量
    * @param {string} key 环境变量的键
@@ -5561,6 +5568,8 @@ var Envs = class {
    * @returns {any} 转换后的值
    */
   static get(key, defaultValue, type = "string", encrypt = !1) {
+    if (type === "string" && !encrypt && _Envs.RAW_ENV_KEYS.has(key))
+      return this.getRawEnv(key, defaultValue);
     let value;
     typeof this.env < "u" && this.env[key] ? (value = this.env[key], this.originalEnvVars.set(key, value)) : typeof process < "u" && process.env?.[key] ? (value = process.env[key], this.originalEnvVars.set(key, value)) : (value = defaultValue, this.originalEnvVars.set(key, ""));
     let parsedValue;
@@ -5595,6 +5604,37 @@ var Envs = class {
    */
   static encryptStr(str) {
     return "*".repeat(str.length);
+  }
+  /**
+   * 解析 .env 原始内容：跳过整行 # 注释、保留行内 #，并剥除整体双引号包裹（与 node-handler 引号写入一致）。
+   * @param {string} text .env 文件原始内容
+   * @returns {Object} 键值映射
+   */
+  static parseRawEnvText(text) {
+    let result = {};
+    if (typeof text != "string") return result;
+    let lines = text.split(/\r?\n/);
+    for (let line of lines) {
+      let trimmed = line.trim();
+      if (!trimmed || trimmed.startsWith("#")) continue;
+      let eq = trimmed.indexOf("=");
+      if (eq === -1) continue;
+      let key = trimmed.slice(0, eq).trim();
+      if (!key) continue;
+      let value = trimmed.slice(eq + 1).trim();
+      value.length >= 2 && value.startsWith('"') && value.endsWith('"') && (value = value.slice(1, -1)), result[key] = value;
+    }
+    return result;
+  }
+  /**
+   * 读取自定义文本类变量，绕过 dotenv 截断保留 #：系统环境变量 > .env 原始值 > 默认值；非 Node 部署退化为普通取值。
+   * @param {string} key 环境变量键
+   * @param {string} defaultValue 默认值
+   * @returns {string} 原始值（含 #）
+   */
+  static getRawEnv(key, defaultValue = "") {
+    let finalize = (v) => (this.originalEnvVars.set(key, v), this.accessedEnvVars.set(key, v), v);
+    return _Envs.systemEnvBackup ? Object.prototype.hasOwnProperty.call(_Envs.systemEnvBackup, key) ? finalize(_Envs.systemEnvBackup[key]) : _Envs.rawEnvValues && Object.prototype.hasOwnProperty.call(_Envs.rawEnvValues, key) ? finalize(_Envs.rawEnvValues[key]) : typeof process < "u" && process.env?.[key] ? finalize(process.env[key]) : finalize(defaultValue) : this.env && this.env[key] ? finalize(this.env[key]) : typeof process < "u" && process.env?.[key] ? finalize(process.env[key]) : finalize(defaultValue);
   }
   /**
    * 解析 VOD 服务器配置
@@ -5705,7 +5745,7 @@ var Envs = class {
         } catch (e) {
           console.warn(`[Envs] \u89E3\u6790\u5408\u5E76\u6620\u5C04\u8868\u89C4\u5219\u5931\u8D25: ${rStr}`, e);
         }
-    return this.accessedEnvVars.set("CUSTOM_MERGE_RULES", raw), rules;
+    return rules;
   }
   /**
    * 解析剧集标题过滤正则
@@ -5891,6 +5931,7 @@ var Envs = class {
       // API配置
       TOKEN: { category: "api", type: "text", description: "API\u8BBF\u95EE\u4EE4\u724C" },
       ADMIN_TOKEN: { category: "api", type: "text", description: "\u7CFB\u7EDF\u7BA1\u7406\u8BBF\u95EE\u4EE4\u724C" },
+      FAVORITE_REQUIRE_ADMIN: { category: "api", type: "boolean", description: "\u6536\u85CF\u5199\u5165\u548C\u7BA1\u7406\u63A5\u53E3\u662F\u5426\u5FC5\u987B\u4F7F\u7528 ADMIN_TOKEN\uFF0C\u9ED8\u8BA4\u5173\u95ED\uFF1B\u6536\u85CF\u5217\u8868\u59CB\u7EC8\u53EF\u516C\u5F00\u8BFB\u53D6" },
       RATE_LIMIT_MAX_REQUESTS: { category: "api", type: "number", description: "\u9650\u6D41\u914D\u7F6E\uFF1A1\u5206\u949F\u5185\u6700\u5927\u8BF7\u6C42\u6B21\u6570\uFF0C0\u8868\u793A\u4E0D\u9650\u6D41\uFF0C\u9ED8\u8BA43", min: 0, max: 50 },
       // 源配置
       SOURCE_ORDER: { category: "source", type: "multi-select", options: this.ALLOWED_SOURCES, description: "\u6E90\u6392\u5E8F\u914D\u7F6E\uFF0C\u9ED8\u8BA4douban,360,renren,hanjutv" },
@@ -5913,6 +5954,12 @@ var Envs = class {
       BILIBILI_COOKIE: { category: "source", type: "text", description: "B\u7AD9Cookie" },
       DOUBAN_COOKIE: { category: "source", type: "text", description: "\u8C46\u74E3Cookie" },
       YOUKU_CONCURRENCY: { category: "source", type: "number", description: "\u4F18\u9177\u5E76\u53D1\u914D\u7F6E\uFF0C\u9ED8\u8BA48", min: 1, max: 16 },
+      NIPAPLAY_REPLACE_DANDAN: { category: "source", type: "boolean", description: `NipaPlay \u5F39\u5F39302\u5173\u8054\u5F39\u5E55\u66FF\u4EE3\u5F00\u5173\uFF08\u7528\u4E8E dandan \u6E90\uFF09\u3002
+\u9ED8\u8BA4\u4E3A false\uFF08\u5173\u95ED\uFF0C\u4F7F\u7528\u5F39\u5F39\u539F\u751F\u5F39\u5E55\uFF09\uFF0C\u53EF\u9009\u503C\uFF1Atrue\u3001false\u3002
+\u5F00\u542F\u540E dandan \u6E90\u4EE5 nipaplay \u5F39\u5F39302\u5173\u8054\u5F39\u5E55\u66FF\u4EE3\u5F39\u5F39\u539F\u751F\u5F39\u5E55\uFF0C\u56E0\u4F7F\u7528\u7684\u662F\u9879\u76EE\u94FE\u8DEF\u83B7\u53D6\u5F39\u5E55\u6240\u4EE5\uFF1A
+1.\u4F1A\u4E22\u5931\u5F39\u5F39\u5E73\u53F0\u5F39\u5E55
+2.\u65E0\u6CD5\u83B7\u53D6\u4E0B\u67B6\u89C6\u9891
+3.\u5982\u679C\u5173\u8054\u4E2D\u6709\u5DF4\u54C8\u59C6\u7279\u5E73\u53F0\u9700\u8981\u786E\u4FDD\u80FD\u591F\u8FDE\u901A\u5DF4\u54C8` },
       // 匹配配置
       PLATFORM_ORDER: { category: "match", type: "multi-select", options: this.ALLOWED_PLATFORMS, description: `\u5E73\u53F0\u6392\u5E8F\u914D\u7F6E\uFF0C\u53EF\u4EE5\u914D\u7F6E\u81EA\u52A8\u5339\u914D\u65F6\u7684\u4F18\u9009\u5E73\u53F0\u3002
 \u5F53\u914D\u7F6E\u5408\u5E76\u5E73\u53F0\u7684\u65F6\u5019\uFF0C\u53EF\u4EE5\u6307\u5B9A\u671F\u671B\u7684\u5408\u5E76\u6E90\uFF0C
@@ -5980,6 +6027,8 @@ var Envs = class {
       // token，默认为87654321
       adminToken: this.get("ADMIN_TOKEN", "", "string", !0),
       // admin token，用于系统管理访问控制
+      favoriteRequireAdmin: this.get("FAVORITE_REQUIRE_ADMIN", !1, "boolean"),
+      // 收藏写入和管理接口是否必须使用 admin token；列表始终公开
       sourceOrderArr: this.resolveSourceOrder(),
       // 源排序
       mergeSourcePairs: this.resolveMergeSourcePairs(),
@@ -6052,6 +6101,8 @@ var Envs = class {
       // 弹幕缓存最少条数，低于该值时忽略缓存（默认 100，0 表示关闭）
       hongguoMergeAllEpisodes: this.get("HONGGUO_MERGE_ALL_EPISODES", !1, "boolean"),
       // 红果短剧是否合并全集弹幕（默认 false）
+      nipaplayReplaceDandan: this.get("NIPAPLAY_REPLACE_DANDAN", !1, "boolean"),
+      // NipaPlay 弹弹302关联弹幕替代开关，开启后 dandan 源以 nipaplay 弹弹302关联弹幕替代弹弹原生弹幕
       convertTopBottomToScroll: this.get("CONVERT_TOP_BOTTOM_TO_SCROLL", !1, "boolean"),
       // 顶部/底部弹幕转换为浮动弹幕配置（默认 false，禁用转换）
       convertColor: this.get("CONVERT_COLOR", "default", "string"),
@@ -6103,12 +6154,14 @@ var Envs = class {
     };
   }
 };
-__publicField(Envs, "env"), // 记录获取过的环境变量
-__publicField(Envs, "originalEnvVars", /* @__PURE__ */ new Map()), __publicField(Envs, "accessedEnvVars", /* @__PURE__ */ new Map()), __publicField(Envs, "VOD_ALLOWED_PLATFORMS", ["qiyi", "bilibili1", "imgo", "youku", "qq", "migu", "sohu", "leshi", "xigua", "maiduidui", "aiyifan"]), // vod允许的播放平台
-__publicField(Envs, "ALLOWED_PLATFORMS", ["qiyi", "bilibili1", "imgo", "youku", "qq", "migu", "renren", "hanjutv", "sohu", "leshi", "xigua", "maiduidui", "aiyifan", "hongguo", "dandan", "bahamut", "animeko", "custom"]), // 全部源允许的播放平台
-__publicField(Envs, "ALLOWED_SOURCES", ["360", "vod", "tmdb", "douban", "tencent", "youku", "iqiyi", "imgo", "bilibili", "migu", "renren", "hanjutv", "sohu", "leshi", "xigua", "maiduidui", "aiyifan", "hongguo", "dandan", "bahamut", "animeko", "custom"]), // 允许的源
-__publicField(Envs, "MERGE_ALLOWED_SOURCES", ["tencent", "youku", "iqiyi", "imgo", "bilibili", "migu", "renren", "hanjutv", "sohu", "leshi", "xigua", "maiduidui", "aiyifan", "hongguo", "dandan", "bahamut", "animeko"]), // 允许的源合并
-__publicField(Envs, "DEFAULT_AI_MATCH_PROMPT", `\u4F60\u662F\u4E00\u4E2A\u4E13\u4E1A\u7684\u5F71\u89C6\u5339\u914D\u4E13\u5BB6\uFF0C\u4F60\u7684\u7684\u4EFB\u52A1\u662F\u6839\u636E\u7528\u6237\u63D0\u4F9B\u7684 JSON \u6570\u636E\uFF0C\u4ECE\u5019\u9009\u52A8\u6F2B\u5217\u8868\u4E2D\u5339\u914D\u6700\u7B26\u5408\u6761\u4EF6\u7684\u52A8\u6F2B\u53CA\u96C6\u6570\u3002
+__publicField(_Envs, "env"), // 记录获取过的环境变量
+__publicField(_Envs, "originalEnvVars", /* @__PURE__ */ new Map()), __publicField(_Envs, "accessedEnvVars", /* @__PURE__ */ new Map()), // Node 本地部署时由 server.js 注入：启动前的真实系统环境变量快照（最高优先级判定依据）与 .env 原始解析结果
+__publicField(_Envs, "systemEnvBackup", null), __publicField(_Envs, "rawEnvValues", null), // 允许在值中写入 # 等 dotenv 视为注释字符的文本类变量；读取时绕过 dotenv 截断以保留完整内容。仅纳入 encrypt=false 变量（带令牌/密码 URL 若入此集合会绕过加密返回明文，故禁止纳入）。
+__publicField(_Envs, "RAW_ENV_KEYS", /* @__PURE__ */ new Set(["AI_MATCH_PROMPT", "ANIME_TITLE_FILTER", "AUTO_MATCH_MAPPING_TABLE", "BLOCKED_WORDS", "COLOR_POOL", "CUSTOM_MERGE_RULES", "DANMU_OFFSET", "DANMU_PUSH_URL", "EPISODE_TITLE_FILTER", "IP_BLACKLIST", "OTHER_SERVER", "TITLE_MAPPING_TABLE", "TITLE_NOISE_FILTER", "VOD_SERVERS"])), __publicField(_Envs, "VOD_ALLOWED_PLATFORMS", ["qiyi", "bilibili1", "imgo", "youku", "qq", "migu", "sohu", "leshi", "xigua", "maiduidui", "aiyifan"]), // vod允许的播放平台
+__publicField(_Envs, "ALLOWED_PLATFORMS", ["qiyi", "bilibili1", "imgo", "youku", "qq", "migu", "renren", "hanjutv", "sohu", "leshi", "xigua", "maiduidui", "aiyifan", "hongguo", "dandan", "bahamut", "animeko", "custom"]), // 全部源允许的播放平台
+__publicField(_Envs, "ALLOWED_SOURCES", ["360", "vod", "tmdb", "douban", "tencent", "youku", "iqiyi", "imgo", "bilibili", "migu", "renren", "hanjutv", "sohu", "leshi", "xigua", "maiduidui", "aiyifan", "hongguo", "dandan", "bahamut", "animeko", "custom"]), // 允许的源
+__publicField(_Envs, "MERGE_ALLOWED_SOURCES", ["tencent", "youku", "iqiyi", "imgo", "bilibili", "migu", "renren", "hanjutv", "sohu", "leshi", "xigua", "maiduidui", "aiyifan", "hongguo", "dandan", "bahamut", "animeko"]), // 允许的源合并
+__publicField(_Envs, "DEFAULT_AI_MATCH_PROMPT", `\u4F60\u662F\u4E00\u4E2A\u4E13\u4E1A\u7684\u5F71\u89C6\u5339\u914D\u4E13\u5BB6\uFF0C\u4F60\u7684\u7684\u4EFB\u52A1\u662F\u6839\u636E\u7528\u6237\u63D0\u4F9B\u7684 JSON \u6570\u636E\uFF0C\u4ECE\u5019\u9009\u52A8\u6F2B\u5217\u8868\u4E2D\u5339\u914D\u6700\u7B26\u5408\u6761\u4EF6\u7684\u52A8\u6F2B\u53CA\u96C6\u6570\u3002
 
 \u8F93\u5165\u5B57\u6BB5\u8BF4\u660E\uFF1A
 - title: \u67E5\u8BE2\u6807\u9898
@@ -6145,6 +6198,7 @@ __publicField(Envs, "DEFAULT_AI_MATCH_PROMPT", `\u4F60\u662F\u4E00\u4E2A\u4E13\u
 {
   "animeIndex": null
 }`);
+var Envs = _Envs;
 
 // danmu_api/configs/globals.js
 var Globals = {
@@ -6154,7 +6208,7 @@ var Globals = {
   originalEnvVars: {},
   accessedEnvVars: {},
   // 静态常量
-  VERSION: "1.20.5",
+  VERSION: "1.20.7",
   MAX_LOGS: 1e3,
   // 日志存储，最多保存 1000 行
   MAX_RECORDS: 100,
@@ -6317,8 +6371,20 @@ var AsyncLocalStorage = class {
   }
 };
 
+// forward-node-builtins:https
+var https_default = { Agent: class {
+} };
+
+// forward-node-builtins:http
+var http_default = { Agent: class {
+} };
+
 // danmu_api/utils/http-util.js
-var sourceLogContext = new AsyncLocalStorage(), SOURCE_KEY_TO_LOG_NAME = {
+var sourceLogContext = new AsyncLocalStorage(), httpCacheContext = new AsyncLocalStorage();
+function runWithHttpCache(fn) {
+  return httpCacheContext.run(/* @__PURE__ */ new Map(), fn);
+}
+var SOURCE_KEY_TO_LOG_NAME = {
   360: "360kan",
   imgo: "mango"
 };
@@ -6338,23 +6404,44 @@ function linkSignal(externalSignal, internalController) {
     externalSignal.removeEventListener("abort", abortHandler);
   };
 }
+var IS_NODE_RUNTIME = !1;
+function detectNodeFetchDowngrade() {
+  if (!IS_NODE_RUNTIME) return typeof WebAssembly > "u";
+  let [major, minor] = process.versions.node.split(".").map(Number);
+  return major < 20 || major === 20 && minor < 19;
+}
+var USE_NODE_FETCH = detectNodeFetchDowngrade();
+USE_NODE_FETCH && console.log("[system] [http] \u68C0\u6D4B\u5230\u65E7\u7248Node/iOS\u73AF\u5883\uFF0C\u5DF2\u5168\u5C40\u5207\u6362\u81F3 node-fetch v3 \u4F5C\u4E3A\u8BF7\u6C42\u5B9E\u73B0");
+var nodeFetchHttpsAgent = USE_NODE_FETCH && IS_NODE_RUNTIME ? new https_default.Agent({ keepAlive: !0, keepAliveMsecs: 1e3, maxSockets: 256 }) : null, nodeFetchHttpAgent = USE_NODE_FETCH && IS_NODE_RUNTIME ? new http_default.Agent({ keepAlive: !0, keepAliveMsecs: 1e3, maxSockets: 256 }) : null;
+function nodeFetchAgent(parsedUrl) {
+  return (parsedUrl instanceof URL ? parsedUrl.protocol : new URL(parsedUrl).protocol) === "https:" ? nodeFetchHttpsAgent : nodeFetchHttpAgent;
+}
+function shouldUseNodeFetch() {
+  return USE_NODE_FETCH;
+}
 async function httpGet(url, options = {}) {
-  let maxRetries = parseInt(options.retries || "0", 10) || 0, validStatusCodes = Array.isArray(options.validStatusCodes) ? options.validStatusCodes : [], lastError;
+  let requestHttpCache = httpCacheContext.getStore(), bypassCache = options.bypassCache === !0;
+  if (requestHttpCache && !bypassCache && requestHttpCache.has(url)) {
+    let cached = requestHttpCache.get(url);
+    return log("info", `[${sourceLogContext.getStore() || "system"}] [\u8BF7\u6C42\u590D\u7528] \u590D\u7528\u8BF7\u6C42\u5185\u5DF2\u7F13\u5B58\u7684 HTTP \u54CD\u5E94, \u8DF3\u8FC7\u91CD\u590D\u8BF7\u6C42: ${url}`), { data: structuredClone(cached.data), status: cached.status, headers: { ...cached.headers } };
+  }
+  let maxRetries = parseInt(options.retries || "0", 10) || 0, allow_redirects = options.allow_redirects !== !1, validStatusCodes = Array.isArray(options.validStatusCodes) ? options.validStatusCodes : [], lastError;
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
     let currentSource = sourceLogContext.getStore() || "system";
     attempt > 0 ? (log("info", `[${currentSource}] [\u8BF7\u6C42\u6A21\u62DF] \u7B2C ${attempt} \u6B21\u91CD\u8BD5: ${url}`), lastError && (lastError.cause?.code === "ETIMEDOUT" || lastError.cause?.code === "ECONNRESET" || lastError.name === "AbortError") ? await new Promise((resolve) => setTimeout(resolve, 100)) : await new Promise((resolve) => setTimeout(resolve, Math.min(1e3 * Math.pow(2, attempt - 1), 5e3)))) : log("info", `[${currentSource}] [\u8BF7\u6C42\u6A21\u62DF] HTTP GET: ${url}`);
     let timeout = parseInt(options.timeout || globals.vodRequestTimeout || "5000", 10) || 5e3, controller = new AbortController(), timeoutId = setTimeout(() => controller.abort(), timeout), cleanupSignal = linkSignal(options.signal, controller);
     try {
       let response;
-      if (typeof WebAssembly > "u") {
-        log("info", "[system] [http] iOS\u73AF\u5883\u964D\u7EA7\u4F7F\u7528node-fetch");
+      if (shouldUseNodeFetch()) {
         let fetch2 = (await import("node-fetch")).default;
         response = await fetch2(url, {
           method: "GET",
           headers: {
             ...options.headers
           },
-          signal: controller.signal
+          signal: controller.signal,
+          agent: nodeFetchAgent,
+          redirect: allow_redirects ? "follow" : "manual"
         });
       } else
         response = await fetch(url, {
@@ -6362,7 +6449,8 @@ async function httpGet(url, options = {}) {
           headers: {
             ...options.headers
           },
-          signal: controller.signal
+          signal: controller.signal,
+          redirect: allow_redirects ? "follow" : "manual"
         });
       if (clearTimeout(timeoutId), !response.ok && !validStatusCodes.includes(response.status))
         throw new Error(`HTTP error! status: ${response.status}`);
@@ -6408,7 +6496,7 @@ async function httpGet(url, options = {}) {
       let headers = {}, setCookieValues = [];
       for (let [key, value] of response.headers.entries())
         key.toLowerCase() === "set-cookie" ? setCookieValues.push(value) : headers[key] = value;
-      return setCookieValues.length > 0 && (headers["set-cookie"] = setCookieValues.join(";")), attempt > 0 && log("info", `[${currentSource}] [\u8BF7\u6C42\u6A21\u62DF] \u91CD\u8BD5\u6210\u529F`), {
+      return setCookieValues.length > 0 && (headers["set-cookie"] = setCookieValues.join(";")), attempt > 0 && log("info", `[${currentSource}] [\u8BF7\u6C42\u6A21\u62DF] \u91CD\u8BD5\u6210\u529F`), requestHttpCache && !bypassCache && requestHttpCache.set(url, { data: structuredClone(parsedData), status: response.status, headers }), {
         data: parsedData,
         status: response.status,
         headers
@@ -6445,10 +6533,9 @@ async function httpPost(url, body, options = {}) {
     allow_redirects || (fetchOptions.redirect = "manual");
     try {
       let response;
-      if (typeof WebAssembly > "u") {
-        log("info", "[system] [http] iOS\u73AF\u5883\u964D\u7EA7\u4F7F\u7528node-fetch");
+      if (shouldUseNodeFetch()) {
         let fetch2 = (await import("node-fetch")).default;
-        response = await fetch2(url, fetchOptions);
+        response = await fetch2(url, { ...fetchOptions, agent: nodeFetchAgent });
       } else
         response = await fetch(url, fetchOptions);
       clearTimeout(timeoutId);
@@ -6582,11 +6669,21 @@ async function httpGetWithStreamCheck(url, options = {}, checkCallback) {
   try {
     let currentSource = sourceLogContext.getStore() || "system";
     log("info", `[${currentSource}] [\u6D41\u5F0F\u8BF7\u6C42] HTTP GET: ${url}`);
-    let response = await fetch(url, {
-      method: "GET",
-      headers,
-      signal: controller.signal
-    });
+    let response;
+    if (shouldUseNodeFetch()) {
+      let fetch2 = (await import("node-fetch")).default;
+      response = await fetch2(url, {
+        method: "GET",
+        headers,
+        signal: controller.signal,
+        agent: nodeFetchAgent
+      });
+    } else
+      response = await fetch(url, {
+        method: "GET",
+        headers,
+        signal: controller.signal
+      });
     if (!response.ok)
       throw new Error(`HTTP error! status: ${response.status}`);
     let reader = response.body.getReader ? response.body.getReader() : null;
@@ -8667,6 +8764,32 @@ function smartTitleReplace(animes, cnAlias) {
         } else
           isNonChinese(originalTitle) ? (anime._displayTitle = cnAlias, log("info", `[system] [tmdb] [\u7EAF\u5916\u6587\u5168\u66FF\u6A21\u5F0F] "${originalTitle}" -> "${anime._displayTitle}"`)) : log("info", `[system] [tmdb] [\u8DF3\u8FC7\u66FF\u6362] "${originalTitle}" \u542B\u6709\u4E2D\u6587\u4E14\u7279\u5F81\u4E0D\u7B26\uFF0C\u62D2\u7EDD\u5F3A\u5236\u5168\u66FF\u4EE5\u9632\u8BEF\u6740`);
       }
+  }
+}
+function buildTmdbSeasonBoundaries(matches) {
+  let baseMaps = /* @__PURE__ */ new Map();
+  for (let m of matches) {
+    if (!m || m.matchedSiteKey !== "tmdb" || !m.siteId) continue;
+    let epMatch = m.siteId.match(/^(tv\/\d+)(?:\/season\/\d+\/episode\/(\d+))?$/);
+    if (!epMatch) continue;
+    let baseId = epMatch[1], entry = { order: 0, startEpisode: epMatch[2] ? parseInt(epMatch[2], 10) : 1, title: m.title || "", tmdbId: baseId };
+    baseMaps.has(baseId) ? baseMaps.get(baseId).push(entry) : baseMaps.set(baseId, [entry]);
+  }
+  if (baseMaps.size === 0) return null;
+  let best = [...baseMaps.entries()].sort((a, b) => b[1].length - a[1].length)[0];
+  if (best[1].length < 2) return null;
+  best[1].sort((a, b) => a.startEpisode - b.startEpisode);
+  for (let i = 0; i < best[1].length; i++)
+    best[1][i].order = i + 1;
+  return best[1];
+}
+async function getTmdbSeasonBoundaries(title, searchFn = searchBangumiData) {
+  if (!globals.useBangumiData) return null;
+  try {
+    let matches = await searchFn(title, ["tmdb"]);
+    return buildTmdbSeasonBoundaries(matches);
+  } catch (e) {
+    return log("warn", `[system] [tmdb] Bangumi-Data \u672C\u5730\u83B7\u53D6TMDB\u5B63\u8FB9\u754C\u5931\u8D25: ${e.message}\uFF08\u68C0\u7D22\u8BCD\uFF1A${title}\uFF09`), null;
   }
 }
 
@@ -13065,6 +13188,104 @@ var BahamutSource = class extends BaseSource {
   }
 };
 
+// danmu_api/utils/nipaplay-util.js
+var _keyMask = new Uint8Array([237, 67, 45, 109, 89, 4, 82, 107, 109, 211, 243, 208, 85, 182, 233, 79]), _keyXored = new Uint8Array([163, 42, 93, 12, 127, 72, 61, 12, 59, 178, 129, 246, 103, 84, 105, 196]), NIPAPLAY_AES_KEY = utf8BytesToString(new Uint8Array(_keyXored.map((b, i) => b ^ _keyMask[i]))), _appIdFrag = ["wBQ0gL26", "oPlbCiLn", "f37+sQ=="], NIPAPLAY_APP_ID_CIPHERTEXT = _appIdFrag.join(""), _secretFrag = ["9CB0Qo6tW1", "CfUDx3jCtV", "rUat/EMK+x", "voco1Y2MF8", "YQUuM14JDN", "1/wWqIRHP", "H/buF"], NIPAPLAY_APP_SECRET_CIPHERTEXT = _secretFrag.join(""), NIPAPLAY_APP_ID = aesDecryptBase64(NIPAPLAY_APP_ID_CIPHERTEXT, NIPAPLAY_AES_KEY), NIPAPLAY_APP_SECRET = aesDecryptBase64(NIPAPLAY_APP_SECRET_CIPHERTEXT, NIPAPLAY_AES_KEY);
+function generateNipaplaySignature(appId, timestamp, apiPath, appSecret) {
+  return bytesToBase64(sha256(`${appId}${timestamp}${apiPath}${appSecret}`));
+}
+var RELATED_PLATFORM_BY_HOST = {
+  "bilibili.com": "bilibili",
+  "b23.tv": "bilibili",
+  "gamer.com.tw": "bahamut",
+  "iqiyi.com": "iqiyi",
+  "youku.com": "youku",
+  "qq.com": "tencent",
+  "mgtv.com": "imgo"
+};
+function parseNipaplayRelatedLinks(location) {
+  let result = { bilibili: [], bahamut: [], iqiyi: [], youku: [], tencent: [], imgo: [] };
+  if (!location || typeof location != "string") return result;
+  let parsed;
+  try {
+    parsed = new URL(location);
+  } catch {
+    return result;
+  }
+  let urlsParam = parsed.searchParams.get("urls");
+  if (!urlsParam) return result;
+  let urls = urlsParam.split("|").map((entry) => entry.trim()).filter(Boolean), shifts = (parsed.searchParams.get("shift") || "").split(",").map((value) => {
+    let n = Number(value);
+    return Number.isFinite(n) ? n : 0;
+  });
+  for (let i = 0; i < urls.length; i++) {
+    let host = "";
+    try {
+      host = new URL(urls[i]).host;
+    } catch {
+      host = "";
+    }
+    let hostKey = Object.keys(RELATED_PLATFORM_BY_HOST).find((key) => host.endsWith(key)) || null;
+    if (!hostKey) {
+      log("info", `[nipaplay] \u5F39\u5F39302\u5173\u8054\u94FE\u63A5\u542B\u672A\u652F\u6301\u5E73\u53F0\uFF0C\u8DF3\u8FC7: ${urls[i]}`);
+      continue;
+    }
+    let platform = RELATED_PLATFORM_BY_HOST[hostKey], shift = shifts[i] || 0;
+    if (platform === "bilibili") {
+      let bMatch = urls[i].match(/bilibili\.com\/video\/(BV[0-9A-Za-z]+)/i), pMatch = urls[i].match(/[?&]p=(\d+)/), clean = bMatch ? `https://www.bilibili.com/video/${bMatch[1]}` + (pMatch ? `?p=${pMatch[1]}` : "") : urls[i];
+      result.bilibili.push({ url: clean, shift });
+      continue;
+    }
+    result[platform].push({ url: urls[i], shift });
+  }
+  return result;
+}
+var NIPAPLAY_USER_AGENT = `LogVar Danmu API/${globals.version}`;
+async function fetchNipaplayRelatedLinks(episodeId) {
+  if (!NIPAPLAY_APP_ID || !NIPAPLAY_APP_SECRET)
+    return log("info", "[nipaplay] \u51ED\u8BC1\u672A\u5C31\u7EEA\uFF0C\u8DF3\u8FC7\u5F39\u5F39302\u5173\u8054\u515C\u5E95"), null;
+  let timestamp = Math.round(Date.now() / 1e3), apiPath = `/api/v2/comment/${episodeId}`, signature = generateNipaplaySignature(NIPAPLAY_APP_ID, timestamp, apiPath, NIPAPLAY_APP_SECRET), url = `https://api.dandanplay.net${apiPath}?withRelated=true&chConvert=0`;
+  try {
+    let resp = await Widget.http.get(url, {
+      headers: {
+        Accept: "application/json",
+        "User-Agent": NIPAPLAY_USER_AGENT,
+        "X-AppId": NIPAPLAY_APP_ID,
+        "X-Timestamp": String(timestamp),
+        "X-Signature": signature
+      },
+      allow_redirects: !1,
+      validStatusCodes: [302],
+      retries: 1
+    });
+    return resp.status !== 302 || !resp.headers.location ? (log("info", `[nipaplay] \u5F39\u5F39302\u5173\u8054\u94FE\u63A5\u672A\u8FD4\u56DE 302 (status=${resp.status})`), null) : parseNipaplayRelatedLinks(resp.headers.location);
+  } catch (error) {
+    return log("error", `[nipaplay] \u5F39\u5F39302\u5173\u8054\u94FE\u63A5\u8BF7\u6C42\u5931\u8D25: ${error.message}`), null;
+  }
+}
+function resolveNipaplayLink(url) {
+  let host = "";
+  try {
+    host = new URL(url).host;
+  } catch {
+    host = "";
+  }
+  let hostKey = Object.keys(RELATED_PLATFORM_BY_HOST).find((key) => host.endsWith(key)) || null, platform = hostKey ? RELATED_PLATFORM_BY_HOST[hostKey] : null;
+  if (platform === "bahamut") {
+    let snMatch = url.match(/sn=(\d+)/);
+    return { source: "bahamut", realId: snMatch ? snMatch[1] : url };
+  }
+  return platform ? { source: platform, realId: url } : { source: null, realId: url };
+}
+function applyShiftToDanmu(danmu, shift = 0) {
+  if (!danmu || typeof danmu != "object") return danmu;
+  let next = { ...danmu };
+  if (typeof next.p == "string") {
+    let parts = next.p.split(","), time = parseFloat(parts[0]);
+    isNaN(time) || (parts[0] = (time + shift).toFixed(2)), next.p = parts.join(",");
+  }
+  return typeof next.t == "number" && (next.t += shift), next.isRealTimePulled = !0, next;
+}
+
 // danmu_api/sources/tencent.js
 var TencentSource = class extends BaseSource {
   extractAliasesFromHintWords(hintWords) {
@@ -13601,20 +13822,21 @@ var _IqiyiSource = class _IqiyiSource extends BaseSource {
         appMode: "",
         ad: JSON.stringify({ lm: 3, azd: 1000000000951, azt: 733, position: "feed" }),
         adExt: JSON.stringify({ r: "2.1.5-ares6-pure" })
-      }, url = `https://mesh.if.iqiyi.com/portal/lw/search/homePageV3?${buildQueryString(params)}`, doSearch = async () => {
+      }, url = `https://mesh.if.iqiyi.com/portal/lw/search/homePageV3?${buildQueryString(params)}`, doSearch = async (bypassCache = !1) => {
         let resp = await Widget.http.get(url, {
           headers: {
             accept: "*/*",
             origin: "https://www.iqiyi.com",
             referer: "https://www.iqiyi.com/",
             "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
-          }
+          },
+          bypassCache
         });
         return !resp || !resp.data ? null : typeof resp.data == "string" ? JSON.parse(resp.data) : resp.data;
       }, MAX_RETRIES = 2, data = await doSearch();
       for (let attempt = 0; attempt < MAX_RETRIES && (!data || data.code === "-1"); attempt++) {
         let reason = data ? `\u641C\u7D22\u63A5\u53E3\u98CE\u63A7 (code=${data.code})` : "\u641C\u7D22\u54CD\u5E94\u4E3A\u7A7A";
-        log("info", `[iqiyi] ${reason}\uFF0C\u7B49\u5F85 3 \u79D2\u540E\u91CD\u8BD5 (${attempt + 1}/${MAX_RETRIES})`), await new Promise((r) => setTimeout(r, 3e3)), data = await doSearch();
+        log("info", `[iqiyi] ${reason}\uFF0C\u7B49\u5F85 3 \u79D2\u540E\u91CD\u8BD5 (${attempt + 1}/${MAX_RETRIES})`), await new Promise((r) => setTimeout(r, 3e3)), data = await doSearch(!0);
       }
       if (!data)
         return log("info", "[iqiyi] \u641C\u7D22\u54CD\u5E94\u4E3A\u7A7A"), [];
@@ -13861,13 +14083,14 @@ var _IqiyiSource = class _IqiyiSource extends BaseSource {
       ad_ext: '{"r":"2.2.0-ares6-pure"}'
     };
     params.sign = this._createSign(params);
-    let url = `https://www.iqiyi.com/prelw/tvg/v2/lw/base_info?${buildQueryString(params)}`, MAX_EPISODE_RETRIES = 2, fetchEpisodeData = async () => {
+    let url = `https://www.iqiyi.com/prelw/tvg/v2/lw/base_info?${buildQueryString(params)}`, MAX_EPISODE_RETRIES = 2, fetchEpisodeData = async (bypassCache = !1) => {
       try {
         let resp = await Widget.http.get(url, {
           headers: {
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
             Referer: "https://www.iqiyi.com/"
-          }
+          },
+          bypassCache
         });
         return !resp || !resp.data ? null : typeof resp.data == "string" ? JSON.parse(resp.data) : resp.data;
       } catch (error) {
@@ -13875,7 +14098,7 @@ var _IqiyiSource = class _IqiyiSource extends BaseSource {
       }
     }, data = await fetchEpisodeData();
     for (let attempt = 0; attempt < MAX_EPISODE_RETRIES && (!data || data.status_code !== 0 || !data.data || !data.data.template); attempt++)
-      log("info", `[iqiyi] \u5206\u96C6\u63A5\u53E3\u8FD4\u56DE\u5F02\u5E38${data ? ` (status_code: ${data.status_code})` : " (\u54CD\u5E94\u4E3A\u7A7A\u6216\u89E3\u6790\u5931\u8D25)"}\uFF0C\u7B49\u5F85 3 \u79D2\u540E\u91CD\u8BD5 (${attempt + 1}/${MAX_EPISODE_RETRIES})`), await new Promise((r) => setTimeout(r, 3e3)), data = await fetchEpisodeData();
+      log("info", `[iqiyi] \u5206\u96C6\u63A5\u53E3\u8FD4\u56DE\u5F02\u5E38${data ? ` (status_code: ${data.status_code})` : " (\u54CD\u5E94\u4E3A\u7A7A\u6216\u89E3\u6790\u5931\u8D25)"}\uFF0C\u7B49\u5F85 3 \u79D2\u540E\u91CD\u8BD5 (${attempt + 1}/${MAX_EPISODE_RETRIES})`), await new Promise((r) => setTimeout(r, 3e3)), data = await fetchEpisodeData(!0);
     return !data || data.status_code !== 0 || !data.data || !data.data.template ? (log("error", `[iqiyi] \u83B7\u53D6\u5206\u96C6\u5217\u8868\u5931\u8D25: ${data ? `status_code: ${data.status_code}` : "\u54CD\u5E94\u4E3A\u7A7A\u6216\u89E3\u6790\u5931\u8D25"}`), null) : data;
   }
   /**
@@ -14142,7 +14365,8 @@ var _IqiyiSource = class _IqiyiSource extends BaseSource {
           headers: {
             "Content-Type": "application/json",
             "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
-          }
+          },
+          bypassCache: !0
         }), retryData = typeof retryRes.data == "string" ? JSON.parse(retryRes.data) : retryRes.data, retryDuration = Number(retryData.data.durationSec) || 0;
         retryDuration > 0 && (tvid = originalTvid, duration = retryDuration, log("info", `[iqiyi] \u539F\u59CB tvid \u6709\u6548\uFF0C\u65F6\u957F: ${duration}`));
       } catch (retryError) {
@@ -14422,11 +14646,10 @@ var MangoSource = class extends BaseSource {
         if (qiUpMidDownMatch) {
           let qiNum = qiUpMidDownMatch[1], upMidDown = qiUpMidDownMatch[2], qiUpMidDownText = `\u7B2C${qiNum}\u671F${upMidDown}`, afterUpMidDown = fullTitle.substring(fullTitle.indexOf(qiUpMidDownText) + qiUpMidDownText.length);
           /^(加更|会员版|纯享版|特别版|独家版|Plus|\+|花絮|预告|彩蛋|抢先|精选|未播|回顾|特辑|幕后)/.test(afterUpMidDown) ? log("info", `[mango] \u7EFC\u827A\u8FC7\u6EE4\u4E0A\u4E2D\u4E0B\u683C\u5F0F+\u540E\u7F00: ${fullTitle}`) : (qiInfoMap.set(ep, [parseInt(qiNum), upMidDown]), episodeInfos.push(ep), log("info", `[mango] \u7EFC\u827A\u4FDD\u7559\u4E0A\u4E2D\u4E0B\u683C\u5F0F: ${fullTitle}`));
-        } else if (qiPureMatch && !hasUpMidDown && !/会员版|纯享版|特别版|独家版|加更|Plus|\+|花絮|预告|彩蛋|抢先|精选|未播|回顾|特辑|幕后|访谈|采访|混剪|合集|盘点|总结|删减|未播放|NG|番外|片段|看点|精彩|制作|导演|演员|拍摄|片尾曲|插曲|主题曲|背景音乐|OST|音乐|歌曲/.test(fullTitle)) {
+        } else if (qiPureMatch && !hasUpMidDown) {
           let qiNum = qiPureMatch[1];
           qiInfoMap.set(ep, [parseInt(qiNum), ""]), episodeInfos.push(ep), log("info", `[mango] \u7EFC\u827A\u4FDD\u7559\u6807\u51C6\u671F\u6570: ${fullTitle}`);
-        } else
-          log("info", `[mango] \u7EFC\u827A\u8FC7\u6EE4\u975E\u6807\u51C6\u671F\u6570\u683C\u5F0F: ${fullTitle}`);
+        }
       } else {
         if (fullTitle.includes("\u5E7F\u544A") || fullTitle.includes("\u63A8\u5E7F")) {
           log("info", `[mango] \u8DF3\u8FC7\u5E7F\u544A\u5185\u5BB9: ${fullTitle}`);
@@ -15089,7 +15312,7 @@ var _BilibiliSource = class _BilibiliSource extends BaseSource {
         }), data = typeof res.data == "string" ? JSON.parse(res.data) : res.data;
         if (data.code !== 0)
           return log("error", "[bilibili] \u83B7\u53D6\u666E\u901A\u6295\u7A3F\u89C6\u9891\u4FE1\u606F\u5931\u8D25:", data.message), null;
-        duration = data.data.duration, cid = data.data.pages[p - 1].cid;
+        duration = data.data.pages[p - 1].duration, cid = data.data.pages[p - 1].cid;
       } catch (error) {
         return log("error", "[bilibili] \u8BF7\u6C42\u666E\u901A\u6295\u7A3F\u89C6\u9891\u4FE1\u606F\u5931\u8D25:", error), null;
       }
@@ -15820,7 +16043,74 @@ var YoukuSource = class extends BaseSource {
 };
 
 // danmu_api/sources/dandan.js
-var tencentSource = new TencentSource(), iqiyiSource = new IqiyiSource(), mangoSource = new MangoSource(), bilibiliSource = new BilibiliSource(), youkuSource = new YoukuSource(), bahamutSource = new BahamutSource(), DandanUserAgent = `LogVar Danmu API/${globals.version}`, DandanSource = class extends BaseSource {
+var tencentSource = new TencentSource(), iqiyiSource = new IqiyiSource(), mangoSource = new MangoSource(), bilibiliSource = new BilibiliSource(), youkuSource = new YoukuSource(), bahamutSource = new BahamutSource(), DandanUserAgent = `LogVar Danmu API/${globals.version}`, SOURCE_TO_PLATFORM = {
+  bilibili: "bilibili1",
+  bahamut: "bahamut",
+  iqiyi: "qiyi",
+  youku: "youku",
+  tencent: "qq",
+  imgo: "imgo"
+};
+async function getRelatedDanmuViaNipaplay(episodeId, coveredSources) {
+  let links = await fetchNipaplayRelatedLinks(episodeId);
+  if (!links) return [];
+  let summary = Object.entries(links).filter(([, arr]) => arr && arr.length).map(([p, arr]) => `${SOURCE_TO_PLATFORM[p] || p}\xD7${arr.length}`).join(", ");
+  summary && log("info", `[dandan] nipaplay \u5F39\u5F39302\u5173\u8054\u515C\u5E95\u63D0\u53D6\u5230\u5F39\u5F39302\u5173\u8054\u94FE\u63A5: ${summary}`);
+  let sourceMap = {
+    bilibili: bilibiliSource,
+    bahamut: bahamutSource,
+    iqiyi: iqiyiSource,
+    youku: youkuSource,
+    tencent: tencentSource,
+    imgo: mangoSource
+  }, pending = [], skipped = [];
+  for (let [platform, linksOfPlatform] of Object.entries(links)) {
+    if (!linksOfPlatform || linksOfPlatform.length === 0) continue;
+    let platformLabel = SOURCE_TO_PLATFORM[platform];
+    if (!platformLabel || coveredSources.has(platform) || coveredSources.has(platformLabel)) {
+      platformLabel && skipped.push(platformLabel);
+      continue;
+    }
+    let sourceInstance = sourceMap[platform];
+    if (sourceInstance)
+      for (let { url, shift } of linksOfPlatform) {
+        let { source, realId } = resolveNipaplayLink(url);
+        if (source !== platform) {
+          log("info", `[dandan] nipaplay \u5F39\u5F39302\u5173\u8054\u94FE\u63A5\u5E73\u53F0\u89E3\u6790\u4E0D\u4E00\u81F4\uFF0C\u58F0\u660E ${platform} \u5B9E\u5F97 ${source}\uFF0C\u8DF3\u8FC7: ${url}`);
+          continue;
+        }
+        pending.push({
+          platformLabel,
+          run: () => sourceInstance.getEpisodeDanmu(realId, []).then((raw) => sourceInstance.formatComments(raw || []).map((d) => applyShiftToDanmu({ ...d, _sourceLabel: platformLabel }, shift))).catch((e) => (log("error", `[dandan] nipaplay \u5F39\u5F39302\u5173\u8054\u62C9\u53D6 ${platformLabel} \u5931\u8D25: ${e.message}`), []))
+        });
+      }
+  }
+  skipped.length && log("info", `[dandan] nipaplay \u5F39\u5F39302\u5173\u8054\u515C\u5E95\u8DF3\u8FC7\u5DF2\u5408\u5E76\u6E90\uFF08\u907F\u514D\u91CD\u590D\u62C9\u53D6\uFF09: ${skipped.join(", ")}`);
+  let groups = /* @__PURE__ */ new Map();
+  for (let task of pending)
+    groups.has(task.platformLabel) || groups.set(task.platformLabel, []), groups.get(task.platformLabel).push(task.run);
+  return (await Promise.all(Array.from(groups.values()).map(async (runs) => {
+    let items = [];
+    for (let i = 0; i < runs.length; i++)
+      items.push(...await runs[i]()), i < runs.length - 1 && await new Promise((r) => setTimeout(r, 1e3));
+    return items;
+  }))).flat().filter(Boolean);
+}
+async function fetchDandanComments(id) {
+  try {
+    let resp = await Widget.http.get(`https://api.danmaku.weeblify.app/ddp/v1?path=%2Fv2%2Fcomment%2F${id}%3Ffrom%3D0%26withRelated%3Dtrue%26chConvert%3D0`, {
+      headers: {
+        "Content-Type": "application/json",
+        "User-Agent": DandanUserAgent
+      },
+      retries: 1
+    });
+    return resp && resp.data && resp.data.comments ? resp.data.comments : [];
+  } catch (e) {
+    return log("error", `[dandan] dandan base comments error: ${e.message}`), [];
+  }
+}
+var DandanSource = class extends BaseSource {
   /**
    * 搜索动画条目
    * 包含常规搜索、TMDB 日语原名搜索，以及去除季度信息后的降级搜索策略
@@ -16098,16 +16388,16 @@ var tencentSource = new TencentSource(), iqiyiSource = new IqiyiSource(), mangoS
   }
   // 接收 mergedSources 参数，包含所有参与合并的具体源链接信息，用于避免重复获取
   async getEpisodeDanmu(id, mergedSources = []) {
-    let allDanmus = [], stats = {};
+    let allDanmus = [], coveredSources = new Set((mergedSources || []).map((m) => (typeof m == "string" ? m.split(":")[0] : m?.logicalSource) || "").filter(Boolean));
     try {
-      let resp = await Widget.http.get(`https://api.danmaku.weeblify.app/ddp/v1?path=%2Fv2%2Fcomment%2F${id}%3Ffrom%3D0%26withRelated%3Dtrue%26chConvert%3D0`, {
-        headers: {
-          "Content-Type": "application/json",
-          "User-Agent": DandanUserAgent
-        },
-        retries: 1
-      }).catch((e) => (log("error", `[dandan] dandan base comments error: ${e.message}`), null));
-      resp && resp.data && resp.data.comments ? (allDanmus = resp.data.comments, stats.dandan = allDanmus.length) : stats.dandan = 0;
+      if (globals.nipaplayReplaceDandan) {
+        let related = await getRelatedDanmuViaNipaplay(id, coveredSources);
+        related.length > 0 ? (allDanmus = related, log("info", `[dandan] NIPAPLAY_REPLACE_DANDAN \u542F\u7528\uFF0Cnipaplay \u5F39\u5F39302\u5173\u8054\u5F39\u5E55\u66FF\u4EE3\u5F39\u5F39\u539F\u751F\u5F39\u5E55\uFF08${related.length} \u6761\uFF09`)) : (log("info", "[dandan] NIPAPLAY_REPLACE_DANDAN \u5F39\u5F39302\u5173\u8054\u94FE\u63A5\u4E3A\u7A7A\uFF0C\u56DE\u9000\u5F39\u5F39\u81EA\u8EAB\u5F39\u5E55"), allDanmus = await fetchDandanComments(id));
+      } else if (allDanmus = await fetchDandanComments(id), allDanmus.length === 0) {
+        log("info", "[dandan] dandan \u539F\u751F\u5F39\u5E55\u4E3A\u7A7A\uFF0C\u89E6\u53D1 NipaPlay \u5F39\u5F39302\u5173\u8054\u515C\u5E95");
+        let related = await getRelatedDanmuViaNipaplay(id, coveredSources);
+        related.length > 0 ? (allDanmus = related, log("info", `[dandan] nipaplay \u5F39\u5F39302\u5173\u8054\u515C\u5E95\u8865\u5145 ${related.length} \u6761\u8DE8\u5E73\u53F0\u5F39\u5E55`)) : log("info", "[dandan] nipaplay \u5F39\u5F39302\u5173\u8054\u515C\u5E95\u672A\u83B7\u53D6\u5230\u8DE8\u5E73\u53F0\u5F39\u5E55");
+      }
     } catch (error) {
       log("error", "[dandan] getEpisodeDanmu error:", {
         message: error.message,
@@ -19843,12 +20133,17 @@ async function executeSourceHandlers(resultData, queryTitle, targetAnimesList, r
   }
 }
 async function searchAnime(url, preferAnimeId = null, preferSource = null, detailStore = null, targetPlatform = null, forceRefresh = !1) {
+  return httpCacheContext.getStore() ? searchAnimeBody(url, preferAnimeId, preferSource, detailStore, targetPlatform, forceRefresh) : runWithHttpCache(() => searchAnimeBody(url, preferAnimeId, preferSource, detailStore, targetPlatform, forceRefresh));
+}
+async function searchAnimeBody(url, preferAnimeId = null, preferSource = null, detailStore = null, targetPlatform = null, forceRefresh = !1) {
   let queryTitle = url.searchParams.get("keyword");
   globals.titleNoiseFilter && (queryTitle = queryTitle.replace(globals.titleNoiseFilter, "").trim());
   let querySeason = url.searchParams.get("season");
   querySeason = querySeason ? parseInt(querySeason, 10) : null;
   let queryEpisode = url.searchParams.get("episode");
-  if (queryEpisode = queryEpisode ? parseInt(queryEpisode, 10) : null, log("info", `[system] [searchAnime] Search anime with keyword: ${queryTitle}, target season: ${querySeason}, target episode: ${queryEpisode}`), queryTitle === "")
+  queryEpisode = queryEpisode ? parseInt(queryEpisode, 10) : null;
+  let tmdbSeasonBoundaries = null;
+  if (log("info", `[system] [searchAnime] Search anime with keyword: ${queryTitle}, target season: ${querySeason}, target episode: ${queryEpisode}`), queryTitle === "")
     return jsonResponse({
       errorCode: 0,
       success: !0,
@@ -20024,11 +20319,20 @@ async function searchAnime(url, preferAnimeId = null, preferSource = null, detai
       }
       if (maxSeason > querySeason) {
         log("info", `[system] [LogVar-API] Episode ${queryEpisode} not satisfied in Season ${querySeason}. Parallel mapping to S${querySeason + 1}~S${maxSeason}...`);
-        let expandPromises = [];
+        let targetSeasons = [];
+        if (globals.useBangumiData && queryEpisode && (tmdbSeasonBoundaries = await getTmdbSeasonBoundaries(queryTitle), tmdbSeasonBoundaries && tmdbSeasonBoundaries.length >= 2))
+          for (let i = tmdbSeasonBoundaries.length - 1; i >= 0; i--) {
+            let b = tmdbSeasonBoundaries[i];
+            if (queryEpisode >= b.startEpisode) {
+              targetSeasons = [b.order];
+              break;
+            }
+          }
+        let expansionStart = targetSeasons.length > 0 ? Math.min(...targetSeasons) : querySeason + 1, expansionEnd = targetSeasons.length > 0 ? Math.max(...targetSeasons) : maxSeason, expandPromises = [];
         for (let source of globals.sourceOrderArr)
           resultData[source] && (targetPlatform && unsatisfiedPlatforms.size > 0 && !unsatisfiedPlatforms.has(source) || expandPromises.push((async () => {
             let sourceResults = [];
-            for (let s = querySeason + 1; s <= maxSeason; s++) {
+            for (let s = expansionStart; s <= expansionEnd; s++) {
               let seasonAnimes = [];
               await executeSourceHandlers({ [source]: resultData[source] }, queryTitle, seasonAnimes, requestAnimeDetailsMap, s, preferAnimeId, preferSource), seasonAnimes.length > 0 && setSearchCache(`${queryTitle}_S${s}`, seasonAnimes.map(({ links, ...pureAnime }) => pureAnime), requestAnimeDetailsMap), sourceResults.push(seasonAnimes);
             }
@@ -20072,7 +20376,8 @@ async function searchAnime(url, preferAnimeId = null, preferSource = null, detai
     errorCode: 0,
     success: !0,
     errorMessage: "",
-    animes: responseAnimes
+    animes: responseAnimes,
+    tmdbSeasonBoundaries
   });
 }
 function filterSameEpisodeTitle(filteredTmpEpisodes) {
@@ -20430,7 +20735,7 @@ async function getSegmentComment(segment, queryFormat) {
 }
 
 // forward/forward-widget.js
-var wv = "1.20.5";
+var wv = "1.20.7";
 WidgetMetadata = {
   id: "forward.auto.danmu2",
   title: "\u81EA\u52A8\u94FE\u63A5\u5F39\u5E55v2",
