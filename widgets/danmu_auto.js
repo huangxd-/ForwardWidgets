@@ -715,9 +715,9 @@ var STORED_BLOCK, STATIC_TREES, DYN_TREES, MIN_MATCH$1, MAX_MATCH$1, LENGTH_CODE
       }
       return table;
     }, crcTable = new Uint32Array(makeTable()), crc32 = (crc, buf, len, pos) => {
-      let t = crcTable, end2 = pos + len;
+      let t = crcTable, end = pos + len;
       crc ^= -1;
-      for (let i = pos; i < end2; i++)
+      for (let i = pos; i < end; i++)
         crc = crc >>> 8 ^ t[(crc ^ buf[i]) & 255];
       return crc ^ -1;
     }, crc32_1 = crc32, messages = {
@@ -820,9 +820,9 @@ var STORED_BLOCK, STATIC_TREES, DYN_TREES, MIN_MATCH$1, MAX_MATCH$1, LENGTH_CODE
       s.pending_buf[s.pending++] = b;
     }, putShortMSB = (s, b) => {
       s.pending_buf[s.pending++] = b >>> 8 & 255, s.pending_buf[s.pending++] = b & 255;
-    }, read_buf = (strm, buf, start2, size) => {
+    }, read_buf = (strm, buf, start, size) => {
       let len = strm.avail_in;
-      return len > size && (len = size), len === 0 ? 0 : (strm.avail_in -= len, buf.set(strm.input.subarray(strm.next_in, strm.next_in + len), start2), strm.state.wrap === 1 ? strm.adler = adler32_1(strm.adler, buf, len, start2) : strm.state.wrap === 2 && (strm.adler = crc32_1(strm.adler, buf, len, start2)), strm.next_in += len, strm.total_in += len, len);
+      return len > size && (len = size), len === 0 ? 0 : (strm.avail_in -= len, buf.set(strm.input.subarray(strm.next_in, strm.next_in + len), start), strm.state.wrap === 1 ? strm.adler = adler32_1(strm.adler, buf, len, start) : strm.state.wrap === 2 && (strm.adler = crc32_1(strm.adler, buf, len, start)), strm.next_in += len, strm.total_in += len, len);
     }, longest_match = (s, cur_match) => {
       let chain_length = s.max_chain_length, scan = s.strstart, match, len, best_len = s.prev_length, nice_match = s.nice_match, limit = s.strstart > s.w_size - MIN_LOOKAHEAD ? s.strstart - (s.w_size - MIN_LOOKAHEAD) : 0, _win = s.window, wmask = s.w_mask, prev = s.prev, strend = s.strstart + MAX_MATCH, scan_end1 = _win[scan + best_len - 1], scan_end = _win[scan + best_len];
       s.prev_length >= s.good_match && (chain_length >>= 2), nice_match > s.lookahead && (nice_match = s.lookahead);
@@ -1249,9 +1249,9 @@ var STORED_BLOCK, STATIC_TREES, DYN_TREES, MIN_MATCH$1, MAX_MATCH$1, LENGTH_CODE
       deflateRaw: deflateRaw_1$1,
       gzip: gzip_1$1,
       constants: constants$1
-    }, BAD$1 = 16209, TYPE$1 = 16191, inffast = function(strm, start2) {
-      let _in, last, _out, beg, end2, dmax, wsize, whave, wnext, s_window, hold, bits, lcode, dcode, lmask, dmask, here, op, len, dist, from, from_source, input, output, state = strm.state;
-      _in = strm.next_in, input = strm.input, last = _in + (strm.avail_in - 5), _out = strm.next_out, output = strm.output, beg = _out - (start2 - strm.avail_out), end2 = _out + (strm.avail_out - 257), dmax = state.dmax, wsize = state.wsize, whave = state.whave, wnext = state.wnext, s_window = state.window, hold = state.hold, bits = state.bits, lcode = state.lencode, dcode = state.distcode, lmask = (1 << state.lenbits) - 1, dmask = (1 << state.distbits) - 1;
+    }, BAD$1 = 16209, TYPE$1 = 16191, inffast = function(strm, start) {
+      let _in, last, _out, beg, end, dmax, wsize, whave, wnext, s_window, hold, bits, lcode, dcode, lmask, dmask, here, op, len, dist, from, from_source, input, output, state = strm.state;
+      _in = strm.next_in, input = strm.input, last = _in + (strm.avail_in - 5), _out = strm.next_out, output = strm.output, beg = _out - (start - strm.avail_out), end = _out + (strm.avail_out - 257), dmax = state.dmax, wsize = state.wsize, whave = state.whave, wnext = state.wnext, s_window = state.window, hold = state.hold, bits = state.bits, lcode = state.lencode, dcode = state.distcode, lmask = (1 << state.lenbits) - 1, dmask = (1 << state.distbits) - 1;
       top:
         do {
           bits < 15 && (hold += input[_in++] << bits, bits += 8, hold += input[_in++] << bits, bits += 8), here = lcode[hold & lmask];
@@ -1333,8 +1333,8 @@ var STORED_BLOCK, STATIC_TREES, DYN_TREES, MIN_MATCH$1, MAX_MATCH$1, LENGTH_CODE
               }
               break;
             }
-        } while (_in < last && _out < end2);
-      len = bits >> 3, _in -= len, bits -= len << 3, hold &= (1 << bits) - 1, strm.next_in = _in, strm.next_out = _out, strm.avail_in = _in < last ? 5 + (last - _in) : 5 - (_in - last), strm.avail_out = _out < end2 ? 257 + (end2 - _out) : 257 - (_out - end2), state.hold = hold, state.bits = bits;
+        } while (_in < last && _out < end);
+      len = bits >> 3, _in -= len, bits -= len << 3, hold &= (1 << bits) - 1, strm.next_in = _in, strm.next_out = _out, strm.avail_in = _in < last ? 5 + (last - _in) : 5 - (_in - last), strm.avail_out = _out < end ? 257 + (end - _out) : 257 - (_out - end), state.hold = hold, state.bits = bits;
     }, MAXBITS = 15, ENOUGH_LENS$1 = 852, ENOUGH_DISTS$1 = 592, CODES$1 = 0, LENS$1 = 1, DISTS$1 = 2, lbase = new Uint16Array([
       /* Length codes 257..285 base */
       3,
@@ -1571,9 +1571,9 @@ var STORED_BLOCK, STATIC_TREES, DYN_TREES, MIN_MATCH$1, MAX_MATCH$1, LENGTH_CODE
         inftrees(DISTS, state.lens, 0, 32, distfix, 0, state.work, { bits: 5 }), virgin = !1;
       }
       state.lencode = lenfix, state.lenbits = 9, state.distcode = distfix, state.distbits = 5;
-    }, updatewindow = (strm, src, end2, copy) => {
+    }, updatewindow = (strm, src, end, copy) => {
       let dist, state = strm.state;
-      return state.window === null && (state.wsize = 1 << state.wbits, state.wnext = 0, state.whave = 0, state.window = new Uint8Array(state.wsize)), copy >= state.wsize ? (state.window.set(src.subarray(end2 - state.wsize, end2), 0), state.wnext = 0, state.whave = state.wsize) : (dist = state.wsize - state.wnext, dist > copy && (dist = copy), state.window.set(src.subarray(end2 - copy, end2 - copy + dist), state.wnext), copy -= dist, copy ? (state.window.set(src.subarray(end2 - copy, end2), 0), state.wnext = copy, state.whave = state.wsize) : (state.wnext += dist, state.wnext === state.wsize && (state.wnext = 0), state.whave < state.wsize && (state.whave += dist))), 0;
+      return state.window === null && (state.wsize = 1 << state.wbits, state.wnext = 0, state.whave = 0, state.window = new Uint8Array(state.wsize)), copy >= state.wsize ? (state.window.set(src.subarray(end - state.wsize, end), 0), state.wnext = 0, state.whave = state.wsize) : (dist = state.wsize - state.wnext, dist > copy && (dist = copy), state.window.set(src.subarray(end - copy, end - copy + dist), state.wnext), copy -= dist, copy ? (state.window.set(src.subarray(end - copy, end), 0), state.wnext = copy, state.whave = state.wsize) : (state.wnext += dist, state.wnext === state.wsize && (state.wnext = 0), state.whave < state.wsize && (state.whave += dist))), 0;
     }, inflate$2 = (strm, flush) => {
       let state, input, output, next, put, have, left, hold, bits, _in, _out, copy, from, from_source, here = 0, here_bits, here_op, here_val, last_bits, last_op, last_val, len, ret, hbuf = new Uint8Array(4), opts, n, order = (
         /* permutation of code lengths */
@@ -2249,8 +2249,8 @@ var require_base64_js = __commonJS({
     function tripletToBase64(num) {
       return lookup[num >> 18 & 63] + lookup[num >> 12 & 63] + lookup[num >> 6 & 63] + lookup[num & 63];
     }
-    function encodeChunk(uint8, start2, end2) {
-      for (var tmp, output = [], i2 = start2; i2 < end2; i2 += 3)
+    function encodeChunk(uint8, start, end) {
+      for (var tmp, output = [], i2 = start; i2 < end; i2 += 3)
         tmp = (uint8[i2] << 16 & 16711680) + (uint8[i2 + 1] << 8 & 65280) + (uint8[i2 + 2] & 255), output.push(tripletToBase64(tmp));
       return output.join("");
     }
@@ -2363,10 +2363,10 @@ var require_huffman = __commonJS({
         step >>= 1;
       return (key & step - 1) + step;
     }
-    function ReplicateValue(table, i, step, end2, code) {
+    function ReplicateValue(table, i, step, end, code) {
       do
-        end2 -= step, table[i + end2] = new HuffmanCode(code.bits, code.value);
-      while (end2 > 0);
+        end -= step, table[i + end] = new HuffmanCode(code.bits, code.value);
+      while (end > 0);
     }
     function NextTableBitSize(count, len, root_bits) {
       for (var left = 1 << len - root_bits; len < MAX_LENGTH && (left -= count[len], !(left <= 0)); )
@@ -5057,13 +5057,13 @@ function getIdeographicDescriptionSequenceEnd(s, i) {
   let cp = s.codePointAt(i), arity = getIdeographicDescriptionArity(cp);
   if (arity === 0)
     return 0;
-  let end2 = i + getCodePointLength(s, i);
+  let end = i + getCodePointLength(s, i);
   for (let n = 0; n < arity; n += 1) {
-    if (end2 >= s.length)
+    if (end >= s.length)
       return 0;
-    end2 = getIdeographicDescriptionSequenceEnd(s, end2) || end2 + getCodePointLength(s, end2);
+    end = getIdeographicDescriptionSequenceEnd(s, end) || end + getCodePointLength(s, end);
   }
-  return end2;
+  return end;
 }
 function getUnmatchedLength(s, i) {
   let idsEnd = getIdeographicDescriptionSequenceEnd(s, i);
@@ -5470,6 +5470,13 @@ function applyOffset(danmus, offsetSeconds, options = {}) {
     }
     return updated;
   });
+}
+function stripLinkOffset(rawUrl) {
+  let url = String(rawUrl ?? ""), percentMatch = url.match(/@%(-?\d+(?:\.\d+)?)$/);
+  if (percentMatch)
+    return { cleanUrl: url.substring(0, url.length - percentMatch[0].length), offset: parseFloat(percentMatch[1]), percent: !0 };
+  let offsetMatch = url.match(/@(-?\d+(?:\.\d+)?)$/);
+  return offsetMatch ? { cleanUrl: url.substring(0, url.length - offsetMatch[0].length), offset: parseFloat(offsetMatch[1]), percent: !1 } : { cleanUrl: url, offset: 0, percent: !1 };
 }
 
 // danmu_api/utils/auto-match-mapping-util.js
@@ -5993,6 +6000,8 @@ var _Envs = class _Envs {
       CONVERT_TOP_BOTTOM_TO_SCROLL: { category: "danmu", type: "boolean", description: "\u9876\u90E8/\u5E95\u90E8\u5F39\u5E55\u8F6C\u6362\u4E3A\u6D6E\u52A8\u5F39\u5E55" },
       CONVERT_COLOR: { category: "danmu", type: "select", options: ["default", "white", "color"], description: "\u5F39\u5E55\u8F6C\u6362\u989C\u8272\u914D\u7F6E" },
       COLOR_POOL: { category: "danmu", type: "text", description: "\u81EA\u5B9A\u4E49\u989C\u8272\u6C60\uFF08CONVERT_COLOR\u4E3Acolor\u65F6\u751F\u6548\uFF09\uFF0C\u4E0D\u914D\u7F6E\u4F7F\u7528\u9ED8\u8BA4\u989C\u8272\u6C60\uFF0C\u683C\u5F0F\uFF1A\u5341\u8FDB\u5236\u989C\u8272\u503C\u9017\u53F7\u5206\u9694" },
+      GRADIENT_CHANCE: { category: "danmu", type: "number", min: 0, max: 100, description: "\u6E10\u53D8\u8272\u5F39\u5E55\u6982\u7387\uFF08CONVERT_COLOR\u4E3Acolor\u65F6\u751F\u6548\uFF09\uFF0C\u5355\u4F4D\u767E\u5206\u6BD4 0-100\uFF0C\u9ED8\u8BA4 0\uFF0C\u5F39\u5E55\u6309\u6B64\u6982\u7387\u4ECE\u6E10\u53D8\u8272\u5E26\u53D6\u8272\uFF08\u968F\u51FA\u73B0\u65F6\u95F4\u5E73\u6ED1\u6D41\u8F6C\uFF09\uFF0C0 \u8868\u793A\u5173\u95ED" },
+      GRADIENT_COLORS: { category: "danmu", type: "text", description: "\u6E10\u53D8\u8272\u5E26\uFF08CONVERT_COLOR\u4E3Acolor\u65F6\u751F\u6548\uFF09\uFF0C\u53EF\u586B\u76AE\u80A4\u540D\uFF1Abilibili(\u9ED8\u8BA4)/sweet/cyber/sunset/ocean/mint/rainbow\uFF0C\u6216\u5341\u8FDB\u5236\u989C\u8272\u503C\u9017\u53F7\u5206\u9694\uFF08\u81F3\u5C112\u4E2A\uFF09" },
       DANMU_OUTPUT_FORMAT: { category: "danmu", type: "select", options: ["json", "xml", ...danAnyFormats], description: "\u5F39\u5E55\u8F93\u51FA\u683C\u5F0F\uFF0C\u9ED8\u8BA4json" },
       DANMU_PUSH_URL: { category: "danmu", type: "text", description: "\u5F39\u5E55\u63A8\u9001\u5730\u5740\uFF0C\u793A\u4F8B http://127.0.0.1:9978/action?do=refresh&type=danmaku&path= " },
       LIKE_SWITCH: { category: "danmu", type: "boolean", description: "\u5F39\u5E55\u70B9\u8D5E\u6570\u663E\u793A\u5F00\u5173\uFF0C\u9ED8\u8BA4\u5F00\u542F" },
@@ -6109,6 +6118,10 @@ var _Envs = class _Envs {
       // 弹幕转换颜色配置，支持 default、white、color（默认 default，禁用转换）
       colorPool: this.get("COLOR_POOL", "16777215,16777215,16777215,16777215,16777215,16777215,16777215,16777215,16744319,16752762,16774799,9498256,8388564,8900346,14204888,16758465", "string"),
       // 自定义颜色池，CONVERT_COLOR为color时生效
+      gradientChance: this.get("GRADIENT_CHANCE", 0, "number"),
+      // 渐变色弹幕出现概率（百分比），CONVERT_COLOR为color时生效，0 表示关闭
+      gradientColors: this.get("GRADIENT_COLORS", "16478873,3389695", "string"),
+      // 渐变色带（B站标准粉蓝 #FB7299→#33B8FF），CONVERT_COLOR为color时生效
       danmuOutputFormat: this.get("DANMU_OUTPUT_FORMAT", "json", "string"),
       // 弹幕输出格式配置（默认 json，可选值：json, xml, ...danAnyFormats）
       strictTitleMatch: this.get("STRICT_TITLE_MATCH", !1, "boolean"),
@@ -6208,7 +6221,7 @@ var Globals = {
   originalEnvVars: {},
   accessedEnvVars: {},
   // 静态常量
-  VERSION: "1.20.7",
+  VERSION: "1.20.10",
   MAX_LOGS: 1e3,
   // 日志存储，最多保存 1000 行
   MAX_RECORDS: 100,
@@ -6384,13 +6397,6 @@ var sourceLogContext = new AsyncLocalStorage(), httpCacheContext = new AsyncLoca
 function runWithHttpCache(fn) {
   return httpCacheContext.run(/* @__PURE__ */ new Map(), fn);
 }
-var SOURCE_KEY_TO_LOG_NAME = {
-  360: "360kan",
-  imgo: "mango"
-};
-function toLogSourceName(sourceKey) {
-  return SOURCE_KEY_TO_LOG_NAME[sourceKey] || sourceKey;
-}
 function linkSignal(externalSignal, internalController) {
   if (!externalSignal) return () => {
   };
@@ -6485,6 +6491,13 @@ async function httpGet(url, options = {}) {
           }
         }
         data = decodedData;
+      } else if (options.encoding) {
+        let bytes = new Uint8Array(await response.arrayBuffer()), encoding = options.encoding;
+        if (encoding === "auto") {
+          let contentType = response.headers.get("content-type") || "";
+          encoding = /charset\s*=\s*(gbk|gb2312|big5)/i.exec(contentType)?.[1] || "utf-8";
+        }
+        data = new TextDecoder(encoding).decode(bytes);
       } else
         data = await response.text();
       let parsedData;
@@ -6958,8 +6971,8 @@ function readVarint(bytes, offset) {
   return [Number(result), pos];
 }
 function readLengthDelimited(bytes, offset) {
-  let [length, newOffset] = readVarint(bytes, offset), start2 = newOffset, end2 = start2 + length;
-  return [bytes.slice(start2, end2), end2];
+  let [length, newOffset] = readVarint(bytes, offset), start = newOffset, end = start + length;
+  return [bytes.slice(start, end), end];
 }
 function convertToAsciiSum(sid) {
   let hash = 5381;
@@ -8274,9 +8287,11 @@ function groupDanmusByMinute(filteredDanmus, n, isMultiSource = !1) {
         p: danmu.p,
         like: 0,
         // 初始化like字段
+        // 保留源弹幕的渐变色扩展字段。合并后使用组内第一条可用的 color_v2。
+        color_v2: danmu.color_v2,
         sources: /* @__PURE__ */ new Set()
         // 收集当前具体弹幕内容的真实独立来源
-      }), acc[message].count += 1, acc[message].earliestT = Math.min(acc[message].earliestT, danmu.t), acc[message].like += danmu.like !== void 0 ? danmu.like : 0, danmu.p) {
+      }), acc[message].count += 1, acc[message].earliestT = Math.min(acc[message].earliestT, danmu.t), acc[message].color_v2 === void 0 && danmu.color_v2 !== void 0 && (acc[message].color_v2 = danmu.color_v2), acc[message].like += danmu.like !== void 0 ? danmu.like : 0, danmu.p) {
         let match = danmu.p.match(/\[([^\]]*)\]$/);
         match && match[1] && match[1].split(/[&＆]/).forEach((s) => {
           s.trim() && acc[message].sources.add(s.trim());
@@ -8294,8 +8309,9 @@ function groupDanmusByMinute(filteredDanmus, n, isMultiSource = !1) {
         // 仅当计算后的逻辑计数大于1时才显示 "x N"
         m: displayCount > 1 ? `${message}\u200Ax\u200A${displayCount}` : message,
         t: data.earliestT,
-        like: data.like
+        like: data.like,
         // 包含合并后的like字段
+        ...data.color_v2 !== void 0 ? { color_v2: data.color_v2 } : {}
       };
     });
   }).flat().sort((a, b) => a.t - b.t);
@@ -8334,8 +8350,92 @@ function limitDanmusByCount(filteredDanmus, danmuLimit) {
   }
   return result;
 }
+function escapeRegExp(str) {
+  return str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+function splitBlockedWords(raw) {
+  if (!raw || typeof raw != "string") return [];
+  let normalized = raw.replace(/，/g, ","), tryConsumeRegexToken = (start) => {
+    let j = start + 1;
+    for (; j < normalized.length; ) {
+      if (normalized[j] === "\\") {
+        j += 2;
+        continue;
+      }
+      if (normalized[j] === "/") {
+        let flagMatch = normalized.slice(j + 1).match(/^([a-z]*)(\s*)(?:,|$)/);
+        if (flagMatch)
+          return j + 1 + flagMatch[1].length + flagMatch[2].length;
+      }
+      j++;
+    }
+    return -1;
+  }, segments = [], buf = "", i = 0;
+  for (; i < normalized.length; ) {
+    let ch = normalized[i];
+    if (ch === "/") {
+      let end = tryConsumeRegexToken(i);
+      if (end !== -1) {
+        buf += normalized.slice(i, end), i = end;
+        continue;
+      }
+      buf += ch, i++;
+      continue;
+    }
+    if (ch === ",") {
+      segments.push(buf), buf = "", i++;
+      continue;
+    }
+    buf += ch, i++;
+  }
+  return buf.trim() !== "" && segments.push(buf), segments.map((s) => s.trim()).filter((s) => s !== "");
+}
+function parseBlockedWord(segment) {
+  let match = segment.match(/^\/([\s\S]+)\/([a-z]*)$/);
+  if (match)
+    try {
+      return new RegExp(match[1], match[2].replace(/[gy]/g, ""));
+    } catch (e) {
+      return log("warn", `[system] [danmu] \u65E0\u6548\u7684\u5C4F\u853D\u8BCD\u6B63\u5219(\u5DF2\u6309\u5B57\u9762\u91CF\u5904\u7406): ${segment}`, e?.message || e), new RegExp(escapeRegExp(segment));
+    }
+  return new RegExp(escapeRegExp(segment));
+}
+function lerpColor(a, b, frac) {
+  let channel = (shift) => Math.round((a >> shift & 255) + ((b >> shift & 255) - (a >> shift & 255)) * frac);
+  return channel(16) << 16 | channel(8) << 8 | channel(0);
+}
+var GRADIENT_SKINS = {
+  bilibili: "16478873,3389695",
+  // 粉→蓝（B站标准 #FB7299→#33B8FF）
+  sweet: "16739211,10639871",
+  // 粉紫·甜美（#FF6B8B→#A259FF）
+  cyber: "65415,6352895",
+  // 荧光绿→天青·电竞（#00FF87→#60EFFF）
+  sunset: "16754470,16732754",
+  // 金橙→珊瑚·日落（#FFA726→#FF5252）
+  ocean: "3027346,1835007",
+  // 深海蓝→浅蓝·海洋（#2E3192→#1BFFFF）
+  mint: "4450683,3733975",
+  // 薄荷绿·清新（#43E97B→#38F9D7）
+  rainbow: "16711680,16753920,16776960,65280,65535,255,8388863"
+  // 彩虹七色
+};
+function resolveGradientSkin(value) {
+  let key = String(value || "").trim().toLowerCase();
+  return key && Object.prototype.hasOwnProperty.call(GRADIENT_SKINS, key) ? GRADIENT_SKINS[key] : value;
+}
+function buildGradientSampler(rawStops) {
+  let stops = String(rawStops || "").split(",").map((c) => parseInt(c.trim(), 10)).filter((c) => !isNaN(c) && c >= 0 && c <= 16777215);
+  if (stops.length === 0) return null;
+  if (stops.length === 1) return () => stops[0];
+  let span = stops.length - 1;
+  return (pos) => {
+    let t = Math.min(Math.max(pos, 0), 1) * span, i = Math.min(Math.floor(t), span - 1);
+    return lerpColor(stops[i], stops[i + 1], t - i);
+  };
+}
 function convertToDanmakuJson(contents, platform) {
-  let danmus = [], cidCounter = 1, isMultiSource = !1, items = [];
+  let danmus = [], cidCounter = 1, isMultiSource = !1, colorV2Count = 0, items = [];
   if (typeof contents == "string")
     items = [...contents.matchAll(/<d p="([^"]+)">([^<]+)<\/d>/g)].map((match) => ({
       p: match[1],
@@ -8370,8 +8470,11 @@ function convertToDanmakuJson(contents, platform) {
       mode,
       color,
       `[${currentPlatform}]`
-    ].join(","), danmus.push({ p: attributes, m, cid: cidCounter++, like: item?.like });
+    ].join(",");
+    let danmu = { p: attributes, m, cid: cidCounter++, like: item?.like };
+    item.color_v2 && (danmu.color_v2 = item.color_v2, colorV2Count++), danmus.push(danmu);
   }
+  colorV2Count > 0 && log("info", `[system] [danmu] [danmu convert] \u900F\u4F20\u4E86 ${colorV2Count} \u6761\u6E90\u6E10\u53D8\u8272\u5F39\u5E55\uFF08color_v2\uFF09`);
   let textConverter = globals.danmuSimplifiedTraditional === "simplified" ? simplized : globals.danmuSimplifiedTraditional === "traditional" ? traditionalized : null;
   if (textConverter) {
     danmus = danmus.map((danmu) => ({
@@ -8381,35 +8484,44 @@ function convertToDanmakuJson(contents, platform) {
     let targetLabel = globals.danmuSimplifiedTraditional === "simplified" ? "\u7B80\u4F53\u5B57" : "\u7E41\u4F53\u5B57";
     log("info", `[system] [danmu] [danmu convert] \u8F6C\u6362\u4E86 ${danmus.length} \u6761\u5F39\u5E55\u4E3A${targetLabel}`);
   }
-  let regexArray = globals.blockedWords.split(/(?<=\/),(?=\/)/).map((str) => {
-    let pattern = str.trim();
-    if (pattern.startsWith("/") && pattern.endsWith("/"))
-      try {
-        return new RegExp(pattern.slice(1, -1));
-      } catch (e) {
-        return log("error", `[system] [danmu] \u65E0\u6548\u7684\u6B63\u5219\u8868\u8FBE\u5F0F: ${pattern}`, e), null;
-      }
-    return null;
-  }).filter((regex) => regex !== null);
-  log("info", `[system] [danmu] \u539F\u59CB\u5C4F\u853D\u8BCD\u5B57\u7B26\u4E32: ${globals.blockedWords}`), log("info", `[system] [danmu] \u5C4F\u853D\u8BCD\u5217\u8868: ${((array) => Array.isArray(array) ? array.map((regex) => regex.toString()).join(`
-`) : String(array))(regexArray)}`);
-  let filteredDanmus = danmus.filter((item) => !regexArray.some((regex) => regex.test(item.m)));
+  let regexArray = splitBlockedWords(globals.blockedWords).map(parseBlockedWord);
+  regexArray.length === 0 ? globals.blockedWords && globals.blockedWords.trim() !== "" ? log("warn", `[system] [danmu] [blocked-words] \u274C \u5DF2\u914D\u7F6E\u5C4F\u853D\u8BCD\u4F46\u672A\u89E3\u6790\u51FA\u6709\u6548\u89C4\u5219\uFF0C\u672C\u6B21\u4E0D\u4F1A\u8FC7\u6EE4\u4EFB\u4F55\u5F39\u5E55\uFF01\u539F\u59CB\u914D\u7F6E: ${JSON.stringify(globals.blockedWords)}`) : log("info", "[system] [danmu] [blocked-words] \u672A\u914D\u7F6E\u5C4F\u853D\u8BCD(BLOCKED_WORDS \u4E3A\u7A7A)\uFF0C\u8DF3\u8FC7\u8FC7\u6EE4") : log("info", `[system] [danmu] [blocked-words] \u89C4\u5219\u89E3\u6790\u6210\u529F: \u5171 ${regexArray.length} \u6761 [ ${regexArray.map((r) => r.toString()).join(" , ")} ]`);
+  let ruleHitCounts = new Array(regexArray.length).fill(0), blockedSamples = [], filteredDanmus = danmus.filter((item) => {
+    for (let i = 0; i < regexArray.length; i++)
+      if (regexArray[i].test(item.m))
+        return ruleHitCounts[i]++, blockedSamples.length < 3 && blockedSamples.push(`\u300C${String(item.m).slice(0, 30)}\u300D\u2190 ${regexArray[i].toString()}`), !1;
+    return !0;
+  }), removedCount = danmus.length - filteredDanmus.length;
+  if (regexArray.length > 0)
+    if (removedCount > 0) {
+      let hitSummary = regexArray.map((r, i) => ({ rule: r.toString(), count: ruleHitCounts[i] })).filter((x) => x.count > 0).map((x) => `${x.rule} \xD7${x.count}`).join(", ");
+      log("info", `[system] [danmu] [blocked-words] \u2705 \u5C4F\u853D\u8BCD\u5DF2\u751F\u6548: \u62E6\u622A ${removedCount}/${danmus.length} \u6761\u5F39\u5E55${hitSummary ? `\uFF0C\u547D\u4E2D\u660E\u7EC6: ${hitSummary}` : ""}`), blockedSamples.length && log("info", `[system] [danmu] [blocked-words] \u62E6\u622A\u793A\u4F8B(\u6700\u591A3\u6761): ${blockedSamples.join(" | ")}`);
+    } else
+      log("info", `[system] [danmu] [blocked-words] \u26A0\uFE0F \u89C4\u5219\u5DF2\u52A0\u8F7D(${regexArray.length} \u6761)\u4F46\u672C\u96C6\u5F39\u5E55\u65E0\u547D\u4E2D`);
   log("info", `[system] [danmu] \u53BB\u91CD\u5206\u949F\u6570: ${globals.groupMinute}`);
   let groupedDanmus = groupDanmusByMinute(filteredDanmus, globals.groupMinute, isMultiSource), likeDanmus = handleDanmusLike(groupedDanmus), convertedDanmus = limitDanmusByCount(likeDanmus, globals.danmuLimit);
   if (globals.convertTopBottomToScroll || globals.convertColor === "white" || globals.convertColor === "color") {
-    let topBottomCount = 0, colorCount = 0;
+    let topBottomCount = 0, colorCount = 0, gradientCount = 0, gradientSampler = globals.convertColor === "color" ? buildGradientSampler(resolveGradientSkin(globals.gradientColors)) : null, gradientChance = Math.min(Math.max(globals.gradientChance || 0, 0), 100) / 100;
     convertedDanmus = convertedDanmus.map((danmu) => {
       let pValues = danmu.p.split(",");
       if (pValues.length < 3) return danmu;
       let mode = parseInt(pValues[1], 10), color = parseInt(pValues[2], 10), modified = !1;
       globals.convertTopBottomToScroll && (mode === 4 || mode === 5) && (topBottomCount++, mode = 1, modified = !0), globals.convertColor === "white" && color !== 16777215 && (colorCount++, color = 16777215, modified = !0);
-      let colors = globals.colorPool.split(",").map((c) => parseInt(c.trim(), 10)).filter((c) => !isNaN(c) && c >= 0 && c <= 16777215), randomColor = colors[Math.floor(Math.random() * colors.length)];
-      if (globals.convertColor === "color" && color === 16777215 && color !== randomColor && (colorCount++, color = randomColor, modified = !0), modified) {
+      let colors = (typeof globals.colorPool == "string" ? globals.colorPool : "").split(",").map((c) => parseInt(c.trim(), 10)).filter((c) => !isNaN(c) && c >= 0 && c <= 16777215), safeColors = colors.length > 0 ? colors : [16777215], randomColor = safeColors[Math.floor(Math.random() * safeColors.length)];
+      if (globals.convertColor === "color" && color === 16777215 && danmu.color_v2 === void 0) {
+        let target = randomColor;
+        if (gradientSampler && Math.random() < gradientChance) {
+          let appearTime = parseFloat(pValues[0]) || 0;
+          target = gradientSampler(appearTime % 60 / 60), gradientCount++;
+        }
+        color !== target && (colorCount++, color = target, modified = !0);
+      }
+      if (modified) {
         let newP = [pValues[0], mode, color, ...pValues.slice(3)].join(",");
         return { ...danmu, p: newP };
       }
       return danmu;
-    }), topBottomCount > 0 && log("info", `[system] [danmu] [danmu convert] \u8F6C\u6362\u4E86 ${topBottomCount} \u6761\u9876\u90E8/\u5E95\u90E8\u5F39\u5E55\u4E3A\u6D6E\u52A8\u5F39\u5E55`), colorCount > 0 && log("info", `[system] [danmu] [danmu convert] \u8F6C\u6362\u4E86 ${colorCount} \u6761\u5F39\u5E55\u989C\u8272`);
+    }), topBottomCount > 0 && log("info", `[system] [danmu] [danmu convert] \u8F6C\u6362\u4E86 ${topBottomCount} \u6761\u9876\u90E8/\u5E95\u90E8\u5F39\u5E55\u4E3A\u6D6E\u52A8\u5F39\u5E55`), colorCount > 0 && log("info", `[system] [danmu] [danmu convert] \u8F6C\u6362\u4E86 ${colorCount} \u6761\u5F39\u5E55\u989C\u8272\uFF08\u5176\u4E2D\u6E10\u53D8\u8272\u5F39\u5E55 ${gradientCount} \u6761\uFF09`);
   }
   return log("info", `[system] [danmu] danmus_original: ${danmus.length}`), log("info", `[system] [danmu] danmus_filter: ${filteredDanmus.length}`), log("info", `[system] [danmu] danmus_group: ${groupedDanmus.length}`), log("info", `[system] [danmu] danmus_limit: ${convertedDanmus.length}`), log("info", "[system] [danmu] Top 5 danmus:", JSON.stringify(convertedDanmus.slice(0, 5), null, 2)), convertedDanmus;
 }
@@ -8983,7 +9095,7 @@ var RegexStore = {
     defaultStandard: "\u5267\u573A\u7248"
   }
 ];
-function escapeRegExp(string) {
+function escapeRegExp2(string) {
   return string.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 function fastCloneAnime(anime) {
@@ -9008,7 +9120,7 @@ function normalizeTitleForEngine(title) {
     if (rule.mappings)
       for (let mapping of rule.mappings)
         mapping.markers.forEach((marker) => {
-          let reg = new RegExp(escapeRegExp(marker), "gi");
+          let reg = new RegExp(escapeRegExp2(marker), "gi");
           reg.test(normTitle) && (normTitle = normTitle.replace(reg, ` ${mapping.targetStandard} `), hasMapped = !0);
         });
     !hasMapped && rule.defaultStandard && (normTitle += ` ${rule.defaultStandard} `);
@@ -9301,7 +9413,7 @@ function identifyRedundantTitle(links, seriesTitle, sourceName) {
     try {
       let regex = _redundantTitleRegexCache.get(sourceName);
       if (!regex) {
-        let escapedSource = escapeRegExp(sourceName);
+        let escapedSource = escapeRegExp2(sourceName);
         regex = new RegExp(`(\\[|\u3010|\\s)?${escapedSource}(\\]|\u3011|\\s)?`, "gi"), _redundantTitleRegexCache.set(sourceName, regex);
       }
       return text.replace(regex, "").trim();
@@ -10698,9 +10810,9 @@ var Kan360Source = class extends BaseSource {
     return null;
   }
   // 获取 allepidetail（start..end）
-  async get360Detail(cat, id, site, start2, end2) {
+  async get360Detail(cat, id, site, start, end) {
     try {
-      let url = `https://api.web.360kan.com/v1/detail?cat=${cat}&id=${id}&start=${start2}&end=${end2}&site=${site}`;
+      let url = `https://api.web.360kan.com/v1/detail?cat=${cat}&id=${id}&start=${start}&end=${end}&site=${site}`;
       return (await Widget.http.get(url, {
         headers: {
           "Content-Type": "application/json",
@@ -13660,22 +13772,22 @@ var TencentSource = class extends BaseSource {
   }
   // 提取vid的公共函数
   extractVid(id) {
-    let vid2 = id;
+    let vid = id;
     if (typeof id == "string" && (id.startsWith("http") || id.includes("vid="))) {
       let queryMatch = id.match(/[?&]vid=([^&]+)/);
       if (queryMatch)
-        vid2 = queryMatch[1];
+        vid = queryMatch[1];
       else {
         let pathParts = id.split("/");
-        vid2 = pathParts[pathParts.length - 1].split(".")[0];
+        vid = pathParts[pathParts.length - 1].split(".")[0];
       }
     }
-    return vid2;
+    return vid;
   }
   async getEpisodeDanmu(id) {
     log("info", "[tencent] \u5F00\u59CB\u4ECE\u672C\u5730\u8BF7\u6C42\u817E\u8BAF\u89C6\u9891\u5F39\u5E55...", id);
-    let vid2 = this.extractVid(id);
-    log("info", `[tencent] vid: ${vid2}`);
+    let vid = this.extractVid(id);
+    log("info", `[tencent] vid: ${vid}`);
     let res;
     try {
       res = await Widget.http.get(id, {
@@ -13717,11 +13829,11 @@ var TencentSource = class extends BaseSource {
   }
   async getEpisodeDanmuSegments(id) {
     log("info", "[tencent] \u83B7\u53D6\u817E\u8BAF\u89C6\u9891\u5F39\u5E55\u5206\u6BB5\u5217\u8868...", id);
-    let api_danmaku_base = "https://dm.video.qq.com/barrage/base/", api_danmaku_segment = "https://dm.video.qq.com/barrage/segment/", vid2 = this.extractVid(id);
-    log("info", `[tencent] \u83B7\u53D6\u5F39\u5E55\u5206\u6BB5\u5217\u8868 - vid: ${vid2}`);
+    let api_danmaku_base = "https://dm.video.qq.com/barrage/base/", api_danmaku_segment = "https://dm.video.qq.com/barrage/segment/", vid = this.extractVid(id);
+    log("info", `[tencent] \u83B7\u53D6\u5F39\u5E55\u5206\u6BB5\u5217\u8868 - vid: ${vid}`);
     let res;
     try {
-      res = await Widget.http.get(api_danmaku_base + vid2, {
+      res = await Widget.http.get(api_danmaku_base + vid, {
         headers: {
           "Content-Type": "application/json",
           "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
@@ -13742,7 +13854,7 @@ var TencentSource = class extends BaseSource {
         type: "qq",
         segment_start: (Number(item.segment_start) || 0) / 1e3,
         segment_end: (Number(item.segment_name.split("/").pop()) || 0) / 1e3,
-        url: `${api_danmaku_segment}${vid2}/${item.segment_name}`
+        url: `${api_danmaku_segment}${vid}/${item.segment_name}`
       });
     return new SegmentListResponse({
       type: "qq",
@@ -14465,10 +14577,10 @@ var _IqiyiSource = class _IqiyiSource extends BaseSource {
       else if (wireType === 2) {
         let lengthResult = this._readIqiyiVarint(bytes, offset), length = Number(lengthResult.value);
         offset = lengthResult.offset;
-        let end2 = offset + length;
-        if (end2 > bytes.length) break;
-        let raw = bytes.subarray(offset, end2);
-        fields.push({ number, wireType, bytes: raw, value: utf8BytesToString(raw) }), offset = end2;
+        let end = offset + length;
+        if (end > bytes.length) break;
+        let raw = bytes.subarray(offset, end);
+        fields.push({ number, wireType, bytes: raw, value: utf8BytesToString(raw) }), offset = end;
       } else if (wireType === 5)
         fields.push({ number, wireType }), offset += 4;
       else
@@ -14793,11 +14905,11 @@ var MangoSource = class extends BaseSource {
         type: "imgo",
         segmentList: []
       });
-    let cid = path2[path2.length - 2], vid2 = path2[path2.length - 1].split(".")[0];
-    log("info", `[mango] \u83B7\u53D6\u5F39\u5E55\u5206\u6BB5\u5217\u8868 - cid: ${cid}, vid: ${vid2}`);
+    let cid = path2[path2.length - 2], vid = path2[path2.length - 1].split(".")[0];
+    log("info", `[mango] \u83B7\u53D6\u5F39\u5E55\u5206\u6BB5\u5217\u8868 - cid: ${cid}, vid: ${vid}`);
     let res;
     try {
-      let videoInfoUrl = `${api_video_info}?cid=${cid}&vid=${vid2}`;
+      let videoInfoUrl = `${api_video_info}?cid=${cid}&vid=${vid}`;
       res = await Widget.http.get(videoInfoUrl, {
         headers: {
           "Content-Type": "application/json",
@@ -14815,7 +14927,7 @@ var MangoSource = class extends BaseSource {
     }
     let time = (typeof res.data == "string" ? JSON.parse(res.data) : res.data).data.info.time, useNewApi = !0;
     try {
-      let ctlBarrageUrl = `${api_ctl_barrage}?version=8.1.39&abroad=0&uuid=&os=10.15.7&platform=0&mac=&vid=${vid2}&pid=&cid=${cid}&ticket=`, res2 = await Widget.http.get(ctlBarrageUrl, {
+      let ctlBarrageUrl = `${api_ctl_barrage}?version=8.1.39&abroad=0&uuid=&os=10.15.7&platform=0&mac=&vid=${vid}&pid=&cid=${cid}&ticket=`, res2 = await Widget.http.get(ctlBarrageUrl, {
         headers: {
           "Content-Type": "application/json",
           "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
@@ -14844,7 +14956,7 @@ var MangoSource = class extends BaseSource {
             // 每段开始时间（秒）
             segment_end: Math.min(i + 60, time_to_second(time)),
             // 每段结束时间（秒）
-            url: `${api_rd_barrage}?vid=${vid2}&cid=${cid}&time=${i * 1e3}`
+            url: `${api_rd_barrage}?vid=${vid}&cid=${cid}&time=${i * 1e3}`
             // 每段弹幕URL
           });
       }
@@ -15405,16 +15517,16 @@ var _BilibiliSource = class _BilibiliSource extends BaseSource {
       let segmentList2 = [], currentOffset = 0, totalDuration = 0, urlStr = id.startsWith("http") ? id : `https://www.bilibili.com${id}`, urlObj = new URL(urlStr);
       for (let [key, value] of urlObj.searchParams.entries()) {
         if (!key.startsWith("cid")) continue;
-        let cid2 = key.substring(3), [startStr, endStr] = value.split("-"), start2 = parseFloat(startStr) || 0, end2 = parseFloat(endStr) || 0, duration2 = end2 - start2;
+        let cid2 = key.substring(3), [startStr, endStr] = value.split("-"), start = parseFloat(startStr) || 0, end = parseFloat(endStr) || 0, duration2 = end - start;
         if (duration2 <= 0) continue;
         totalDuration += duration2;
-        let maxLen2 = Math.ceil(end2 / 360);
+        let maxLen2 = Math.ceil(end / 360);
         for (let i = 0; i < maxLen2; i++) {
-          let metadataHash = `#combine_start=${start2}&combine_end=${end2}&combine_offset=${currentOffset}`;
+          let metadataHash = `#combine_start=${start}&combine_end=${end}&combine_offset=${currentOffset}`;
           segmentList2.push({
             type: "bilibili1",
             segment_start: i * 360,
-            segment_end: Math.min((i + 1) * 360, end2),
+            segment_end: Math.min((i + 1) * 360, end),
             url: `https://api.bilibili.com/x/v2/dm/web/seg.so?type=1&oid=${cid2}&segment_index=${i + 1}${metadataHash}`
           });
         }
@@ -15467,11 +15579,11 @@ var _BilibiliSource = class _BilibiliSource extends BaseSource {
         retries: 1
       }), contents = [];
       if (response && response.data && (contents = parseDanmakuBase64(response.data)), urlObj.hash && urlObj.hash.includes("combine_offset")) {
-        let hashParams = new URLSearchParams(urlObj.hash.substring(1)), start2 = parseFloat(hashParams.get("combine_start")) || 0, end2 = parseFloat(hashParams.get("combine_end")) || 0, offset = parseFloat(hashParams.get("combine_offset")) || 0, filtered = [];
+        let hashParams = new URLSearchParams(urlObj.hash.substring(1)), start = parseFloat(hashParams.get("combine_start")) || 0, end = parseFloat(hashParams.get("combine_end")) || 0, offset = parseFloat(hashParams.get("combine_offset")) || 0, filtered = [];
         for (let c of contents) {
           let time = 0;
-          if (c.p && typeof c.p == "string" ? time = parseFloat(c.p.split(",")[0]) : c.t !== void 0 ? time = Number(c.t) : c.progress !== void 0 && (time = c.progress / 1e3), !isNaN(time) && time >= start2 && time <= end2) {
-            let shiftedTime = time - start2 + offset;
+          if (c.p && typeof c.p == "string" ? time = parseFloat(c.p.split(",")[0]) : c.t !== void 0 ? time = Number(c.t) : c.progress !== void 0 && (time = c.progress / 1e3), !isNaN(time) && time >= start && time <= end) {
+            let shiftedTime = time - start + offset;
             if (c.p && typeof c.p == "string") {
               let parts = c.p.split(",");
               parts[0] = shiftedTime.toFixed(5), c.p = parts.join(",");
@@ -16799,12 +16911,12 @@ var MiguSource = class extends BaseSource {
     for (let i = 0; i < segmentList.length; i += MAX_CONCURRENT) {
       let batch = segmentList.slice(i, i + MAX_CONCURRENT), batchPromises = batch.map((segment) => this.getEpisodeSegmentDanmu(segment)), batchResults = await Promise.allSettled(batchPromises);
       for (let j = 0; j < batchResults.length; j++) {
-        let result = batchResults[j], segment = batch[j], start2 = segment.segment_start, end2 = segment.segment_end;
+        let result = batchResults[j], segment = batch[j], start = segment.segment_start, end = segment.segment_end;
         if (result.status === "fulfilled") {
           let comments = result.value;
           comments && comments.length > 0 && allComments.push(...comments);
         } else
-          log("error", `[migu] \u83B7\u53D6\u5F39\u5E55\u6BB5\u5931\u8D25 (${start2}-${end2}s):`, result.reason.message);
+          log("error", `[migu] \u83B7\u53D6\u5F39\u5E55\u6BB5\u5931\u8D25 (${start}-${end}s):`, result.reason.message);
       }
       i + MAX_CONCURRENT < segmentList.length && await new Promise((resolve) => setTimeout(resolve, 200));
     }
@@ -16859,6 +16971,25 @@ var MiguSource = class extends BaseSource {
 }, migu_default = MiguSource;
 
 // danmu_api/sources/sohu.js
+var SOHU_SEARCH_SECRET = "vxWaXm3C5SA9&fpc";
+function md52(value) {
+  let data = new TextEncoder().encode(String(value)), bitLen = data.length * 8, padded = new Uint8Array((data.length + 9 + 63 >> 6) * 64);
+  padded.set(data), padded[data.length] = 128;
+  let dv = new DataView(padded.buffer);
+  dv.setUint32(padded.length - 8, bitLen >>> 0, !0), dv.setUint32(padded.length - 4, Math.floor(bitLen / 4294967296), !0);
+  let a0 = 1732584193, b0 = 4023233417, c0 = 2562383102, d0 = 271733878, s = [7, 12, 17, 22, 7, 12, 17, 22, 7, 12, 17, 22, 7, 12, 17, 22, 5, 9, 14, 20, 5, 9, 14, 20, 5, 9, 14, 20, 5, 9, 14, 20, 4, 11, 16, 23, 4, 11, 16, 23, 4, 11, 16, 23, 4, 11, 16, 23, 6, 10, 15, 21, 6, 10, 15, 21, 6, 10, 15, 21, 6, 10, 15, 21], K = Array.from({ length: 64 }, (_, i) => Math.floor(Math.abs(Math.sin(i + 1)) * 4294967296)), rol = (x, n) => x << n | x >>> 32 - n;
+  for (let off = 0; off < padded.length; off += 64) {
+    let M = Array.from({ length: 16 }, (_, i) => dv.getUint32(off + i * 4, !0)), A = a0, B = b0, C = c0, D = d0;
+    for (let i = 0; i < 64; i++) {
+      let F, g;
+      i < 16 ? (F = B & C | ~B & D, g = i) : i < 32 ? (F = D & B | ~D & C, g = (5 * i + 1) % 16) : i < 48 ? (F = B ^ C ^ D, g = (3 * i + 5) % 16) : (F = C ^ (B | ~D), g = 7 * i % 16);
+      let t = D;
+      D = C, C = B, B = B + rol(A + F + K[i] + M[g] | 0, s[i]) | 0, A = t;
+    }
+    a0 = a0 + A | 0, b0 = b0 + B | 0, c0 = c0 + C | 0, d0 = d0 + D | 0;
+  }
+  return [a0, b0, c0, d0].map((n) => Array.from({ length: 4 }, (_, i) => (n >>> i * 8 & 255).toString(16).padStart(2, "0")).join("")).join("");
+}
 var SohuSource = class extends BaseSource {
   constructor() {
     super(), this.positionMap = {
@@ -16877,26 +17008,29 @@ var SohuSource = class extends BaseSource {
    * @returns {Object|null} 过滤后的结果
    */
   filterSohuSearchItem(item, keyword) {
-    if (!item.aid || !item.album_name || item.is_trailer === 1 || item.corner_mark && item.corner_mark.text === "\u9884\u544A")
+    let mediaId = item.aid || item.vid, albumName = item.album_name || item.video_name;
+    if (!mediaId || !albumName || item.is_trailer === 1 || item.corner_mark && item.corner_mark.text === "\u9884\u544A")
       return null;
-    let title = item.album_name.replace("<<<", "").replace(">>>", ""), categoryName = null;
-    if (item.meta && Array.isArray(item.meta)) {
-      for (let metaData of item.meta)
-        if (metaData.txt && metaData.txt.includes("|")) {
-          let parts = metaData.txt.split("|");
+    let title = String(albumName).replace(/<<<|>>>/g, ""), categoryName = null;
+    if (item.meta && Array.isArray(item.meta))
+      for (let metaData of item.meta) {
+        let metaText = typeof metaData == "string" ? metaData : metaData?.txt;
+        if (metaText && metaText.includes("|")) {
+          let parts = metaText.split("|");
           if (parts.length > 0) {
             let firstPart = parts[0].trim();
             firstPart.includes("\u522B\u540D") && parts.length > 1 ? categoryName = parts[1].trim() : categoryName = firstPart;
             break;
           }
         }
-    }
+      }
+    let metaYear = Array.isArray(item.meta) ? item.meta.map((v) => typeof v == "string" ? v : v?.txt || "").join(" ").match(/((?:19|20)\d{2})年?/)?.[1] : null;
     return {
-      mediaId: String(item.aid),
+      mediaId: String(mediaId),
       title,
-      type: categoryName,
-      year: item.year || null,
-      imageUrl: item.ver_big_pic || null,
+      type: categoryName || item.type_name || item.type || "\u5267\u96C6",
+      year: item.year || item.year_name || metaYear || null,
+      imageUrl: item.ver_big_pic || item.album_pic || item.poster || null,
       episodeCount: item.total_video_count || 0
     };
   }
@@ -16920,12 +17054,14 @@ var SohuSource = class extends BaseSource {
         passport: "",
         plat: "-1",
         ssl: "0"
-      }, headers = {
+      }, fpc = md52(`sohu-${Math.random()}${Date.now()}`), timeStamp = Date.now().toString();
+      params.fpc = fpc, params.timeStamp = timeStamp, params.code = md52(`${timeStamp}${fpc}${SOHU_SEARCH_SECRET}`);
+      let headers = {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36",
         Accept: "application/json, text/plain, */*",
         "Accept-Language": "zh-CN,zh;q=0.9,en;q=0.8",
-        Referer: "https://so.tv.sohu.com/",
-        Origin: "https://so.tv.sohu.com"
+        Referer: "https://tv.sohu.com/",
+        Origin: "https://tv.sohu.com"
       }, searchUrl = `https://m.so.tv.sohu.com/search/pc/keyword?${buildQueryString(params)}`, response = await Widget.http.get(searchUrl, { headers });
       if (!response || !response.data)
         return log("info", "[sohu] \u641C\u7D22\u54CD\u5E94\u4E3A\u7A7A"), [];
@@ -16949,14 +17085,14 @@ var SohuSource = class extends BaseSource {
     }, headers = {
       "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
       Referer: "https://tv.sohu.com/"
-    }, playlistUrl = `https://pl.hd.sohu.com/videolist?${buildQueryString(params)}`, response = await Widget.http.get(playlistUrl, { headers, timeout: 15e3 });
+    }, playlistUrl = `https://pl.hd.sohu.com/videolist?${buildQueryString(params)}`, response = await Widget.http.get(playlistUrl, { headers, timeout: 15e3, encoding: "gbk" });
     if (!response || !response.data)
       return null;
     let data = response.data;
     if (typeof data == "string" && data.startsWith("jsonp")) {
-      let start2 = data.indexOf("(") + 1, end2 = data.lastIndexOf(")");
-      if (start2 > 0 && end2 > start2)
-        data = JSON.parse(data.substring(start2, end2));
+      let start = data.indexOf("(") + 1, end = data.lastIndexOf(")");
+      if (start > 0 && end > start)
+        data = JSON.parse(data.substring(start, end));
       else
         return log("error", "[sohu] \u641C\u72D0\u89C6\u9891: \u65E0\u6CD5\u89E3\u6790JSONP\u54CD\u5E94"), null;
     } else typeof data == "string" && (data = JSON.parse(data));
@@ -16973,13 +17109,13 @@ var SohuSource = class extends BaseSource {
         return log("warn", `[sohu] \u641C\u72D0\u89C6\u9891: \u672A\u627E\u5230\u5206\u96C6\u5217\u8868 (media_id=${id})`), [];
       let episodes = [];
       for (let i = 0; i < videosData.length; i++) {
-        let video = videosData[i], vid2, title, url;
-        typeof video == "object" ? (vid2 = String(video.vid || ""), title = video.video_name || `\u7B2C${i + 1}\u96C6`, url = video.url_html5 || "") : (vid2 = String(video.vid || video.vid || ""), title = video.name || video.video_name || `\u7B2C${i + 1}\u96C6`, url = video.pageUrl || video.url_html5 || ""), url && url.startsWith("http://") && (url = url.replace("http://", "https://"));
+        let video = videosData[i], vid, title, url;
+        typeof video == "object" ? (vid = String(video.vid || ""), title = video.video_name || video.name || `\u7B2C${i + 1}\u96C6`, url = video.url_html5 || video.pageUrl || "") : (vid = String(video.vid || ""), title = video.name || video.video_name || `\u7B2C${i + 1}\u96C6`, url = video.pageUrl || video.url_html5 || ""), !url && vid && (url = `https://tv.sohu.com/v/${vid}.html`), url && url.startsWith("http://") && (url = url.replace("http://", "https://"));
         let episode = {
-          vid: vid2,
+          vid,
           title,
           url,
-          episodeId: `${vid2}:${id}`
+          episodeId: `${vid}:${id}`
           // vid:aid
         };
         episodes.push(episode);
@@ -17044,12 +17180,12 @@ var SohuSource = class extends BaseSource {
     );
     return this.sortAndPushAnimesByYear(tmpAnimes, curAnimes), processSohuAnimes;
   }
-  async getEpisodeDuration(aid, vid2) {
+  async getEpisodeDuration(aid, vid) {
     if (!aid) return 0;
     try {
       let data = await this.getPlaylistData(aid), videos = Array.isArray(data?.videos) ? data.videos : [];
       if (!videos.length) return 0;
-      let matchedVideo = videos.find((video) => String(video?.vid || "") === String(vid2 || "")) || (videos.length === 1 ? videos[0] : null), duration = Number(matchedVideo?.playLength || 0);
+      let matchedVideo = videos.find((video) => String(video?.vid || "") === String(vid || "")) || (videos.length === 1 ? videos[0] : null), duration = Number(matchedVideo?.playLength || 0);
       return Number.isFinite(duration) && duration > 0 ? duration : 0;
     } catch (error) {
       return log("warn", `[sohu] \u83B7\u53D6\u771F\u5B9E\u65F6\u957F\u5931\u8D25: ${error.message}`), 0;
@@ -17057,12 +17193,25 @@ var SohuSource = class extends BaseSource {
   }
   // 提取vid和aid的公共函数
   async extractVidAndAid(id) {
-    let vid2, aid = "0", resp = await Widget.http.get(id, {
+    let vid, aid = "0";
+    if (!id) return { vid, aid };
+    let rawId = String(id), pair = rawId.match(/(?:^|[/:])([0-9]{4,}):([0-9]+)$/);
+    if (pair) return { vid: pair[1], aid: pair[2] };
+    try {
+      let parsed = new URL(rawId);
+      if (vid = parsed.searchParams.get("vid") || parsed.searchParams.get("videoId") || void 0, aid = parsed.searchParams.get("aid") || parsed.searchParams.get("albumId") || aid, aid === "0") {
+        let albumMatch = parsed.pathname.match(/(?:album|playlist|show)[/_-]?(\d+)/i);
+        albumMatch && (aid = albumMatch[1]);
+      }
+      if (vid && aid !== "0") return { vid, aid };
+    } catch {
+    }
+    let resp = await Widget.http.get(rawId, {
       headers: {
         "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
       }
-    }), match = resp.data.match(/vid="(\d+)"/);
-    return match && (vid2 = match[1]), aid = resp.data.match(/id="aid"[^>]*value=['"](\d+)['"]/)?.[1], aid || (aid = resp.data.match(/playlistId="(\d+)"/)?.[1]), { vid: vid2, aid };
+    }), html = typeof resp?.data == "string" ? resp.data : "", match = html.match(/(?:vid|videoId)\s*["']?\s*[:=]\s*["']?(\d+)/i) || html.match(/vid="(\d+)"/i);
+    return match && (vid = match[1]), aid = html.match(/id="aid"[^>]*value=['"](\d+)['"]/i)?.[1], aid || (aid = html.match(/playlistId\s*=\s*["'](\d+)["']/i)?.[1]), { vid, aid };
   }
   async getEpisodeDanmu(id) {
     log("info", "[sohu] \u5F00\u59CB\u4ECE\u672C\u5730\u8BF7\u6C42\u641C\u72D0\u89C6\u9891\u5F39\u5E55...", id);
@@ -17075,15 +17224,15 @@ var SohuSource = class extends BaseSource {
     for (let i = 0; i < segmentList.length; i += MAX_CONCURRENT) {
       let batch = segmentList.slice(i, i + MAX_CONCURRENT), batchPromises = batch.map((segment) => this.getDanmuSegment(segment)), batchResults = await Promise.allSettled(batchPromises);
       for (let j = 0; j < batchResults.length; j++) {
-        let result = batchResults[j], segment = batch[j], start2 = segment.segment_start, end2 = segment.segment_end;
+        let result = batchResults[j], segment = batch[j], start = segment.segment_start, end = segment.segment_end;
         if (result.status === "fulfilled") {
           let comments = result.value;
           if (comments && comments.length > 0)
             allComments.push(...comments);
-          else if (start2 > 600)
+          else if (start > 600)
             break;
         } else
-          log("error", `[sohu] \u83B7\u53D6\u5F39\u5E55\u6BB5\u5931\u8D25 (${start2}-${end2}s):`, result.reason.message);
+          log("error", `[sohu] \u83B7\u53D6\u5F39\u5E55\u6BB5\u5931\u8D25 (${start}-${end}s):`, result.reason.message);
       }
       i + MAX_CONCURRENT < segmentList.length && await new Promise((resolve) => setTimeout(resolve, 200));
     }
@@ -17104,19 +17253,22 @@ var SohuSource = class extends BaseSource {
         return log("error", `[sohu] \u641C\u72D0\u89C6\u9891: \u89E3\u6790\u5F39\u5E55\u54CD\u5E94\u5931\u8D25: ${error.message}`), [];
       }
     } catch (error) {
-      return log("error", `[sohu] \u641C\u72D0\u89C6\u9891: \u83B7\u53D6\u5F39\u5E55\u6BB5\u5931\u8D25 (vid=${vid}, ${start}-${end}s): ${error.message}`), [];
+      return log("error", `[sohu] \u641C\u72D0\u89C6\u9891: \u83B7\u53D6\u5F39\u5E55\u6BB5\u5931\u8D25 (${segment?.segment_start}-${segment?.segment_end}s): ${error.message}`), [];
     }
   }
   async getEpisodeDanmuSegments(id) {
     log("info", "[sohu] \u83B7\u53D6\u641C\u72D0\u89C6\u9891\u5F39\u5E55\u5206\u6BB5\u5217\u8868...", id);
-    let { vid: vid2, aid } = await this.extractVidAndAid(id), duration = await this.getEpisodeDuration(aid, vid2), maxTime = duration > 0 ? Math.ceil(duration) : 10800, segmentDuration = 300, segments = [];
-    for (let start2 = 0; start2 < maxTime; start2 += segmentDuration) {
-      let end2 = Math.min(start2 + segmentDuration, maxTime);
+    let { vid, aid } = await this.extractVidAndAid(id);
+    if (!vid)
+      return log("warn", `[sohu] \u65E0\u6CD5\u4ECE\u89C6\u9891\u9875\u9762\u63D0\u53D6 vid: ${id}`), new SegmentListResponse({ type: "sohu", duration: 0, segmentList: [] });
+    let duration = await this.getEpisodeDuration(aid, vid), maxTime = duration > 0 ? Math.ceil(duration) : 10800, segmentDuration = 300, segments = [];
+    for (let start = 0; start < maxTime; start += segmentDuration) {
+      let end = Math.min(start + segmentDuration, maxTime);
       segments.push({
         type: "sohu",
-        segment_start: start2,
-        segment_end: end2,
-        url: `https://api.danmu.tv.sohu.com/dmh5/dmListAll?act=dmlist_v2&vid=${vid2}&aid=${aid}&pct=2&time_begin=${start2}&time_end=${end2}&dct=1&request_from=h5_js`
+        segment_start: start,
+        segment_end: end,
+        url: `https://api.danmu.tv.sohu.com/dmh5/dmListAll?act=dmlist_v2&vid=${vid}&aid=${aid}&pct=2&time_begin=${start}&time_end=${end}&dct=1&request_from=h5_js`
       });
     }
     return new SegmentListResponse({
@@ -17489,15 +17641,15 @@ var typeMap = {
     for (let i = 0; i < segmentList.length; i += MAX_CONCURRENT) {
       let batch = segmentList.slice(i, i + MAX_CONCURRENT), batchPromises = batch.map((segment) => this.getDanmuSegment(segment)), batchResults = await Promise.allSettled(batchPromises);
       for (let j = 0; j < batchResults.length; j++) {
-        let result = batchResults[j], segment = batch[j], start2 = segment.segment_start, end2 = segment.segment_end;
+        let result = batchResults[j], segment = batch[j], start = segment.segment_start, end = segment.segment_end;
         if (result.status === "fulfilled") {
           let comments = result.value;
           if (comments && comments.length > 0)
             allComments.push(...comments);
-          else if (start2 > 600)
+          else if (start > 600)
             break;
         } else
-          log("error", `[leshi] \u83B7\u53D6\u5F39\u5E55\u6BB5\u5931\u8D25 (${start2}-${end2}s):`, result.reason.message);
+          log("error", `[leshi] \u83B7\u53D6\u5F39\u5E55\u6BB5\u5931\u8D25 (${start}-${end}s):`, result.reason.message);
       }
       i + MAX_CONCURRENT < segmentList.length && await new Promise((resolve) => setTimeout(resolve, 200));
     }
@@ -17740,12 +17892,12 @@ var XiguaSource = class extends BaseSource {
     for (let i = 0; i < segmentList.length; i += MAX_CONCURRENT) {
       let batch = segmentList.slice(i, i + MAX_CONCURRENT), batchPromises = batch.map((segment) => this.getEpisodeSegmentDanmu(segment)), batchResults = await Promise.allSettled(batchPromises);
       for (let j = 0; j < batchResults.length; j++) {
-        let result = batchResults[j], segment = batch[j], start2 = segment.segment_start, end2 = segment.segment_end;
+        let result = batchResults[j], segment = batch[j], start = segment.segment_start, end = segment.segment_end;
         if (result.status === "fulfilled") {
           let comments = result.value;
           comments && comments.length > 0 && allComments.push(...comments);
         } else
-          log("error", `[xigua] \u83B7\u53D6\u5F39\u5E55\u6BB5\u5931\u8D25 (${start2}-${end2}s):`, result.reason.message);
+          log("error", `[xigua] \u83B7\u53D6\u5F39\u5E55\u6BB5\u5931\u8D25 (${start}-${end}s):`, result.reason.message);
       }
       i + MAX_CONCURRENT < segmentList.length && await new Promise((resolve) => setTimeout(resolve, 200));
     }
@@ -17803,7 +17955,7 @@ var XiguaSource = class extends BaseSource {
 }, xigua_default = XiguaSource;
 
 // danmu_api/sources/maiduidui.js
-var MaiduiduiSource = class extends BaseSource {
+var MaiduiduiSource = class _MaiduiduiSource extends BaseSource {
   constructor() {
     super(), this.domain = "https://mob.mddcloud.com.cn", this.headers = {
       "user-agent": "Mdd/5.8.00 (Android+32+)",
@@ -17838,26 +17990,40 @@ var MaiduiduiSource = class extends BaseSource {
       success: !!(vodUuidMatch && uuidMatch)
     };
   }
+  // vodType 数字到类型名的映射（埋堆堆搜索接口已不返回 typeName 字符串，改用 vodType 数字）。
+  // 按埋堆堆旧接口的 typeName 分类约定解释：0=剧集(正剧，多集), 1=电影, 2=综艺，3=短视频/花絮。
+  // materialName 是题材标签（如“奇幻”“警匪”），不作为剧集/电影/综艺类型使用。
+  static get VOD_TYPE_MAP() {
+    return { 0: "\u5267\u96C6", 1: "\u7535\u5F71", 2: "\u7EFC\u827A" };
+  }
+  // 旧接口 getAllSearchResult4820.action 已失效(返回空数组)，新接口去掉版本号后缀
+  // 新接口数据结构变化：typeItem.typeName 不再存在，改用 vodItem.vodType + vodItem.materialName
   async search(keyword) {
     try {
-      let urlSuffix = "/searchApi/search/getAllSearchResult4820.action", searchUrl = `${this.domain}${urlSuffix}`, dataBody = {
+      let urlSuffix = "/searchApi/search/getAllSearchResult.action", searchUrl = `${this.domain}${urlSuffix}`, dataBody = {
         keyWord: keyword
       }, response = await Widget.http.post(searchUrl, JSON.stringify(this.getPlayload(urlSuffix, dataBody)), {
         headers: this.headers
       });
       if (!response || !response.data)
         return log("info", "[maiduidui] \u641C\u7D22\u54CD\u5E94\u4E3A\u7A7A"), [];
-      let data = typeof response.data == "string" ? JSON.parse(response.data) : response.data, animes = [], typeList = data?.data;
-      for (let typeItem of typeList)
-        if (typeItem?.typeName === "\u5267\u96C6" || typeItem?.typeName === "\u7535\u5F71" || typeItem?.typeName === "\u7EFC\u827A")
-          for (let vodItem of typeItem?.vodList)
-            animes.push({
-              name: vodItem.name,
-              type: typeItem.typeName,
-              year: vodItem.yearName,
-              img: vodItem.downImage,
-              url: vodItem.uuid
-            });
+      let data = typeof response.data == "string" ? JSON.parse(response.data) : response.data, animes = [], typeList = Array.isArray(data?.data) ? data.data : [];
+      for (let typeItem of typeList) {
+        let vodList = Array.isArray(typeItem?.vodList) ? typeItem.vodList : [];
+        for (let vodItem of vodList) {
+          if (!vodItem?.name || !vodItem?.uuid) continue;
+          let vodType = Number(vodItem.vodType);
+          if (!Number.isInteger(vodType) || !Object.prototype.hasOwnProperty.call(_MaiduiduiSource.VOD_TYPE_MAP, vodType)) continue;
+          let typeName = _MaiduiduiSource.VOD_TYPE_MAP[vodType];
+          animes.push({
+            name: vodItem.name,
+            type: typeName,
+            year: vodItem.yearName || null,
+            img: vodItem.downImage,
+            url: vodItem.uuid
+          });
+        }
+      }
       return log("info", `[maiduidui] \u641C\u7D22\u627E\u5230 ${animes.length} \u4E2A\u6709\u6548\u7ED3\u679C`), animes;
     } catch (error) {
       return log("error", "[maiduidui] getMaiduiduiAnimes error:", {
@@ -17948,10 +18114,10 @@ var MaiduiduiSource = class extends BaseSource {
             });
           }
           if (links.length > 0) {
-            let transformedAnime = {
+            let yearPart = anime.year ? `(${anime.year})` : "", transformedAnime = {
               animeId: convertToAsciiSum(anime.url),
               bangumiId: anime.url,
-              animeTitle: `${anime.name}(${anime.year})\u3010${anime.type}\u3011from maiduidui`,
+              animeTitle: `${anime.name}${yearPart}\u3010${anime.type}\u3011from maiduidui`,
               type: anime.type,
               typeDescription: anime.type,
               imageUrl: anime.img,
@@ -17981,12 +18147,12 @@ var MaiduiduiSource = class extends BaseSource {
     for (let i = 0; i < segmentList.length; i += MAX_CONCURRENT) {
       let batch = segmentList.slice(i, i + MAX_CONCURRENT), batchPromises = batch.map((segment) => this.getEpisodeSegmentDanmu(segment)), batchResults = await Promise.allSettled(batchPromises);
       for (let j = 0; j < batchResults.length; j++) {
-        let result = batchResults[j], segment = batch[j], start2 = segment.segment_start, end2 = segment.segment_end;
+        let result = batchResults[j], segment = batch[j], start = segment.segment_start, end = segment.segment_end;
         if (result.status === "fulfilled") {
           let comments = result.value;
           comments && comments.length > 0 && allComments.push(...comments);
         } else
-          log("error", `[maiduidui] \u83B7\u53D6\u5F39\u5E55\u6BB5\u5931\u8D25 (${start2}-${end2}s):`, result.reason.message);
+          log("error", `[maiduidui] \u83B7\u53D6\u5F39\u5E55\u6BB5\u5931\u8D25 (${start}-${end}s):`, result.reason.message);
       }
       i + MAX_CONCURRENT < segmentList.length && await new Promise((resolve) => setTimeout(resolve, 200));
     }
@@ -18304,12 +18470,12 @@ var AiyifanSource = class extends BaseSource {
       let result = item.result || [];
       if (result.length)
         for (let dramaInfo of result) {
-          let vid2 = dramaInfo.contxt, title = dramaInfo.title;
+          let vid = dramaInfo.contxt, title = dramaInfo.title;
           dramas.push({
-            contxt: vid2,
+            contxt: vid,
             title,
             ...dramaInfo
-          }), log("info", `[aiyifan] [\u53D1\u73B0\u5267\u76EE] ${title}  vid=${vid2}`);
+          }), log("info", `[aiyifan] [\u53D1\u73B0\u5267\u76EE] ${title}  vid=${vid}`);
         }
     }
     return dramas;
@@ -18319,10 +18485,10 @@ var AiyifanSource = class extends BaseSource {
    * @param {string} vid - 剧集唯一标识
    * @returns {Promise<Array>} 集列表
    */
-  async getPlaylist(vid2) {
+  async getPlaylist(vid) {
     let baseParams = {
       cinema: 1,
-      vid: vid2,
+      vid,
       lsk: 1,
       taxis: 0,
       cid: "0,1,4,152"
@@ -18330,7 +18496,7 @@ var AiyifanSource = class extends BaseSource {
       "User-Agent": this.USER_AGENT,
       Accept: "application/json"
     };
-    log("info", `[aiyifan] [\u64AD\u653E\u5217\u8868] \u8BF7\u6C42 vid: ${vid2}`);
+    log("info", `[aiyifan] [\u64AD\u653E\u5217\u8868] \u8BF7\u6C42 vid: ${vid}`);
     try {
       let { data } = await this.signingProvider.signedGetJson(this.PLAYLIST_API, baseParams, headers, "\u64AD\u653E\u5217\u8868"), episodes = [], infoList = data.data?.info || [];
       for (let info of infoList)
@@ -18629,7 +18795,54 @@ var CLIENT_CONFIG = {
     "passport-sdk-version": "5051452",
     "sdk-version": "2"
   }
-}, COMMENT_SOURCE = 601, SERVER_CHANNEL = 1e3, COMMENT_WINDOW_MS = 3e4, COMMENT_COUNT = 90, COMMENT_CONCURRENCY = 30, MAX_SEARCH_ITEMS = 20, IMAGE_SHRINK = `W3siaW1hZ2VfdHlwZSI6MywiaW1hZ2Vfd2lkdGgiOjkwMCwic2hyaW5rX3R5cGUiOjN9LHsiaW1h
+}, WEB_ORIGIN = "https://hongguoduanju.com";
+function parseWebSearchResults(html) {
+  let marker = '"searchList":', start = html.indexOf(marker);
+  if (start < 0) return [];
+  let i = start + marker.length;
+  for (; i < html.length && /\s/.test(html[i]); ) i++;
+  if (html[i] !== "[") return [];
+  let depth = 0, quoted = !1, escaped = !1, end = i;
+  for (; end < html.length; end++) {
+    let ch = html[end];
+    if (quoted) {
+      escaped ? escaped = !1 : ch === "\\" ? escaped = !0 : ch === '"' && (quoted = !1);
+      continue;
+    }
+    if (ch === '"') quoted = !0;
+    else if (ch === "[") depth++;
+    else if (ch === "]" && --depth === 0) break;
+  }
+  try {
+    return JSON.parse(html.slice(i, end + 1));
+  } catch {
+    return [];
+  }
+}
+function parseWebSeriesDetail(html) {
+  let marker = '"seriesDetail":', start = html.indexOf(marker);
+  if (start < 0) return null;
+  let i = start + marker.length;
+  for (; i < html.length && /\s/.test(html[i]); ) i++;
+  if (html[i] !== "{") return null;
+  let depth = 0, quoted = !1, escaped = !1, end = i;
+  for (; end < html.length; end++) {
+    let ch = html[end];
+    if (quoted) {
+      escaped ? escaped = !1 : ch === "\\" ? escaped = !0 : ch === '"' && (quoted = !1);
+      continue;
+    }
+    if (ch === '"') quoted = !0;
+    else if (ch === "{") depth++;
+    else if (ch === "}" && --depth === 0) break;
+  }
+  try {
+    return JSON.parse(html.slice(i, end + 1));
+  } catch {
+    return null;
+  }
+}
+var COMMENT_SOURCE = 601, SERVER_CHANNEL = 1e3, COMMENT_WINDOW_MS = 3e4, COMMENT_COUNT = 90, COMMENT_CONCURRENCY = 3, COMMENT_THROTTLE_MS = 180, COMMENT_THROTTLE_JITTER_MS = 240, MAX_SEARCH_ITEMS = 20, IMAGE_SHRINK = `W3siaW1hZ2VfdHlwZSI6MywiaW1hZ2Vfd2lkdGgiOjkwMCwic2hyaW5rX3R5cGUiOjN9LHsiaW1h
 Z2VfdHlwZSI6NCwiaW1hZ2Vfd2lkdGgiOjU0LCJzaHJpbmtfdHlwZSI6NH1d
 `, SIGN_KEY = hexToBytes("ac1adaae95a7af94a5114ab3b3a97dd80050aa0a39314c40528caec95256c28c"), ARGUS_HEADER = hexToBytes("3ccc"), ARGUS_PREFIX = hexToBytes("a6e783ee7001100918"), ARGUS_SUFFIX = hexToBytes("567b"), ARGUS_XOR_WORD = hexToBytes("d04ffdff"), LICENSE_ID = 1611921764, METASEC_APP_ID = 3019, SDK_VERSION = 135135744, COUNTER_VALUE = 1388734, SIMON_Z = word64(74278795, 1036602426);
 function concatBytes(...parts) {
@@ -18880,8 +19093,8 @@ function signHongguoRequest(url, options = {}) {
     "X-Ladon": createLadon(timestamp, aid, options)
   };
 }
-function createHongguoEpisodeId(seriesId, vid2, durationSeconds) {
-  return `hongguo:v1:${encodeURIComponent(String(seriesId))}:${encodeURIComponent(String(vid2))}:${Math.max(0, Math.trunc(Number(durationSeconds) || 0))}`;
+function createHongguoEpisodeId(seriesId, vid, durationSeconds) {
+  return `hongguo:v1:${encodeURIComponent(String(seriesId))}:${encodeURIComponent(String(vid))}:${Math.max(0, Math.trunc(Number(durationSeconds) || 0))}`;
 }
 function createHongguoSeriesId(seriesId) {
   return `hongguo:series:v1:${encodeURIComponent(String(seriesId))}`;
@@ -18908,7 +19121,12 @@ function parseHongguoEpisodeId(value) {
   };
 }
 function parseHongguoPlayerUrl(value) {
-  let match = String(value || "").trim().replace(/@%?-?\d+(?:\.\d+)?$/, "").match(
+  let normalized = String(value || "").trim().replace(/@%?-?\d+(?:\.\d+)?$/, "");
+  if (normalized.split("#", 1)[0].startsWith("hongguo:v1:")) {
+    let info = parseHongguoEpisodeId(normalized);
+    return { seriesId: info.seriesId, vid: info.vid };
+  }
+  let match = normalized.match(
     /^https?:\/\/(?:www\.)?hongguoduanju\.com(?::\d+)?\/player\/(\d+)\/(\d+)\/?(?:\?[^#]*)?(?:#.*)?$/i
   );
   if (!match) throw new Error("\u65E0\u6548\u7684\u7EA2\u679C\u77ED\u5267\u64AD\u653E\u94FE\u63A5");
@@ -19027,7 +19245,7 @@ function getFragmentNumber(value, name) {
 }
 var HongguoSource = class extends BaseSource {
   constructor() {
-    super(), this.preferredApiHost = CLIENT_CONFIG.apiHosts[0], this.nextRequestAt = 0, this.playerEpisodeResolutions = /* @__PURE__ */ new Map(), this.activeCommentRequests = 0, this.commentRequestWaiters = [];
+    super(), this.preferredApiHost = CLIENT_CONFIG.apiHosts[0], this.nextRequestAt = 0, this.playerEpisodeResolutions = /* @__PURE__ */ new Map(), this.activeCommentRequests = 0, this.commentRequestWaiters = [], this.lastDanmu = [], this.durationCache = /* @__PURE__ */ new Map(), this.pendingEpisodeDanmu = /* @__PURE__ */ new Map();
   }
   buildUrl(path2, extraQuery = {}, apiHost = this.preferredApiHost) {
     let query = { ...CLIENT_CONFIG.baseQuery, ...extraQuery, _rticket: String(Date.now()) };
@@ -19057,53 +19275,72 @@ var HongguoSource = class extends BaseSource {
       throw new Error(`\u63A5\u53E3\u8FD4\u56DE\u65E0\u6548 JSON (${status}): ${error.message}`);
     }
   }
-  async throttle() {
+  async throttle(baseMs = 600, jitterMs = 401) {
     let now = Date.now(), scheduled = Math.max(now, this.nextRequestAt);
-    this.nextRequestAt = scheduled + 600 + Math.floor(Math.random() * 401), scheduled > now && await sleep(scheduled - now);
+    this.nextRequestAt = scheduled + baseMs + Math.floor(Math.random() * jitterMs), scheduled > now && await sleep(scheduled - now);
   }
   checkResponse(payload) {
     if (!payload || typeof payload != "object") throw new Error("\u5E73\u53F0\u8FD4\u56DE\u4E86\u65E0\u6548\u54CD\u5E94");
     let code = payload.code;
     if (code == null || code === 0) return;
     let message = String(payload.message || payload.msg || "\u672A\u77E5\u9519\u8BEF"), normalizedMessage = message.toLowerCase();
-    throw [401, 403, 8, 1001].includes(Number(code)) || ["token", "login", "\u767B\u5F55", "\u672A\u767B\u5F55", "expire"].some((word) => normalizedMessage.includes(word)) ? new Error(`\u9274\u6743\u5931\u8D25 code=${code}: ${message}`) : new Error(`\u98CE\u63A7\u6216\u5E73\u53F0\u5F02\u5E38 code=${code}: ${message}`);
+    if ([401, 403, 8, 1001].includes(Number(code)) || ["token", "login", "\u767B\u5F55", "\u672A\u767B\u5F55", "expire"].some((word) => normalizedMessage.includes(word))) throw new Error(`\u9274\u6743\u5931\u8D25 code=${code}: ${message}`);
+    let coolDownMs = 0;
+    try {
+      let detail = JSON.parse(message);
+      detail && typeof detail == "object" && (coolDownMs = Math.max(0, Number(detail.min_ban_time) || Number(detail.max_ban_time) || 0) * 1e3);
+    } catch {
+    }
+    if (coolDownMs > 0) {
+      let error = new Error(`\u98CE\u63A7\u51B7\u5374: \u9700\u6682\u505C ${Math.round(coolDownMs / 1e3)}s (code=${code})`);
+      return error.coolDownMs = coolDownMs, error;
+    }
+    throw new Error(`\u98CE\u63A7\u6216\u5E73\u53F0\u5F02\u5E38 code=${code}: ${message}`);
   }
   async request(method, path2, { body = null, extraQuery = {}, comment = !1 } = {}) {
     let apiHosts = this.getApiHosts(), failures = [], payload = body == null ? null : JSON.stringify(body);
     for (let index = 0; index < apiHosts.length; index++) {
-      let apiHost = apiHosts[index];
-      try {
-        let url = this.buildUrl(path2, extraQuery, apiHost), headers = {};
-        for (let [key, value] of Object.entries(CLIENT_CONFIG.sessionHeaders))
-          value && (headers[key] = String(value));
-        headers["content-type"] = "application/json; charset=utf-8", comment ? (headers["comment-source"] = String(COMMENT_SOURCE), headers["server-channel"] = String(SERVER_CHANNEL), headers["x-ss-stub"] = "") : payload != null && (headers["x-ss-stub"] = md5(stringToUtf8Bytes(payload)).toUpperCase()), Object.assign(headers, signHongguoRequest(url, { headers }));
-        let releaseCommentSlot = comment ? await this.acquireCommentSlot() : null;
-        comment || await this.throttle();
-        let response;
+      let apiHost = apiHosts[index], maxAttempts = 3;
+      for (let attempt = 0; attempt < maxAttempts; attempt++)
         try {
-          response = method === "GET" ? await Widget.http.get(url, { headers, timeout: 3e4 }) : await Widget.http.post(url, payload, { headers, timeout: 3e4 });
-        } finally {
-          releaseCommentSlot && releaseCommentSlot();
-        }
-        let result = this.parseApiResponse(response);
-        try {
-          this.checkResponse(result);
+          let url = this.buildUrl(path2, extraQuery, apiHost), headers = {};
+          for (let [key, value] of Object.entries(CLIENT_CONFIG.sessionHeaders))
+            value && (headers[key] = String(value));
+          headers["content-type"] = "application/json; charset=utf-8", comment ? (headers["comment-source"] = String(COMMENT_SOURCE), headers["server-channel"] = String(SERVER_CHANNEL), headers["x-ss-stub"] = "") : payload != null && (headers["x-ss-stub"] = md5(stringToUtf8Bytes(payload)).toUpperCase()), Object.assign(headers, signHongguoRequest(url, { headers }));
+          let releaseCommentSlot = comment ? await this.acquireCommentSlot() : null;
+          comment ? await this.throttle(COMMENT_THROTTLE_MS, COMMENT_THROTTLE_JITTER_MS) : await this.throttle();
+          let response;
+          try {
+            response = method === "GET" ? await Widget.http.get(url, { headers, timeout: 3e4 }) : await Widget.http.post(url, payload, { headers, timeout: 3e4 });
+          } finally {
+            releaseCommentSlot && releaseCommentSlot();
+          }
+          let result = this.parseApiResponse(response), responseError = this.checkResponse(result);
+          if (responseError) throw responseError;
+          return this.preferredApiHost = apiHost, result;
         } catch (error) {
-          throw error.retryable = !1, error;
+          if (error && error.coolDownMs && (log("warn", `[Hongguo] ${apiHost} \u89E6\u53D1\u98CE\u63A7\u51B7\u5374 ${Math.round(error.coolDownMs / 1e3)}s\uFF0C\u9000\u907F\u540E\u91CD\u8BD5`), await sleep(error.coolDownMs + Math.floor(Math.random() * 1e3)), attempt < maxAttempts - 1))
+            continue;
+          let message = error && error.message ? error.message : String(error);
+          failures.push({ host: apiHost, message });
+          let nextApiHost = apiHosts[index + 1];
+          nextApiHost && log("warn", `[Hongguo] ${apiHost} \u8BF7\u6C42\u5931\u8D25\uFF0C\u5207\u6362\u5230 ${nextApiHost}: ${message}`);
+          break;
         }
-        return this.preferredApiHost = apiHost, result;
-      } catch (error) {
-        if (error && error.retryable === !1) throw error;
-        let message = error && error.message ? error.message : String(error);
-        failures.push({ host: apiHost, message });
-        let nextApiHost = apiHosts[index + 1];
-        nextApiHost && log("warn", `[Hongguo] ${apiHost} \u8BF7\u6C42\u5931\u8D25\uFF0C\u5207\u6362\u5230 ${nextApiHost}: ${message}`);
-      }
     }
     let details = failures.map(({ host, message }) => `${host}: ${message}`).join(" | "), requestError = new Error(`\u7EA2\u679C\u8BF7\u6C42\u5931\u8D25\uFF0C${apiHosts.length} \u6761\u7EBF\u8DEF\u5747\u4E0D\u53EF\u7528: ${details}`);
     throw requestError.name = "HongguoHostError", requestError.failures = failures, requestError;
   }
   async search(keyword) {
+    try {
+      let response = await Widget.http.get(`${WEB_ORIGIN}/search/${encodeURIComponent(keyword)}`, { headers: { accept: "text/html" }, timeout: 3e4 }), items = parseWebSearchResults(typeof response.data == "string" ? response.data : "");
+      if (items.length) return items.map((item) => {
+        let data = item.video_data || {};
+        return { seriesId: String(data.series_id || item.keyword || ""), name: String(data.series_name || data.series_title || item.name || ""), episodeCount: Number(data.episode_cnt) || 0, score: "", year: extractYearFromTimestamp(data.create_time), imageUrl: extractImageUrl(data.series_cover) };
+      }).filter((item) => item.seriesId && item.name && item.episodeCount > 0).slice(0, MAX_SEARCH_ITEMS);
+    } catch (error) {
+      log("warn", `[Hongguo] web search unavailable: ${error.message}`);
+    }
     try {
       let results = [], seen = /* @__PURE__ */ new Set(), offset = 0, passback = "", searchId = "";
       for (let page = 0; page < 12 && results.length < MAX_SEARCH_ITEMS; page++) {
@@ -19132,22 +19369,22 @@ var HongguoSource = class extends BaseSource {
     }
   }
   async getEpisodes(seriesId) {
-    try {
-      let body = {
-        biz_param: {
-          detail_page_version: 0,
-          disable_digg_stat: !1,
-          disable_video_relate_book: !1,
-          image_shrink_datas_str: IMAGE_SHRINK,
-          need_all_video_definition: !1,
-          need_mp4_align: !1,
-          screen_width_px: "900",
-          source: 7,
-          use_os_player: !1,
-          use_server_dns: !1
-        },
-        series_id: String(seriesId)
-      }, responseData = (await this.request("POST", "/novel/player/multi_video_detail/v1/", { body })).data || {}, entry = responseData[String(seriesId)] || responseData, videoData = entry && entry.video_data || {}, episodes = (videoData.video_list || []).map((item) => ({
+    let body = {
+      biz_param: {
+        detail_page_version: 0,
+        disable_digg_stat: !1,
+        disable_video_relate_book: !1,
+        image_shrink_datas_str: IMAGE_SHRINK,
+        need_all_video_definition: !1,
+        need_mp4_align: !1,
+        screen_width_px: "900",
+        source: 7,
+        use_os_player: !1,
+        use_server_dns: !1
+      },
+      series_id: String(seriesId)
+    }, parseApiEpisodes = (payload) => {
+      let responseData = payload && payload.data || {}, entry = responseData[String(seriesId)] || responseData, videoData = entry && entry.video_data || {}, episodes = (videoData.video_list || []).map((item) => ({
         index: Number(item.vid_index) || 0,
         vid: String(item.vid || ""),
         title: String(item.episode_title || "").trim().slice(0, 30),
@@ -19155,19 +19392,62 @@ var HongguoSource = class extends BaseSource {
         commentCount: Math.max(0, Number(item.comment_count) || 0),
         imageUrl: extractImageUrl(item.episode_cover || item.cover)
       })).filter((item) => item.vid).sort((a, b) => a.index - b.index);
-      return {
+      return episodes.length ? {
         episodes,
         year: extractYearFromTimestamp(videoData.create_time),
         imageUrl: extractImageUrl(videoData.series_cover) || (episodes.find((episode) => episode.imageUrl) || {}).imageUrl || ""
-      };
+      } : null;
+    };
+    try {
+      let apiResult = parseApiEpisodes(await this.request("POST", "/novel/player/multi_video_detail/v1/", { body }));
+      if (apiResult) return apiResult;
+      log("warn", `[Hongguo] API detail returned no episodes for series ${seriesId}, falling back to web detail`);
     } catch (error) {
-      return log("error", `[Hongguo] \u83B7\u53D6\u5267\u96C6\u5931\u8D25: ${error.message}`), { episodes: [], year: null, imageUrl: "" };
+      log("warn", `[Hongguo] API detail unavailable: ${error.message}, falling back to web detail`);
     }
+    try {
+      let response = await Widget.http.get(`${WEB_ORIGIN}/detail?series_id=${encodeURIComponent(seriesId)}`, { headers: { accept: "text/html" }, timeout: 3e4 }), detail = parseWebSeriesDetail(typeof response.data == "string" ? response.data : "");
+      if (detail && Array.isArray(detail.vid_list) && detail.vid_list.length)
+        return {
+          episodes: detail.vid_list.map((item, index) => {
+            let value = item && typeof item == "object" ? item : {}, vid = typeof item == "object" ? value.vid || value.video_id || value.id || "" : item;
+            return vid ? {
+              index: index + 1,
+              vid: String(vid),
+              title: String(value.episode_title || value.title || `\u7B2C${index + 1}\u96C6`).trim().slice(0, 30),
+              duration: Math.max(0, Number(value.duration || value.video_duration) || 0),
+              commentCount: Math.max(0, Number(value.comment_count) || 0),
+              imageUrl: extractImageUrl(value.episode_cover || value.cover)
+            } : null;
+          }).filter(Boolean),
+          year: extractYearFromTimestamp(detail.create_time),
+          imageUrl: extractImageUrl(detail.series_cover)
+        };
+    } catch (error) {
+      log("warn", `[Hongguo] web detail unavailable: ${error.message}`);
+    }
+    return { episodes: [], year: null, imageUrl: "" };
   }
   async resolveEpisodeInfo(value) {
-    if (String(value || "").split("#", 1)[0].startsWith("hongguo:v1:"))
-      return parseHongguoEpisodeId(value);
-    let player = parseHongguoPlayerUrl(value), cacheKey = `${player.seriesId}:${player.vid}`, resolution = this.playerEpisodeResolutions.get(cacheKey);
+    let raw = String(typeof value == "object" && value !== null ? value.url || value.id || value.value || "" : value || "");
+    raw = raw.trim();
+    let embedded = raw.match(/hongguo:v1:[^\s#]+:[^\s#]+:\d+/);
+    if (embedded)
+      try {
+        return parseHongguoEpisodeId(embedded[0]);
+      } catch {
+      }
+    for (let attempt = 0; attempt < 3; attempt++) {
+      if (raw.split("#", 1)[0].startsWith("hongguo:v1:")) return parseHongguoEpisodeId(raw);
+      try {
+        let decoded = decodeURIComponent(raw);
+        if (decoded === raw) break;
+        raw = decoded;
+      } catch {
+        break;
+      }
+    }
+    let player = parseHongguoPlayerUrl(raw), cacheKey = `${player.seriesId}:${player.vid}`, resolution = this.playerEpisodeResolutions.get(cacheKey);
     resolution || (resolution = (async () => {
       let episode = (await this.getEpisodes(player.seriesId)).episodes.find((item) => item.vid === player.vid);
       if (!episode)
@@ -19300,25 +19580,44 @@ var HongguoSource = class extends BaseSource {
     try {
       if (this.shouldMergeAllEpisodes(id))
         return await this.getSeriesDanmu(this.resolveSeriesId(id));
-      let info = await this.resolveEpisodeInfo(id);
-      return dedupeDanmus(await this.getDanmuForEpisode(info));
+      let info = await this.resolveEpisodeInfo(id), cacheKey = `${info.seriesId}:${info.vid}`, pending = this.pendingEpisodeDanmu.get(cacheKey);
+      if (pending)
+        return log("info", `[Hongguo] \u590D\u7528\u8FDB\u884C\u4E2D\u7684\u6574\u6BB5\u5F39\u5E55\u8BF7\u6C42: ${cacheKey}`), pending;
+      let task = (async () => {
+        let comments = dedupeDanmus(await this.getDanmuForEpisode(info));
+        if (!info.duration && comments.length) {
+          let maxOffset = Math.max(...comments.map((item) => Number(item.offsetMs) || 0));
+          maxOffset > 0 && this.durationCache.set(cacheKey, Math.ceil(maxOffset / 1e3) + 30);
+        }
+        return this.lastDanmu = comments, comments;
+      })().catch((error) => {
+        let fetchError = new Error(`\u5F39\u5E55\u6293\u53D6\u5931\u8D25: ${error.message}`);
+        throw fetchError.danmuFetchFailed = !0, fetchError;
+      }).finally(() => {
+        this.pendingEpisodeDanmu.delete(cacheKey);
+      });
+      return this.pendingEpisodeDanmu.set(cacheKey, task), task;
     } catch (error) {
-      return log("error", `[Hongguo] \u83B7\u53D6\u5F39\u5E55\u5931\u8D25: ${error.message}`), [];
+      return log("error", `[Hongguo] \u83B7\u53D6\u5F39\u5E55\u5931\u8D25(${String(id).slice(0, 80)}): ${error.message}`), error.danmuFetchFailed && this.lastDanmu && this.lastDanmu.length ? this.lastDanmu : [];
     }
   }
   async getEpisodeDanmuSegments(id) {
     try {
       if (this.shouldMergeAllEpisodes(id))
         return await this.getSeriesDanmuSegments(this.resolveSeriesId(id));
-      let info = await this.resolveEpisodeInfo(id), episodeId = createHongguoEpisodeId(info.seriesId, info.vid, info.duration), segmentList = [];
-      for (let start2 = 0; start2 < info.duration; start2 += COMMENT_WINDOW_MS / 1e3)
+      let info = await this.resolveEpisodeInfo(id), episodeId = createHongguoEpisodeId(info.seriesId, info.vid, info.duration), segmentList = [], effectiveDuration = info.duration > 0 ? info.duration : this.durationCache.get(`${info.seriesId}:${info.vid}`) || 0;
+      if (!effectiveDuration) {
+        let maxOffset = (await this.getDanmuForEpisode(info)).reduce((max, item) => Math.max(max, Number(item.offsetMs) || 0), 0);
+        effectiveDuration = maxOffset > 0 ? Math.ceil(maxOffset / 1e3) + 30 : 600, this.durationCache.set(`${info.seriesId}:${info.vid}`, effectiveDuration);
+      }
+      for (let start = 0; start < effectiveDuration; start += COMMENT_WINDOW_MS / 1e3)
         segmentList.push({
           type: "hongguo",
-          segment_start: start2,
-          segment_end: Math.min(start2 + COMMENT_WINDOW_MS / 1e3, info.duration),
-          url: `${episodeId}#segment=${start2}`
+          segment_start: start,
+          segment_end: Math.min(start + COMMENT_WINDOW_MS / 1e3, effectiveDuration),
+          url: `${episodeId}#segment=${start}`
         });
-      return new SegmentListResponse({ type: "hongguo", segmentList, duration: info.duration });
+      return new SegmentListResponse({ type: "hongguo", segmentList, duration: effectiveDuration });
     } catch (error) {
       return log("error", `[Hongguo] \u521B\u5EFA\u5F39\u5E55\u5206\u6BB5\u5931\u8D25: ${error.message}`), new SegmentListResponse({ type: "hongguo", segmentList: [] });
     }
@@ -19326,14 +19625,14 @@ var HongguoSource = class extends BaseSource {
   async getSeriesDanmuSegments(seriesId) {
     let details = await this.getEpisodes(seriesId), segmentList = [], cumulativeSeconds = 0;
     for (let episode of details.episodes) {
-      let duration = Math.max(0, Number(episode.duration) || 0), episodeId = createHongguoEpisodeId(seriesId, episode.vid, duration);
-      for (let start2 = 0; start2 < duration; start2 += COMMENT_WINDOW_MS / 1e3) {
-        let end2 = Math.min(start2 + COMMENT_WINDOW_MS / 1e3, duration);
+      let duration = Math.max(0, Number(episode.duration) || 600), episodeId = createHongguoEpisodeId(seriesId, episode.vid, duration);
+      for (let start = 0; start < duration; start += COMMENT_WINDOW_MS / 1e3) {
+        let end = Math.min(start + COMMENT_WINDOW_MS / 1e3, duration);
         segmentList.push({
           type: "hongguo",
-          segment_start: cumulativeSeconds + start2,
-          segment_end: cumulativeSeconds + end2,
-          url: `${episodeId}#segment=${start2}&offset=${cumulativeSeconds}`
+          segment_start: cumulativeSeconds + start,
+          segment_end: cumulativeSeconds + end,
+          url: `${episodeId}#segment=${start}&offset=${cumulativeSeconds}`
         });
       }
       cumulativeSeconds += duration;
@@ -19342,7 +19641,7 @@ var HongguoSource = class extends BaseSource {
   }
   async getEpisodeSegmentDanmu(segment) {
     try {
-      let info = await this.resolveEpisodeInfo(segment.url), globalOffsetSeconds = Math.max(0, getFragmentNumber(segment.url, "offset") || 0), fragmentStart = getFragmentNumber(segment.url, "segment"), localStartSeconds = Math.max(0, fragmentStart ?? Number(segment.segment_start) - globalOffsetSeconds), segmentDurationSeconds = Math.max(0, Number(segment.segment_end) - Number(segment.segment_start)), localEndSeconds = Math.min(info.duration, localStartSeconds + segmentDurationSeconds), startMs = localStartSeconds * 1e3, endMs = Math.max(startMs, localEndSeconds * 1e3), page = await this.fetchCommentWindow(info, startMs, ""), offsetMs = globalOffsetSeconds * 1e3;
+      let segmentUrl = typeof segment == "string" ? segment : segment.url, info = await this.resolveEpisodeInfo(segmentUrl), globalOffsetSeconds = Math.max(0, getFragmentNumber(segmentUrl, "offset") || 0), fragmentStart = getFragmentNumber(segmentUrl, "segment"), localStartSeconds = Math.max(0, fragmentStart ?? Number(segment.segment_start || 0) - globalOffsetSeconds), segmentDurationSeconds = typeof segment == "string" ? COMMENT_WINDOW_MS / 1e3 : Math.max(0, Number(segment.segment_end) - Number(segment.segment_start)), localEndSeconds = Math.min(info.duration > 0 ? info.duration : localStartSeconds + segmentDurationSeconds, localStartSeconds + segmentDurationSeconds), startMs = localStartSeconds * 1e3, endMs = Math.max(startMs, localEndSeconds * 1e3), page = await this.fetchCommentWindow(info, startMs, ""), offsetMs = globalOffsetSeconds * 1e3;
       return dedupeDanmus(page.comments.filter((item) => item.offsetMs >= startMs && item.offsetMs < endMs).map((item) => ({ ...item, offsetMs: item.offsetMs + offsetMs })));
     } catch (error) {
       return log("error", `[Hongguo] \u83B7\u53D6\u5206\u6BB5\u5F39\u5E55\u5931\u8D25: ${error.message}`), [];
@@ -19403,7 +19702,7 @@ var API_HEALTH2 = {
    * @returns {Array<Object>} 包含节点类型与 URL 的配置数组
    */
   _getSubjectServerPriority() {
-    let officialBase = "https://api.bgm.tv", mirrorBase = "https://api.bangumi.lol", proxyOfficialBase = this._applyProxyForSearch(officialBase), animekoNodes = (/* @__PURE__ */ new Date()).getTimezoneOffset() === -480 ? [
+    let officialBase = "https://api.bgm.tv", mirrorBase = "https://api.bangumi.pro", proxyOfficialBase = this._applyProxyForSearch(officialBase), animekoNodes = (/* @__PURE__ */ new Date()).getTimezoneOffset() === -480 ? [
       { type: "V2", url: "https://api.animeko.org" },
       { type: "V2", url: "https://danmaku-global.myani.org" },
       { type: "V2", url: "https://danmaku-cn.myani.org" },
@@ -19555,7 +19854,7 @@ var API_HEALTH2 = {
       log("info", `[animeko] \u5F00\u59CB\u641C\u7D22 (V0): ${searchKeyword}`);
       let allFilteredResults = [], offset = 0, limit = 20;
       for (; ; ) {
-        let searchPath = `/v0/search/subjects?limit=${limit}&offset=${offset}`, officialUrl = `https://api.bgm.tv${searchPath}`, mirrorUrl = `https://api.bangumi.lol${searchPath}`, proxySearchUrl = this._applyProxyForSearch(officialUrl), endpointQueue = [];
+        let searchPath = `/v0/search/subjects?limit=${limit}&offset=${offset}`, officialUrl = `https://api.bgm.tv${searchPath}`, mirrorUrl = `https://api.bangumi.pro${searchPath}`, proxySearchUrl = this._applyProxyForSearch(officialUrl), endpointQueue = [];
         proxySearchUrl !== officialUrl ? endpointQueue = [
           { id: "PROXY_OFFICIAL", url: proxySearchUrl },
           { id: "MIRROR", url: mirrorUrl }
@@ -19960,8 +20259,90 @@ var OtherSource = class extends BaseSource {
   }
 };
 
+// danmu_api/sources/registry.js
+var SOURCE_REGISTRY = [
+  { key: "360", logName: "360kan", factory: () => new Kan360Source(), deps: [] },
+  {
+    key: "vod",
+    logName: "",
+    factory: () => new VodSource(),
+    deps: [],
+    extraSearchArgs: !0,
+    handleAdapter: async (instance, searchResult, queryTitle, isolatedAnimes, isolatedDetailStore, targetSeason) => {
+      if (searchResult && Array.isArray(searchResult))
+        for (let vodResult of searchResult)
+          vodResult && vodResult.list && vodResult.list.length > 0 && await instance.handleAnimes(vodResult.list, queryTitle, isolatedAnimes, vodResult.serverName, isolatedDetailStore, targetSeason);
+    }
+  },
+  { key: "tmdb", logName: "", factory: (ctx) => new TmdbSource(ctx.get("douban")), deps: ["douban"] },
+  { key: "douban", logName: "", factory: (ctx) => new DoubanSource(ctx.get("tencent"), ctx.get("iqiyi"), ctx.get("youku"), ctx.get("bilibili"), ctx.get("migu")), deps: ["tencent", "iqiyi", "youku", "bilibili", "migu"] },
+  { key: "renren", logName: "", factory: () => new RenrenSource(), deps: [] },
+  { key: "hanjutv", logName: "", factory: () => new HanjutvSource(), deps: [] },
+  { key: "bahamut", logName: "", factory: () => new BahamutSource(), deps: [] },
+  { key: "dandan", logName: "", factory: () => new DandanSource(), deps: [] },
+  {
+    key: "custom",
+    logName: "",
+    factory: () => new CustomSource(),
+    deps: [],
+    handleAdapter: (instance, searchResult, queryTitle, isolatedAnimes) => instance.handleAnimes(searchResult, queryTitle, isolatedAnimes)
+  },
+  { key: "tencent", logName: "", factory: () => new TencentSource(), deps: [] },
+  { key: "iqiyi", logName: "", factory: () => new IqiyiSource(), deps: [] },
+  { key: "imgo", logName: "mango", factory: () => new MangoSource(), deps: [] },
+  { key: "bilibili", logName: "", factory: () => new BilibiliSource(), deps: [] },
+  { key: "migu", logName: "", factory: () => new migu_default(), deps: [] },
+  { key: "youku", logName: "", factory: () => new YoukuSource(), deps: [] },
+  { key: "sohu", logName: "", factory: () => new SohuSource(), deps: [] },
+  { key: "leshi", logName: "", factory: () => new LeshiSource(), deps: [] },
+  { key: "xigua", logName: "", factory: () => new xigua_default(), deps: [] },
+  { key: "maiduidui", logName: "", factory: () => new maiduidui_default(), deps: [] },
+  { key: "aiyifan", logName: "", factory: () => new AiyifanSource(), deps: [] },
+  { key: "hongguo", logName: "", factory: () => new HongguoSource(), deps: [] },
+  { key: "animeko", logName: "", factory: () => new AnimekoSource(), deps: [] },
+  { key: "other", logName: "", factory: () => new OtherSource(), deps: [] }
+], instanceMap = /* @__PURE__ */ new Map(), metaMap = /* @__PURE__ */ new Map(), initialized = !1;
+function initSources() {
+  if (initialized) return;
+  let built = /* @__PURE__ */ new Set(), progress = !0;
+  for (; built.size < SOURCE_REGISTRY.length && progress; ) {
+    progress = !1;
+    for (let entry of SOURCE_REGISTRY) {
+      if (built.has(entry.key) || !(entry.deps || []).every((d) => built.has(d))) continue;
+      let instance = entry.factory(instanceMap), handleAdapter = entry.handleAdapter || ((inst, searchResult, queryTitle, isolatedAnimes, isolatedDetailStore, targetSeason) => inst.handleAnimes(searchResult, queryTitle, isolatedAnimes, isolatedDetailStore, targetSeason));
+      instanceMap.set(entry.key, instance), metaMap.set(entry.key, {
+        key: entry.key,
+        logName: entry.logName || entry.key,
+        instance,
+        extraSearchArgs: !!entry.extraSearchArgs,
+        handleAdapter
+      }), built.add(entry.key), progress = !0;
+    }
+  }
+  if (built.size < SOURCE_REGISTRY.length) {
+    let unresolved = SOURCE_REGISTRY.filter((e) => !built.has(e.key)).map((e) => e.key);
+    throw new Error(`[registry] \u6E90\u5B9E\u4F8B\u5316\u5B58\u5728\u672A\u89E3\u51B3\u7684\u5FAA\u73AF\u4F9D\u8D56: ${unresolved.join(", ")}`);
+  }
+  initialized = !0;
+}
+function ensureInit() {
+  initialized || initSources();
+}
+function getSourceByKey(key) {
+  return ensureInit(), instanceMap.get(key) || null;
+}
+function getSourceMetaByKey(key) {
+  return ensureInit(), metaMap.get(key) || null;
+}
+function getLogNameByKey(key) {
+  ensureInit();
+  let meta = metaMap.get(key);
+  return meta ? meta.logName : key;
+}
+initSources();
+
 // danmu_api/apis/dandan-api.js
-var kan360Source = new Kan360Source(), vodSource = new VodSource(), renrenSource = new RenrenSource(), hanjutvSource = new HanjutvSource(), bahamutSource2 = new BahamutSource(), dandanSource = new DandanSource(), customSource = new CustomSource(), tencentSource2 = new TencentSource(), youkuSource2 = new YoukuSource(), iqiyiSource2 = new IqiyiSource(), mangoSource2 = new MangoSource(), bilibiliSource2 = new BilibiliSource(), miguSource = new migu_default(), sohuSource = new SohuSource(), leshiSource = new LeshiSource(), xiguaSource = new xigua_default(), maiduiduiSource = new maiduidui_default(), aiyifanSource = new AiyifanSource(), hongguoSource = new HongguoSource(), animekoSource = new AnimekoSource(), otherSource = new OtherSource(), doubanSource = new DoubanSource(tencentSource2, iqiyiSource2, youkuSource2, bilibiliSource2, miguSource), tmdbSource = new TmdbSource(doubanSource), PENDING_DANMAKU_REQUESTS = /* @__PURE__ */ new Map();
+var kan360Source = getSourceByKey("360"), vodSource = getSourceByKey("vod"), renrenSource = getSourceByKey("renren"), hanjutvSource = getSourceByKey("hanjutv"), bahamutSource2 = getSourceByKey("bahamut"), dandanSource = getSourceByKey("dandan"), customSource = getSourceByKey("custom"), tencentSource2 = getSourceByKey("tencent"), youkuSource2 = getSourceByKey("youku"), iqiyiSource2 = getSourceByKey("iqiyi"), mangoSource2 = getSourceByKey("imgo"), bilibiliSource2 = getSourceByKey("bilibili"), miguSource = getSourceByKey("migu"), sohuSource = getSourceByKey("sohu"), leshiSource = getSourceByKey("leshi"), xiguaSource = getSourceByKey("xigua"), maiduiduiSource = getSourceByKey("maiduidui"), aiyifanSource = getSourceByKey("aiyifan"), hongguoSource = getSourceByKey("hongguo"), animekoSource = getSourceByKey("animeko"), otherSource = getSourceByKey("other"), doubanSource = getSourceByKey("douban"), tmdbSource = getSourceByKey("tmdb"), PENDING_DANMAKU_REQUESTS = /* @__PURE__ */ new Map();
 function resolveCommentCacheKey(url) {
   let value = String(url || "");
   return globals.hongguoMergeAllEpisodes && (value.includes("hongguo:") || /https?:\/\/(?:www\.)?hongguoduanju\.com(?::\d+)?\/player\//i.test(value)) ? `${value}::hongguo-all-episodes` : url;
@@ -20009,8 +20390,15 @@ function extractMergedUrls(url) {
 async function resolveMergedDuration(url) {
   if (!url) return 0;
   try {
-    let targetUrls = url.includes(MERGE_DELIMITER) ? extractMergedUrls(url) : [url];
-    return (await Promise.all(targetUrls.map(resolveUrlDuration))).reduce((maxValue, currentValue) => Math.max(maxValue, currentValue || 0), 0);
+    if (!url.includes(MERGE_DELIMITER))
+      return await resolveUrlDuration(url);
+    let linkMetas = extractMergedUrls(url).map(stripLinkOffset), durations = await Promise.all(linkMetas.map((meta) => resolveUrlDuration(meta.cleanUrl)));
+    return linkMetas.reduce((maxEnd, meta, index) => {
+      let sourceDuration = durations[index];
+      if (!(sourceDuration > 0)) return maxEnd;
+      let end = applyOffset([{ t: sourceDuration }], meta.offset, { usePercent: meta.percent, videoDuration: sourceDuration })[0].t;
+      return end > maxEnd ? end : maxEnd;
+    }, 0);
   } catch (error) {
     return log("warn", `[system] [duration] \u83B7\u53D6\u65F6\u957F\u5931\u8D25: ${error.message}`), 0;
   }
@@ -20081,43 +20469,15 @@ function checkEpisodeSatisfied(animesList, querySeason, queryEpisode, requestAni
   return !anyPlatformHadData && targetPlatform ? checkEpisodeSatisfied(animesList, querySeason, queryEpisode, requestAnimeDetailsMap, null) : allSatisfied;
 }
 async function executeSourceHandlers(resultData, queryTitle, targetAnimesList, requestAnimeDetailsMap, targetSeason, preferAnimeId = null, preferSource = null) {
-  let {
-    vod: animesVodResults,
-    360: animes360,
-    tmdb: animesTmdb,
-    douban: animesDouban,
-    renren: animesRenren,
-    hanjutv: animesHanjutv,
-    bahamut: animesBahamut,
-    dandan: animesDandan,
-    custom: animesCustom,
-    tencent: animesTencent,
-    youku: animesYouku,
-    iqiyi: animesIqiyi,
-    imgo: animesImgo,
-    bilibili: animesBilibili,
-    migu: animesMigu,
-    sohu: animesSohu,
-    leshi: animesLeshi,
-    xigua: animesXigua,
-    maiduidui: animesMaiduidui,
-    aiyifan: animesAiyifan,
-    hongguo: animesHongguo,
-    animeko: animesAnimeko
-  } = resultData, activeSourceKeys = globals.sourceOrderArr.filter((key) => resultData[key] !== void 0), sourceTasks = [];
+  let activeSourceKeys = globals.sourceOrderArr.filter((key) => resultData[key] !== void 0), sourceTasks = [];
   for (let key of activeSourceKeys) {
-    let isolatedAnimes = [], isolatedDetailStore = /* @__PURE__ */ new Map();
-    if (key === "360")
-      sourceTasks.push({ key, animes: isolatedAnimes, detailStore: isolatedDetailStore, promise: sourceLogContext.run(toLogSourceName(key), () => kan360Source.handleAnimes(animes360, queryTitle, isolatedAnimes, isolatedDetailStore, targetSeason)) });
-    else if (key === "vod") {
-      if (animesVodResults && Array.isArray(animesVodResults)) {
-        let vodPromise = sourceLogContext.run(key, () => (async () => {
-          for (let vodResult of animesVodResults)
-            vodResult && vodResult.list && vodResult.list.length > 0 && await vodSource.handleAnimes(vodResult.list, queryTitle, isolatedAnimes, vodResult.serverName, isolatedDetailStore, targetSeason);
-        })());
-        sourceTasks.push({ key, animes: isolatedAnimes, detailStore: isolatedDetailStore, promise: vodPromise });
-      }
-    } else key === "tmdb" ? sourceTasks.push({ key, animes: isolatedAnimes, detailStore: isolatedDetailStore, promise: sourceLogContext.run(key, () => tmdbSource.handleAnimes(animesTmdb, queryTitle, isolatedAnimes, isolatedDetailStore, targetSeason)) }) : key === "douban" ? sourceTasks.push({ key, animes: isolatedAnimes, detailStore: isolatedDetailStore, promise: sourceLogContext.run(key, () => doubanSource.handleAnimes(animesDouban, queryTitle, isolatedAnimes, isolatedDetailStore, targetSeason)) }) : key === "renren" ? sourceTasks.push({ key, animes: isolatedAnimes, detailStore: isolatedDetailStore, promise: sourceLogContext.run(key, () => renrenSource.handleAnimes(animesRenren, queryTitle, isolatedAnimes, isolatedDetailStore, targetSeason)) }) : key === "hanjutv" ? sourceTasks.push({ key, animes: isolatedAnimes, detailStore: isolatedDetailStore, promise: sourceLogContext.run(key, () => hanjutvSource.handleAnimes(animesHanjutv, queryTitle, isolatedAnimes, isolatedDetailStore, targetSeason)) }) : key === "bahamut" ? sourceTasks.push({ key, animes: isolatedAnimes, detailStore: isolatedDetailStore, promise: sourceLogContext.run(key, () => bahamutSource2.handleAnimes(animesBahamut, queryTitle, isolatedAnimes, isolatedDetailStore, targetSeason)) }) : key === "dandan" ? sourceTasks.push({ key, animes: isolatedAnimes, detailStore: isolatedDetailStore, promise: sourceLogContext.run(key, () => dandanSource.handleAnimes(animesDandan, queryTitle, isolatedAnimes, isolatedDetailStore, targetSeason)) }) : key === "custom" ? sourceTasks.push({ key, animes: isolatedAnimes, detailStore: isolatedDetailStore, promise: sourceLogContext.run(key, () => customSource.handleAnimes(animesCustom, queryTitle, isolatedAnimes)) }) : key === "tencent" ? sourceTasks.push({ key, animes: isolatedAnimes, detailStore: isolatedDetailStore, promise: sourceLogContext.run(key, () => tencentSource2.handleAnimes(animesTencent, queryTitle, isolatedAnimes, isolatedDetailStore, targetSeason)) }) : key === "youku" ? sourceTasks.push({ key, animes: isolatedAnimes, detailStore: isolatedDetailStore, promise: sourceLogContext.run(key, () => youkuSource2.handleAnimes(animesYouku, queryTitle, isolatedAnimes, isolatedDetailStore, targetSeason)) }) : key === "iqiyi" ? sourceTasks.push({ key, animes: isolatedAnimes, detailStore: isolatedDetailStore, promise: sourceLogContext.run(key, () => iqiyiSource2.handleAnimes(animesIqiyi, queryTitle, isolatedAnimes, isolatedDetailStore, targetSeason)) }) : key === "imgo" ? sourceTasks.push({ key, animes: isolatedAnimes, detailStore: isolatedDetailStore, promise: sourceLogContext.run(toLogSourceName(key), () => mangoSource2.handleAnimes(animesImgo, queryTitle, isolatedAnimes, isolatedDetailStore, targetSeason)) }) : key === "bilibili" ? sourceTasks.push({ key, animes: isolatedAnimes, detailStore: isolatedDetailStore, promise: sourceLogContext.run(key, () => bilibiliSource2.handleAnimes(animesBilibili, queryTitle, isolatedAnimes, isolatedDetailStore, targetSeason)) }) : key === "migu" ? sourceTasks.push({ key, animes: isolatedAnimes, detailStore: isolatedDetailStore, promise: sourceLogContext.run(key, () => miguSource.handleAnimes(animesMigu, queryTitle, isolatedAnimes, isolatedDetailStore, targetSeason)) }) : key === "sohu" ? sourceTasks.push({ key, animes: isolatedAnimes, detailStore: isolatedDetailStore, promise: sourceLogContext.run(key, () => sohuSource.handleAnimes(animesSohu, queryTitle, isolatedAnimes, isolatedDetailStore, targetSeason)) }) : key === "leshi" ? sourceTasks.push({ key, animes: isolatedAnimes, detailStore: isolatedDetailStore, promise: sourceLogContext.run(key, () => leshiSource.handleAnimes(animesLeshi, queryTitle, isolatedAnimes, isolatedDetailStore, targetSeason)) }) : key === "xigua" ? sourceTasks.push({ key, animes: isolatedAnimes, detailStore: isolatedDetailStore, promise: sourceLogContext.run(key, () => xiguaSource.handleAnimes(animesXigua, queryTitle, isolatedAnimes, isolatedDetailStore, targetSeason)) }) : key === "maiduidui" ? sourceTasks.push({ key, animes: isolatedAnimes, detailStore: isolatedDetailStore, promise: sourceLogContext.run(key, () => maiduiduiSource.handleAnimes(animesMaiduidui, queryTitle, isolatedAnimes, isolatedDetailStore, targetSeason)) }) : key === "aiyifan" ? sourceTasks.push({ key, animes: isolatedAnimes, detailStore: isolatedDetailStore, promise: sourceLogContext.run(key, () => aiyifanSource.handleAnimes(animesAiyifan, queryTitle, isolatedAnimes, isolatedDetailStore, targetSeason)) }) : key === "hongguo" ? sourceTasks.push({ key, animes: isolatedAnimes, detailStore: isolatedDetailStore, promise: sourceLogContext.run(key, () => hongguoSource.handleAnimes(animesHongguo, queryTitle, isolatedAnimes, isolatedDetailStore, targetSeason)) }) : key === "animeko" && sourceTasks.push({ key, animes: isolatedAnimes, detailStore: isolatedDetailStore, promise: sourceLogContext.run(key, () => animekoSource.handleAnimes(animesAnimeko, queryTitle, isolatedAnimes, isolatedDetailStore, targetSeason)) });
+    let isolatedAnimes = [], isolatedDetailStore = /* @__PURE__ */ new Map(), meta = getSourceMetaByKey(key);
+    if (!meta) {
+      log("warn", `[system] [searchAnime] \u672A\u6CE8\u518C\u7684\u6E90\u952E "${key}"\uFF0C\u5DF2\u8DF3\u8FC7 handleAnimes`);
+      continue;
+    }
+    let searchResult = resultData[key], promise = sourceLogContext.run(meta.logName, () => meta.handleAdapter(meta.instance, searchResult, queryTitle, isolatedAnimes, isolatedDetailStore, targetSeason));
+    sourceTasks.push({ key, animes: isolatedAnimes, detailStore: isolatedDetailStore, promise });
   }
   let results = await Promise.allSettled(sourceTasks.map((task) => task.promise)), existingAnimeIds = new Set(targetAnimesList.map((a) => a.animeId));
   for (let i = 0; i < sourceTasks.length; i++) {
@@ -20195,7 +20555,7 @@ async function searchAnimeBody(url, preferAnimeId = null, preferSource = null, d
     }
   }
   let curAnimes = [], urlRegex = /^(https?:\/\/)?([a-zA-Z0-9-]+\.)+[a-zA-Z]{2,6}(:\d+)?(\/[^\s]*)?$/, spaceSeparatedUrls = queryTitle.split(/\s+/).filter((u) => {
-    let cleanUrl = u.replace(/@%?-?\d+(?:\.\d+)?$/, "");
+    let cleanUrl = stripLinkOffset(u).cleanUrl;
     return urlRegex.test(cleanUrl);
   });
   if (spaceSeparatedUrls.length >= 2) {
@@ -20213,7 +20573,7 @@ async function searchAnimeBody(url, preferAnimeId = null, preferSource = null, d
         } else if (source === "bahamut")
           titles.push(`\u3010bahamut\u3011 BahaSn${singleUrl.match(/sn=(\d+)/)?.[1] || "?"}`);
         else {
-          let pt = await sourceLogContext.run(toLogSourceName(source), () => getPageTitle(singleUrl));
+          let pt = await sourceLogContext.run(getLogNameByKey(source), () => getPageTitle(stripLinkOffset(singleUrl).cleanUrl));
           titles.push(`\u3010${source}\u3011 ${pt}`);
         }
       }
@@ -20263,7 +20623,7 @@ async function searchAnimeBody(url, preferAnimeId = null, preferSource = null, d
     } else if (platform === "bahamut") {
       let m = queryTitle.match(/sn=(\d+)/);
       extractedId = m ? m[1] : queryTitle, pageTitle = `BahaSn${extractedId}`;
-    } else platform === "hongguo" ? pageTitle = "\u7EA2\u679C\u77ED\u5267" : pageTitle = await sourceLogContext.run(toLogSourceName(platform), () => getPageTitle(queryTitle));
+    } else platform === "hongguo" ? pageTitle = "\u7EA2\u679C\u77ED\u5267" : pageTitle = await sourceLogContext.run(getLogNameByKey(platform), () => getPageTitle(stripLinkOffset(queryTitle).cleanUrl));
     let links = [{
       name: "\u624B\u52A8\u89E3\u6790\u94FE\u63A5\u5F39\u5E55",
       url: extractedId,
@@ -20280,8 +20640,15 @@ async function searchAnimeBody(url, preferAnimeId = null, preferSource = null, d
   try {
     log("info", `[system] [LogVar-API] Search sourceOrderArr: ${globals.sourceOrderArr}`);
     let resultData = {}, sourceSearchMap = {};
-    for (let source of globals.sourceOrderArr)
-      source === "360" ? sourceSearchMap[source] = sourceLogContext.run(toLogSourceName(source), () => kan360Source.search(queryTitle)) : source === "vod" ? sourceSearchMap[source] = sourceLogContext.run(toLogSourceName(source), () => vodSource.search(queryTitle, preferAnimeId, preferSource)) : source === "tmdb" ? sourceSearchMap[source] = sourceLogContext.run(toLogSourceName(source), () => tmdbSource.search(queryTitle)) : source === "douban" ? sourceSearchMap[source] = sourceLogContext.run(toLogSourceName(source), () => doubanSource.search(queryTitle)) : source === "renren" ? sourceSearchMap[source] = sourceLogContext.run(toLogSourceName(source), () => renrenSource.search(queryTitle)) : source === "hanjutv" ? sourceSearchMap[source] = sourceLogContext.run(toLogSourceName(source), () => hanjutvSource.search(queryTitle)) : source === "bahamut" ? sourceSearchMap[source] = sourceLogContext.run(toLogSourceName(source), () => bahamutSource2.search(queryTitle)) : source === "dandan" ? sourceSearchMap[source] = sourceLogContext.run(toLogSourceName(source), () => dandanSource.search(queryTitle)) : source === "custom" ? sourceSearchMap[source] = sourceLogContext.run(toLogSourceName(source), () => customSource.search(queryTitle)) : source === "tencent" ? sourceSearchMap[source] = sourceLogContext.run(toLogSourceName(source), () => tencentSource2.search(queryTitle)) : source === "youku" ? sourceSearchMap[source] = sourceLogContext.run(toLogSourceName(source), () => youkuSource2.search(queryTitle)) : source === "iqiyi" ? sourceSearchMap[source] = sourceLogContext.run(toLogSourceName(source), () => iqiyiSource2.search(queryTitle)) : source === "imgo" ? sourceSearchMap[source] = sourceLogContext.run(toLogSourceName(source), () => mangoSource2.search(queryTitle)) : source === "bilibili" ? sourceSearchMap[source] = sourceLogContext.run(toLogSourceName(source), () => bilibiliSource2.search(queryTitle)) : source === "migu" ? sourceSearchMap[source] = sourceLogContext.run(toLogSourceName(source), () => miguSource.search(queryTitle)) : source === "sohu" ? sourceSearchMap[source] = sourceLogContext.run(toLogSourceName(source), () => sohuSource.search(queryTitle)) : source === "leshi" ? sourceSearchMap[source] = sourceLogContext.run(toLogSourceName(source), () => leshiSource.search(queryTitle)) : source === "xigua" ? sourceSearchMap[source] = sourceLogContext.run(toLogSourceName(source), () => xiguaSource.search(queryTitle)) : source === "maiduidui" ? sourceSearchMap[source] = sourceLogContext.run(toLogSourceName(source), () => maiduiduiSource.search(queryTitle)) : source === "aiyifan" ? sourceSearchMap[source] = sourceLogContext.run(toLogSourceName(source), () => aiyifanSource.search(queryTitle)) : source === "hongguo" ? sourceSearchMap[source] = sourceLogContext.run(toLogSourceName(source), () => hongguoSource.search(queryTitle)) : source === "animeko" && (sourceSearchMap[source] = sourceLogContext.run(toLogSourceName(source), () => animekoSource.search(queryTitle)));
+    for (let source of globals.sourceOrderArr) {
+      let meta = getSourceMetaByKey(source);
+      if (!meta) {
+        log("warn", `[system] [LogVar-API] \u672A\u6CE8\u518C\u7684\u6E90\u952E "${source}"\uFF0C\u5DF2\u8DF3\u8FC7`);
+        continue;
+      }
+      let args = meta.extraSearchArgs ? [queryTitle, preferAnimeId, preferSource] : [queryTitle];
+      sourceSearchMap[source] = sourceLogContext.run(meta.logName, () => meta.instance.search(...args));
+    }
     let pipelineTasks = globals.sourceOrderArr.map((source) => {
       let isolatedAnimes = [], isolatedDetailStore = /* @__PURE__ */ new Map(), pipelinePromise = sourceSearchMap[source].then(async (searchResult) => {
         resultData[source] = searchResult, await executeSourceHandlers({ [source]: searchResult }, queryTitle, isolatedAnimes, isolatedDetailStore, querySeason, preferAnimeId, preferSource);
@@ -20407,13 +20774,13 @@ function getBangumiDataForMatch(anime, detailStore = null) {
 function resolveSourceAndRealId(url) {
   let bgmMatch = url.match(/(?:bgm\.tv|bangumi\.tv|bangumi\.lol|chii\.in)\/ep\/(\d+)/);
   if (bgmMatch) {
-    let offsetMatch = url.match(/@(-?\d+(?:\.\d+)?)$/);
-    return { source: "animeko", realId: bgmMatch[1] + (offsetMatch ? offsetMatch[0] : "") };
+    let { offset, percent } = stripLinkOffset(url);
+    return { source: "animeko", realId: bgmMatch[1] + (offset !== 0 ? `@${offset}${percent ? "%" : ""}` : "") };
   }
   let bahaMatch = url.match(/ani\.gamer\.com\.tw\/animeVideo\.php\?sn=(\d+)/);
   if (bahaMatch) {
-    let offsetMatch = url.match(/@(-?\d+(?:\.\d+)?)$/);
-    return { source: "bahamut", realId: bahaMatch[1] + (offsetMatch ? offsetMatch[0] : "") };
+    let { offset, percent } = stripLinkOffset(url);
+    return { source: "bahamut", realId: bahaMatch[1] + (offset !== 0 ? `@${offset}${percent ? "%" : ""}` : "") };
   }
   return { source: detectPlatformFromUrl(url), realId: url };
 }
@@ -20490,14 +20857,8 @@ async function fetchMergedComments(url, animeTitle, commentId) {
         logicalSource: "",
         sourceLabel: ""
       };
-    let sourceName = part.substring(0, firstColonIndex), realId = part.substring(firstColonIndex + 1), manualOffset = 0, manualOffsetPercent = !1, percentMatch = realId.match(/@%(-?\d+(?:\.\d+)?)$/);
-    if (percentMatch)
-      manualOffset = parseFloat(percentMatch[1]), manualOffsetPercent = !0, realId = realId.substring(0, realId.length - percentMatch[0].length);
-    else {
-      let offsetMatch = realId.match(/@(-?\d+(?:\.\d+)?)$/);
-      offsetMatch && (manualOffset = parseFloat(offsetMatch[1]), realId = realId.substring(0, realId.length - offsetMatch[0].length));
-    }
-    return sourceName !== "hanjutv" ? {
+    let sourceName = part.substring(0, firstColonIndex), realId = part.substring(firstColonIndex + 1), linkMeta = stripLinkOffset(realId), manualOffset = linkMeta.offset, manualOffsetPercent = linkMeta.percent;
+    return realId = linkMeta.cleanUrl, sourceName !== "hanjutv" ? {
       realId,
       logicalSource: sourceName,
       sourceLabel: sourceName,
@@ -20527,9 +20888,9 @@ async function fetchMergedComments(url, animeTitle, commentId) {
         return [];
       }
     }
-    let fetchTask = sourceLogContext.run(toLogSourceName(sourceName), async () => {
-      let sourceInstance = null;
-      if (sourceName === "renren" ? sourceInstance = renrenSource : sourceName === "hanjutv" ? sourceInstance = hanjutvSource : sourceName === "bahamut" ? sourceInstance = bahamutSource2 : sourceName === "dandan" ? sourceInstance = dandanSource : sourceName === "tencent" ? sourceInstance = tencentSource2 : sourceName === "youku" ? sourceInstance = youkuSource2 : sourceName === "iqiyi" ? sourceInstance = iqiyiSource2 : sourceName === "imgo" ? sourceInstance = mangoSource2 : sourceName === "bilibili" ? sourceInstance = bilibiliSource2 : sourceName === "migu" ? sourceInstance = miguSource : sourceName === "sohu" ? sourceInstance = sohuSource : sourceName === "leshi" ? sourceInstance = leshiSource : sourceName === "xigua" ? sourceInstance = xiguaSource : sourceName === "maiduidui" ? sourceInstance = maiduiduiSource : sourceName === "aiyifan" ? sourceInstance = aiyifanSource : sourceName === "hongguo" ? sourceInstance = hongguoSource : sourceName === "animeko" && (sourceInstance = animekoSource), sourceInstance)
+    let fetchTask = sourceLogContext.run(getLogNameByKey(sourceName), async () => {
+      let sourceInstance = getSourceByKey(sourceName);
+      if (sourceInstance)
         try {
           let resolvedId = realId;
           sourceName === "bilibili" && String(resolvedId).includes("b23.tv") && (resolvedId = await bilibiliSource2.resolveB23Link(resolvedId));
@@ -20611,17 +20972,11 @@ async function getComment(path2, queryFormat, segmentFlag, clientIp, includeDura
     return formatDanmuResponse(responseData2, queryFormat);
   }
   log("info", "[system] [LogVar-API] \u5F00\u59CB\u4ECE\u672C\u5730\u8BF7\u6C42\u5F39\u5E55...", url);
-  let danmus = [], durationPromise = shouldAttachDuration ? resolveMergedDuration(url) : null, singleUrlOffset = 0, singleUrlOffsetPercent = !1, cleanUrl = url, percentMatch = url.match(/@%(-?\d+(?:\.\d+)?)$/);
-  if (percentMatch)
-    singleUrlOffset = parseFloat(percentMatch[1]), singleUrlOffsetPercent = !0, cleanUrl = url.substring(0, url.length - percentMatch[0].length), log("info", `[system] [LogVar-API] \u68C0\u6D4B\u5230\u94FE\u63A5\u767E\u5206\u6BD4\u504F\u79FB: ${singleUrlOffset}s`);
-  else {
-    let offsetMatch = url.match(/@(-?\d+(?:\.\d+)?)$/);
-    offsetMatch && (singleUrlOffset = parseFloat(offsetMatch[1]), cleanUrl = url.substring(0, url.length - offsetMatch[0].length), log("info", `[system] [LogVar-API] \u68C0\u6D4B\u5230\u94FE\u63A5\u504F\u79FB: ${singleUrlOffset}s`));
-  }
-  if (url && url.includes(MERGE_DELIMITER))
+  let danmus = [], durationPromise = shouldAttachDuration ? resolveMergedDuration(url) : null, linkMeta = stripLinkOffset(url), singleUrlOffset = linkMeta.offset, singleUrlOffsetPercent = linkMeta.percent, cleanUrl = linkMeta.cleanUrl;
+  if (singleUrlOffset !== 0 && log("info", `[system] [LogVar-API] \u68C0\u6D4B\u5230\u94FE\u63A5${singleUrlOffsetPercent ? "\u767E\u5206\u6BD4" : ""}\u504F\u79FB: ${singleUrlOffset}s`), url && url.includes(MERGE_DELIMITER))
     danmus = await fetchMergedComments(url, animeTitle, commentId);
   else {
-    let commentUrl = cleanUrl;
+    let commentUrl = cleanUrl, isHongguoUrl = isHongguoPlayerUrl(commentUrl);
     if (url.includes(".qq.com"))
       danmus = await sourceLogContext.run("tencent", () => tencentSource2.getComments(commentUrl, plat, segmentFlag));
     else if (url.includes(".iqiyi.com"))
@@ -20645,7 +21000,7 @@ async function getComment(path2, queryFormat, segmentFlag, clientIp, includeDura
       danmus = await sourceLogContext.run("maiduidui", () => maiduiduiSource.getComments(commentUrl, plat, segmentFlag));
     else if (url.includes(".yfsp.tv"))
       danmus = await sourceLogContext.run("aiyifan", () => aiyifanSource.getComments(commentUrl, plat, segmentFlag));
-    else if (isHongguoPlayerUrl(commentUrl))
+    else if (isHongguoUrl)
       danmus = await sourceLogContext.run("hongguo", () => hongguoSource.getComments(commentUrl, "hongguo", segmentFlag));
     else if (/(?:bgm|bangumi)\.(?:tv|lol)\/ep\/|chii\.in\/ep\//.test(url)) {
       let bgmMatch = commentUrl.match(/(?:bgm\.tv|bangumi\.tv|bangumi\.lol|chii\.in)\/ep\/(\d+)/);
@@ -20655,9 +21010,13 @@ async function getComment(path2, queryFormat, segmentFlag, clientIp, includeDura
       danmus = await sourceLogContext.run("bahamut", () => bahamutSource2.getComments(bahaMatch ? bahaMatch[1] : commentUrl, plat, segmentFlag));
     }
     let urlPattern = /^(https?:\/\/)?([\w.-]+)\.([a-z]{2,})(\/.*)?$/i;
-    urlPattern.test(url) || (plat === "renren" ? danmus = await sourceLogContext.run("renren", () => renrenSource.getComments(url, plat, segmentFlag)) : plat === "hanjutv" ? danmus = await sourceLogContext.run("hanjutv", () => hanjutvSource.getComments(url, plat, segmentFlag)) : plat === "bahamut" ? danmus = await sourceLogContext.run("bahamut", () => bahamutSource2.getComments(url, plat, segmentFlag)) : plat === "dandan" ? danmus = await sourceLogContext.run("dandan", () => dandanSource.getComments(url, plat, segmentFlag)) : plat === "custom" ? danmus = await sourceLogContext.run("custom", () => customSource.getComments(url, plat, segmentFlag)) : plat === "animeko" ? danmus = await sourceLogContext.run("animeko", () => animekoSource.getComments(url, plat, segmentFlag)) : plat === "hongguo" && (danmus = await sourceLogContext.run("hongguo", () => hongguoSource.getComments(url, plat, segmentFlag)))), (!danmus || danmus.length === 0) && urlPattern.test(url) && (danmus = await sourceLogContext.run("other", () => otherSource.getComments(url, "other_server", segmentFlag)));
+    if (!urlPattern.test(url) && !isHongguoUrl) {
+      let sourceUrl = sanitizeUrl(commentUrl), platSource = getSourceByKey(plat);
+      platSource && (danmus = await sourceLogContext.run(plat, () => platSource.getComments(sourceUrl, plat, segmentFlag)));
+    }
+    (!danmus || danmus.length === 0) && urlPattern.test(url) && (danmus = await sourceLogContext.run("other", () => otherSource.getComments(url, "other_server", segmentFlag)));
   }
-  if (singleUrlOffset !== 0 && danmus && Array.isArray(danmus) && danmus.length > 0)
+  if (!(url && url.includes(MERGE_DELIMITER)) && singleUrlOffset !== 0 && danmus && Array.isArray(danmus) && danmus.length > 0)
     if (singleUrlOffsetPercent) {
       let maxTime = Math.max(...danmus.map((d) => parseFloat(String(d.p).split(",")[0]) || 0), 0);
       danmus = applyOffset(danmus, singleUrlOffset, { usePercent: !0, videoDuration: maxTime || 1 }), log("info", `[system] [LogVar-API] \u5E94\u7528\u94FE\u63A5\u767E\u5206\u6BD4\u504F\u79FB ${singleUrlOffset}s (\u65F6\u957F=${maxTime}s)`);
@@ -20735,7 +21094,7 @@ async function getSegmentComment(segment, queryFormat) {
 }
 
 // forward/forward-widget.js
-var wv = "1.20.7";
+var wv = "1.20.10";
 WidgetMetadata = {
   id: "forward.auto.danmu2",
   title: "\u81EA\u52A8\u94FE\u63A5\u5F39\u5E55v2",
@@ -21248,10 +21607,10 @@ WidgetMetadata = {
   ]
 };
 typeof window < "u" && (window.WidgetMetadata = WidgetMetadata);
-var globals2, forwardCachesLoaded = !1, FORWARD_CACHE_SCHEMA_VERSION = 2, FORWARD_CACHE_SCHEMA_KEY = "forward.cache.schema", FORWARD_SEGMENT_CACHE_PREFIX = `forward.segment.v${FORWARD_CACHE_SCHEMA_VERSION}`, FORWARD_SEGMENT_CACHE_TTL_MS = 300 * 60 * 1e3, FORWARD_SEGMENT_EMPTY_RETRY_MIN_AGE_MS = 60 * 1e3, FORWARD_PERSISTED_LOG_LIMIT = 200, forwardSegmentMemoryCache = /* @__PURE__ */ new Map();
+var globals3, forwardCachesLoaded = !1, FORWARD_CACHE_SCHEMA_VERSION = 2, FORWARD_CACHE_SCHEMA_KEY = "forward.cache.schema", FORWARD_SEGMENT_CACHE_PREFIX = `forward.segment.v${FORWARD_CACHE_SCHEMA_VERSION}`, FORWARD_SEGMENT_CACHE_TTL_MS = 300 * 60 * 1e3, FORWARD_SEGMENT_EMPTY_RETRY_MIN_AGE_MS = 60 * 1e3, FORWARD_PERSISTED_LOG_LIMIT = 200, forwardSegmentMemoryCache = /* @__PURE__ */ new Map();
 async function initGlobals(sourceOrder, otherServer, customSourceApiUrl, vodServers, vodReturnMode, vodRequestTimeout, bilibiliCookie, doubanCookie, platformOrder, episodeTitleFilter, enableAnimeEpisodeFilter, strictTitleMatch2, titleMappingTable, animeTitleFilter, animeTitleSimplified, blockedWords, groupMinute, danmuLimit, danmuSimplifiedTraditional, danmuOffset, convertTopBottomToScroll, convertColor, colorPool, proxyUrl, tmdbApiKey, likeSwitch, hongguoMergeAllEpisodes) {
   let env = {};
-  return sourceOrder !== void 0 && (env.SOURCE_ORDER = sourceOrder), otherServer !== void 0 && (env.OTHER_SERVER = otherServer), customSourceApiUrl !== void 0 && (env.CUSTOM_SOURCE_API_URL = customSourceApiUrl), vodServers !== void 0 && (env.VOD_SERVERS = vodServers), vodReturnMode !== void 0 && (env.VOD_RETURN_MODE = vodReturnMode), vodRequestTimeout !== void 0 && (env.VOD_REQUEST_TIMEOUT = vodRequestTimeout), bilibiliCookie !== void 0 && (env.BILIBILI_COOKIE = bilibiliCookie), doubanCookie !== void 0 && (env.DOUBAN_COOKIE = doubanCookie), platformOrder !== void 0 && (env.PLATFORM_ORDER = platformOrder), episodeTitleFilter !== void 0 && (env.EPISODE_TITLE_FILTER = episodeTitleFilter), enableAnimeEpisodeFilter !== void 0 && (env.ENABLE_ANIME_EPISODE_FILTER = enableAnimeEpisodeFilter), strictTitleMatch2 !== void 0 && (env.STRICT_TITLE_MATCH = strictTitleMatch2), titleMappingTable !== void 0 && (env.TITLE_MAPPING_TABLE = titleMappingTable), animeTitleFilter !== void 0 && (env.ANIME_TITLE_FILTER = animeTitleFilter), animeTitleSimplified !== void 0 && (env.ANIME_TITLE_SIMPLIFIED = animeTitleSimplified), blockedWords !== void 0 && (env.BLOCKED_WORDS = blockedWords), groupMinute !== void 0 && (env.GROUP_MINUTE = groupMinute), danmuLimit !== void 0 && (env.DANMU_LIMIT = danmuLimit), danmuSimplifiedTraditional !== void 0 && (env.DANMU_SIMPLIFIED_TRADITIONAL = danmuSimplifiedTraditional), danmuOffset !== void 0 && (env.DANMU_OFFSET = danmuOffset), convertTopBottomToScroll !== void 0 && (env.CONVERT_TOP_BOTTOM_TO_SCROLL = convertTopBottomToScroll), convertColor !== void 0 && (env.CONVERT_COLOR = convertColor), colorPool !== void 0 && (env.COLOR_POOL = colorPool), likeSwitch !== void 0 && (env.LIKE_SWITCH = likeSwitch), hongguoMergeAllEpisodes !== void 0 && (env.HONGGUO_MERGE_ALL_EPISODES = hongguoMergeAllEpisodes), proxyUrl !== void 0 && (env.PROXY_URL = proxyUrl), tmdbApiKey !== void 0 && (env.TMDB_API_KEY = tmdbApiKey), globals2 = Globals.init(env), await getCaches(), globals2;
+  return sourceOrder !== void 0 && (env.SOURCE_ORDER = sourceOrder), otherServer !== void 0 && (env.OTHER_SERVER = otherServer), customSourceApiUrl !== void 0 && (env.CUSTOM_SOURCE_API_URL = customSourceApiUrl), vodServers !== void 0 && (env.VOD_SERVERS = vodServers), vodReturnMode !== void 0 && (env.VOD_RETURN_MODE = vodReturnMode), vodRequestTimeout !== void 0 && (env.VOD_REQUEST_TIMEOUT = vodRequestTimeout), bilibiliCookie !== void 0 && (env.BILIBILI_COOKIE = bilibiliCookie), doubanCookie !== void 0 && (env.DOUBAN_COOKIE = doubanCookie), platformOrder !== void 0 && (env.PLATFORM_ORDER = platformOrder), episodeTitleFilter !== void 0 && (env.EPISODE_TITLE_FILTER = episodeTitleFilter), enableAnimeEpisodeFilter !== void 0 && (env.ENABLE_ANIME_EPISODE_FILTER = enableAnimeEpisodeFilter), strictTitleMatch2 !== void 0 && (env.STRICT_TITLE_MATCH = strictTitleMatch2), titleMappingTable !== void 0 && (env.TITLE_MAPPING_TABLE = titleMappingTable), animeTitleFilter !== void 0 && (env.ANIME_TITLE_FILTER = animeTitleFilter), animeTitleSimplified !== void 0 && (env.ANIME_TITLE_SIMPLIFIED = animeTitleSimplified), blockedWords !== void 0 && (env.BLOCKED_WORDS = blockedWords), groupMinute !== void 0 && (env.GROUP_MINUTE = groupMinute), danmuLimit !== void 0 && (env.DANMU_LIMIT = danmuLimit), danmuSimplifiedTraditional !== void 0 && (env.DANMU_SIMPLIFIED_TRADITIONAL = danmuSimplifiedTraditional), danmuOffset !== void 0 && (env.DANMU_OFFSET = danmuOffset), convertTopBottomToScroll !== void 0 && (env.CONVERT_TOP_BOTTOM_TO_SCROLL = convertTopBottomToScroll), convertColor !== void 0 && (env.CONVERT_COLOR = convertColor), colorPool !== void 0 && (env.COLOR_POOL = colorPool), likeSwitch !== void 0 && (env.LIKE_SWITCH = likeSwitch), hongguoMergeAllEpisodes !== void 0 && (env.HONGGUO_MERGE_ALL_EPISODES = hongguoMergeAllEpisodes), proxyUrl !== void 0 && (env.PROXY_URL = proxyUrl), tmdbApiKey !== void 0 && (env.TMDB_API_KEY = tmdbApiKey), globals3 = Globals.init(env), await getCaches(), globals3;
 }
 async function getCaches() {
   if (forwardCachesLoaded)
@@ -21269,17 +21628,17 @@ async function getCaches() {
     Widget.storage.get("logBuffer"),
     Widget.storage.get("lastSelectMap")
   ]);
-  globals2.animes = parseForwardCacheValue(kv_animes, globals2.animes, Array.isArray), globals2.episodeIds = parseForwardCacheValue(kv_episodeIds, globals2.episodeIds, Array.isArray), globals2.episodeNum = parseForwardCacheValue(
+  globals3.animes = parseForwardCacheValue(kv_animes, globals3.animes, Array.isArray), globals3.episodeIds = parseForwardCacheValue(kv_episodeIds, globals3.episodeIds, Array.isArray), globals3.episodeNum = parseForwardCacheValue(
     kv_episodeNum,
-    globals2.episodeNum,
+    globals3.episodeNum,
     (value) => Number.isFinite(Number(value))
-  ), globals2.logBuffer = parseForwardCacheValue(kv_logBuffer, globals2.logBuffer, Array.isArray);
+  ), globals3.logBuffer = parseForwardCacheValue(kv_logBuffer, globals3.logBuffer, Array.isArray);
   let parsedLastSelectMap = parseForwardCacheValue(
     kv_lastSelectMap,
     null,
     (value) => Array.isArray(value) || value && typeof value == "object"
   );
-  parsedLastSelectMap && (globals2.lastSelectMap = new Map(
+  parsedLastSelectMap && (globals3.lastSelectMap = new Map(
     Array.isArray(parsedLastSelectMap) ? parsedLastSelectMap : Object.entries(parsedLastSelectMap)
   ));
 }
@@ -21295,15 +21654,15 @@ function parseForwardCacheValue(value, fallback, validator) {
 }
 async function updateCaches() {
   log("info", "[Forward] updateCaches start.");
-  let persistedLogs = Array.isArray(globals2.logBuffer) ? globals2.logBuffer.slice(-FORWARD_PERSISTED_LOG_LIMIT) : [];
+  let persistedLogs = Array.isArray(globals3.logBuffer) ? globals3.logBuffer.slice(-FORWARD_PERSISTED_LOG_LIMIT) : [];
   try {
     await Promise.all([
       Widget.storage.set(FORWARD_CACHE_SCHEMA_KEY, FORWARD_CACHE_SCHEMA_VERSION),
-      Widget.storage.set("animes", globals2.animes),
-      Widget.storage.set("episodeIds", globals2.episodeIds),
-      Widget.storage.set("episodeNum", globals2.episodeNum),
+      Widget.storage.set("animes", globals3.animes),
+      Widget.storage.set("episodeIds", globals3.episodeIds),
+      Widget.storage.set("episodeNum", globals3.episodeNum),
       Widget.storage.set("logBuffer", persistedLogs),
-      Widget.storage.set("lastSelectMap", JSON.stringify(Object.fromEntries(globals2.lastSelectMap)))
+      Widget.storage.set("lastSelectMap", JSON.stringify(Object.fromEntries(globals3.lastSelectMap)))
     ]);
   } catch (error) {
     log("warn", `[Forward] Failed to persist optional global cache: ${error.message}`);
@@ -21386,7 +21745,7 @@ async function searchDanmuCore(params) {
     hongguoMergeAllEpisodes
   );
   let simplifiedTitle = title;
-  globals2.animeTitleSimplified && (simplifiedTitle = simplized(title), log("info", `[Forward] searchAnime converted traditional to simplified: ${title} -> ${simplifiedTitle}`));
+  globals3.animeTitleSimplified && (simplifiedTitle = simplized(title), log("info", `[Forward] searchAnime converted traditional to simplified: ${title} -> ${simplifiedTitle}`));
   let curAnimes = (await (await searchAnime(new URL(`${PREFIX_URL}/api/v2/search/anime?keyword=${simplifiedTitle}`))).json()).animes, animes = [];
   if (curAnimes && curAnimes.length > 0)
     if (animes = curAnimes, season) {
@@ -21495,8 +21854,8 @@ function getLegacySegmentCacheKey(params) {
 function isValidSegment(segment) {
   if (!segment || typeof segment != "object" || typeof segment.url != "string" || !segment.url.trim())
     return !1;
-  let start2 = Number(segment.segment_start), end2 = Number(segment.segment_end);
-  return Number.isFinite(start2) && Number.isFinite(end2) && end2 > start2;
+  let start = Number(segment.segment_start), end = Number(segment.segment_end);
+  return Number.isFinite(start) && Number.isFinite(end) && end > start;
 }
 function parseSegmentCacheRecord(value) {
   let record = parseForwardCacheValue(
