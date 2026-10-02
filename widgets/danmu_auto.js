@@ -420,20 +420,13 @@ function Config(good_length, max_lazy, nice_length, max_chain, func) {
   this.good_length = good_length, this.max_lazy = max_lazy, this.nice_length = nice_length, this.max_chain = max_chain, this.func = func;
 }
 function DeflateState() {
-  this.strm = null, this.status = 0, this.pending_buf = null, this.pending_buf_size = 0, this.pending_out = 0, this.pending = 0, this.wrap = 0, this.gzhead = null, this.gzindex = 0, this.method = Z_DEFLATED$2, this.last_flush = -1, this.w_size = 0, this.w_bits = 0, this.w_mask = 0, this.window = null, this.window_size = 0, this.prev = null, this.head = null, this.ins_h = 0, this.hash_size = 0, this.hash_bits = 0, this.hash_mask = 0, this.hash_shift = 0, this.block_start = 0, this.match_length = 0, this.prev_match = 0, this.match_available = 0, this.strstart = 0, this.match_start = 0, this.lookahead = 0, this.prev_length = 0, this.max_chain_length = 0, this.max_lazy_match = 0, this.level = 0, this.strategy = 0, this.good_match = 0, this.nice_match = 0, this.dyn_ltree = new Uint16Array(HEAP_SIZE * 2), this.dyn_dtree = new Uint16Array((2 * D_CODES + 1) * 2), this.bl_tree = new Uint16Array((2 * BL_CODES + 1) * 2), zero(this.dyn_ltree), zero(this.dyn_dtree), zero(this.bl_tree), this.l_desc = null, this.d_desc = null, this.bl_desc = null, this.bl_count = new Uint16Array(MAX_BITS + 1), this.heap = new Uint16Array(2 * L_CODES + 1), zero(this.heap), this.heap_len = 0, this.heap_max = 0, this.depth = new Uint16Array(2 * L_CODES + 1), zero(this.depth), this.sym_buf = 0, this.lit_bufsize = 0, this.sym_next = 0, this.sym_end = 0, this.opt_len = 0, this.static_len = 0, this.matches = 0, this.insert = 0, this.bi_buf = 0, this.bi_valid = 0;
+  this.strm = null, this.status = 0, this.pending_buf = null, this.pending_buf_size = 0, this.pending_out = 0, this.pending = 0, this.wrap = 0, this.gzhead = null, this.gzindex = 0, this.method = Z_DEFLATED$2, this.last_flush = -1, this.w_size = 0, this.w_bits = 0, this.w_mask = 0, this.window = null, this.window_size = 0, this.prev = null, this.head = null, this.ins_h = 0, this.legacy_hash = 0, this.hash_size = 0, this.hash_bits = 0, this.hash_mask = 0, this.hash_shift = 0, this.block_start = 0, this.match_length = 0, this.prev_match = 0, this.match_available = 0, this.strstart = 0, this.match_start = 0, this.lookahead = 0, this.prev_length = 0, this.max_chain_length = 0, this.max_lazy_match = 0, this.level = 0, this.strategy = 0, this.good_match = 0, this.nice_match = 0, this.dyn_ltree = new Uint16Array(HEAP_SIZE * 2), this.dyn_dtree = new Uint16Array((2 * D_CODES + 1) * 2), this.bl_tree = new Uint16Array((2 * BL_CODES + 1) * 2), zero(this.dyn_ltree), zero(this.dyn_dtree), zero(this.bl_tree), this.l_desc = null, this.d_desc = null, this.bl_desc = null, this.bl_count = new Uint16Array(MAX_BITS + 1), this.heap = new Uint16Array(2 * L_CODES + 1), zero(this.heap), this.heap_len = 0, this.heap_max = 0, this.depth = new Uint16Array(2 * L_CODES + 1), zero(this.depth), this.sym_buf = 0, this.lit_bufsize = 0, this.sym_next = 0, this.sym_end = 0, this.opt_len = 0, this.static_len = 0, this.matches = 0, this.insert = 0, this.bi_buf = 0, this.bi_valid = 0;
 }
 function ZStream() {
   this.input = null, this.next_in = 0, this.avail_in = 0, this.total_in = 0, this.output = null, this.next_out = 0, this.avail_out = 0, this.total_out = 0, this.msg = "", this.state = null, this.data_type = 2, this.adler = 0;
 }
 function Deflate$1(options) {
-  this.options = common.assign({
-    level: Z_DEFAULT_COMPRESSION,
-    method: Z_DEFLATED$1,
-    chunkSize: 16384,
-    windowBits: 15,
-    memLevel: 8,
-    strategy: Z_DEFAULT_STRATEGY
-  }, options || {});
+  this.options = common.assign({}, defaultOptions$1, options || {});
   let opt = this.options;
   opt.raw && opt.windowBits > 0 ? opt.windowBits = -opt.windowBits : opt.gzip && opt.windowBits > 0 && opt.windowBits < 16 && (opt.windowBits += 16), this.err = 0, this.msg = "", this.ended = !1, this.chunks = [], this.strm = new zstream(), this.strm.avail_out = 0;
   let status = deflate_1$2.deflateInit2(
@@ -442,7 +435,8 @@ function Deflate$1(options) {
     opt.method,
     opt.windowBits,
     opt.memLevel,
-    opt.strategy
+    opt.strategy,
+    opt.legacyHash
   );
   if (status !== Z_OK$2)
     throw new Error(messages[status]);
@@ -472,11 +466,7 @@ function GZheader() {
   this.text = 0, this.time = 0, this.xflags = 0, this.os = 0, this.extra = null, this.extra_len = 0, this.name = "", this.comment = "", this.hcrc = 0, this.done = !1;
 }
 function Inflate$1(options) {
-  this.options = common.assign({
-    chunkSize: 1024 * 64,
-    windowBits: 15,
-    to: ""
-  }, options || {});
+  this.options = common.assign({}, defaultOptions, options || {});
   let opt = this.options;
   opt.raw && opt.windowBits >= 0 && opt.windowBits < 16 && (opt.windowBits = -opt.windowBits, opt.windowBits === 0 && (opt.windowBits = -15)), opt.windowBits >= 0 && opt.windowBits < 16 && !(options && options.windowBits) && (opt.windowBits += 32), opt.windowBits > 15 && opt.windowBits < 48 && (opt.windowBits & 15) === 0 && (opt.windowBits |= 15), this.err = 0, this.msg = "", this.ended = !1, this.chunks = [], this.strm = new zstream(), this.strm.avail_out = 0;
   let status = inflate_1$2.inflateInit2(
@@ -490,13 +480,13 @@ function Inflate$1(options) {
 }
 function inflate$1(input, options) {
   let inflator = new Inflate$1(options);
-  if (inflator.push(input), inflator.err) throw inflator.msg || messages[inflator.err];
+  if (inflator.push(input, !0), inflator.err) throw inflator.msg || messages[inflator.err];
   return inflator.result;
 }
 function inflateRaw$1(input, options) {
   return options = options || {}, options.raw = !0, inflate$1(input, options);
 }
-var STORED_BLOCK, STATIC_TREES, DYN_TREES, MIN_MATCH$1, MAX_MATCH$1, LENGTH_CODES$1, LITERALS$1, L_CODES$1, D_CODES$1, BL_CODES$1, HEAP_SIZE$1, MAX_BITS$1, Buf_size, MAX_BL_BITS, END_BLOCK, REP_3_6, REPZ_3_10, REPZ_11_138, extra_lbits, extra_dbits, extra_blbits, bl_order, DIST_CODE_LEN, static_ltree, static_dtree, _dist_code, _length_code, base_length, base_dist, static_l_desc, static_d_desc, static_bl_desc, d_code, put_short, send_bits, send_code, bi_reverse, bi_flush, gen_bitlen, gen_codes, tr_static_init, init_block, bi_windup, smaller, pqdownheap, compress_block, build_tree, scan_tree, send_tree, build_bl_tree, send_all_trees, detect_data_type, static_init_done, _tr_init$1, _tr_stored_block$1, _tr_align$1, _tr_flush_block$1, _tr_tally$1, _tr_init_1, _tr_stored_block_1, _tr_flush_block_1, _tr_tally_1, _tr_align_1, trees, adler32, adler32_1, makeTable, crcTable, crc32, crc32_1, messages, constants$2, _tr_init, _tr_stored_block, _tr_flush_block, _tr_tally, _tr_align, Z_NO_FLUSH$2, Z_PARTIAL_FLUSH, Z_FULL_FLUSH$1, Z_FINISH$3, Z_BLOCK$1, Z_OK$3, Z_STREAM_END$3, Z_STREAM_ERROR$2, Z_DATA_ERROR$2, Z_BUF_ERROR$1, Z_DEFAULT_COMPRESSION$1, Z_FILTERED, Z_HUFFMAN_ONLY, Z_RLE, Z_FIXED, Z_DEFAULT_STRATEGY$1, Z_UNKNOWN, Z_DEFLATED$2, MAX_MEM_LEVEL, MAX_WBITS$1, DEF_MEM_LEVEL, LENGTH_CODES, LITERALS, L_CODES, D_CODES, BL_CODES, HEAP_SIZE, MAX_BITS, MIN_MATCH, MAX_MATCH, MIN_LOOKAHEAD, PRESET_DICT, INIT_STATE, GZIP_STATE, EXTRA_STATE, NAME_STATE, COMMENT_STATE, HCRC_STATE, BUSY_STATE, FINISH_STATE, BS_NEED_MORE, BS_BLOCK_DONE, BS_FINISH_STARTED, BS_FINISH_DONE, OS_CODE, err, rank, zero, slide_hash, HASH_ZLIB, HASH, flush_pending, flush_block_only, put_byte, putShortMSB, read_buf, longest_match, fill_window, deflate_stored, deflate_fast, deflate_slow, deflate_rle, deflate_huff, configuration_table, lm_init, deflateStateCheck, deflateResetKeep, deflateReset, deflateSetHeader, deflateInit2, deflateInit, deflate$2, deflateEnd, deflateSetDictionary, deflateInit_1, deflateInit2_1, deflateReset_1, deflateResetKeep_1, deflateSetHeader_1, deflate_2$1, deflateEnd_1, deflateSetDictionary_1, deflateInfo, deflate_1$2, _has, assign, flattenChunks, common, STR_APPLY_UIA_OK, _utf8len, string2buf, buf2binstring, buf2string, utf8border, strings, zstream, toString$1, Z_NO_FLUSH$1, Z_SYNC_FLUSH, Z_FULL_FLUSH, Z_FINISH$2, Z_OK$2, Z_STREAM_END$2, Z_DEFAULT_COMPRESSION, Z_DEFAULT_STRATEGY, Z_DEFLATED$1, Deflate_1$1, deflate_2, deflateRaw_1$1, gzip_1$1, constants$1, deflate_1$1, BAD$1, TYPE$1, inffast, MAXBITS, ENOUGH_LENS$1, ENOUGH_DISTS$1, CODES$1, LENS$1, DISTS$1, lbase, lext, dbase, dext, inflate_table, inftrees, CODES, LENS, DISTS, Z_FINISH$1, Z_BLOCK, Z_TREES, Z_OK$1, Z_STREAM_END$1, Z_NEED_DICT$1, Z_STREAM_ERROR$1, Z_DATA_ERROR$1, Z_MEM_ERROR$1, Z_BUF_ERROR, Z_DEFLATED, HEAD, FLAGS, TIME, OS, EXLEN, EXTRA, NAME, COMMENT, HCRC, DICTID, DICT, TYPE, TYPEDO, STORED, COPY_, COPY, TABLE, LENLENS, CODELENS, LEN_, LEN, LENEXT, DIST, DISTEXT, MATCH, LIT, CHECK, LENGTH, DONE, BAD, MEM, SYNC, ENOUGH_LENS, ENOUGH_DISTS, MAX_WBITS, DEF_WBITS, zswap32, inflateStateCheck, inflateResetKeep, inflateReset, inflateReset2, inflateInit2, inflateInit, virgin, lenfix, distfix, fixedtables, updatewindow, inflate$2, inflateEnd, inflateGetHeader, inflateSetDictionary, inflateReset_1, inflateReset2_1, inflateResetKeep_1, inflateInit_1, inflateInit2_1, inflate_2$1, inflateEnd_1, inflateGetHeader_1, inflateSetDictionary_1, inflateInfo, inflate_1$2, gzheader, toString, Z_NO_FLUSH, Z_FINISH, Z_OK, Z_STREAM_END, Z_NEED_DICT, Z_STREAM_ERROR, Z_DATA_ERROR, Z_MEM_ERROR, Inflate_1$1, inflate_2, inflateRaw_1$1, ungzip$1, constants, inflate_1$1, Deflate, deflate, deflateRaw, gzip, Inflate, inflate, inflateRaw, ungzip, Deflate_1, deflate_1, deflateRaw_1, gzip_1, Inflate_1, inflate_1, inflateRaw_1, ungzip_1, constants_1, pako, init_pako_esm = __esm({
+var STORED_BLOCK, STATIC_TREES, DYN_TREES, MIN_MATCH$1, MAX_MATCH$1, LENGTH_CODES$1, LITERALS$1, L_CODES$1, D_CODES$1, BL_CODES$1, HEAP_SIZE$1, MAX_BITS$1, Buf_size, MAX_BL_BITS, END_BLOCK, REP_3_6, REPZ_3_10, REPZ_11_138, extra_lbits, extra_dbits, extra_blbits, bl_order, DIST_CODE_LEN, static_ltree, static_dtree, _dist_code, _length_code, base_length, base_dist, static_l_desc, static_d_desc, static_bl_desc, d_code, put_short, send_bits, send_code, bi_reverse, bi_flush, gen_bitlen, gen_codes, tr_static_init, init_block, bi_windup, smaller, pqdownheap, compress_block, build_tree, scan_tree, send_tree, build_bl_tree, send_all_trees, detect_data_type, static_init_done, _tr_init$1, _tr_stored_block$1, _tr_align$1, _tr_flush_block$1, _tr_tally$1, _tr_init_1, _tr_stored_block_1, _tr_flush_block_1, _tr_tally_1, _tr_align_1, trees, adler32, adler32_1, makeTable, crcTable, crc32, crc32_1, messages, constants$2, _tr_init, _tr_stored_block, _tr_flush_block, _tr_tally, _tr_align, Z_NO_FLUSH$2, Z_PARTIAL_FLUSH, Z_FULL_FLUSH$1, Z_FINISH$3, Z_BLOCK$1, Z_OK$3, Z_STREAM_END$3, Z_STREAM_ERROR$2, Z_DATA_ERROR$2, Z_BUF_ERROR$2, Z_DEFAULT_COMPRESSION$1, Z_FILTERED, Z_HUFFMAN_ONLY, Z_RLE, Z_FIXED, Z_DEFAULT_STRATEGY$1, Z_UNKNOWN, Z_DEFLATED$2, MAX_MEM_LEVEL, MAX_WBITS$1, DEF_MEM_LEVEL, LENGTH_CODES, LITERALS, L_CODES, D_CODES, BL_CODES, HEAP_SIZE, MAX_BITS, MIN_MATCH, MAX_MATCH, MIN_LOOKAHEAD, PRESET_DICT, INIT_STATE, GZIP_STATE, EXTRA_STATE, NAME_STATE, COMMENT_STATE, HCRC_STATE, BUSY_STATE, FINISH_STATE, BS_NEED_MORE, BS_BLOCK_DONE, BS_FINISH_STARTED, BS_FINISH_DONE, OS_CODE, err, rank, zero, slide_hash, HASH, INSERT_STRING, flush_pending, flush_block_only, put_byte, putShortMSB, read_buf, longest_match, fill_window, deflate_stored, deflate_fast, deflate_slow, deflate_rle, deflate_huff, configuration_table, lm_init, deflateStateCheck, deflateResetKeep, deflateReset, deflateSetHeader, deflateInit2, deflateInit, deflate$2, deflateEnd, deflateSetDictionary, deflateInit_1, deflateInit2_1, deflateReset_1, deflateResetKeep_1, deflateSetHeader_1, deflate_2$1, deflateEnd_1, deflateSetDictionary_1, deflateInfo, deflate_1$2, _has, assign, flattenChunks, common, STR_APPLY_UIA_OK, _utf8len, string2buf, buf2binstring, buf2string, utf8border, strings, zstream, toString$1, Z_NO_FLUSH$1, Z_SYNC_FLUSH, Z_FULL_FLUSH, Z_FINISH$2, Z_OK$2, Z_STREAM_END$2, Z_DEFAULT_COMPRESSION, Z_DEFAULT_STRATEGY, Z_DEFLATED$1, defaultOptions$1, Deflate_1$1, deflate_2, deflateRaw_1$1, gzip_1$1, constants$1, deflate_1$1, BAD$1, TYPE$1, inffast, MAXBITS, ENOUGH_LENS$1, ENOUGH_DISTS$1, CODES$1, LENS$1, DISTS$1, lbase, lext, dbase, dext, inflate_table, inftrees, CODES, LENS, DISTS, Z_FINISH$1, Z_BLOCK, Z_TREES, Z_OK$1, Z_STREAM_END$1, Z_NEED_DICT$1, Z_STREAM_ERROR$1, Z_DATA_ERROR$1, Z_MEM_ERROR$1, Z_BUF_ERROR$1, Z_DEFLATED, HEAD, FLAGS, TIME, OS, EXLEN, EXTRA, NAME, COMMENT, HCRC, DICTID, DICT, TYPE, TYPEDO, STORED, COPY_, COPY, TABLE, LENLENS, CODELENS, LEN_, LEN, LENEXT, DIST, DISTEXT, MATCH, LIT, CHECK, LENGTH, DONE, BAD, MEM, SYNC, ENOUGH_LENS, ENOUGH_DISTS, MAX_WBITS, DEF_WBITS, zswap32, inflateStateCheck, inflateResetKeep, inflateReset, inflateReset2, inflateInit2, inflateInit, virgin, lenfix, distfix, fixedtables, updatewindow, inflate$2, inflateEnd, inflateGetHeader, inflateSetDictionary, inflateReset_1, inflateReset2_1, inflateResetKeep_1, inflateInit_1, inflateInit2_1, inflate_2$1, inflateEnd_1, inflateGetHeader_1, inflateSetDictionary_1, inflateInfo, inflate_1$2, gzheader, toString, Z_NO_FLUSH, Z_FINISH, Z_OK, Z_STREAM_END, Z_NEED_DICT, Z_STREAM_ERROR, Z_DATA_ERROR, Z_MEM_ERROR, Z_BUF_ERROR, defaultOptions, Inflate_1$1, inflate_2, inflateRaw_1$1, ungzip$1, constants, inflate_1$1, Deflate, deflate, deflateRaw, gzip, Inflate, inflate, inflateRaw, ungzip, Deflate_1, deflate_1, deflateRaw_1, gzip_1, Inflate_1, inflate_1, inflateRaw_1, ungzip_1, constants_1, pako, init_pako_esm = __esm({
   "node_modules/pako/dist/pako.esm.mjs"() {
     STORED_BLOCK = 0, STATIC_TREES = 1, DYN_TREES = 2, MIN_MATCH$1 = 3, MAX_MATCH$1 = 258, LENGTH_CODES$1 = 29, LITERALS$1 = 256, L_CODES$1 = LITERALS$1 + 1 + LENGTH_CODES$1, D_CODES$1 = 30, BL_CODES$1 = 19, HEAP_SIZE$1 = 2 * L_CODES$1 + 1, MAX_BITS$1 = 15, Buf_size = 16, MAX_BL_BITS = 7, END_BLOCK = 256, REP_3_6 = 16, REPZ_3_10 = 17, REPZ_11_138 = 18, extra_lbits = /* extra bits for each length code */
     new Uint8Array([0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 2, 2, 2, 2, 3, 3, 3, 3, 4, 4, 4, 4, 5, 5, 5, 5, 0]), extra_dbits = /* extra bits for each distance code */
@@ -788,7 +778,7 @@ var STORED_BLOCK, STATIC_TREES, DYN_TREES, MIN_MATCH$1, MAX_MATCH$1, LENGTH_CODE
       Z_STREAM_END: Z_STREAM_END$3,
       Z_STREAM_ERROR: Z_STREAM_ERROR$2,
       Z_DATA_ERROR: Z_DATA_ERROR$2,
-      Z_BUF_ERROR: Z_BUF_ERROR$1,
+      Z_BUF_ERROR: Z_BUF_ERROR$2,
       Z_DEFAULT_COMPRESSION: Z_DEFAULT_COMPRESSION$1,
       Z_FILTERED,
       Z_HUFFMAN_ONLY,
@@ -811,7 +801,17 @@ var STORED_BLOCK, STATIC_TREES, DYN_TREES, MIN_MATCH$1, MAX_MATCH$1, LENGTH_CODE
       do
         m = s.prev[--p], s.prev[p] = m >= wsize ? m - wsize : 0;
       while (--n);
-    }, HASH_ZLIB = (s, prev, data) => (prev << s.hash_shift ^ data) & s.hash_mask, HASH = HASH_ZLIB, flush_pending = (strm) => {
+    }, HASH = (s, prev, data) => (prev << s.hash_shift ^ data) & s.hash_mask, INSERT_STRING = (s, str) => {
+      let h;
+      if (s.legacy_hash)
+        h = s.ins_h = HASH(s, s.ins_h, s.window[str + MIN_MATCH - 1]);
+      else {
+        let w = s.window, value = w[str] | w[str + 1] << 8 | w[str + 2] << 16 | w[str + 3] << 24;
+        h = s.ins_h = Math.imul(value, 66521) + 66521 >>> 16 & s.hash_mask;
+      }
+      let hash_head = s.prev[str & s.w_mask] = s.head[h];
+      return s.head[h] = str, hash_head;
+    }, flush_pending = (strm) => {
       let s = strm.state, len = s.pending;
       len > strm.avail_out && (len = strm.avail_out), len !== 0 && (strm.output.set(s.pending_buf.subarray(s.pending_out, s.pending_out + len), strm.next_out), strm.next_out += len, s.pending_out += len, strm.total_out += len, strm.avail_out -= len, s.pending -= len, s.pending === 0 && (s.pending_out = 0));
     }, flush_block_only = (s, last) => {
@@ -845,8 +845,12 @@ var STORED_BLOCK, STATIC_TREES, DYN_TREES, MIN_MATCH$1, MAX_MATCH$1, LENGTH_CODE
       do {
         if (more = s.window_size - s.lookahead - s.strstart, s.strstart >= _w_size + (_w_size - MIN_LOOKAHEAD) && (s.window.set(s.window.subarray(_w_size, _w_size + _w_size - more), 0), s.match_start -= _w_size, s.strstart -= _w_size, s.block_start -= _w_size, s.insert > s.strstart && (s.insert = s.strstart), slide_hash(s), more += _w_size), s.strm.avail_in === 0)
           break;
-        if (n = read_buf(s.strm, s.window, s.strstart + s.lookahead, more), s.lookahead += n, s.lookahead + s.insert >= MIN_MATCH)
-          for (str = s.strstart - s.insert, s.ins_h = s.window[str], s.ins_h = HASH(s, s.ins_h, s.window[str + 1]); s.insert && (s.ins_h = HASH(s, s.ins_h, s.window[str + MIN_MATCH - 1]), s.prev[str & s.w_mask] = s.head[s.ins_h], s.head[s.ins_h] = str, str++, s.insert--, !(s.lookahead + s.insert < MIN_MATCH)); )
+        if (n = read_buf(s.strm, s.window, s.strstart + s.lookahead, more), s.lookahead += n, s.legacy_hash) {
+          if (s.lookahead + s.insert >= MIN_MATCH)
+            for (str = s.strstart - s.insert, s.ins_h = s.window[str], s.ins_h = HASH(s, s.ins_h, s.window[str + 1]); s.insert && (INSERT_STRING(s, str), str++, s.insert--, !(s.lookahead + s.insert < MIN_MATCH)); )
+              ;
+        } else if (s.lookahead + s.insert > MIN_MATCH)
+          for (str = s.strstart - s.insert; s.insert && (INSERT_STRING(s, str), str++, s.insert--, !(s.lookahead + s.insert <= MIN_MATCH)); )
             ;
       } while (s.lookahead < MIN_LOOKAHEAD && s.strm.avail_in !== 0);
     }, deflate_stored = (s, flush) => {
@@ -866,15 +870,15 @@ var STORED_BLOCK, STATIC_TREES, DYN_TREES, MIN_MATCH$1, MAX_MATCH$1, LENGTH_CODE
           if (s.lookahead === 0)
             break;
         }
-        if (hash_head = 0, s.lookahead >= MIN_MATCH && (s.ins_h = HASH(s, s.ins_h, s.window[s.strstart + MIN_MATCH - 1]), hash_head = s.prev[s.strstart & s.w_mask] = s.head[s.ins_h], s.head[s.ins_h] = s.strstart), hash_head !== 0 && s.strstart - hash_head <= s.w_size - MIN_LOOKAHEAD && (s.match_length = longest_match(s, hash_head)), s.match_length >= MIN_MATCH)
+        if (hash_head = 0, s.lookahead >= MIN_MATCH && (hash_head = INSERT_STRING(s, s.strstart)), hash_head !== 0 && s.strstart - hash_head <= s.w_size - MIN_LOOKAHEAD && (s.match_length = longest_match(s, hash_head)), s.match_length >= MIN_MATCH)
           if (bflush = _tr_tally(s, s.strstart - s.match_start, s.match_length - MIN_MATCH), s.lookahead -= s.match_length, s.match_length <= s.max_lazy_match && s.lookahead >= MIN_MATCH) {
             s.match_length--;
             do
-              s.strstart++, s.ins_h = HASH(s, s.ins_h, s.window[s.strstart + MIN_MATCH - 1]), hash_head = s.prev[s.strstart & s.w_mask] = s.head[s.ins_h], s.head[s.ins_h] = s.strstart;
+              s.strstart++, hash_head = INSERT_STRING(s, s.strstart);
             while (--s.match_length !== 0);
             s.strstart++;
           } else
-            s.strstart += s.match_length, s.match_length = 0, s.ins_h = s.window[s.strstart], s.ins_h = HASH(s, s.ins_h, s.window[s.strstart + 1]);
+            s.strstart += s.match_length, s.match_length = 0, s.legacy_hash && (s.ins_h = s.window[s.strstart], s.ins_h = HASH(s, s.ins_h, s.window[s.strstart + 1]));
         else
           bflush = _tr_tally(s, 0, s.window[s.strstart]), s.lookahead--, s.strstart++;
         if (bflush && (flush_block_only(s, !1), s.strm.avail_out === 0))
@@ -890,10 +894,10 @@ var STORED_BLOCK, STATIC_TREES, DYN_TREES, MIN_MATCH$1, MAX_MATCH$1, LENGTH_CODE
           if (s.lookahead === 0)
             break;
         }
-        if (hash_head = 0, s.lookahead >= MIN_MATCH && (s.ins_h = HASH(s, s.ins_h, s.window[s.strstart + MIN_MATCH - 1]), hash_head = s.prev[s.strstart & s.w_mask] = s.head[s.ins_h], s.head[s.ins_h] = s.strstart), s.prev_length = s.match_length, s.prev_match = s.match_start, s.match_length = MIN_MATCH - 1, hash_head !== 0 && s.prev_length < s.max_lazy_match && s.strstart - hash_head <= s.w_size - MIN_LOOKAHEAD && (s.match_length = longest_match(s, hash_head), s.match_length <= 5 && (s.strategy === Z_FILTERED || s.match_length === MIN_MATCH && s.strstart - s.match_start > 4096) && (s.match_length = MIN_MATCH - 1)), s.prev_length >= MIN_MATCH && s.match_length <= s.prev_length) {
+        if (hash_head = 0, s.lookahead >= MIN_MATCH && (hash_head = INSERT_STRING(s, s.strstart)), s.prev_length = s.match_length, s.prev_match = s.match_start, s.match_length = MIN_MATCH - 1, hash_head !== 0 && s.prev_length < s.max_lazy_match && s.strstart - hash_head <= s.w_size - MIN_LOOKAHEAD && (s.match_length = longest_match(s, hash_head), s.match_length <= 5 && (s.strategy === Z_FILTERED || s.match_length === MIN_MATCH && s.strstart - s.match_start > 4096) && (s.match_length = MIN_MATCH - 1)), s.prev_length >= MIN_MATCH && s.match_length <= s.prev_length) {
           max_insert = s.strstart + s.lookahead - MIN_MATCH, bflush = _tr_tally(s, s.strstart - 1 - s.prev_match, s.prev_length - MIN_MATCH), s.lookahead -= s.prev_length - 1, s.prev_length -= 2;
           do
-            ++s.strstart <= max_insert && (s.ins_h = HASH(s, s.ins_h, s.window[s.strstart + MIN_MATCH - 1]), hash_head = s.prev[s.strstart & s.w_mask] = s.head[s.ins_h], s.head[s.ins_h] = s.strstart);
+            ++s.strstart <= max_insert && (hash_head = INSERT_STRING(s, s.strstart));
           while (--s.prev_length !== 0);
           if (s.match_available = 0, s.match_length = MIN_MATCH - 1, s.strstart++, bflush && (flush_block_only(s, !1), s.strm.avail_out === 0))
             return BS_NEED_MORE;
@@ -982,7 +986,7 @@ var STORED_BLOCK, STATIC_TREES, DYN_TREES, MIN_MATCH$1, MAX_MATCH$1, LENGTH_CODE
     }, deflateReset = (strm) => {
       let ret = deflateResetKeep(strm);
       return ret === Z_OK$3 && lm_init(strm.state), ret;
-    }, deflateSetHeader = (strm, head) => deflateStateCheck(strm) || strm.state.wrap !== 2 ? Z_STREAM_ERROR$2 : (strm.state.gzhead = head, Z_OK$3), deflateInit2 = (strm, level, method, windowBits, memLevel, strategy) => {
+    }, deflateSetHeader = (strm, head) => deflateStateCheck(strm) || strm.state.wrap !== 2 ? Z_STREAM_ERROR$2 : (strm.state.gzhead = head, Z_OK$3), deflateInit2 = (strm, level, method, windowBits, memLevel, strategy, legacyHash) => {
       if (!strm)
         return Z_STREAM_ERROR$2;
       let wrap = 1;
@@ -990,21 +994,21 @@ var STORED_BLOCK, STATIC_TREES, DYN_TREES, MIN_MATCH$1, MAX_MATCH$1, LENGTH_CODE
         return err(strm, Z_STREAM_ERROR$2);
       windowBits === 8 && (windowBits = 9);
       let s = new DeflateState();
-      return strm.state = s, s.strm = strm, s.status = INIT_STATE, s.wrap = wrap, s.gzhead = null, s.w_bits = windowBits, s.w_size = 1 << s.w_bits, s.w_mask = s.w_size - 1, s.hash_bits = memLevel + 7, s.hash_size = 1 << s.hash_bits, s.hash_mask = s.hash_size - 1, s.hash_shift = ~~((s.hash_bits + MIN_MATCH - 1) / MIN_MATCH), s.window = new Uint8Array(s.w_size * 2), s.head = new Uint16Array(s.hash_size), s.prev = new Uint16Array(s.w_size), s.lit_bufsize = 1 << memLevel + 6, s.pending_buf_size = s.lit_bufsize * 4, s.pending_buf = new Uint8Array(s.pending_buf_size), s.sym_buf = s.lit_bufsize, s.sym_end = (s.lit_bufsize - 1) * 3, s.level = level, s.strategy = strategy, s.method = method, deflateReset(strm);
+      return strm.state = s, s.strm = strm, s.status = INIT_STATE, s.wrap = wrap, s.gzhead = null, s.w_bits = windowBits, s.w_size = 1 << s.w_bits, s.w_mask = s.w_size - 1, s.legacy_hash = legacyHash ? 1 : 0, s.hash_bits = memLevel + 7, !s.legacy_hash && s.hash_bits < 15 && (s.hash_bits = 15), s.hash_size = 1 << s.hash_bits, s.hash_mask = s.hash_size - 1, s.hash_shift = ~~((s.hash_bits + MIN_MATCH - 1) / MIN_MATCH), s.window = new Uint8Array(s.w_size * 2), s.head = new Uint16Array(s.hash_size), s.prev = new Uint16Array(s.w_size), s.lit_bufsize = 1 << memLevel + 6, s.pending_buf_size = s.lit_bufsize * 4, s.pending_buf = new Uint8Array(s.pending_buf_size), s.sym_buf = s.lit_bufsize, s.sym_end = (s.lit_bufsize - 1) * 3, s.level = level, s.strategy = strategy, s.method = method, deflateReset(strm);
     }, deflateInit = (strm, level) => deflateInit2(strm, level, Z_DEFLATED$2, MAX_WBITS$1, DEF_MEM_LEVEL, Z_DEFAULT_STRATEGY$1), deflate$2 = (strm, flush) => {
       if (deflateStateCheck(strm) || flush > Z_BLOCK$1 || flush < 0)
         return strm ? err(strm, Z_STREAM_ERROR$2) : Z_STREAM_ERROR$2;
       let s = strm.state;
       if (!strm.output || strm.avail_in !== 0 && !strm.input || s.status === FINISH_STATE && flush !== Z_FINISH$3)
-        return err(strm, strm.avail_out === 0 ? Z_BUF_ERROR$1 : Z_STREAM_ERROR$2);
+        return err(strm, strm.avail_out === 0 ? Z_BUF_ERROR$2 : Z_STREAM_ERROR$2);
       let old_flush = s.last_flush;
       if (s.last_flush = flush, s.pending !== 0) {
         if (flush_pending(strm), strm.avail_out === 0)
           return s.last_flush = -1, Z_OK$3;
       } else if (strm.avail_in === 0 && rank(flush) <= rank(old_flush) && flush !== Z_FINISH$3)
-        return err(strm, Z_BUF_ERROR$1);
+        return err(strm, Z_BUF_ERROR$2);
       if (s.status === FINISH_STATE && strm.avail_in !== 0)
-        return err(strm, Z_BUF_ERROR$1);
+        return err(strm, Z_BUF_ERROR$2);
       if (s.status === INIT_STATE && s.wrap === 0 && (s.status = BUSY_STATE), s.status === INIT_STATE) {
         let header = Z_DEFLATED$2 + (s.w_bits - 8 << 4) << 8, level_flags = -1;
         if (s.strategy >= Z_HUFFMAN_ONLY || s.level < 2 ? level_flags = 0 : s.level < 6 ? level_flags = 1 : s.level === 6 ? level_flags = 2 : level_flags = 3, header |= level_flags << 6, s.strstart !== 0 && (header |= PRESET_DICT), header += 31 - header % 31, putShortMSB(s, header), s.strstart !== 0 && (putShortMSB(s, strm.adler >>> 16), putShortMSB(s, strm.adler & 65535)), strm.adler = 1, s.status = BUSY_STATE, flush_pending(strm), s.pending !== 0)
@@ -1101,7 +1105,7 @@ var STORED_BLOCK, STATIC_TREES, DYN_TREES, MIN_MATCH$1, MAX_MATCH$1, LENGTH_CODE
       for (strm.avail_in = dictLength, strm.next_in = 0, strm.input = dictionary, fill_window(s); s.lookahead >= MIN_MATCH; ) {
         let str = s.strstart, n = s.lookahead - (MIN_MATCH - 1);
         do
-          s.ins_h = HASH(s, s.ins_h, s.window[str + MIN_MATCH - 1]), s.prev[str & s.w_mask] = s.head[s.ins_h], s.head[s.ins_h] = str, str++;
+          INSERT_STRING(s, str), str++;
         while (--n);
         s.strstart = str, s.lookahead = MIN_MATCH - 1, fill_window(s);
       }
@@ -1150,7 +1154,7 @@ var STORED_BLOCK, STATIC_TREES, DYN_TREES, MIN_MATCH$1, MAX_MATCH$1, LENGTH_CODE
     _utf8len = new Uint8Array(256);
     for (let q = 0; q < 256; q++)
       _utf8len[q] = q >= 252 ? 6 : q >= 248 ? 5 : q >= 240 ? 4 : q >= 224 ? 3 : q >= 192 ? 2 : 1;
-    _utf8len[254] = _utf8len[254] = 1;
+    _utf8len[254] = _utf8len[255] = 1;
     string2buf = (str) => {
       if (typeof TextEncoder == "function" && TextEncoder.prototype.encode)
         return new TextEncoder().encode(str);
@@ -1213,7 +1217,15 @@ var STORED_BLOCK, STATIC_TREES, DYN_TREES, MIN_MATCH$1, MAX_MATCH$1, LENGTH_CODE
       Z_DEFAULT_COMPRESSION,
       Z_DEFAULT_STRATEGY,
       Z_DEFLATED: Z_DEFLATED$1
-    } = constants$2;
+    } = constants$2, defaultOptions$1 = {
+      level: Z_DEFAULT_COMPRESSION,
+      method: Z_DEFLATED$1,
+      chunkSize: 16384,
+      windowBits: 15,
+      memLevel: 8,
+      strategy: Z_DEFAULT_STRATEGY,
+      legacyHash: !0
+    };
     Deflate$1.prototype.push = function(data, flush_mode) {
       let strm = this.strm, chunkSize = this.options.chunkSize, status, _flush_mode;
       if (this.ended)
@@ -1399,8 +1411,8 @@ var STORED_BLOCK, STATIC_TREES, DYN_TREES, MIN_MATCH$1, MAX_MATCH$1, LENGTH_CODE
       21,
       21,
       16,
-      72,
-      78
+      199,
+      75
     ]), dbase = new Uint16Array([
       /* Distance codes 0..29 base */
       1,
@@ -1523,7 +1535,7 @@ var STORED_BLOCK, STATIC_TREES, DYN_TREES, MIN_MATCH$1, MAX_MATCH$1, LENGTH_CODE
       Z_STREAM_ERROR: Z_STREAM_ERROR$1,
       Z_DATA_ERROR: Z_DATA_ERROR$1,
       Z_MEM_ERROR: Z_MEM_ERROR$1,
-      Z_BUF_ERROR,
+      Z_BUF_ERROR: Z_BUF_ERROR$1,
       Z_DEFLATED
     } = constants$2, HEAD = 16180, FLAGS = 16181, TIME = 16182, OS = 16183, EXLEN = 16184, EXTRA = 16185, NAME = 16186, COMMENT = 16187, HCRC = 16188, DICTID = 16189, DICT = 16190, TYPE = 16191, TYPEDO = 16192, STORED = 16193, COPY_ = 16194, COPY = 16195, TABLE = 16196, LENLENS = 16197, CODELENS = 16198, LEN_ = 16199, LEN = 16200, LENEXT = 16201, DIST = 16202, DISTEXT = 16203, MATCH = 16204, LIT = 16205, CHECK = 16206, LENGTH = 16207, DONE = 16208, BAD = 16209, MEM = 16210, SYNC = 16211, ENOUGH_LENS = 852, ENOUGH_DISTS = 592, MAX_WBITS = 15, DEF_WBITS = MAX_WBITS, zswap32 = (q) => (q >>> 24 & 255) + (q >>> 8 & 65280) + ((q & 65280) << 8) + ((q & 255) << 24);
     inflateStateCheck = (strm) => {
@@ -1573,7 +1585,7 @@ var STORED_BLOCK, STATIC_TREES, DYN_TREES, MIN_MATCH$1, MAX_MATCH$1, LENGTH_CODE
       state.lencode = lenfix, state.lenbits = 9, state.distcode = distfix, state.distbits = 5;
     }, updatewindow = (strm, src, end, copy) => {
       let dist, state = strm.state;
-      return state.window === null && (state.wsize = 1 << state.wbits, state.wnext = 0, state.whave = 0, state.window = new Uint8Array(state.wsize)), copy >= state.wsize ? (state.window.set(src.subarray(end - state.wsize, end), 0), state.wnext = 0, state.whave = state.wsize) : (dist = state.wsize - state.wnext, dist > copy && (dist = copy), state.window.set(src.subarray(end - copy, end - copy + dist), state.wnext), copy -= dist, copy ? (state.window.set(src.subarray(end - copy, end), 0), state.wnext = copy, state.whave = state.wsize) : (state.wnext += dist, state.wnext === state.wsize && (state.wnext = 0), state.whave < state.wsize && (state.whave += dist))), 0;
+      return state.window === null && (state.window = new Uint8Array(1 << state.wbits)), state.wsize === 0 && (state.wsize = 1 << state.wbits, state.wnext = 0, state.whave = 0), copy >= state.wsize ? (state.window.set(src.subarray(end - state.wsize, end), 0), state.wnext = 0, state.whave = state.wsize) : (dist = state.wsize - state.wnext, dist > copy && (dist = copy), state.window.set(src.subarray(end - copy, end - copy + dist), state.wnext), copy -= dist, copy ? (state.window.set(src.subarray(end - copy, end), 0), state.wnext = copy, state.whave = state.wsize) : (state.wnext += dist, state.wnext === state.wsize && (state.wnext = 0), state.whave < state.wsize && (state.whave += dist))), 0;
     }, inflate$2 = (strm, flush) => {
       let state, input, output, next, put, have, left, hold, bits, _in, _out, copy, from, from_source, here = 0, here_bits, here_op, here_val, last_bits, last_op, last_val, len, ret, hbuf = new Uint8Array(4), opts, n, order = (
         /* permutation of code lengths */
@@ -2020,7 +2032,7 @@ var STORED_BLOCK, STATIC_TREES, DYN_TREES, MIN_MATCH$1, MAX_MATCH$1, LENGTH_CODE
               return Z_STREAM_ERROR$1;
           }
       return strm.next_out = put, strm.avail_out = left, strm.next_in = next, strm.avail_in = have, state.hold = hold, state.bits = bits, (state.wsize || _out !== strm.avail_out && state.mode < BAD && (state.mode < CHECK || flush !== Z_FINISH$1)) && updatewindow(strm, strm.output, strm.next_out, _out - strm.avail_out), _in -= strm.avail_in, _out -= strm.avail_out, strm.total_in += _in, strm.total_out += _out, state.total += _out, state.wrap & 4 && _out && (strm.adler = state.check = /*UPDATE_CHECK(state.check, strm.next_out - _out, _out);*/
-      state.flags ? crc32_1(state.check, output, _out, strm.next_out - _out) : adler32_1(state.check, output, _out, strm.next_out - _out)), strm.data_type = state.bits + (state.last ? 64 : 0) + (state.mode === TYPE ? 128 : 0) + (state.mode === LEN_ || state.mode === COPY_ ? 256 : 0), (_in === 0 && _out === 0 || flush === Z_FINISH$1) && ret === Z_OK$1 && (ret = Z_BUF_ERROR), ret;
+      state.flags ? crc32_1(state.check, output, _out, strm.next_out - _out) : adler32_1(state.check, output, _out, strm.next_out - _out)), strm.data_type = state.bits + (state.last ? 64 : 0) + (state.mode === TYPE ? 128 : 0) + (state.mode === LEN_ || state.mode === COPY_ ? 256 : 0), (_in === 0 && _out === 0 || flush === Z_FINISH$1) && ret === Z_OK$1 && (ret = Z_BUF_ERROR$1), ret;
     }, inflateEnd = (strm) => {
       if (inflateStateCheck(strm))
         return Z_STREAM_ERROR$1;
@@ -2054,13 +2066,18 @@ var STORED_BLOCK, STATIC_TREES, DYN_TREES, MIN_MATCH$1, MAX_MATCH$1, LENGTH_CODE
       Z_NEED_DICT,
       Z_STREAM_ERROR,
       Z_DATA_ERROR,
-      Z_MEM_ERROR
-    } = constants$2;
+      Z_MEM_ERROR,
+      Z_BUF_ERROR
+    } = constants$2, defaultOptions = {
+      chunkSize: 1024 * 64,
+      windowBits: 15,
+      to: ""
+    };
     Inflate$1.prototype.push = function(data, flush_mode) {
       let strm = this.strm, chunkSize = this.options.chunkSize, dictionary = this.options.dictionary, status, _flush_mode, last_avail_out;
       if (this.ended) return !1;
       for (flush_mode === ~~flush_mode ? _flush_mode = flush_mode : _flush_mode = flush_mode === !0 ? Z_FINISH : Z_NO_FLUSH, toString.call(data) === "[object ArrayBuffer]" ? strm.input = new Uint8Array(data) : strm.input = data, strm.next_in = 0, strm.avail_in = strm.input.length; ; ) {
-        for (strm.avail_out === 0 && (strm.output = new Uint8Array(chunkSize), strm.next_out = 0, strm.avail_out = chunkSize), status = inflate_1$2.inflate(strm, _flush_mode), status === Z_NEED_DICT && dictionary && (status = inflate_1$2.inflateSetDictionary(strm, dictionary), status === Z_OK ? status = inflate_1$2.inflate(strm, _flush_mode) : status === Z_DATA_ERROR && (status = Z_NEED_DICT)); strm.avail_in > 0 && status === Z_STREAM_END && strm.state.wrap > 0 && data[strm.next_in] !== 0; )
+        for (strm.avail_out === 0 && (strm.output = new Uint8Array(chunkSize), strm.next_out = 0, strm.avail_out = chunkSize), status = inflate_1$2.inflate(strm, _flush_mode), status === Z_NEED_DICT && dictionary && (status = inflate_1$2.inflateSetDictionary(strm, dictionary), status === Z_OK ? status = inflate_1$2.inflate(strm, _flush_mode) : status === Z_DATA_ERROR && (status = Z_NEED_DICT)); strm.avail_in > 0 && status === Z_STREAM_END && strm.state.wrap & 2 && strm.state.flags !== 0 && strm.input[strm.next_in] !== 0; )
           inflate_1$2.inflateReset(strm), status = inflate_1$2.inflate(strm, _flush_mode);
         switch (status) {
           case Z_STREAM_ERROR:
@@ -2069,16 +2086,20 @@ var STORED_BLOCK, STATIC_TREES, DYN_TREES, MIN_MATCH$1, MAX_MATCH$1, LENGTH_CODE
           case Z_MEM_ERROR:
             return this.onEnd(status), this.ended = !0, !1;
         }
-        if (last_avail_out = strm.avail_out, strm.next_out && (strm.avail_out === 0 || status === Z_STREAM_END))
+        if (last_avail_out = strm.avail_out, strm.next_out && (strm.avail_out === 0 || status === Z_STREAM_END || _flush_mode > 0))
           if (this.options.to === "string") {
             let next_out_utf8 = strings.utf8border(strm.output, strm.next_out), tail = strm.next_out - next_out_utf8, utf8str = strings.buf2string(strm.output, next_out_utf8);
             strm.next_out = tail, strm.avail_out = chunkSize - tail, tail && strm.output.set(strm.output.subarray(next_out_utf8, next_out_utf8 + tail), 0), this.onData(utf8str);
           } else
-            this.onData(strm.output.length === strm.next_out ? strm.output : strm.output.subarray(0, strm.next_out));
-        if (!(status === Z_OK && last_avail_out === 0)) {
+            this.onData(strm.output.length === strm.next_out ? strm.output : strm.output.subarray(0, strm.next_out)), strm.avail_out = 0, strm.next_out = 0;
+        if (!((status === Z_OK || status === Z_BUF_ERROR) && last_avail_out === 0)) {
           if (status === Z_STREAM_END)
             return status = inflate_1$2.inflateEnd(this.strm), this.onEnd(status), this.ended = !0, !0;
-          if (strm.avail_in === 0) break;
+          if (strm.avail_in === 0) {
+            if (_flush_mode === Z_FINISH)
+              return status = inflate_1$2.inflateEnd(this.strm), this.onEnd(status === Z_OK ? Z_BUF_ERROR : status), this.ended = !0, !1;
+            break;
+          }
         }
       }
       return !0;
@@ -4921,6 +4942,19 @@ var require_decompress = __commonJS({
   }
 });
 
+// forward-optional-modules:local-store
+var local_store_exports = {};
+__export(local_store_exports, {
+  findLocalDanmu: () => findLocalDanmu
+});
+async function findLocalDanmu() {
+  return null;
+}
+var init_local_store = __esm({
+  "forward-optional-modules:local-store"() {
+  }
+});
+
 // forward-optional-modules:dan-any
 var danAnyFormats = [];
 function convertDanAny() {
@@ -5114,7 +5148,7 @@ function normalizeConverterFactoryDictGroups(dictGroups) {
 var STCharacters_default = "\u3437 \u508C|\u3439 \u3476|\u343D \u5051|\u3447 \u3473|\u3448 \u5032|\u3454 \u346F|\u3469 \u5138|\u34C6 \u{205E3}|\u34E5 \u528F|\u34F0 \u5283|\u3509 \u529A|\u358A \u565A|\u359E \u558E|\u360E \u361A|\u36AF \u3704|\u36C0 \u5AB0|\u36DF \u{217B5}|\u36E0 \u{21883}|\u36E3 \u370F|\u36E4 \u5B4B|\u36FF \u{21839}|\u37C6 \u380F|\u37DC \u{21FB1}|\u37E5 \u5D7E|\u384E \u5E53|\u3918 \u396E|\u393D \u61E4|\u396A \u617A|\u39CF \u6386|\u39D0 \u3A73|\u39D1 \u649D|\u39DF \u64D3|\u39F0 \u64FD|\u3A2B \u3A5C|\u3B4E \u68E1|\u3B4F \u6932|\u3B63 \u{2364E}|\u3B64 \u6A22|\u3B74 \u6A2B|\u3C69 \u6BB0|\u3C6E \u6BA8|\u3CBF \u7007|\u3CD4 \u6FE7|\u3CD5 \u7061|\u3CE0 \u6FBE|\u3CE1 \u6FC4|\u3CE2 \u{23FB7}|\u3CFD \u7030|\u3D0B \u6F5A|\u3D89 \u9E02|\u3DB6 \u71F6|\u3DBD \u7171|\u3E8D \u7371|\u3EC5 \u74AF|\u3ECF \u{24AE9}|\u3ED8 \u{24ABA}|\u4025 \u407B|\u4056 \u779C|\u40B5 \u78BD|\u40C5 \u78FE|\u4149 \u7A0F|\u415F \u7A47|\u416A \u{258A2}|\u41F2 \u7B74|\u4264 \u7C54|\u4336 \u42B7|\u4337 \u7D2C|\u4338 \u7E33|\u4339 \u7D45|\u433A \u42D9|\u433B \u42DA|\u433C \u7D90|\u433D \u7DB5|\u433E \u42FB|\u433F \u42F9|\u4340 \u7E7F|\u4341 \u7E78|\u4360 \u4366|\u43AC \u43B1|\u43DD \u819E|\u447D \u{26A99}|\u44D3 \u85B5|\u44D5 \u85B3|\u44D6 \u85ED|\u44E8 \u7F43|\u45D6 \u87AE|\u461B \u{2775E}|\u461E \u{27717}|\u464A \u{27735}|\u464C \u4661|\u4653 \u896C|\u4723 \u8A22|\u4724 \u9FC1|\u4725 \u{27A59}|\u4727 \u4700|\u4729 \u8B8C|\u4759 \u8C99|\u478C \u{27D73}|\u478D \u477C|\u478E \u{27DA7}|\u4790 \u8CF0|\u47E2 \u8E8E|\u4880 \u{282B0}|\u4881 \u{282B8}|\u4882 \u{282E2}|\u497A \u91FE|\u497D \u93FA|\u497E \u4971|\u497F \u{28BC5}|\u4980 \u{289AB}|\u4981 \u{289DC}|\u4982 \u4947|\u4983 \u942F|\u4985 \u9425|\u4986 \u9481|\u49B6 \u499B|\u49B7 \u499F|\u4A44 \u9766|\u4B6A \u{297AF}|\u4BC3 \u{298D1}|\u4BC4 \u9A27|\u4BC5 \u4BC0|\u4C9D \u4C7D|\u4C9E \u{29D98}|\u4C9F \u9BA3|\u4CA0 \u9C06|\u4CA1 \u9C0C|\u4CA2 \u9C27|\u4CA3 \u4C77|\u4D13 \u9CFE|\u4D14 \u9D41|\u4D15 \u9D37|\u4D16 \u9D84|\u4D17 \u9DAA|\u4D18 \u9DC9|\u4D19 \u9E0A|\u4DAE \u9F91|\u4E07 \u842C|\u4E0E \u8207|\u4E11 \u919C|\u4E13 \u5C08|\u4E1A \u696D|\u4E1B \u53E2|\u4E1C \u6771|\u4E1D \u7D72|\u4E22 \u4E1F|\u4E24 \u5169|\u4E25 \u56B4|\u4E27 \u55AA|\u4E2A \u500B|\u4E30 \u8C50|\u4E34 \u81E8|\u4E3A \u7232|\u4E3D \u9E97|\u4E3E \u8209|\u4E48 \u9EBC|\u4E49 \u7FA9|\u4E4C \u70CF|\u4E50 \u6A02|\u4E54 \u55AC|\u4E60 \u7FD2|\u4E61 \u9109|\u4E66 \u66F8|\u4E70 \u8CB7|\u4E71 \u4E82|\u4E89 \u722D|\u4E8E \u65BC|\u4E8F \u8667|\u4E91 \u96F2|\u4E98 \u4E99|\u4E9A \u4E9E|\u4EA7 \u7522|\u4EA9 \u755D|\u4EB2 \u89AA|\u4EB5 \u893B|\u4EB8 \u56B2|\u4EBF \u5104|\u4EC5 \u50C5|\u4EC6 \u50D5|\u4ECE \u5F9E|\u4ED1 \u4F96|\u4ED3 \u5009|\u4EEA \u5100|\u4EEC \u5011|\u4EF7 \u50F9|\u4F17 \u8846|\u4F18 \u512A|\u4F19 \u5925|\u4F1A \u6703|\u4F1B \u50B4|\u4F1E \u5098|\u4F1F \u5049|\u4F20 \u50B3|\u4F21 \u4FE5|\u4F23 \u4FD4|\u4F24 \u50B7|\u4F25 \u5000|\u4F26 \u502B|\u4F27 \u5096|\u4F2A \u50DE|\u4F2B \u4F47|\u4F53 \u9AD4|\u4F59 \u9918|\u4F63 \u50AD|\u4F65 \u50C9|\u4FA0 \u4FE0|\u4FA3 \u4FB6|\u4FA5 \u50E5|\u4FA6 \u5075|\u4FA7 \u5074|\u4FA8 \u50D1|\u4FA9 \u5108|\u4FAA \u5115|\u4FAC \u5102|\u4FAD \u5118|\u4FE3 \u4FC1|\u4FE6 \u5114|\u4FE8 \u513C|\u4FE9 \u5006|\u4FEA \u5137|\u4FEB \u5008|\u4FED \u5109|\u503A \u50B5|\u503E \u50BE|\u506C \u50AF|\u507B \u50C2|\u507E \u50E8|\u507F \u511F|\u50A4 \u510E|\u50A5 \u513B|\u50A7 \u5110|\u50A8 \u5132|\u50A9 \u513A|\u513F \u5152|\u5151 \u514C|\u5156 \u5157|\u515A \u9EE8|\u5170 \u862D|\u5173 \u95DC|\u5174 \u8208|\u5179 \u8332|\u517B \u990A|\u517D \u7378|\u5181 \u56C5|\u5185 \u5167|\u5188 \u5CA1|\u518C \u518A|\u5199 \u5BEB|\u519B \u8ECD|\u519C \u8FB2|\u51AF \u99AE|\u51B2 \u885D|\u51B3 \u6C7A|\u51B5 \u6CC1|\u51BB \u51CD|\u51C0 \u6DE8|\u51C4 \u60BD|\u51C6 \u6E96|\u51C9 \u6DBC|\u51CF \u6E1B|\u51D1 \u6E4A|\u51DB \u51DC|\u51E0 \u5E7E|\u51E4 \u9CF3|\u51EB \u9CE7|\u51ED \u6191|\u51EF \u51F1|\u51F6 \u5147|\u51FB \u64CA|\u51FF \u947F|\u520D \u82BB|\u5212 \u5283|\u5218 \u5289|\u5219 \u5247|\u521A \u525B|\u521B \u5275|\u5220 \u522A|\u522B \u5225|\u522C \u5257|\u522D \u5244|\u5239 \u524E|\u523D \u528A|\u523E \u34E8|\u523F \u528C|\u5240 \u5274|\u5242 \u5291|\u5250 \u526E|\u5251 \u528D|\u5265 \u525D|\u5267 \u5287|\u529D \u52F8|\u529E \u8FA6|\u52A1 \u52D9|\u52A2 \u52F1|\u52A8 \u52D5|\u52B1 \u52F5|\u52B2 \u52C1|\u52B3 \u52DE|\u52BF \u52E2|\u52CB \u52F3|\u52DA \u52E9|\u5300 \u52FB|\u5326 \u532D|\u532E \u5331|\u533A \u5340|\u533B \u91AB|\u534E \u83EF|\u534F \u5354|\u5355 \u55AE|\u5356 \u8CE3|\u5360 \u4F54|\u5362 \u76E7|\u5364 \u6EF7|\u5367 \u81E5|\u536B \u885B|\u5374 \u537B|\u537A \u5DF9|\u5382 \u5EE0|\u5385 \u5EF3|\u5386 \u6B77|\u5389 \u53B2|\u538B \u58D3|\u538C \u53AD|\u538D \u5399|\u5390 \u9F8E|\u5395 \u5EC1|\u5398 \u91D0|\u53A2 \u5EC2|\u53A3 \u53B4|\u53A6 \u5EC8|\u53A8 \u5EDA|\u53A9 \u5EC4|\u53AE \u5EDD|\u53BF \u7E23|\u53C1 \u53C4|\u53C2 \u53C3|\u53C6 \u9749|\u53C7 \u9746|\u53CC \u96D9|\u53D1 \u767C|\u53D8 \u8B8A|\u53D9 \u6558|\u53E0 \u758A|\u53F0 \u81FA|\u53F6 \u8449|\u53F7 \u865F|\u53F9 \u5606|\u53FD \u5630|\u5401 \u7C72|\u5403 \u55AB|\u540E \u5F8C|\u5413 \u5687|\u5415 \u5442|\u5417 \u55CE|\u5428 \u5678|\u542C \u807D|\u542F \u5553|\u5434 \u5433|\u5450 \u5436|\u5452 \u5638|\u5453 \u56C8|\u5455 \u5614|\u5456 \u56A6|\u5457 \u5504|\u5458 \u54E1|\u5459 \u54BC|\u545B \u55C6|\u545C \u55DA|\u548F \u8A60|\u5499 \u56A8|\u549B \u5680|\u549D \u565D|\u54A4 \u5412|\u54A8 \u8AEE|\u54B8 \u9E79|\u54CD \u97FF|\u54D1 \u555E|\u54D2 \u5660|\u54D3 \u5635|\u54D4 \u55F6|\u54D5 \u5666|\u54D7 \u8B41|\u54D9 \u5672|\u54DC \u568C|\u54DD \u5665|\u54DF \u55B2|\u5507 \u8123|\u551B \u561C|\u551D \u55CA|\u5520 \u562E|\u5521 \u5562|\u5522 \u55E9|\u5524 \u559A|\u5567 \u5616|\u556C \u55C7|\u556D \u56C0|\u556E \u9F67|\u556F \u5613|\u5570 \u56C9|\u5574 \u563D|\u5578 \u562F|\u55B7 \u5674|\u55BD \u560D|\u55BE \u56B3|\u55EB \u56C1|\u55F3 \u566F|\u5618 \u5653|\u5624 \u56B6|\u5631 \u56D1|\u565C \u5695|\u56A3 \u56C2|\u56E2 \u5718|\u56ED \u5712|\u56F1 \u56EA|\u56F4 \u570D|\u56F5 \u5707|\u56FD \u570B|\u56FE \u5716|\u5706 \u5713|\u5723 \u8056|\u5739 \u58D9|\u573A \u5834|\u574F \u58DE|\u5757 \u584A|\u575A \u5805|\u575B \u58C7|\u575C \u58E2|\u575D \u58E9|\u575E \u5862|\u575F \u58B3|\u5760 \u589C|\u5784 \u58DF|\u5785 \u58E0|\u5786 \u58DA|\u5792 \u58D8|\u57A6 \u58BE|\u57A9 \u580A|\u57AB \u588A|\u57AD \u57E1|\u57AF \u58B6|\u57B1 \u58CB|\u57B2 \u584F|\u57B4 \u5816|\u57D8 \u5852|\u57D9 \u58CE|\u57DA \u581D|\u5811 \u5879|\u5815 \u58AE|\u5846 \u58EA|\u5899 \u7246|\u58EE \u58EF|\u58F0 \u8072|\u58F3 \u6BBC|\u58F6 \u58FA|\u58F8 \u58FC|\u5904 \u8655|\u5907 \u5099|\u590D \u5FA9|\u591F \u5920|\u5934 \u982D|\u5938 \u8A87|\u5939 \u593E|\u593A \u596A|\u5941 \u5969|\u5942 \u5950|\u594B \u596E|\u5956 \u734E|\u5965 \u5967|\u5986 \u599D|\u5987 \u5A66|\u5988 \u5ABD|\u59A9 \u5AF5|\u59AA \u5AD7|\u59AB \u5B00|\u59D7 \u59CD|\u59F9 \u597C|\u5A04 \u5A41|\u5A05 \u5A6D|\u5A06 \u5B08|\u5A07 \u5B0C|\u5A08 \u5B4C|\u5A31 \u5A1B|\u5A32 \u5AA7|\u5A34 \u5AFA|\u5A73 \u5AFF|\u5A74 \u5B30|\u5A75 \u5B0B|\u5A76 \u5B38|\u5AAA \u5ABC|\u5AAD \u5B03|\u5AD2 \u5B21|\u5AD4 \u5B2A|\u5AF1 \u5B19|\u5B37 \u5B24|\u5B59 \u5B6B|\u5B66 \u5B78|\u5B6A \u5B7F|\u5B81 \u5BE7|\u5B9D \u5BF6|\u5B9E \u5BE6|\u5BA0 \u5BF5|\u5BA1 \u5BE9|\u5BAA \u61B2|\u5BAB \u5BAE|\u5BBD \u5BEC|\u5BBE \u8CD3|\u5BDD \u5BE2|\u5BF9 \u5C0D|\u5BFB \u5C0B|\u5BFC \u5C0E|\u5BFF \u58FD|\u5C06 \u5C07|\u5C14 \u723E|\u5C18 \u5875|\u5C1D \u5617|\u5C27 \u582F|\u5C34 \u5C37|\u5C38 \u5C4D|\u5C3D \u76E1|\u5C42 \u5C64|\u5C43 \u5C53|\u5C49 \u5C5C|\u5C4A \u5C46|\u5C5E \u5C6C|\u5C61 \u5C62|\u5C66 \u5C68|\u5C7F \u5DBC|\u5C81 \u6B72|\u5C82 \u8C48|\u5C96 \u5D87|\u5C97 \u5D17|\u5C98 \u5CF4|\u5C9A \u5D50|\u5C9B \u5CF6|\u5CA9 \u5DD6|\u5CAD \u5DBA|\u5CB3 \u5DBD|\u5CBD \u5D2C|\u5CBF \u5DCB|\u5CC3 \u5DA8|\u5CC4 \u5DA7|\u5CE1 \u5CFD|\u5CE3 \u5DA2|\u5CE4 \u5DA0|\u5CE5 \u5D22|\u5CE6 \u5DD2|\u5CF0 \u5CEF|\u5D02 \u5D97|\u5D03 \u5D0D|\u5D04 \u5DAE|\u5D2D \u5D84|\u5D58 \u5DB8|\u5D5A \u5D94|\u5D5D \u5D81|\u5DC5 \u5DD4|\u5DE9 \u978F|\u5DEF \u5DF0|\u5E01 \u5E63|\u5E05 \u5E25|\u5E08 \u5E2B|\u5E0F \u5E43|\u5E10 \u5E33|\u5E18 \u7C3E|\u5E1C \u5E5F|\u5E26 \u5E36|\u5E27 \u5E40|\u5E2E \u5E6B|\u5E31 \u5E6C|\u5E3B \u5E58|\u5E3C \u5E57|\u5E42 \u51AA|\u5E72 \u5E79|\u5E76 \u4E26|\u5E7F \u5EE3|\u5E84 \u838A|\u5E86 \u6176|\u5E8A \u7240|\u5E90 \u5EEC|\u5E91 \u5EE1|\u5E93 \u5EAB|\u5E94 \u61C9|\u5E99 \u5EDF|\u5E9E \u9F90|\u5E9F \u5EE2|\u5EBC \u5ECE|\u5EEA \u5EE9|\u5F00 \u958B|\u5F02 \u7570|\u5F03 \u68C4|\u5F11 \u5F12|\u5F20 \u5F35|\u5F25 \u5F4C|\u5F2A \u5F33|\u5F2F \u5F4E|\u5F39 \u5F48|\u5F3A \u5F37|\u5F52 \u6B78|\u5F53 \u7576|\u5F55 \u9304|\u5F5F \u5F60|\u5F66 \u5F65|\u5F68 \u5F72|\u5F7B \u5FB9|\u5F81 \u5FB5|\u5F84 \u5F91|\u5F95 \u5FA0|\u5FC6 \u61B6|\u5FCF \u61FA|\u5FE7 \u6182|\u5FFE \u613E|\u6000 \u61F7|\u6001 \u614B|\u6002 \u616B|\u6003 \u61AE|\u6004 \u616A|\u6005 \u60B5|\u6006 \u6134|\u601C \u6190|\u603B \u7E3D|\u603C \u61DF|\u603F \u61CC|\u604B \u6200|\u6052 \u6046|\u6073 \u61C7|\u6076 \u60E1|\u6078 \u615F|\u6079 \u61E8|\u607A \u6137|\u607B \u60FB|\u607C \u60F1|\u607D \u60F2|\u60A6 \u6085|\u60AB \u6128|\u60AC \u61F8|\u60AD \u6173|\u60AE \u609E|\u60AF \u61AB|\u60CA \u9A5A|\u60E7 \u61FC|\u60E8 \u6158|\u60E9 \u61F2|\u60EB \u618A|\u60EC \u611C|\u60ED \u615A|\u60EE \u619A|\u60EF \u6163|\u6120 \u614D|\u6124 \u61A4|\u6126 \u6192|\u613F \u9858|\u6151 \u61FE|\u616D \u6196|\u61D1 \u61E3|\u61D2 \u61F6|\u61D4 \u61CD|\u6206 \u6207|\u620B \u6214|\u620F \u6232|\u6217 \u6227|\u6218 \u6230|\u622C \u6229|\u622F \u6231|\u6237 \u6236|\u6251 \u64B2|\u6267 \u57F7|\u6269 \u64F4|\u626A \u636B|\u626B \u6383|\u626C \u63DA|\u6270 \u64FE|\u629A \u64AB|\u629B \u62CB|\u629F \u6476|\u62A0 \u6473|\u62A1 \u6384|\u62A2 \u6436|\u62A4 \u8B77|\u62A5 \u5831|\u62C5 \u64D4|\u62DF \u64EC|\u62E2 \u650F|\u62E3 \u63C0|\u62E5 \u64C1|\u62E6 \u6514|\u62E7 \u64F0|\u62E8 \u64A5|\u62E9 \u64C7|\u6302 \u639B|\u631A \u646F|\u631B \u6523|\u631C \u6397|\u631D \u64BE|\u631E \u64BB|\u631F \u633E|\u6320 \u6493|\u6321 \u64CB|\u6322 \u649F|\u6323 \u6399|\u6324 \u64E0|\u6325 \u63EE|\u6326 \u648F|\u635D \u6329|\u635E \u6488|\u635F \u640D|\u6361 \u64BF|\u6362 \u63DB|\u6363 \u6417|\u636E \u64DA|\u63B3 \u64C4|\u63B4 \u6451|\u63B7 \u64F2|\u63B8 \u64A3|\u63BA \u647B|\u63BC \u645C|\u63FD \u652C|\u63FE \u6435|\u63FF \u64B3|\u6400 \u6519|\u6401 \u64F1|\u6402 \u645F|\u6404 \u63EF|\u6405 \u652A|\u643A \u651C|\u6444 \u651D|\u6445 \u6504|\u6446 \u64FA|\u6447 \u6416|\u6448 \u64EF|\u644A \u6524|\u6484 \u6516|\u6491 \u6490|\u64B5 \u6506|\u64B7 \u64F7|\u64B8 \u64FC|\u64BA \u651B|\u64DC \u3A75|\u64DE \u64FB|\u6512 \u6522|\u654C \u6575|\u655A \u6553|\u655B \u6582|\u6569 \u6586|\u6570 \u6578|\u658B \u9F4B|\u6593 \u6595|\u6597 \u9B25|\u65A9 \u65AC|\u65AD \u65B7|\u65E0 \u7121|\u65E7 \u820A|\u65F6 \u6642|\u65F7 \u66E0|\u65F8 \u6698|\u6619 \u66C7|\u6635 \u66B1|\u663C \u665D|\u663D \u66E8|\u663E \u986F|\u664B \u6649|\u6652 \u66EC|\u6653 \u66C9|\u6654 \u66C4|\u6655 \u6688|\u6656 \u6689|\u6682 \u66AB|\u6685 \u{23236}|\u66A7 \u66D6|\u672F \u8853|\u6734 \u6A38|\u673A \u6A5F|\u6740 \u6BBA|\u6742 \u96DC|\u6743 \u6B0A|\u6760 \u69D3|\u6761 \u689D|\u6765 \u4F86|\u6768 \u694A|\u6769 \u69AA|\u6770 \u5091|\u6781 \u6975|\u6784 \u69CB|\u679E \u6A05|\u67A2 \u6A1E|\u67A3 \u68D7|\u67A5 \u6AEA|\u67A7 \u6898|\u67A8 \u68D6|\u67AA \u69CD|\u67AB \u6953|\u67AD \u689F|\u67DC \u6AC3|\u67E0 \u6AB8|\u67FD \u6A89|\u6800 \u6894|\u6805 \u67F5|\u6807 \u6A19|\u6808 \u68E7|\u6809 \u6ADB|\u680A \u6AF3|\u680B \u68DF|\u680C \u6AE8|\u680E \u6ADF|\u680F \u6B04|\u6811 \u6A39|\u6816 \u68F2|\u6837 \u6A23|\u683E \u6B12|\u6860 \u690F|\u6861 \u6A48|\u6862 \u6968|\u6863 \u6A94|\u6864 \u69BF|\u6865 \u6A4B|\u6866 \u6A3A|\u6867 \u6A9C|\u6868 \u69F3|\u6869 \u6A01|\u686A \u6A33|\u68A6 \u5922|\u68BC \u6AAE|\u68BE \u68F6|\u68BF \u69E4|\u68C0 \u6AA2|\u68C1 \u68B2|\u68C2 \u6B1E|\u6901 \u69E8|\u691D \u69FC|\u691F \u6ADD|\u6920 \u69E7|\u6922 \u69F6|\u6924 \u6B0F|\u692B \u6A3F|\u692D \u6A62|\u692E \u69EE|\u697C \u6A13|\u6984 \u6B16|\u6985 \u69B2|\u6987 \u6AEC|\u6988 \u6ADA|\u6989 \u6AF8|\u699D \u6A27|\u69DA \u6A9F|\u69DB \u6ABB|\u69DF \u6AB3|\u69E0 \u6AE7|\u6A2A \u6A6B|\u6A2F \u6AA3|\u6A31 \u6AFB|\u6A65 \u6AEB|\u6A71 \u6AE5|\u6A79 \u6AD3|\u6A7C \u6ADE|\u6AA9 \u6A81|\u6B22 \u6B61|\u6B24 \u6B5F|\u6B27 \u6B50|\u6B7C \u6BB2|\u6B81 \u6B7F|\u6B87 \u6BA4|\u6B8B \u6B98|\u6B92 \u6B9E|\u6B93 \u6BAE|\u6B9A \u6BAB|\u6BA1 \u6BAF|\u6BB4 \u6BC6|\u6BC1 \u6BC0|\u6BC2 \u8F42|\u6BD5 \u7562|\u6BD9 \u6583|\u6BE1 \u6C08|\u6BF5 \u6BFF|\u6BF6 \u{23BF6}|\u6C07 \u6C0C|\u6C14 \u6C23|\u6C22 \u6C2B|\u6C29 \u6C2C|\u6C32 \u6C33|\u6C47 \u532F|\u6C49 \u6F22|\u6C64 \u6E6F|\u6C79 \u6D36|\u6C84 \u6F90|\u6C9F \u6E9D|\u6CA1 \u6C92|\u6CA3 \u7043|\u6CA4 \u6F1A|\u6CA5 \u701D|\u6CA6 \u6DEA|\u6CA7 \u6EC4|\u6CA8 \u6E22|\u6CA9 \u6F59|\u6CAA \u6EEC|\u6CDE \u6FD8|\u6CEA \u6DDA|\u6CF6 \u6FA9|\u6CF7 \u7027|\u6CF8 \u7018|\u6CFA \u6FFC|\u6CFB \u7009|\u6CFC \u6F51|\u6CFD \u6FA4|\u6CFE \u6D87|\u6D01 \u6F54|\u6D12 \u7051|\u6D3C \u7AAA|\u6D43 \u6D79|\u6D45 \u6DFA|\u6D46 \u6F3F|\u6D47 \u6F86|\u6D48 \u6E5E|\u6D49 \u6EAE|\u6D4A \u6FC1|\u6D4B \u6E2C|\u6D4D \u6FAE|\u6D4E \u6FDF|\u6D4F \u700F|\u6D50 \u6EFB|\u6D51 \u6E3E|\u6D52 \u6EF8|\u6D53 \u6FC3|\u6D54 \u6F6F|\u6D55 \u6FDC|\u6D82 \u5857|\u6D8C \u6E67|\u6D9A \u6D97|\u6D9B \u6FE4|\u6D9D \u6F87|\u6D9E \u6DF6|\u6D9F \u6F23|\u6DA0 \u6F7F|\u6DA1 \u6E26|\u6DA2 \u6EB3|\u6DA3 \u6E19|\u6DA4 \u6ECC|\u6DA6 \u6F64|\u6DA7 \u6F97|\u6DA8 \u6F32|\u6DA9 \u6F80|\u6DC0 \u6FB1|\u6E0A \u6DF5|\u6E0C \u6DE5|\u6E0D \u6F2C|\u6E0E \u7006|\u6E10 \u6F38|\u6E11 \u6FA0|\u6E14 \u6F01|\u6E16 \u700B|\u6E17 \u6EF2|\u6E29 \u6EAB|\u6E38 \u904A|\u6E7E \u7063|\u6E7F \u6EBC|\u6E81 \u6FDA|\u6E83 \u6F70|\u6E85 \u6FFA|\u6E86 \u6F35|\u6E87 \u6F0A|\u6ED7 \u6F77|\u6EDA \u6EFE|\u6EDE \u6EEF|\u6EDF \u7069|\u6EE0 \u7044|\u6EE1 \u6EFF|\u6EE2 \u7005|\u6EE4 \u6FFE|\u6EE5 \u6FEB|\u6EE6 \u7064|\u6EE8 \u6FF1|\u6EE9 \u7058|\u6EEA \u6FA6|\u6F46 \u7020|\u6F47 \u701F|\u6F4B \u7032|\u6F4D \u6FF0|\u6F5C \u6F5B|\u6F74 \u7026|\u6F9B \u7002|\u6F9C \u703E|\u6FD1 \u7028|\u6FD2 \u7015|\u704F \u705D|\u706D \u6EC5|\u706F \u71C8|\u7075 \u9748|\u7076 \u7AC8|\u707E \u707D|\u707F \u71E6|\u7080 \u716C|\u7089 \u7210|\u7096 \u71C9|\u709C \u7152|\u709D \u7197|\u70B9 \u9EDE|\u70BC \u7149|\u70BD \u71BE|\u70C1 \u720D|\u70C2 \u721B|\u70C3 \u70F4|\u70DB \u71ED|\u70DF \u7159|\u70E6 \u7169|\u70E7 \u71D2|\u70E8 \u71C1|\u70E9 \u71F4|\u70EB \u71D9|\u70EC \u71FC|\u70ED \u71B1|\u7115 \u7165|\u7116 \u71DC|\u7118 \u71FE|\u7174 \u7185|\u718F \u71FB|\u7231 \u611B|\u7237 \u723A|\u724D \u7258|\u7266 \u729B|\u7275 \u727D|\u727A \u72A7|\u728A \u72A2|\u72B6 \u72C0|\u72B7 \u7377|\u72B8 \u7341|\u72B9 \u7336|\u72C8 \u72FD|\u72DD \u736E|\u72DE \u7370|\u72EC \u7368|\u72ED \u72F9|\u72EE \u7345|\u72EF \u736A|\u72F0 \u7319|\u72F1 \u7344|\u72F2 \u733B|\u7303 \u736B|\u730E \u7375|\u7315 \u737C|\u7321 \u7380|\u732A \u8C6C|\u732B \u8C93|\u732C \u875F|\u732E \u737B|\u736D \u737A|\u7391 \u74A3|\u7399 \u74B5|\u739A \u7452|\u739B \u746A|\u73AE \u744B|\u73AF \u74B0|\u73B0 \u73FE|\u73B1 \u7472|\u73BA \u74BD|\u73D0 \u743A|\u73D1 \u74CF|\u73F0 \u74AB|\u73F2 \u743F|\u740E \u74A1|\u740F \u7489|\u7410 \u7463|\u743C \u74CA|\u7476 \u7464|\u7477 \u74A6|\u7478 \u74B8|\u748E \u74D4|\u74D2 \u74DA|\u74EE \u7515|\u74EF \u750C|\u7535 \u96FB|\u753B \u756B|\u7545 \u66A2|\u7574 \u7587|\u7596 \u7664|\u7597 \u7642|\u759F \u7627|\u75A0 \u7658|\u75A1 \u760D|\u75AC \u7667|\u75AD \u7632|\u75AE \u7621|\u75AF \u760B|\u75B1 \u76B0|\u75B4 \u75FE|\u75C8 \u7670|\u75C9 \u75D9|\u75D2 \u7662|\u75D6 \u7602|\u75E8 \u7646|\u75EA \u7613|\u75EB \u7647|\u75F4 \u7661|\u7605 \u7649|\u7606 \u762E|\u7617 \u761E|\u7618 \u763B|\u762A \u765F|\u762B \u7671|\u763E \u766E|\u763F \u766D|\u765E \u7669|\u7663 \u766C|\u766B \u7672|\u7682 \u7681|\u7691 \u769A|\u76B1 \u76BA|\u76B2 \u76B8|\u76CF \u76DE|\u76D0 \u9E7D|\u76D1 \u76E3|\u76D6 \u84CB|\u76D7 \u76DC|\u76D8 \u76E4|\u770D \u7798|\u7726 \u7725|\u772C \u77D3|\u7741 \u775C|\u7750 \u775E|\u7751 \u77BC|\u7786 \u77B6|\u7792 \u779E|\u77A9 \u77DA|\u77EB \u77EF|\u77F6 \u78EF|\u77FE \u792C|\u77FF \u7926|\u7800 \u78AD|\u7801 \u78BC|\u7816 \u78DA|\u7817 \u7868|\u781A \u786F|\u781C \u78B8|\u783A \u792A|\u783B \u7931|\u783E \u792B|\u7840 \u790E|\u7841 \u785C|\u7855 \u78A9|\u7856 \u7864|\u7857 \u78FD|\u7859 \u78D1|\u785A \u7904|\u786E \u78BA|\u7875 \u78E0|\u788D \u7919|\u789B \u78E7|\u789C \u78E3|\u78B1 \u9E7C|\u793C \u79AE|\u7943 \u79A1|\u794E \u7995|\u7962 \u79B0|\u796F \u798E|\u7977 \u79B1|\u7978 \u798D|\u7980 \u7A1F|\u7984 \u797F|\u7985 \u79AA|\u79BB \u96E2|\u79C3 \u79BF|\u79C6 \u7A08|\u79CD \u7A2E|\u79D8 \u7955|\u79EF \u7A4D|\u79F0 \u7A31|\u79FD \u7A62|\u79FE \u7A60|\u7A06 \u7A6D|\u7A0E \u7A05|\u7A23 \u7A4C|\u7A33 \u7A69|\u7A51 \u7A61|\u7A5E \u7A6D|\u7A77 \u7AAE|\u7A83 \u7ACA|\u7A8D \u7AC5|\u7A8E \u7AB5|\u7A91 \u7AAF|\u7A9C \u7AC4|\u7A9D \u7AA9|\u7AA5 \u7ABA|\u7AA6 \u7AC7|\u7AAD \u7AB6|\u7AD6 \u8C4E|\u7ADE \u7AF6|\u7B03 \u7BE4|\u7B0B \u7B4D|\u7B14 \u7B46|\u7B15 \u7B67|\u7B3A \u7B8B|\u7B3C \u7C60|\u7B3E \u7C69|\u7B51 \u7BC9|\u7B5A \u7BF3|\u7B5B \u7BE9|\u7B5C \u7C39|\u7B5D \u7B8F|\u7B79 \u7C4C|\u7B7C \u7BD4|\u7B7E \u7C64|\u7B7F \u7BE0|\u7B80 \u7C21|\u7B93 \u7C59|\u7BA6 \u7C00|\u7BA7 \u7BCB|\u7BA8 \u7C5C|\u7BA9 \u7C6E|\u7BAA \u7C1E|\u7BAB \u7C2B|\u7BD1 \u7C23|\u7BD3 \u7C0D|\u7BEE \u7C43|\u7BEF \u7C5B|\u7BF1 \u7C6C|\u7C16 \u7C6A|\u7C41 \u7C5F|\u7C74 \u7CF4|\u7C7B \u985E|\u7C7C \u79C8|\u7C9C \u7CF6|\u7C9D \u7CF2|\u7CA4 \u7CB5|\u7CAA \u7CDE|\u7CAE \u7CE7|\u7CBD \u7CC9|\u7CC1 \u7CDD|\u7CC7 \u9931|\u7CCD \u9908|\u7D27 \u7DCA|\u7D77 \u7E36|\u7DFC \u7E15|\u7E06 \u7DEA|\u7E9F \u7CF9|\u7EA0 \u7CFE|\u7EA1 \u7D06|\u7EA2 \u7D05|\u7EA3 \u7D02|\u7EA4 \u7E96|\u7EA5 \u7D07|\u7EA6 \u7D04|\u7EA7 \u7D1A|\u7EA8 \u7D08|\u7EA9 \u7E8A|\u7EAA \u7D00|\u7EAB \u7D09|\u7EAC \u7DEF|\u7EAD \u7D1C|\u7EAE \u7D18|\u7EAF \u7D14|\u7EB0 \u7D15|\u7EB1 \u7D17|\u7EB2 \u7DB1|\u7EB3 \u7D0D|\u7EB4 \u7D1D|\u7EB5 \u7E31|\u7EB6 \u7DB8|\u7EB7 \u7D1B|\u7EB8 \u7D19|\u7EB9 \u7D0B|\u7EBA \u7D21|\u7EBB \u7D35|\u7EBC \u7D16|\u7EBD \u7D10|\u7EBE \u7D13|\u7EBF \u7DDA|\u7EC0 \u7D3A|\u7EC1 \u7D32|\u7EC2 \u7D31|\u7EC3 \u7DF4|\u7EC4 \u7D44|\u7EC5 \u7D33|\u7EC6 \u7D30|\u7EC7 \u7E54|\u7EC8 \u7D42|\u7EC9 \u7E10|\u7ECA \u7D46|\u7ECB \u7D3C|\u7ECC \u7D40|\u7ECD \u7D39|\u7ECE \u7E79|\u7ECF \u7D93|\u7ED0 \u7D3F|\u7ED1 \u7D81|\u7ED2 \u7D68|\u7ED3 \u7D50|\u7ED4 \u7D5D|\u7ED5 \u7E5E|\u7ED6 \u7D70|\u7ED7 \u7D4E|\u7ED8 \u7E6A|\u7ED9 \u7D66|\u7EDA \u7D62|\u7EDB \u7D73|\u7EDC \u7D61|\u7EDD \u7D55|\u7EDE \u7D5E|\u7EDF \u7D71|\u7EE0 \u7D86|\u7EE1 \u7D83|\u7EE2 \u7D79|\u7EE3 \u7E61|\u7EE4 \u7D8C|\u7EE5 \u7D8F|\u7EE6 \u7D5B|\u7EE7 \u7E7C|\u7EE8 \u7D88|\u7EE9 \u7E3E|\u7EEA \u7DD2|\u7EEB \u7DBE|\u7EEC \u7DD3|\u7EED \u7E8C|\u7EEE \u7DBA|\u7EEF \u7DCB|\u7EF0 \u7DBD|\u7EF1 \u979D|\u7EF2 \u7DC4|\u7EF3 \u7E69|\u7EF4 \u7DAD|\u7EF5 \u7DBF|\u7EF6 \u7DAC|\u7EF7 \u7E43|\u7EF8 \u7DA2|\u7EF9 \u7DAF|\u7EFA \u7DB9|\u7EFB \u7DA3|\u7EFC \u7D9C|\u7EFD \u7DBB|\u7EFE \u7DB0|\u7EFF \u7DA0|\u7F00 \u7DB4|\u7F01 \u7DC7|\u7F02 \u7DD9|\u7F03 \u7DD7|\u7F04 \u7DD8|\u7F05 \u7DEC|\u7F06 \u7E9C|\u7F07 \u7DF9|\u7F08 \u7DF2|\u7F09 \u7DDD|\u7F0A \u7E15|\u7F0B \u7E62|\u7F0C \u7DE6|\u7F0D \u7D9E|\u7F0E \u7DDE|\u7F0F \u7DF6|\u7F10 \u7DDA|\u7F11 \u7DF1|\u7F12 \u7E0B|\u7F13 \u7DE9|\u7F14 \u7DE0|\u7F15 \u7E37|\u7F16 \u7DE8|\u7F17 \u7DE1|\u7F18 \u7DE3|\u7F19 \u7E09|\u7F1A \u7E1B|\u7F1B \u7E1F|\u7F1C \u7E1D|\u7F1D \u7E2B|\u7F1E \u7E17|\u7F1F \u7E1E|\u7F20 \u7E8F|\u7F21 \u7E2D|\u7F22 \u7E0A|\u7F23 \u7E11|\u7F24 \u7E7D|\u7F25 \u7E39|\u7F26 \u7E35|\u7F27 \u7E32|\u7F28 \u7E93|\u7F29 \u7E2E|\u7F2A \u7E46|\u7F2B \u7E45|\u7F2C \u7E88|\u7F2D \u7E5A|\u7F2E \u7E55|\u7F2F \u7E52|\u7F30 \u7E6E|\u7F31 \u7E7E|\u7F32 \u7E70|\u7F33 \u7E6F|\u7F34 \u7E73|\u7F35 \u7E98|\u7F42 \u7F4C|\u7F51 \u7DB2|\u7F57 \u7F85|\u7F5A \u7F70|\u7F62 \u7F77|\u7F74 \u7F86|\u7F81 \u7F88|\u7F9F \u7FA5|\u7FA1 \u7FA8|\u7FA4 \u7FA3|\u7FD8 \u7FF9|\u7FD9 \u7FFD|\u7FDA \u7FEC|\u8022 \u802E|\u8027 \u802C|\u8038 \u8073|\u803B \u6065|\u8042 \u8076|\u804B \u807E|\u804C \u8077|\u804D \u8079|\u8054 \u806F|\u8069 \u8075|\u806A \u8070|\u8083 \u8085|\u80A0 \u8178|\u80A4 \u819A|\u80AE \u9AAF|\u80B4 \u991A|\u80BE \u814E|\u80BF \u816B|\u80C0 \u8139|\u80C1 \u8105|\u80C6 \u81BD|\u80DC \u52DD|\u80E7 \u6727|\u80E8 \u8156|\u80EA \u81DA|\u80EB \u811B|\u80F6 \u81A0|\u8109 \u8108|\u810D \u81BE|\u810F \u9AD2|\u8110 \u81CD|\u8111 \u8166|\u8113 \u81BF|\u8114 \u81E0|\u811A \u8173|\u8131 \u812B|\u8136 \u8161|\u8138 \u81C9|\u814A \u81D8|\u814C \u9183|\u8158 \u8195|\u816D \u9F76|\u817B \u81A9|\u817C \u9766|\u817D \u8183|\u817E \u9A30|\u8191 \u81CF|\u81BB \u7FB6|\u81DC \u81E2|\u8206 \u8F3F|\u8223 \u8264|\u8230 \u8266|\u8231 \u8259|\u823B \u826B|\u8270 \u8271|\u8273 \u8C54|\u827A \u85DD|\u8282 \u7BC0|\u8288 \u7F8B|\u8297 \u858C|\u829C \u856A|\u82A6 \u8606|\u82C1 \u84EF|\u82C7 \u8466|\u82C8 \u85F6|\u82CB \u83A7|\u82CC \u8407|\u82CD \u84BC|\u82CE \u82E7|\u82CF \u8607|\u82E7 \u85B4|\u82F9 \u860B|\u8303 \u7BC4|\u830E \u8396|\u830F \u8622|\u8311 \u8526|\u8314 \u584B|\u8315 \u7162|\u8327 \u7E6D|\u8346 \u834A|\u8350 \u85A6|\u8359 \u8598|\u835A \u83A2|\u835B \u8558|\u835C \u84FD|\u835D \u8434|\u835E \u854E|\u835F \u8588|\u8360 \u85BA|\u8361 \u8569|\u8363 \u69AE|\u8364 \u8477|\u8365 \u6ECE|\u8366 \u7296|\u8367 \u7192|\u8368 \u8541|\u8369 \u85CE|\u836A \u84C0|\u836B \u852D|\u836C \u8552|\u836D \u8452|\u836E \u8464|\u836F \u85E5|\u8385 \u849E|\u83B1 \u840A|\u83B2 \u84EE|\u83B3 \u8494|\u83B4 \u8435|\u83B6 \u859F|\u83B7 \u7372|\u83B8 \u8555|\u83B9 \u7469|\u83BA \u9DAF|\u83BC \u84F4|\u841A \u8600|\u841D \u863F|\u8424 \u87A2|\u8425 \u71DF|\u8426 \u7E08|\u8427 \u856D|\u8428 \u85A9|\u8471 \u8525|\u8480 \u8495|\u8487 \u8546|\u8489 \u8562|\u848B \u8523|\u848C \u851E|\u848F \u919F|\u84DD \u85CD|\u84DF \u858A|\u84E0 \u863A|\u84E3 \u8577|\u84E5 \u93A3|\u84E6 \u9A40|\u8502 \u8646|\u8537 \u8594|\u8539 \u861E|\u853A \u85FA|\u853C \u85F9|\u8570 \u8580|\u8572 \u8604|\u8574 \u860A|\u85AE \u85EA|\u85D3 \u861A|\u85F4 \u860A|\u8616 \u6AF1|\u864F \u865C|\u8651 \u616E|\u865A \u865B|\u866B \u87F2|\u866C \u866F|\u866E \u87E3|\u8671 \u8768|\u867D \u96D6|\u867E \u8766|\u867F \u8806|\u8680 \u8755|\u8681 \u87FB|\u8682 \u879E|\u8683 \u8801|\u8695 \u8836|\u869D \u8814|\u86AC \u8706|\u86CA \u8831|\u86CE \u8823|\u86CF \u87F6|\u86EE \u883B|\u86F0 \u87C4|\u86F1 \u86FA|\u86F2 \u87EF|\u86F3 \u8784|\u86F4 \u8810|\u8715 \u86FB|\u8717 \u8778|\u8721 \u881F|\u8747 \u8805|\u8748 \u87C8|\u8749 \u87EC|\u874E \u880D|\u877C \u87BB|\u877E \u8811|\u8780 \u87BF|\u87A8 \u87CE|\u87CF \u8828|\u8845 \u91C1|\u8854 \u929C|\u8865 \u88DC|\u886C \u896F|\u886E \u889E|\u8884 \u8956|\u8885 \u5ACB|\u8886 \u8918|\u889C \u896A|\u88AD \u8972|\u88AF \u894F|\u88C5 \u88DD|\u88C6 \u8960|\u88C8 \u890C|\u88E2 \u8933|\u88E3 \u895D|\u88E4 \u8932|\u88E5 \u8949|\u891B \u8938|\u8934 \u8964|\u8955 \u8974|\u89C1 \u898B|\u89C2 \u89C0|\u89C3 \u898E|\u89C4 \u898F|\u89C5 \u8993|\u89C6 \u8996|\u89C7 \u8998|\u89C8 \u89BD|\u89C9 \u89BA|\u89CA \u89AC|\u89CB \u89A1|\u89CC \u89BF|\u89CD \u89A5|\u89CE \u89A6|\u89CF \u89AF|\u89D0 \u89B2|\u89D1 \u89B7|\u89DE \u89F4|\u89E6 \u89F8|\u89EF \u89F6|\u8A1A \u8ABE|\u8A5F \u8B8B|\u8A89 \u8B7D|\u8A8A \u8B04|\u8BA0 \u8A01|\u8BA1 \u8A08|\u8BA2 \u8A02|\u8BA3 \u8A03|\u8BA4 \u8A8D|\u8BA5 \u8B4F|\u8BA6 \u8A10|\u8BA7 \u8A0C|\u8BA8 \u8A0E|\u8BA9 \u8B93|\u8BAA \u8A15|\u8BAB \u8A16|\u8BAC \u8A17|\u8BAD \u8A13|\u8BAE \u8B70|\u8BAF \u8A0A|\u8BB0 \u8A18|\u8BB1 \u8A12|\u8BB2 \u8B1B|\u8BB3 \u8AF1|\u8BB4 \u8B33|\u8BB5 \u8A4E|\u8BB6 \u8A1D|\u8BB7 \u8A25|\u8BB8 \u8A31|\u8BB9 \u8A1B|\u8BBA \u8AD6|\u8BBB \u8A29|\u8BBC \u8A1F|\u8BBD \u8AF7|\u8BBE \u8A2D|\u8BBF \u8A2A|\u8BC0 \u8A23|\u8BC1 \u8B49|\u8BC2 \u8A41|\u8BC3 \u8A36|\u8BC4 \u8A55|\u8BC5 \u8A5B|\u8BC6 \u8B58|\u8BC7 \u8A57|\u8BC8 \u8A50|\u8BC9 \u8A34|\u8BCA \u8A3A|\u8BCB \u8A46|\u8BCC \u8B05|\u8BCD \u8A5E|\u8BCE \u8A58|\u8BCF \u8A54|\u8BD0 \u8A56|\u8BD1 \u8B6F|\u8BD2 \u8A52|\u8BD3 \u8A86|\u8BD4 \u8A84|\u8BD5 \u8A66|\u8BD6 \u8A7F|\u8BD7 \u8A69|\u8BD8 \u8A70|\u8BD9 \u8A7C|\u8BDA \u8AA0|\u8BDB \u8A85|\u8BDC \u8A75|\u8BDD \u8A71|\u8BDE \u8A95|\u8BDF \u8A6C|\u8BE0 \u8A6E|\u8BE1 \u8A6D|\u8BE2 \u8A62|\u8BE3 \u8A63|\u8BE4 \u8ACD|\u8BE5 \u8A72|\u8BE6 \u8A73|\u8BE7 \u8A6B|\u8BE8 \u8AE2|\u8BE9 \u8A61|\u8BEA \u8B78|\u8BEB \u8AA1|\u8BEC \u8AA3|\u8BED \u8A9E|\u8BEE \u8A9A|\u8BEF \u8AA4|\u8BF0 \u8AA5|\u8BF1 \u8A98|\u8BF2 \u8AA8|\u8BF3 \u8A91|\u8BF4 \u8AAA|\u8BF5 \u8AA6|\u8BF6 \u8A92|\u8BF7 \u8ACB|\u8BF8 \u8AF8|\u8BF9 \u8ACF|\u8BFA \u8AFE|\u8BFB \u8B80|\u8BFC \u8AD1|\u8BFD \u8AB9|\u8BFE \u8AB2|\u8BFF \u8AC9|\u8C00 \u8ADB|\u8C01 \u8AB0|\u8C02 \u8AD7|\u8C03 \u8ABF|\u8C04 \u8AC2|\u8C05 \u8AD2|\u8C06 \u8AC4|\u8C07 \u8AB6|\u8C08 \u8AC7|\u8C09 \u8B85|\u8C0A \u8ABC|\u8C0B \u8B00|\u8C0C \u8AF6|\u8C0D \u8ADC|\u8C0E \u8B0A|\u8C0F \u8AEB|\u8C10 \u8AE7|\u8C11 \u8B14|\u8C12 \u8B01|\u8C13 \u8B02|\u8C14 \u8AE4|\u8C15 \u8AED|\u8C16 \u8AFC|\u8C17 \u8B92|\u8C18 \u8AEE|\u8C19 \u8AF3|\u8C1A \u8AFA|\u8C1B \u8AE6|\u8C1C \u8B0E|\u8C1D \u8ADE|\u8C1E \u8ADD|\u8C1F \u8B28|\u8C20 \u8B9C|\u8C21 \u8B16|\u8C22 \u8B1D|\u8C23 \u8B20|\u8C24 \u8B17|\u8C25 \u8AE1|\u8C26 \u8B19|\u8C27 \u8B10|\u8C28 \u8B39|\u8C29 \u8B3E|\u8C2A \u8B2B|\u8C2B \u8B7E|\u8C2C \u8B2C|\u8C2D \u8B5A|\u8C2E \u8B56|\u8C2F \u8B59|\u8C30 \u8B95|\u8C31 \u8B5C|\u8C32 \u8B4E|\u8C33 \u8B9E|\u8C34 \u8B74|\u8C35 \u8B6B|\u8C36 \u8B96|\u8C6E \u8C76|\u8D1D \u8C9D|\u8D1E \u8C9E|\u8D1F \u8CA0|\u8D20 \u8C9F|\u8D21 \u8CA2|\u8D22 \u8CA1|\u8D23 \u8CAC|\u8D24 \u8CE2|\u8D25 \u6557|\u8D26 \u8CEC|\u8D27 \u8CA8|\u8D28 \u8CEA|\u8D29 \u8CA9|\u8D2A \u8CAA|\u8D2B \u8CA7|\u8D2C \u8CB6|\u8D2D \u8CFC|\u8D2E \u8CAF|\u8D2F \u8CAB|\u8D30 \u8CB3|\u8D31 \u8CE4|\u8D32 \u8CC1|\u8D33 \u8CB0|\u8D34 \u8CBC|\u8D35 \u8CB4|\u8D36 \u8CBA|\u8D37 \u8CB8|\u8D38 \u8CBF|\u8D39 \u8CBB|\u8D3A \u8CC0|\u8D3B \u8CBD|\u8D3C \u8CCA|\u8D3D \u8D04|\u8D3E \u8CC8|\u8D3F \u8CC4|\u8D40 \u8CB2|\u8D41 \u8CC3|\u8D42 \u8CC2|\u8D43 \u8D13|\u8D44 \u8CC7|\u8D45 \u8CC5|\u8D46 \u8D10|\u8D47 \u8CD5|\u8D48 \u8CD1|\u8D49 \u8CDA|\u8D4A \u8CD2|\u8D4B \u8CE6|\u8D4C \u8CED|\u8D4D \u9F4E|\u8D4E \u8D16|\u8D4F \u8CDE|\u8D50 \u8CDC|\u8D51 \u8D14|\u8D52 \u8CD9|\u8D53 \u8CE1|\u8D54 \u8CE0|\u8D55 \u8CE7|\u8D56 \u8CF4|\u8D57 \u8CF5|\u8D58 \u8D05|\u8D59 \u8CFB|\u8D5A \u8CFA|\u8D5B \u8CFD|\u8D5C \u8CFE|\u8D5D \u8D17|\u8D5E \u8D0A|\u8D5F \u8D07|\u8D60 \u8D08|\u8D61 \u8D0D|\u8D62 \u8D0F|\u8D63 \u8D1B|\u8D6A \u8D6C|\u8D75 \u8D99|\u8D76 \u8D95|\u8D8B \u8DA8|\u8DB1 \u8DB2|\u8DB8 \u8E89|\u8DC3 \u8E8D|\u8DC4 \u8E4C|\u8DD6 \u8E60|\u8DDE \u8E92|\u8DF5 \u8E10|\u8DF6 \u8E82|\u8DF7 \u8E7A|\u8DF8 \u8E55|\u8DF9 \u8E9A|\u8DFB \u8E8B|\u8E0C \u8E8A|\u8E2A \u8E64|\u8E2C \u8E93|\u8E2F \u8E91|\u8E51 \u8EA1|\u8E52 \u8E63|\u8E70 \u8E95|\u8E7F \u8EA5|\u8E8F \u8EAA|\u8E9C \u8EA6|\u8EAF \u8EC0|\u8F3C \u8F40|\u8F66 \u8ECA|\u8F67 \u8ECB|\u8F68 \u8ECC|\u8F69 \u8ED2|\u8F6A \u8ED1|\u8F6B \u8ED4|\u8F6C \u8F49|\u8F6D \u8EDB|\u8F6E \u8F2A|\u8F6F \u8EDF|\u8F70 \u8F5F|\u8F71 \u8EF2|\u8F72 \u8EFB|\u8F73 \u8F64|\u8F74 \u8EF8|\u8F75 \u8EF9|\u8F76 \u8EFC|\u8F77 \u8EE4|\u8F78 \u8EEB|\u8F79 \u8F62|\u8F7A \u8EFA|\u8F7B \u8F15|\u8F7C \u8EFE|\u8F7D \u8F09|\u8F7E \u8F0A|\u8F7F \u8F4E|\u8F80 \u8F08|\u8F81 \u8F07|\u8F82 \u8F05|\u8F83 \u8F03|\u8F84 \u8F12|\u8F85 \u8F14|\u8F86 \u8F1B|\u8F87 \u8F26|\u8F88 \u8F29|\u8F89 \u8F1D|\u8F8A \u8F25|\u8F8B \u8F1E|\u8F8C \u8F2C|\u8F8D \u8F1F|\u8F8E \u8F1C|\u8F8F \u8F33|\u8F90 \u8F3B|\u8F91 \u8F2F|\u8F92 \u8F40|\u8F93 \u8F38|\u8F94 \u8F61|\u8F95 \u8F45|\u8F96 \u8F44|\u8F97 \u8F3E|\u8F98 \u8F46|\u8F99 \u8F4D|\u8F9A \u8F54|\u8F9E \u8FAD|\u8F9F \u95E2|\u8FA9 \u8FAF|\u8FAB \u8FAE|\u8FB9 \u908A|\u8FBD \u907C|\u8FBE \u9054|\u8FC1 \u9077|\u8FC7 \u904E|\u8FC8 \u9081|\u8FD0 \u904B|\u8FD8 \u9084|\u8FD9 \u9019|\u8FDB \u9032|\u8FDC \u9060|\u8FDD \u9055|\u8FDE \u9023|\u8FDF \u9072|\u8FE9 \u9087|\u8FF3 \u9015|\u8FF9 \u8DE1|\u9002 \u9069|\u9009 \u9078|\u900A \u905C|\u9012 \u905E|\u9026 \u9090|\u903B \u908F|\u9057 \u907A|\u9065 \u9059|\u9093 \u9127|\u909D \u913A|\u90AC \u9114|\u90AE \u90F5|\u90B9 \u9112|\u90BA \u9134|\u90BB \u9130|\u90C1 \u9B31|\u90CF \u90DF|\u90D0 \u9136|\u90D1 \u912D|\u90D3 \u9106|\u90E6 \u9148|\u90E7 \u9116|\u90F8 \u9132|\u9142 \u9147|\u915D \u919E|\u9166 \u91B1|\u9171 \u91AC|\u917D \u91C5|\u917E \u91C3|\u917F \u91C0|\u9196 \u919E|\u91C7 \u63A1|\u91CA \u91CB|\u91CC \u88CF|\u9274 \u9451|\u92AE \u947E|\u933E \u93E8|\u9485 \u91D2|\u9486 \u91D3|\u9487 \u91D4|\u9488 \u91DD|\u9489 \u91D8|\u948A \u91D7|\u948B \u91D9|\u948C \u91D5|\u948D \u91F7|\u948E \u91FA|\u948F \u91E7|\u9490 \u91E4|\u9491 \u9212|\u9492 \u91E9|\u9493 \u91E3|\u9494 \u9346|\u9495 \u91F9|\u9496 \u935A|\u9497 \u91F5|\u9498 \u9203|\u9499 \u9223|\u949A \u9208|\u949B \u9226|\u949C \u9245|\u949D \u920D|\u949E \u9214|\u949F \u937E|\u94A0 \u9209|\u94A1 \u92C7|\u94A2 \u92FC|\u94A3 \u9211|\u94A4 \u9210|\u94A5 \u9470|\u94A6 \u6B3D|\u94A7 \u921E|\u94A8 \u93A2|\u94A9 \u9264|\u94AA \u9227|\u94AB \u9201|\u94AC \u9225|\u94AD \u9204|\u94AE \u9215|\u94AF \u9200|\u94B0 \u923A|\u94B1 \u9322|\u94B2 \u9266|\u94B3 \u9257|\u94B4 \u9237|\u94B5 \u9262|\u94B6 \u9233|\u94B7 \u9255|\u94B8 \u923D|\u94B9 \u9238|\u94BA \u925E|\u94BB \u947D|\u94BC \u926C|\u94BD \u926D|\u94BE \u9240|\u94BF \u923F|\u94C0 \u923E|\u94C1 \u9435|\u94C2 \u9251|\u94C3 \u9234|\u94C4 \u9460|\u94C5 \u925B|\u94C6 \u925A|\u94C7 \u924B|\u94C8 \u9230|\u94C9 \u9249|\u94CA \u9248|\u94CB \u924D|\u94CC \u922E|\u94CD \u9239|\u94CE \u9438|\u94CF \u9276|\u94D0 \u92AC|\u94D1 \u92A0|\u94D2 \u927A|\u94D3 \u92E9|\u94D4 \u930F|\u94D5 \u92AA|\u94D6 \u92EE|\u94D7 \u92CF|\u94D8 \u92E3|\u94D9 \u9403|\u94DA \u928D|\u94DB \u943A|\u94DC \u9285|\u94DD \u92C1|\u94DE \u92B1|\u94DF \u92A6|\u94E0 \u93A7|\u94E1 \u9358|\u94E2 \u9296|\u94E3 \u9291|\u94E4 \u92CC|\u94E5 \u92A9|\u94E6 \u929B|\u94E7 \u93F5|\u94E8 \u9293|\u94E9 \u93A9|\u94EA \u927F|\u94EB \u929A|\u94EC \u927B|\u94ED \u9298|\u94EE \u931A|\u94EF \u92AB|\u94F0 \u9278|\u94F1 \u92A5|\u94F2 \u93DF|\u94F3 \u9283|\u94F4 \u940B|\u94F5 \u92A8|\u94F6 \u9280|\u94F7 \u92A3|\u94F8 \u9444|\u94F9 \u9412|\u94FA \u92EA|\u94FB \u92D9|\u94FC \u9338|\u94FD \u92F1|\u94FE \u93C8|\u94FF \u93D7|\u9500 \u92B7|\u9501 \u9396|\u9502 \u92F0|\u9503 \u92E5|\u9504 \u92E4|\u9505 \u934B|\u9506 \u92EF|\u9507 \u92E8|\u9508 \u93FD|\u9509 \u92BC|\u950A \u92DD|\u950B \u92D2|\u950C \u92C5|\u950D \u92F6|\u950E \u9426|\u950F \u9427|\u9510 \u92B3|\u9511 \u92BB|\u9512 \u92C3|\u9513 \u92DF|\u9514 \u92E6|\u9515 \u9312|\u9516 \u9306|\u9517 \u937A|\u9518 \u9369|\u9519 \u932F|\u951A \u9328|\u951B \u931B|\u951C \u9321|\u951D \u9340|\u951E \u9301|\u951F \u9315|\u9520 \u9329|\u9521 \u932B|\u9522 \u932E|\u9523 \u947C|\u9524 \u9318|\u9525 \u9310|\u9526 \u9326|\u9527 \u9455|\u9528 \u9341|\u9529 \u9308|\u952A \u9343|\u952B \u9307|\u952C \u931F|\u952D \u9320|\u952E \u9375|\u952F \u92F8|\u9530 \u9333|\u9531 \u9319|\u9532 \u9365|\u9533 \u9348|\u9534 \u9347|\u9535 \u93D8|\u9536 \u9376|\u9537 \u9354|\u9538 \u9364|\u9539 \u936C|\u953A \u937E|\u953B \u935B|\u953C \u93AA|\u953D \u9360|\u953E \u9370|\u953F \u9384|\u9540 \u934D|\u9541 \u9382|\u9542 \u93E4|\u9543 \u93A1|\u9544 \u9428|\u9545 \u9387|\u9546 \u93CC|\u9547 \u93AE|\u9548 \u939B|\u9549 \u9398|\u954A \u9477|\u954B \u9482|\u954C \u942B|\u954D \u93B3|\u954E \u93BF|\u954F \u93A6|\u9550 \u93AC|\u9551 \u938A|\u9552 \u93B0|\u9553 \u93B5|\u9554 \u944C|\u9555 \u9394|\u9556 \u93E2|\u9557 \u93DC|\u9558 \u93DD|\u9559 \u93CD|\u955A \u93F0|\u955B \u93DE|\u955C \u93E1|\u955D \u93D1|\u955E \u93C3|\u955F \u93C7|\u9560 \u93D0|\u9561 \u9414|\u9562 \u9481|\u9563 \u9410|\u9564 \u93F7|\u9565 \u9465|\u9566 \u9413|\u9567 \u946D|\u9568 \u9420|\u9569 \u9479|\u956A \u93F9|\u956B \u9419|\u956C \u944A|\u956D \u9433|\u956E \u9436|\u956F \u9432|\u9570 \u942E|\u9571 \u943F|\u9572 \u9454|\u9573 \u9463|\u9574 \u945E|\u9575 \u9471|\u9576 \u9472|\u957F \u9577|\u95E8 \u9580|\u95E9 \u9582|\u95EA \u9583|\u95EB \u9586|\u95EC \u9588|\u95ED \u9589|\u95EE \u554F|\u95EF \u95D6|\u95F0 \u958F|\u95F1 \u95C8|\u95F2 \u9592|\u95F3 \u958E|\u95F4 \u9593|\u95F5 \u9594|\u95F6 \u958C|\u95F7 \u60B6|\u95F8 \u9598|\u95F9 \u9B27|\u95FA \u95A8|\u95FB \u805E|\u95FC \u95E5|\u95FD \u95A9|\u95FE \u95AD|\u95FF \u95D3|\u9600 \u95A5|\u9601 \u95A3|\u9602 \u95A1|\u9603 \u95AB|\u9604 \u9B2E|\u9605 \u95B1|\u9606 \u95AC|\u9607 \u95CD|\u9608 \u95BE|\u9609 \u95B9|\u960A \u95B6|\u960B \u9B29|\u960C \u95BF|\u960D \u95BD|\u960E \u95BB|\u960F \u95BC|\u9610 \u95E1|\u9611 \u95CC|\u9612 \u95C3|\u9613 \u95E0|\u9614 \u95CA|\u9615 \u95CB|\u9616 \u95D4|\u9617 \u95D0|\u9618 \u95D2|\u9619 \u95D5|\u961A \u95DE|\u961B \u95E4|\u961F \u968A|\u9633 \u967D|\u9634 \u9670|\u9635 \u9663|\u9636 \u968E|\u9645 \u969B|\u9646 \u9678|\u9647 \u96B4|\u9648 \u9673|\u9649 \u9658|\u9655 \u965D|\u9666 \u96AF|\u9667 \u9689|\u9668 \u9695|\u9669 \u96AA|\u968F \u96A8|\u9690 \u96B1|\u96B6 \u96B8|\u96BD \u96CB|\u96BE \u96E3|\u96C7 \u50F1|\u96CF \u96DB|\u96E0 \u8B8E|\u96F3 \u9742|\u96FE \u9727|\u9701 \u973D|\u9709 \u9EF4|\u9721 \u9722|\u972D \u9744|\u9753 \u975A|\u9754 \u975D|\u9759 \u975C|\u9765 \u9768|\u9791 \u97C3|\u9792 \u97BD|\u97AF \u97C9|\u97B2 \u97DD|\u97E6 \u97CB|\u97E7 \u97CC|\u97E8 \u97CD|\u97E9 \u97D3|\u97EA \u97D9|\u97EB \u97DE|\u97EC \u97DC|\u97F5 \u97FB|\u9875 \u9801|\u9876 \u9802|\u9877 \u9803|\u9878 \u9807|\u9879 \u9805|\u987A \u9806|\u987B \u9808|\u987C \u980A|\u987D \u9811|\u987E \u9867|\u987F \u9813|\u9880 \u980E|\u9881 \u9812|\u9882 \u980C|\u9883 \u980F|\u9884 \u9810|\u9885 \u9871|\u9886 \u9818|\u9887 \u9817|\u9888 \u9838|\u9889 \u9821|\u988A \u9830|\u988B \u9832|\u988C \u981C|\u988D \u6F41|\u988E \u71B2|\u988F \u9826|\u9890 \u9824|\u9891 \u983B|\u9892 \u982E|\u9893 \u9839|\u9894 \u9837|\u9895 \u9834|\u9896 \u7A4E|\u9897 \u9846|\u9898 \u984C|\u9899 \u9852|\u989A \u984E|\u989B \u9853|\u989C \u984F|\u989D \u984D|\u989E \u9873|\u989F \u9862|\u98A0 \u985B|\u98A1 \u9859|\u98A2 \u9865|\u98A3 \u7E87|\u98A4 \u986B|\u98A5 \u986C|\u98A6 \u9870|\u98A7 \u9874|\u98CE \u98A8|\u98CF \u98BA|\u98D0 \u98AD|\u98D1 \u98AE|\u98D2 \u98AF|\u98D3 \u98B6|\u98D4 \u98B8|\u98D5 \u98BC|\u98D6 \u98BB|\u98D7 \u98C0|\u98D8 \u98C4|\u98D9 \u98C6|\u98DA \u98C8|\u98DE \u98DB|\u98E8 \u9957|\u990D \u995C|\u9963 \u98E0|\u9964 \u98E3|\u9965 \u98E2|\u9966 \u98E5|\u9967 \u9933|\u9968 \u98E9|\u9969 \u993C|\u996A \u98EA|\u996B \u98EB|\u996C \u98ED|\u996D \u98EF|\u996E \u98F2|\u996F \u991E|\u9970 \u98FE|\u9971 \u98FD|\u9972 \u98FC|\u9973 \u98FF|\u9974 \u98F4|\u9975 \u990C|\u9976 \u9952|\u9977 \u9909|\u9978 \u9904|\u9979 \u990E|\u997A \u9903|\u997B \u990F|\u997C \u9905|\u997D \u9911|\u997E \u9916|\u997F \u9913|\u9980 \u9918|\u9981 \u9912|\u9982 \u9915|\u9983 \u991C|\u9984 \u991B|\u9985 \u9921|\u9986 \u9928|\u9987 \u9937|\u9988 \u994B|\u9989 \u9936|\u998A \u993F|\u998B \u995E|\u998C \u9941|\u998D \u9943|\u998E \u993A|\u998F \u993E|\u9990 \u9948|\u9991 \u9949|\u9992 \u9945|\u9993 \u994A|\u9994 \u994C|\u9995 \u9962|\u9A6C \u99AC|\u9A6D \u99AD|\u9A6E \u99B1|\u9A6F \u99B4|\u9A70 \u99B3|\u9A71 \u9A45|\u9A72 \u99B9|\u9A73 \u99C1|\u9A74 \u9A62|\u9A75 \u99D4|\u9A76 \u99DB|\u9A77 \u99DF|\u9A78 \u99D9|\u9A79 \u99D2|\u9A7A \u9A36|\u9A7B \u99D0|\u9A7C \u99DD|\u9A7D \u99D1|\u9A7E \u99D5|\u9A7F \u9A5B|\u9A80 \u99D8|\u9A81 \u9A4D|\u9A82 \u7F75|\u9A83 \u99F0|\u9A84 \u9A55|\u9A85 \u9A4A|\u9A86 \u99F1|\u9A87 \u99ED|\u9A88 \u99E2|\u9A89 \u9A6B|\u9A8A \u9A6A|\u9A8B \u9A01|\u9A8C \u9A57|\u9A8D \u9A02|\u9A8E \u99F8|\u9A8F \u99FF|\u9A90 \u9A0F|\u9A91 \u9A0E|\u9A92 \u9A0D|\u9A93 \u9A05|\u9A94 \u9A0C|\u9A95 \u9A4C|\u9A96 \u9A42|\u9A97 \u9A19|\u9A98 \u9A2D|\u9A99 \u9A24|\u9A9A \u9A37|\u9A9B \u9A16|\u9A9C \u9A41|\u9A9D \u9A2E|\u9A9E \u9A2B|\u9A9F \u9A38|\u9AA0 \u9A43|\u9AA1 \u9A3E|\u9AA2 \u9A44|\u9AA3 \u9A4F|\u9AA4 \u9A5F|\u9AA5 \u9A65|\u9AA6 \u9A66|\u9AA7 \u9A64|\u9AC5 \u9ACF|\u9ACB \u9AD6|\u9ACC \u9AD5|\u9B13 \u9B22|\u9B36 \u9B39|\u9B47 \u9B58|\u9B49 \u9B4E|\u9C7C \u9B5A|\u9C7D \u9B5B|\u9C7E \u9B62|\u9C7F \u9B77|\u9C80 \u9B68|\u9C81 \u9B6F|\u9C82 \u9B74|\u9C83 \u4C3E|\u9C84 \u9B7A|\u9C85 \u9B81|\u9C86 \u9B83|\u9C87 \u9B8E|\u9C88 \u9C78|\u9C89 \u9B8B|\u9C8A \u9B93|\u9C8B \u9B92|\u9C8C \u9B8A|\u9C8D \u9B91|\u9C8E \u9C5F|\u9C8F \u9B8D|\u9C90 \u9B90|\u9C91 \u9BAD|\u9C92 \u9B9A|\u9C93 \u9BB3|\u9C94 \u9BAA|\u9C95 \u9B9E|\u9C96 \u9BA6|\u9C97 \u9C02|\u9C98 \u9B9C|\u9C99 \u9C60|\u9C9A \u9C6D|\u9C9B \u9BAB|\u9C9C \u9BAE|\u9C9D \u9BBA|\u9C9E \u9BD7|\u9C9F \u9C58|\u9CA0 \u9BC1|\u9CA1 \u9C7A|\u9CA2 \u9C31|\u9CA3 \u9C39|\u9CA4 \u9BC9|\u9CA5 \u9C23|\u9CA6 \u9C37|\u9CA7 \u9BC0|\u9CA8 \u9BCA|\u9CA9 \u9BC7|\u9CAA \u9BB6|\u9CAB \u9BFD|\u9CAC \u9BD2|\u9CAD \u9BD6|\u9CAE \u9BEA|\u9CAF \u9BD5|\u9CB0 \u9BEB|\u9CB1 \u9BE1|\u9CB2 \u9BE4|\u9CB3 \u9BE7|\u9CB4 \u9BDD|\u9CB5 \u9BE2|\u9CB6 \u9BF0|\u9CB7 \u9BDB|\u9CB8 \u9BE8|\u9CB9 \u9C3A|\u9CBA \u9BF4|\u9CBB \u9BD4|\u9CBC \u9C5D|\u9CBD \u9C08|\u9CBE \u9C0F|\u9CBF \u9C68|\u9CC0 \u9BF7|\u9CC1 \u9C2E|\u9CC2 \u9C03|\u9CC3 \u9C13|\u9CC4 \u9C77|\u9CC5 \u9C0D|\u9CC6 \u9C12|\u9CC7 \u9C09|\u9CC8 \u9C01|\u9CC9 \u9C42|\u9CCA \u9BFF|\u9CCB \u9C20|\u9CCC \u9C32|\u9CCD \u9C2D|\u9CCE \u9C28|\u9CCF \u9C25|\u9CD0 \u9C29|\u9CD1 \u9C1F|\u9CD2 \u9C1C|\u9CD3 \u9C33|\u9CD4 \u9C3E|\u9CD5 \u9C48|\u9CD6 \u9C49|\u9CD7 \u9C3B|\u9CD8 \u9C35|\u9CD9 \u9C45|\u9CDA \u4C81|\u9CDB \u9C3C|\u9CDC \u9C56|\u9CDD \u9C54|\u9CDE \u9C57|\u9CDF \u9C52|\u9CE0 \u9C6F|\u9CE1 \u9C64|\u9CE2 \u9C67|\u9CE3 \u9C63|\u9CE4 \u4C98|\u9E1F \u9CE5|\u9E20 \u9CE9|\u9E21 \u96DE|\u9E22 \u9CF6|\u9E23 \u9CF4|\u9E24 \u9CF2|\u9E25 \u9DD7|\u9E26 \u9D09|\u9E27 \u9DAC|\u9E28 \u9D07|\u9E29 \u9D06|\u9E2A \u9D23|\u9E2B \u9D87|\u9E2C \u9E15|\u9E2D \u9D28|\u9E2E \u9D1E|\u9E2F \u9D26|\u9E30 \u9D12|\u9E31 \u9D1F|\u9E32 \u9D1D|\u9E33 \u9D1B|\u9E34 \u9DFD|\u9E35 \u9D15|\u9E36 \u9DE5|\u9E37 \u9DD9|\u9E38 \u9D2F|\u9E39 \u9D30|\u9E3A \u9D42|\u9E3B \u9D34|\u9E3C \u9D43|\u9E3D \u9D3F|\u9E3E \u9E1E|\u9E3F \u9D3B|\u9E40 \u9D50|\u9E41 \u9D53|\u9E42 \u9E1D|\u9E43 \u9D51|\u9E44 \u9D60|\u9E45 \u9D5D|\u9E46 \u9D52|\u9E47 \u9DF3|\u9E48 \u9D5C|\u9E49 \u9D61|\u9E4A \u9D72|\u9E4B \u9D93|\u9E4C \u9D6A|\u9E4D \u9D7E|\u9E4E \u9D6F|\u9E4F \u9D6C|\u9E50 \u9D6E|\u9E51 \u9D89|\u9E52 \u9D8A|\u9E53 \u9D77|\u9E54 \u9DEB|\u9E55 \u9D98|\u9E56 \u9DA1|\u9E57 \u9D9A|\u9E58 \u9DBB|\u9E59 \u9D96|\u9E5A \u9DC0|\u9E5B \u9DA5|\u9E5C \u9DA9|\u9E5D \u9DCA|\u9E5E \u9DC2|\u9E5F \u9DB2|\u9E60 \u9DB9|\u9E61 \u9DBA|\u9E62 \u9DC1|\u9E63 \u9DBC|\u9E64 \u9DB4|\u9E65 \u9DD6|\u9E66 \u9E1A|\u9E67 \u9DD3|\u9E68 \u9DDA|\u9E69 \u9DEF|\u9E6A \u9DE6|\u9E6B \u9DF2|\u9E6C \u9DF8|\u9E6D \u9DFA|\u9E6E \u4D09|\u9E6F \u9E07|\u9E70 \u9DF9|\u9E71 \u9E0C|\u9E72 \u9E0F|\u9E73 \u9E1B|\u9E74 \u9E18|\u9E7E \u9E7A|\u9EA6 \u9EA5|\u9EB8 \u9EA9|\u9EB9 \u9EB4|\u9EBA \u9EAA|\u9EBD \u9EBC|\u9EC4 \u9EC3|\u9EC9 \u9ECC|\u9EE1 \u9EF6|\u9EE9 \u9EF7|\u9EEA \u9EF2|\u9EFE \u9EFD|\u9F0B \u9EFF|\u9F0C \u9F02|\u9F0D \u9F09|\u9F39 \u9F34|\u9F50 \u9F4A|\u9F51 \u9F4F|\u9F7F \u9F52|\u9F80 \u9F54|\u9F81 \u9F55|\u9F82 \u9F57|\u9F83 \u9F5F|\u9F84 \u9F61|\u9F85 \u9F59|\u9F86 \u9F60|\u9F87 \u9F5C|\u9F88 \u9F66|\u9F89 \u9F6C|\u9F8A \u9F6A|\u9F8B \u9F72|\u9F8C \u9F77|\u9F99 \u9F8D|\u9F9A \u9F94|\u9F9B \u9F95|\u9F9F \u9F9C|\u9FCE \u40EE|\u9FCF \u4951|\u9FD2 \u9FD3|\u9FD4 \u93B6|\u{2003E} \u{2005E}|\u{201B2} \u5123|\u{201BF} \u{20325}|\u{201F9} \u4FD3|\u{20242} \u3493|\u{20257} \u{203E2}|\u{202C6} \u512D|\u{206B3} \u{2080E}|\u{206C5} \u527E|\u{206C6} \u{20786}|\u{206FE} \u{2A7D6}|\u{20860} \u52D1|\u{20BB6} \u55F0|\u{20BDF} \u54EF|\u{20BE0} \u5645|\u{20C31} \u3609|\u{20C37} \u56A7|\u{20C5E} \u56C3|\u{20CA5} \u{2114F}|\u{20D1B} \u{210D5}|\u{20D22} \u{21114}|\u{20D78} \u{21123}|\u{20D7E} \u35F2|\u{212C0} \u{214FE}|\u{212D7} \u{2146D}|\u{212E4} \u58D7|\u{21363} \u{21516}|\u{21484} \u58C8|\u{21760} \u3737|\u{2178B} \u3717|\u{217B1} \u3722|\u{2181F} \u5B4E|\u{21967} \u5B7B|\u{21B5C} \u{21B89}|\u{21B6C} \u{21BA3}|\u{21CC3} \u{21CF3}|\u{21CD2} \u{26627}|\u{21DB4} \u5D7C|\u{21E03} \u{21F57}|\u{21E83} \u5D88|\u{21E84} \u5D98|\u{222C8} \u389D|\u{225D3} \u399B|\u{22619} \u{22931}|\u{2261D} \u{228DA}|\u{2261E} \u{228ED}|\u{2264F} \u613B|\u{22650} \u61B9|\u{22651} \u{2283C}|\u{22652} \u61A2|\u{22653} \u61C0|\u{226EF} \u398E|\u{22801} \u61CE|\u{22890} \u{248BB}|\u{229D0} \u6230|\u{22ACA} \u{22DEE}|\u{22ADE} \u{22DAB}|\u{22AEC} \u644B|\u{22B0D} \u64EB|\u{22B26} \u{22E7F}|\u{22B4F} \u64E3|\u{22F7E} \u6585|\u{230C1} \u65B8|\u{23190} \u66E5|\u{23223} \u{232CB}|\u{23368} \u{26888}|\u{2336F} \u816A|\u{23370} \u8125|\u{23391} \u81D7|\u{233E2} \u69EB|\u{23415} \u6871|\u{23424} \u6B0D|\u{23476} \u{23832}|\u{2348C} \u6947|\u{234FF} \u6A6F|\u{2350C} \u6A24|\u{235CA} \u6A20|\u{235CB} \u6B13|\u{235D9} \u3C19|\u{23610} \u3BE4|\u{23613} \u{237BB}|\u{23634} \u6AAD|\u{23637} \u{23755}|\u{2369A} \u6B18|\u{2378E} \u{23829}|\u{23A3C} \u6BA2|\u{23B64} \u{23BF4}|\u{23BE3} \u{23BE9}|\u{23C5D} \u6C2D|\u{23C97} \u6E4B|\u{23C98} \u6F55|\u{23CC6} \u3D57|\u{23DA9} \u6F85|\u{23DAB} \u{23FC9}|\u{23DAD} \u{2ADD3}|\u{23DF7} \u{24176}|\u{23E23} \u6FC6|\u{23EBC} \u7059|\u{23EBD} \u{24063}|\u{23F77} \u7003|\u{241A1} \u7193|\u{241A2} \u3DCD|\u{241C3} \u7204|\u{241C4} \u718C|\u{241ED} \u7216|\u{241F9} \u719A|\u{24236} \u7189|\u{24237} \u3DFF|\u{24280} \u{2448E}|\u{242B0} \u{244E9}|\u{242CF} \u71A1|\u{243BA} \u{244CE}|\u{243BB} \u{24473}|\u{2466F} \u{246EE}|\u{24762} \u{2489F}|\u{24783} \u7369|\u{247A4} \u7381|\u{2480B} \u3E8F|\u{24980} \u74D5|\u{24A7D} \u74DB|\u{24CC4} \u{24CF8}|\u{24D8A} \u7650|\u{24DA7} \u{24E2B}|\u{24ECA} \u3FD7|\u{24F6F} \u3FE7|\u{24F80} \u769F|\u{24FF2} \u9EAC|\u{25062} \u4009|\u{25158} \u{25303}|\u{25174} \u4039|\u{2517F} \u{2529D}|\u{251A7} \u77A4|\u{251E2} \u406A|\u{2539D} \u408E|\u{2541F} \u7912|\u{2542F} \u{25585}|\u{25430} \u{25565}|\u{2543B} \u7899|\u{257A6} \u{257B5}|\u{259C2} \u{25A10}|\u{25A5F} \u7ADA|\u{25A7A} \u{25A82}|\u{25AE3} \u7C45|\u{25B00} \u4259|\u{25B1E} \u7C4B|\u{25B20} \u7BD8|\u{25B49} \u{25D4A}|\u{25B8B} \u{25E20}|\u{25B9C} \u4272|\u{25BBE} \u7BF8|\u{25C54} \u{25D43}|\u{25E65} \u{25F3D}|\u{25E85} \u42AD|\u{25E87} \u{25F56}|\u{26208} \u{25FCA}|\u{26209} \u7DF7|\u{2620B} \u7D87|\u{2620C} \u7D80|\u{2620E} \u7E5F|\u{2620F} \u7DCD|\u{26210} \u7E3A|\u{26211} \u7DF8|\u{26212} \u{26085}|\u{26213} \u42FF|\u{26214} \u7E0E|\u{26215} \u7DF0|\u{26216} \u4308|\u{26217} \u{260C4}|\u{26218} \u430B|\u{26219} \u4330|\u{2621A} \u7E2C|\u{2621B} \u7E53|\u{2621C} \u4316|\u{2621D} \u7E4F|\u{2621E} \u431F|\u{2621F} \u431D|\u{26220} \u4325|\u{26221} \u7E7B|\u{26360} \u437D|\u{266E8} \u6725|\u{2677C} \u81A2|\u{267D7} \u{268CE}|\u{26A29} \u{26ABD}|\u{26C0F} \u84E7|\u{26C34} \u4573|\u{26D9F} \u7207|\u{26DBB} \u{26F9F}|\u{26ED5} \u861F|\u{27250} \u{2755F}|\u{2725E} \u45FF|\u{27325} \u{27388}|\u{273D6} \u8819|\u{273D7} \u8800|\u{2744F} \u883E|\u{274AD} \u{27525}|\u{2772D} \u4671|\u{2775D} \u8970|\u{27767} \u{277C0}|\u{27BAA} \u8A40|\u{27CD5} \u{27CDF}|\u{27E51} \u4788|\u{27E52} \u8CB7|\u{27E53} \u{27D94}|\u{27E54} \u8CEC|\u{27E55} \u477B|\u{27E56} \u8CDF|\u{27E57} \u8D03|\u{27FC8} \u{281C1}|\u{28001} \u8E98|\u{28031} \u{28123}|\u{28074} \u{2814D}|\u{280BA} \u{2820A}|\u{28104} \u{2820C}|\u{2815B} \u4831|\u{2816B} \u{281DE}|\u{2816C} \u8E9D|\u{28257} \u8EC9|\u{28405} \u8ED7|\u{28406} \u{282BB}|\u{28407} \u{283E0}|\u{28408} \u8F04|\u{28409} \u{283AE}|\u{2840A} \u{283E5}|\u{28479} \u48A8|\u{287F3} \u{288DE}|\u{28828} \u{288E7}|\u{28859} \u{288BF}|\u{2887A} \u{288C8}|\u{28930} \u{2893B}|\u{28C3E} \u93B7|\u{28C3F} \u91F3|\u{28C40} \u{2895B}|\u{28C41} \u9220|\u{28C42} \u920B|\u{28C43} \u9232|\u{28C44} \u922F|\u{28C45} \u9241|\u{28C46} \u9FAF|\u{28C47} \u92B6|\u{28C48} \u92C9|\u{28C49} \u9344|\u{28C4A} \u{289F1}|\u{28C4B} \u9302|\u{28C4C} \u93C6|\u{28C4D} \u93AF|\u{28C4E} \u936E|\u{28C4F} \u939D|\u{28C50} \u{28AD2}|\u{28C51} \u9404|\u{28C52} \u93C9|\u{28C53} \u940E|\u{28C54} \u940F|\u{28C55} \u{28B82}|\u{28C56} \u4969|\u{28DFF} \u49B3|\u{28E00} \u{28CD5}|\u{28E01} \u{28CD1}|\u{28E02} \u958D|\u{28E03} \u9590|\u{28E04} \u4998|\u{28E05} \u{28D17}|\u{28E06} \u{28D69}|\u{28E07} \u{28D78}|\u{28E09} \u{28D80}|\u{28E0A} \u{28D8F}|\u{28E0B} \u{28DB2}|\u{28E0C} \u{28DAE}|\u{28E0E} \u{28DF2}|\u{28E18} \u{28F4F}|\u{28E1F} \u49E2|\u{293FC} \u4A8F|\u{293FD} \u{293EA}|\u{293FE} \u{293A2}|\u{293FF} \u4A98|\u{29400} \u4A97|\u{294CB} \u9842|\u{29595} \u{294E3}|\u{29596} \u9843|\u{29597} \u4AF4|\u{29665} \u98B0|\u{29666} \u{295C0}|\u{29667} \u4B1E|\u{29668} \u{29639}|\u{29669} \u{29600}|\u{2966A} \u98B7|\u{2966B} \u98BE|\u{2966C} \u{2963A}|\u{2966D} \u{2961D}|\u{2966E} \u4B18|\u{2966F} \u4B1D|\u{29670} \u{29648}|\u{297FF} \u{2969B}|\u{29800} \u{296A5}|\u{29801} \u{296B5}|\u{29802} \u{296C6}|\u{29803} \u{296E9}|\u{29805} \u{297D0}|\u{29806} \u{29726}|\u{29807} \u4B40|\u{29808} \u4B43|\u{29809} \u{29707}|\u{2980A} \u{29735}|\u{2980B} \u{29754}|\u{2980C} \u9938|\u{2980E} \u{29784}|\u{2980F} \u{297A6}|\u{29820} \u{29834}|\u{29856} \u{29863}|\u{299E6} \u{2987A}|\u{299E8} \u99CE|\u{299E9} \u{2990A}|\u{299EA} \u4BBE|\u{299EB} \u99DA|\u{299EC} \u{298A1}|\u{299ED} \u4B7F|\u{299EE} \u{298BE}|\u{299EF} \u9A4B|\u{299F0} \u4B9D|\u{299F1} \u{29949}|\u{299F2} \u99E7|\u{299F3} \u{298B8}|\u{299F4} \u99E9|\u{299F5} \u{298B4}|\u{299F6} \u{298CF}|\u{299F8} \u{298EB}|\u{299FA} \u99F6|\u{299FB} \u{298F5}|\u{299FC} \u{298FA}|\u{299FF} \u4BA0|\u{29A00} \u9A14|\u{29A01} \u4B9E|\u{29A02} \u9A44|\u{29A03} \u9A1D|\u{29A04} \u9A2A|\u{29A05} \u{29938}|\u{29A06} \u{29919}|\u{29A07} \u4BAB|\u{29A08} \u9A1F|\u{29A09} \u{29932}|\u{29A0A} \u9A1A|\u{29A0B} \u{29944}|\u{29A0C} \u{29951}|\u{29A0D} \u{29947}|\u{29A0E} \u9FAD|\u{29A0F} \u4BB3|\u{29A10} \u{299C6}|\u{29A48} \u4BE4|\u{29B23} \u{29B59}|\u{29B24} \u{29C00}|\u{29B79} \u9B16|\u{29BD2} \u{29BF3}|\u{29C30} \u{29C39}|\u{29C92} \u{29CE4}|\u{29D0C} \u{29D35}|\u{29F79} \u9B65|\u{29F7A} \u{29D69}|\u{29F7B} \u{29D79}|\u{29F7C} \u9BF6|\u{29F7D} \u{29DB1}|\u{29F7E} \u9B9F|\u{29F7F} \u{29DB0}|\u{29F81} \u9BC4|\u{29F82} \u4C96|\u{29F83} \u9BB8|\u{29F84} \u{29DF0}|\u{29F85} \u{29E03}|\u{29F86} \u{29E26}|\u{29F87} \u9BF1|\u{29F88} \u4C59|\u{29F8A} \u4C6C|\u{29F8B} \u4C70|\u{29F8C} \u9C47|\u{29F8E} \u{29F47}|\u{2A242} \u4CB0|\u{2A243} \u9CFC|\u{2A244} \u{29FEA}|\u{2A245} \u{2A026}|\u{2A246} \u9D32|\u{2A248} \u9D1C|\u{2A249} \u{2A048}|\u{2A24A} \u9DE8|\u{2A24B} \u{2A03E}|\u{2A24C} \u{2A056}|\u{2A24D} \u9D5A|\u{2A24E} \u{2A086}|\u{2A24F} \u{2A0CF}|\u{2A250} \u{2A0CD}|\u{2A251} \u9DD4|\u{2A252} \u{2A115}|\u{2A254} \u{2A106}|\u{2A255} \u{2A1F3}|\u{2A388} \u4D2C|\u{2A389} \u9EB2|\u{2A38A} \u9EA8|\u{2A38B} \u4D34|\u{2A38C} \u9EB3|\u{2A445} \u4D73|\u{2A52D} \u{2A535}|\u{2A68F} \u{2A600}|\u{2A690} \u{2A62F}|\u{2A70E} \u{20FD5}|\u{2A79D} \u51D9|\u{2A7CE} \u350B|\u{2A7DD} \u52E3|\u{2A800} \u{27DCE}|\u{2A81F} \u34C4|\u{2A821} \u{20B19}|\u{2A833} \u5513|\u{2A835} \u35AE|\u{2A838} \u569B|\u{2A83A} \u{20F43}|\u{2A83D} \u5679|\u{2A840} \u563A|\u{2A843} \u562A|\u{2A84B} \u565E|\u{2A84F} \u55F9|\u{2A85B} \u35FF|\u{2A85E} \u5633|\u{2A87A} \u{210C4}|\u{2A88C} \u3613|\u{2A890} \u{210E4}|\u{2A892} \u{210A1}|\u{2A895} \u56BD|\u{2A896} \u{2116F}|\u{2A8A0} \u56D2|\u{2A8AE} \u571E|\u{2A8B8} \u58B2|\u{2A8C6} \u57EC|\u{2A8D2} \u581A|\u{2A8FB} \u587F|\u{2A904} \u{214C1}|\u{2A91A} \u58E3|\u{2A960} \u{27E48}|\u{2A96B} \u5B47|\u{2A970} \u5B23|\u{2A97F} \u5B3B|\u{2A9C0} \u5B7E|\u{2A9D8} \u5BE0|\u{2AA0A} \u379E|\u{2AA17} \u5C69|\u{2AA27} \u5D19|\u{2AA29} \u{21E17}|\u{2AA36} \u8F0B|\u{2AA37} \u5DD7|\u{2AA39} \u{21E6C}|\u{2AA47} \u37FA|\u{2AA4E} \u5DCA|\u{2AA58} \u5DD8|\u{2AA5B} \u{21FD6}|\u{2AA77} \u5E5D|\u{2AA78} \u5E69|\u{2AA8F} \u5EEC|\u{2AA91} \u3897|\u{2AA9E} \u5EE7|\u{2AAB4} \u{22370}|\u{2AABC} \u5F43|\u{2AACC} \u5FBF|\u{2AAE1} \u{22929}|\u{2AAF7} \u399E|\u{2AAFA} \u61B8|\u{2AB1A} \u{228D0}|\u{2AB2F} \u{2293F}|\u{2AB5D} \u{22BF7}|\u{2AB62} \u6450|\u{2AB67} \u64DF|\u{2AB6F} \u{22D92}|\u{2AB75} \u639A|\u{2AB7E} \u648A|\u{2AB83} \u3A3B|\u{2AB8B} \u3A4B|\u{2AB96} \u64A7|\u{2ABB3} \u{22EB3}|\u{2ABB6} \u650B|\u{2ABCB} \u3A8E|\u{2AC36} \u66CA|\u{2AC65} \u81B9|\u{2AC77} \u6896|\u{2AC8E} \u6AC5|\u{2AC94} \u6B10|\u{2AC9B} \u6AB5|\u{2ACAE} \u6AE0|\u{2ACCD} \u6B07|\u{2ACD7} \u{2372C}|\u{2AD19} \u6B11|\u{2AD51} \u6BCA|\u{2AD63} \u973C|\u{2AD71} \u6FFF|\u{2AD84} \u6EA1|\u{2AD92} \u{24137}|\u{2ADAE} \u{23F4F}|\u{2ADCD} \u3D7E|\u{2ADFD} \u7052|\u{2AE15} \u7182|\u{2AE29} \u7147|\u{2AE40} \u{24479}|\u{2AE60} \u{244CC}|\u{2AE73} \u7225|\u{2AE79} \u{244BB}|\u{2AEA3} \u{24600}|\u{2AEAA} \u{24706}|\u{2AEAD} \u729E|\u{2AEB7} \u734A|\u{2AEB8} \u{2482E}|\u{2AEBB} \u3E9C|\u{2AEBD} \u730C|\u{2AED0} \u747D|\u{2AEE8} \u74C4|\u{2AEF2} \u747B|\u{2AEFA} \u749D|\u{2AF0B} \u3EF6|\u{2AF34} \u{24B05}|\u{2AF48} \u757C|\u{2AF5D} \u{24CF7}|\u{2AF6A} \u75EE|\u{2AF6D} \u{24DC3}|\u{2AF6E} \u3FD6|\u{2AF74} \u{24E94}|\u{2AF77} \u7631|\u{2AF94} \u76E8|\u{2AFA2} \u774D|\u{2AFA3} \u771D|\u{2AFA6} \u77D1|\u{2AFB8} \u77C9|\u{2AFCA} \u{253DD}|\u{2AFDE} \u{255B2}|\u{2AFEB} \u792E|\u{2AFF5} \u{255C7}|\u{2B00C} \u{25730}|\u{2B013} \u{25710}|\u{2B028} \u4150|\u{2B02C} \u4173|\u{2B02E} \u{258B7}|\u{2B042} \u4189|\u{2B05F} \u7AF1|\u{2B061} \u9D17|\u{2B071} \u{25DBD}|\u{2B072} \u4251|\u{2B073} \u{25BE4}|\u{2B077} \u4276|\u{2B07A} \u{25D3C}|\u{2B083} \u7C22|\u{2B086} \u7C02|\u{2B088} \u426C|\u{2B096} \u{25D28}|\u{2B0BF} \u{25EE6}|\u{2B0D7} \u{293F7}|\u{2B119} \u7CFA|\u{2B11A} \u42BA|\u{2B11B} \u7D1F|\u{2B11C} \u42C3|\u{2B11D} \u{25FAF}|\u{2B11E} \u42D4|\u{2B11F} \u7D41|\u{2B120} \u7D59|\u{2B121} \u7D67|\u{2B122} \u7D65|\u{2B123} \u7E77|\u{2B124} \u7E68|\u{2B125} \u7E9A|\u{2B126} \u{26016}|\u{2B127} \u7D96|\u{2B128} \u7D7A|\u{2B129} \u42E6|\u{2B12A} \u{26147}|\u{2B12B} \u7D9F|\u{2B12C} \u7DE4|\u{2B12D} \u7DEE|\u{2B12E} \u42FC|\u{2B12F} \u{260E9}|\u{2B130} \u7E0D|\u{2B131} \u7E6C|\u{2B132} \u7E38|\u{2B133} \u7E30|\u{2B134} \u7E42|\u{2B135} \u{26148}|\u{2B136} \u7E48|\u{2B137} \u7E76|\u{2B138} \u7E81|\u{2B139} \u7E97|\u{2B145} \u4364|\u{2B157} \u7FB5|\u{2B165} \u{26480}|\u{2B16D} \u4399|\u{2B17C} \u{26516}|\u{2B18F} \u807B|\u{2B19D} \u{267FC}|\u{2B1AB} \u{2685D}|\u{2B1D8} \u{269FA}|\u{2B1DB} \u8263|\u{2B1EA} \u{26C4C}|\u{2B1ED} \u853F|\u{2B1F4} \u84AD|\u{2B1FD} \u857D|\u{2B209} \u8573|\u{2B20E} \u845D|\u{2B21F} \u852F|\u{2B235} \u855D|\u{2B241} \u8586|\u{2B244} \u85F7|\u{2B2AA} \u45C5|\u{2B2AE} \u8826|\u{2B2B8} \u87DC|\u{2B2B9} \u{274AF}|\u{2B2BB} \u87F3|\u{2B2C7} \u87C2|\u{2B2CC} \u87D8|\u{2B2F2} \u4654|\u{2B2F7} \u8957|\u{2B2F9} \u8953|\u{2B2FB} \u8958|\u{2B300} \u8940|\u{2B307} \u8975|\u{2B30B} \u{277AB}|\u{2B328} \u89BC|\u{2B32A} \u899B|\u{2B32B} \u{27874}|\u{2B32C} \u{27884}|\u{2B32D} \u89B9|\u{2B32F} \u46A9|\u{2B350} \u{27B79}|\u{2B359} \u8A11|\u{2B35A} \u8A1E|\u{2B35B} \u8A1C|\u{2B35C} \u8A53|\u{2B35D} \u8AEB|\u{2B35E} \u{2799D}|\u{2B35F} \u{279A7}|\u{2B360} \u46C4|\u{2B361} \u8A51|\u{2B362} \u8B4A|\u{2B363} \u8A77|\u{2B364} \u8B51|\u{2B365} \u8A82|\u{2B366} \u8B68|\u{2B367} \u8ABA|\u{2B368} \u8AAB|\u{2B369} \u8AE3|\u{2B36A} \u8A8B|\u{2B36B} \u46F3|\u{2B36C} \u8AB7|\u{2B36D} \u{27A55}|\u{2B36E} \u8AB3|\u{2B36F} \u8AF4|\u{2B370} \u8AF0|\u{2B371} \u8AEF|\u{2B372} \u8B0F|\u{2B373} \u8AE5|\u{2B374} \u8B31|\u{2B375} \u8B38|\u{2B376} \u{27A7C}|\u{2B377} \u8B09|\u{2B378} \u8B06|\u{2B379} \u8B2F|\u{2B37A} \u{27ADD}|\u{2B37B} \u8B46|\u{2B37C} \u{27B24}|\u{2B37D} \u8B5E|\u{2B37E} \u{27B48}|\u{2B37F} \u8B7E|\u{2B386} \u8C75|\u{2B38C} \u8C97|\u{2B3A6} \u8D1A|\u{2B3A7} \u476D|\u{2B3A8} \u{27E18}|\u{2B3A9} \u8CDD|\u{2B3AA} \u478B|\u{2B3AB} \u8D09|\u{2B3AC} \u8D11|\u{2B3AD} \u4793|\u{2B3B1} \u47D0|\u{2B3B3} \u47C6|\u{2B3B8} \u{27F6F}|\u{2B3BA} \u47C3|\u{2B3C3} \u4806|\u{2B3C6} \u8E73|\u{2B3CB} \u8E7B|\u{2B3CC} \u{28090}|\u{2B3D0} \u8E54|\u{2B3D1} \u{281FD}|\u{2B3D5} \u{281AA}|\u{2B3DE} \u{281F0}|\u{2B3E8} \u{281E4}|\u{2B404} \u8ECF|\u{2B405} \u8ED5|\u{2B406} \u8F63|\u{2B407} \u8EDC|\u{2B408} \u8EF7|\u{2B409} \u8EE8|\u{2B40A} \u8EEC|\u{2B40B} \u{2838C}|\u{2B40C} \u8EFF|\u{2B40D} \u{28308}|\u{2B40E} \u8F22|\u{2B40F} \u8F16|\u{2B410} \u8F17|\u{2B411} \u8F28|\u{2B412} \u8F37|\u{2B413} \u8F2E|\u{2B414} \u{28370}|\u{2B415} \u8F4A|\u{2B416} \u8F47|\u{2B417} \u8F50|\u{2B418} \u8F57|\u{2B419} \u8F60|\u{2B437} \u9071|\u{2B458} \u911F|\u{2B461} \u9133|\u{2B477} \u91B6|\u{2B4E5} \u91DF|\u{2B4E6} \u91E8|\u{2B4E7} \u9207|\u{2B4E8} \u921B|\u{2B4E9} \u93E6|\u{2B4EA} \u9206|\u{2B4EB} \u{2895F}|\u{2B4EC} \u9254|\u{2B4ED} \u9260|\u{2B4EE} \u{28A95}|\u{2B4EF} \u9288|\u{2B4F0} \u928A|\u{2B4F1} \u9408|\u{2B4F2} \u9281|\u{2B4F3} \u{28C0B}|\u{2B4F4} \u927E|\u{2B4F5} \u92E0|\u{2B4F6} \u92D7|\u{2B4F7} \u{2B4A1}|\u{2B4F8} \u933D|\u{2B4F9} \u9324|\u{2B4FA} \u942A|\u{2B4FB} \u931C|\u{2B4FC} \u{28A1B}|\u{2B4FD} \u931D|\u{2B4FE} \u9325|\u{2B4FF} \u{28A22}|\u{2B500} \u934A|\u{2B501} \u943C|\u{2B502} \u9349|\u{2B503} \u{28C32}|\u{2B504} \u9352|\u{2B505} \u938D|\u{2B506} \u496F|\u{2B507} \u939E|\u{2B508} \u9399|\u{2B509} \u{28C03}|\u{2B50A} \u93E5|\u{2B50B} \u4957|\u{2B50C} \u93FE|\u{2B50D} \u9407|\u{2B50E} \u940D|\u{2B50F} \u{28B16}|\u{2B510} \u{28B78}|\u{2B511} \u{28B56}|\u{2B512} \u{28BB3}|\u{2B513} \u{28BDF}|\u{2B514} \u9474|\u{2B515} \u{28C25}|\u{2B516} \u{28CB3}|\u{2B52D} \u958B|\u{2B52E} \u9592|\u{2B52F} \u9597|\u{2B530} \u959E|\u{2B532} \u{28D39}|\u{2B534} \u95B5|\u{2B535} \u49AF|\u{2B536} \u95D1|\u{2B53D} \u{28F33}|\u{2B55A} \u{29028}|\u{2B565} \u9723|\u{2B568} \u{29159}|\u{2B583} \u9767|\u{2B585} \u4A8A|\u{2B587} \u97BE|\u{2B591} \u{29396}|\u{2B592} \u97E0|\u{2B593} \u{293C2}|\u{2B594} \u97DB|\u{2B595} \u97DD|\u{2B596} \u{293E0}|\u{2B5AA} \u{29454}|\u{2B5AB} \u4AB4|\u{2B5AC} \u4ABE|\u{2B5AD} \u{2948E}|\u{2B5AE} \u9857|\u{2B5AF} \u982B|\u{2B5B0} \u4AC2|\u{2B5B1} \u4AC0|\u{2B5B2} \u4ADF|\u{2B5B3} \u9835|\u{2B5B4} \u{29533}|\u{2B5B5} \u{294E5}|\u{2B5B6} \u9845|\u{2B5B7} \u{29511}|\u{2B5B8} \u9858|\u{2B5B9} \u9863|\u{2B5BA} \u4AF6|\u{2B5C7} \u4AFB|\u{2B5C8} \u{295D3}|\u{2B5C9} \u{295F4}|\u{2B5CA} \u4B13|\u{2B5CB} \u98CB|\u{2B5DA} \u{297D7}|\u{2B5DE} \u98E6|\u{2B5DF} \u4B27|\u{2B5E0} \u9926|\u{2B5E1} \u{296A9}|\u{2B5E2} \u98F5|\u{2B5E3} \u98F6|\u{2B5E4} \u{296CC}|\u{2B5E5} \u992B|\u{2B5E6} \u9914|\u{2B5E7} \u9917|\u{2B5E8} \u{296E1}|\u{2B5E9} \u9960|\u{2B5EA} \u9927|\u{2B5EB} \u992C|\u{2B5EC} \u992A|\u{2B5ED} \u9935|\u{2B5EE} \u992D|\u{2B5EF} \u9931|\u{2B5F0} \u4B54|\u{2B5F1} \u4B51|\u{2B5F3} \u{2977D}|\u{2B5F4} \u9958|\u{2B5F5} \u995F|\u{2B61B} \u99AF|\u{2B61C} \u99BC|\u{2B61D} \u99C3|\u{2B61E} \u99DE|\u{2B61F} \u99CA|\u{2B620} \u99E4|\u{2B621} \u99EB|\u{2B623} \u99FB|\u{2B624} \u9A03|\u{2B625} \u9A09|\u{2B626} \u9A0A|\u{2B627} \u9A04|\u{2B628} \u9A20|\u{2B629} \u9A1C|\u{2B62A} \u9A35|\u{2B62B} \u9A34|\u{2B62C} \u9A31|\u{2B62D} \u9A3B|\u{2B62E} \u4BB0|\u{2B62F} \u9A53|\u{2B630} \u9A59|\u{2B631} \u9A68|\u{2B63D} \u9B20|\u{2B642} \u{29BC1}|\u{2B688} \u9C6E|\u{2B689} \u9B5F|\u{2B68A} \u9C11|\u{2B68B} \u9C44|\u{2B68C} \u9B66|\u{2B68D} \u9B75|\u{2B68E} \u{29D81}|\u{2B68F} \u4C41|\u{2B690} \u4C40|\u{2B691} \u9B85|\u{2B692} \u9B84|\u{2B693} \u9BA4|\u{2B694} \u9BB0|\u{2B695} \u9C24|\u{2B696} \u9B86|\u{2B697} \u9BAF|\u{2B698} \u{29EEE}|\u{2B699} \u9BC6|\u{2B69A} \u9BBF|\u{2B69B} \u9BB5|\u{2B69C} \u4C85|\u{2B69D} \u{29E04}|\u{2B69E} \u9BEC|\u{2B69F} \u{29E21}|\u{2B6A0} \u4C67|\u{2B6A1} \u9BDE|\u{2B6A2} \u9C0B|\u{2B6A3} \u9BFE|\u{2B6A4} \u9C26|\u{2B6A5} \u9C15|\u{2B6A6} \u9C2B|\u{2B6A7} \u9C3D|\u{2B6A8} \u{29ED7}|\u{2B6A9} \u{29EEC}|\u{2B6AA} \u9C4A|\u{2B6AB} \u9C62|\u{2B6AC} \u{29F36}|\u{2B6AD} \u9C72|\u{2B6DA} \u9CFD|\u{2B6DB} \u9CF7|\u{2B6DC} \u9D00|\u{2B6DD} \u9D05|\u{2B6DE} \u9D03|\u{2B6DF} \u9E17|\u{2B6E0} \u{29FE4}|\u{2B6E1} \u9D14|\u{2B6E2} \u9E0B|\u{2B6E3} \u9D25|\u{2B6E4} \u9D10|\u{2B6E5} \u9D4A|\u{2B6E6} \u9D2E|\u{2B6E7} \u{2A016}|\u{2B6E8} \u9D67|\u{2B6E9} \u9D33|\u{2B6EA} \u9D3D|\u{2B6EB} \u9DB0|\u{2B6EC} \u4CDC|\u{2B6ED} \u9D5F|\u{2B6EE} \u4CE4|\u{2B6EF} \u9DAD|\u{2B6F0} \u4CE2|\u{2B6F1} \u9D6B|\u{2B6F2} \u9D70|\u{2B6F3} \u9D69|\u{2B6F4} \u9DE4|\u{2B6F5} \u9D8C|\u{2B6F6} \u9D92|\u{2B6F7} \u9DA6|\u{2B6F8} \u9D97|\u{2B6F9} \u{2A0E7}|\u{2B6FA} \u4CE7|\u{2B6FB} \u{2A0D2}|\u{2B6FC} \u4CEB|\u{2B6FD} \u9DC5|\u{2B6FE} \u{2A1B7}|\u{2B700} \u9DD0|\u{2B701} \u9DE9|\u{2B702} \u{2A142}|\u{2B703} \u9DE3|\u{2B704} \u9DF7|\u{2B705} \u4D0B|\u{2B70A} \u{2A278}|\u{2B711} \u9EB7|\u{2B712} \u4D31|\u{2B713} \u{2A32D}|\u{2B714} \u4D3D|\u{2B715} \u{2A360}|\u{2B719} \u4D74|\u{2B71F} \u{2A4F0}|\u{2B728} \u4D95|\u{2B729} \u9F67|\u{2B72A} \u9F69|\u{2B72B} \u{2B726}|\u{2B72C} \u9F70|\u{2B72D} \u9F6D|\u{2B72E} \u9F74|\u{2B72F} \u{2A64F}|\u{2B730} \u9F7E|\u{2B732} \u9F93|\u{2B733} \u4DB2|\u{2B748} \u346E|\u{2B74B} \u{2040A}|\u{2B766} \u36DD|\u{2B767} \u3710|\u{2B768} \u5A88|\u{2B769} \u5B26|\u{2B76A} \u{217EB}|\u{2B76B} \u5A61|\u{2B76C} \u5B07|\u{2B76D} \u5B46|\u{2B76E} \u5B44|\u{2B775} \u5DB9|\u{2B785} \u{26805}|\u{2B797} \u6F63|\u{2B79A} \u6FAC|\u{2B79B} \u3D86|\u{2B79D} \u704D|\u{2B7A0} \u7227|\u{2B7A1} \u7203|\u{2B7A2} \u{246F1}|\u{2B7A3} \u3E7D|\u{2B7A5} \u73FC|\u{2B7A6} \u74BE|\u{2B7A7} \u{24A42}|\u{2B7A8} \u74BC|\u{2B7A9} \u748A|\u{2B7B7} \u{258B6}|\u{2B7C3} \u7D4D|\u{2B7C4} \u7D8B|\u{2B7C5} \u7DA1|\u{2B7C6} \u7DDF|\u{2B7C7} \u{261B2}|\u{2B7D1} \u4585|\u{2B7D5} \u4564|\u{2B7DE} \u8A28|\u{2B7DF} \u8A4A|\u{2B7E0} \u8B42|\u{2B7E1} \u8AB4|\u{2B7E2} \u4716|\u{2B7E4} \u4850|\u{2B7E5} \u4869|\u{2B7E6} \u4875|\u{2B7EB} \u{287BA}|\u{2B7EC} \u{287CA}|\u{2B7F2} \u91DA|\u{2B7F3} \u91F2|\u{2B7F4} \u9216|\u{2B7F5} \u9217|\u{2B7F6} \u928F|\u{2B7F7} \u925D|\u{2B7F8} \u927D|\u{2B7F9} \u9277|\u{2B7FA} \u4924|\u{2B7FB} \u9282|\u{2B7FC} \u943D|\u{2B7FD} \u{289F0}|\u{2B7FE} \u{28A70}|\u{2B7FF} \u9388|\u{2B800} \u4944|\u{2B801} \u9449|\u{2B802} \u959D|\u{2B805} \u97DA|\u{2B806} \u980D|\u{2B807} \u{295B0}|\u{2B808} \u4AFE|\u{2B80A} \u4B84|\u{2B80B} \u9A3C|\u{2B80C} \u{299A0}|\u{2B80F} \u{29D66}|\u{2B810} \u9B7D|\u{2B811} \u4C78|\u{2B812} \u9C46|\u{2B816} \u{29FC5}|\u{2B81C} \u9F6F|\u{2B8B8} \u50E4|\u{2B9C3} \u{23350}|\u{2B9EE} \u{2A2FF}|\u{2BAC7} \u5641|\u{2BB10} \u3614|\u{2BB5F} \u5878|\u{2BB62} \u57E8|\u{2BB7C} \u{2144D}|\u{2BB83} \u58A0|\u{2BC1B} \u5A19|\u{2BD77} \u3823|\u{2BD87} \u5D7D|\u{2BDF7} \u5EDE|\u{2BE29} \u5F44|\u{2C029} \u6690|\u{2C02A} \u665B|\u{2C0A9} \u689C|\u{2C0CA} \u6ACD|\u{2C1D5} \u6FAB|\u{2C1D9} \u6D7F|\u{2C1F9} \u6F0D|\u{2C27C} \u71B0|\u{2C288} \u71D6|\u{2C2A4} \u71C0|\u{2C35B} \u74C5|\u{2C361} \u7497|\u{2C364} \u7495|\u{2C488} \u7910|\u{2C497} \u{255FD}|\u{2C542} \u7BE2|\u{2C613} \u7D03|\u{2C618} \u7D1E|\u{2C621} \u7D6A|\u{2C629} \u7D8E|\u{2C62B} \u7D84|\u{2C62C} \u7DAA|\u{2C62D} \u7D9D|\u{2C62F} \u7DA7|\u{2C642} \u7E2F|\u{2C64A} \u7E86|\u{2C64B} \u7E95|\u{2C72C} \u8504|\u{2C72F} \u44E3|\u{2C79F} \u860B|\u{2C7C1} \u8649|\u{2C7FD} \u8740|\u{2C8D9} \u8A0F|\u{2C8DE} \u8A5D|\u{2C8E1} \u8AD3|\u{2C8F3} \u8A6A|\u{2C907} \u8AF2|\u{2C90A} \u8ADF|\u{2C91D} \u8B53|\u{2CA02} \u8EDD|\u{2CA0E} \u8F36|\u{2CA7D} \u9129|\u{2CAA9} \u91B2|\u{2CB29} \u91F4|\u{2CB2D} \u9300|\u{2CB2E} \u92F9|\u{2CB31} \u91FF|\u{2CB38} \u9265|\u{2CB39} \u926E|\u{2CB3B} \u946A|\u{2CB3F} \u924A|\u{2CB41} \u9267|\u{2CB4A} \u{289C0}|\u{2CB4E} \u92D0|\u{2CB5A} \u931E|\u{2CB5B} \u{28A0F}|\u{2CB64} \u936D|\u{2CB69} \u9393|\u{2CB6C} \u93CF|\u{2CB6D} \u93DA|\u{2CB6F} \u4955|\u{2CB73} \u{28B4E}|\u{2CB76} \u{28B46}|\u{2CB78} \u93FB|\u{2CB7C} \u9429|\u{2CBB1} \u95C9|\u{2CBBF} \u9691|\u{2CBC0} \u96AE|\u{2CBCE} \u96A4|\u{2CC56} \u9814|\u{2CC5F} \u9820|\u{2CCF5} \u99D3|\u{2CCF6} \u99C9|\u{2CCFD} \u99EA|\u{2CCFF} \u99FC|\u{2CD02} \u9A11|\u{2CD03} \u9A1E|\u{2CD0A} \u9A4E|\u{2CD8B} \u9B88|\u{2CD8D} \u9B80|\u{2CD8F} \u9BA0|\u{2CD90} \u9BA1|\u{2CD9F} \u9BFB|\u{2CDA0} \u9C0A|\u{2CDA8} \u9C40|\u{2CDAD} \u9C36|\u{2CDAE} \u9C5A|\u{2CDD5} \u9D4F|\u{2CE18} \u9DA0|\u{2CE1A} \u9E11|\u{2CE23} \u9DB1|\u{2CE26} \u9DDF|\u{2CE2A} \u9DED|\u{2CE2F} \u9DFF|\u{2CE7C} \u9F58|\u{2CE88} \u9F6E|\u{2CE93} \u9F7C|\u{30B38} \u7E50|\u{30C28} \u83D5|\u{30D8E} \u8B45|\u{30EDD} \u{30EDE}|\u{30F84} \u92C2|\u{30FAD} \u9440|\u{3129C} \u{2A23C}";
 
 // node_modules/opencc-js/dist/esm-lib/dict/TSPhrases.js
-var TSPhrases_default = "\u4E00\u574F \u4E00\u576F|\u4E00\u76EE\u77AD\u7136 \u4E00\u76EE\u4E86\u7136|\u4E03\u9015 \u4E03\u8FF3|\u4E0A\u9015 \u4E0A\u8FF3|\u4E0A\u934A \u4E0A\u94FE|\u4E0D\u53EF\u8CB2\u8A08 \u4E0D\u53EF\u8D40\u8A08|\u4E0D\u77AD\u89E3 \u4E0D\u4E86\u89E3|\u4E48\u9EBC \u5E7A\u9EBD|\u4E48\u9EBD \u5E7A\u9EBD|\u4E5D\u9015\u5C71 \u4E5D\u8FF3\u5C71|\u4E7E\u4E7E\u6DE8\u6DE8 \u5E72\u5E72\u51C0\u51C0|\u4E7E\u4E7E\u8106\u8106 \u5E72\u5E72\u8106\u8106|\u4E7E\u4F51\u7E23 \u4E7E\u4F51\u53BF|\u4E7E\u5143 \u4E7E\u5143|\u4E7E\u5366 \u4E7E\u5366|\u4E7E\u5609 \u4E7E\u5609|\u4E7E\u5716 \u4E7E\u56FE|\u4E7E\u5764 \u4E7E\u5764|\u4E7E\u5764\u4E00\u64F2 \u4E7E\u5764\u4E00\u63B7|\u4E7E\u5764\u518D\u9020 \u4E7E\u5764\u518D\u9020|\u4E7E\u5764\u5927\u632A\u79FB \u4E7E\u5764\u5927\u632A\u79FB|\u4E7E\u5B85 \u4E7E\u5B85|\u4E7E\u5B89\u7E23 \u4E7E\u5B89\u53BF|\u4E7E\u5B89\u93AE \u4E7E\u5B89\u9547|\u4E7E\u5DDE \u4E7E\u5DDE|\u4E7E\u65B7 \u4E7E\u65AD|\u4E7E\u65E6 \u4E7E\u65E6|\u4E7E\u66DC \u4E7E\u66DC|\u4E7E\u6E05\u5BAE \u4E7E\u6E05\u5BAB|\u4E7E\u76DB\u4E16 \u4E7E\u76DB\u4E16|\u4E7E\u7D05 \u4E7E\u7EA2|\u4E7E\u7DB1 \u4E7E\u7EB2|\u4E7E\u7E23 \u4E7E\u53BF|\u4E7E\u8C61 \u4E7E\u8C61|\u4E7E\u9020 \u4E7E\u9020|\u4E7E\u9053 \u4E7E\u9053|\u4E7E\u95E5\u5A46 \u4E7E\u95FC\u5A46|\u4E7E\u9675 \u4E7E\u9675|\u4E7E\u9686 \u4E7E\u9686|\u4E7E\u9686\u5E74\u9593 \u4E7E\u9686\u5E74\u95F4|\u4E7E\u9686\u7687\u5E1D \u4E7E\u9686\u7687\u5E1D|\u4E8C\u5641\u82F1 \u4E8C\u{2BAC7}\u82F1|\u4EC7\u8B8E \u4EC7\u96E0|\u4EE5\u514D\u85C9\u53E3 \u4EE5\u514D\u501F\u53E3|\u4EE5\u529F\u8986\u904E \u4EE5\u529F\u8986\u8FC7|\u4EFB\u7B46\u6C88\u8A69 \u4EFB\u7B14\u6C88\u8BD7|\u4F94\u5FB7\u8986\u8F09 \u4F94\u5FB7\u8986\u8F7D|\u50A2\u4FF1 \u5BB6\u5177|\u50B7\u4EA1\u6795\u85C9 \u4F24\u4EA1\u6795\u85C9|\u5141\u7955 \u5141\u7955|\u516B\u6FDB\u5C71 \u516B\u6FDB\u5C71|\u5176\u9670\u591A\u8490 \u5176\u9634\u591A\u8490|\u51CC\u85C9 \u51CC\u501F|\u51FA\u919C\u72FC\u85C9 \u51FA\u4E11\u72FC\u85C9|\u51FD\u8986 \u51FD\u590D|\u524B\u67B6 \u524B\u67B6|\u524B\u6BD2 \u524B\u6BD2|\u5343\u937E\u7C9F \u5343\u953A\u7C9F|\u5357\u6C3E \u5357\u6C3E|\u5357\u9015 \u5357\u8FF3|\u53CD\u53CD\u8986\u8986 \u53CD\u53CD\u590D\u590D|\u53CD\u8986 \u53CD\u590D|\u53CD\u8986\u601D\u7DAD \u53CD\u590D\u601D\u7EF4|\u53CD\u8986\u601D\u91CF \u53CD\u590D\u601D\u91CF|\u53CD\u8986\u6027 \u53CD\u590D\u6027|\u540D\u8986\u91D1\u750C \u540D\u590D\u91D1\u74EF|\u5433\u7955 \u5434\u7955|\u5433\u80B2\u6607 \u5434\u80B2\u6607|\u54EA\u5412 \u54EA\u5412|\u56DE\u8986 \u56DE\u590D|\u571F\u574F \u571F\u576F|\u574F\u571F \u576F\u571F|\u574F\u5B50 \u576F\u5B50|\u574F\u5E03 \u576F\u5E03|\u574F\u6236 \u576F\u6237|\u58A8\u6C88\u6C88 \u58A8\u6C89\u6C89|\u58FA\u88CF\u4E7E\u5764 \u58F6\u91CC\u4E7E\u5764|\u5927\u76EE\u4E7E\u9023\u51A5\u9593\u6551\u6BCD\u8B8A\u6587 \u5927\u76EE\u4E7E\u8FDE\u51A5\u95F4\u6551\u6BCD\u53D8\u6587|\u5BAB\u5546\u89D2\u5FB5\u7FBD \u5BAB\u5546\u89D2\u5FB5\u7FBD|\u5C04\u8986 \u5C04\u8986|\u5C3C\u4E7E\u5B50 \u5C3C\u4E7E\u5B50|\u5C3C\u4E7E\u9640 \u5C3C\u4E7E\u9640|\u5E74\u91D0 \u5E74\u91D0|\u5E7A\u9EBC \u5E7A\u9EBD|\u5E7A\u9EBC\u5C0F\u4E11 \u5E7A\u9EBD\u5C0F\u4E11|\u5E7A\u9EBC\u5C0F\u919C \u5E7A\u9EBD\u5C0F\u4E11|\u5EB7\u4E7E \u5EB7\u4E7E|\u5F35\u6607 \u5F20\u6607|\u5F35\u6CD5\u4E7E \u5F20\u6CD5\u4E7E|\u5F77\u5F7F \u4EFF\u4F5B|\u5F77\u5FA8 \u5F77\u5FA8|\u5F90\u80E4\u6607 \u5F90\u80E4\u6607|\u5FA9\u7526 \u590D\u82CF|\u5FB5\u5F26 \u5FB5\u5F26|\u5FB5\u7D43 \u5FB5\u5F26|\u5FB5\u7FBD\u6469\u67EF \u5FB5\u7FBD\u6469\u67EF|\u5FB5\u8072 \u5FB5\u58F0|\u5FB5\u8ABF \u5FB5\u8C03|\u5FB5\u97F3 \u5FB5\u97F3|\u60C5\u6709\u7368\u937E \u60C5\u6709\u72EC\u949F|\u60F3\u50CF \u60F3\u50CF|\u610F\u5FD7\u6D88\u6C88 \u610F\u5FD7\u6D88\u6C89|\u6170\u85C9 \u6170\u85C9|\u6170\u85C9\u7740 \u6170\u85C9\u7740|\u6191\u85C9 \u51ED\u501F|\u6191\u85C9\u7740 \u51ED\u501F\u7740|\u61F7\u91D0 \u6000\u91D0|\u6210\u7526 \u6210\u7526|\u6240\u8CBB\u4E0D\u8CB2 \u6240\u8D39\u4E0D\u8D40|\u624B\u934A \u624B\u94FE|\u6253\u574F \u6253\u576F|\u625E\u683C \u625E\u683C|\u626D\u8F49\u4E7E\u5764 \u626D\u8F6C\u4E7E\u5764|\u6279\u8986 \u6279\u590D|\u627E\u85C9\u53E3 \u627E\u501F\u53E3|\u6298\u621F\u6C88\u6C99 \u6298\u621F\u6C89\u6C99|\u6298\u621F\u6C88\u6CB3 \u6298\u621F\u6C89\u6CB3|\u62C9\u574F \u62C9\u576F|\u62C9\u934A \u62C9\u94FE|\u62C9\u934A\u5DE5\u7A0B \u62C9\u94FE\u5DE5\u7A0B|\u62DC\u8986 \u62DC\u590D|\u6328\u524B \u6328\u524B|\u634F\u574F \u634F\u576F|\u64CA\u6C88 \u51FB\u6C89|\u64DA\u77AD\u89E3 \u636E\u4E86\u89E3|\u6587\u9326\u8986\u9631 \u6587\u9526\u8986\u9631|\u65BC\u4E16\u6210 \u65BC\u4E16\u6210|\u65BC\u4E4E \u65BC\u4E4E|\u65BC\u4EF2\u5B8C \u65BC\u4EF2\u5B8C|\u65BC\u502B \u65BC\u4F26|\u65BC\u5176\u4E00 \u65BC\u5176\u4E00|\u65BC\u5247 \u65BC\u5219|\u65BC\u52C7\u660E \u65BC\u52C7\u660E|\u65BC\u547C\u54C0\u54C9 \u65BC\u547C\u54C0\u54C9|\u65BC\u55AE \u65BC\u5355|\u65BC\u5766 \u65BC\u5766|\u65BC\u5D07\u6587 \u65BC\u5D07\u6587|\u65BC\u5FE0\u7965 \u65BC\u5FE0\u7965|\u65BC\u60DF\u4E00 \u65BC\u60DF\u4E00|\u65BC\u6232 \u65BC\u620F|\u65BC\u6556 \u65BC\u6556|\u65BC\u68A8\u83EF \u65BC\u68A8\u534E|\u65BC\u6E05\u8A00 \u65BC\u6E05\u8A00|\u65BC\u6F5B \u65BC\u6F5C|\u65BC\u7433 \u65BC\u7433|\u65BC\u7A46 \u65BC\u7A46|\u65BC\u7AF9\u5C4B \u65BC\u7AF9\u5C4B|\u65BC\u83DF \u65BC\u83DF|\u65BC\u9091 \u65BC\u9091|\u65BC\u9675\u5B50 \u65BC\u9675\u5B50|\u65CB\u4E7E\u8F49\u5764 \u65CB\u4E7E\u8F6C\u5764|\u65CB\u8F49\u4E7E\u5764 \u65CB\u8F6C\u4E7E\u5764|\u65CB\u8F49\u4E7E\u5764\u4E4B\u529B \u65CB\u8F6C\u4E7E\u5764\u4E4B\u529B|\u660E\u77AD \u660E\u4E86|\u660E\u8986 \u660E\u590D|\u660F\u6C88 \u660F\u6C89|\u6625\u8490 \u6625\u8490|\u6625\u91D0 \u6625\u91D0|\u6697\u6C88\u6C88 \u6697\u6C89\u6C89|\u66F8\u4E2D\u81EA\u6709\u5343\u937E\u7C9F \u4E66\u4E2D\u81EA\u6709\u5343\u953A\u7C9F|\u6709\u5E8F \u6709\u5E8F|\u671D\u4E7E\u5915\u60D5 \u671D\u4E7E\u5915\u60D5|\u6728\u5412 \u6728\u5412|\u674E\u4E7E\u5FB7 \u674E\u4E7E\u5FB7|\u674E\u6607 \u674E\u6607|\u674E\u6607\u52F3 \u674E\u6607\u52CB|\u674E\u6FA4\u9245 \u674E\u6CFD\u949C|\u674E\u7955 \u674E\u7955|\u674E\u934A\u798F \u674E\u94FE\u798F|\u674E\u937E\u90C1 \u674E\u953A\u90C1|\u675F\u8129 \u675F\u8129|\u6771\u6C3E \u4E1C\u6C3E|\u6797\u7526 \u6797\u7526|\u6821\u8B8E \u6821\u96E0|\u6881\u6607\u537F \u6881\u6607\u537F|\u6881\u7AE0\u9245 \u6881\u7AE0\u949C|\u694A\u7526\u68E3 \u6768\u7526\u68E3|\u694A\u806F\u965E \u6768\u8054\u965E|\u6A0A\u65BC\u671F \u6A0A\u65BC\u671F|\u6A61\u6900 \u6A61\u6900|\u6B7B\u6C23\u6C88\u6C88 \u6B7B\u6C14\u6C89\u6C89|\u6BB5\u8129 \u6BB5\u8129|\u6BDB\u574F \u6BDB\u576F|\u6C34\u9015 \u6C34\u8FF3|\u6C3E\u52DD\u4E4B \u6C3E\u80DC\u4E4B|\u6C3E\u5357 \u6C3E\u5357|\u6C3E\u570B \u6C3E\u56FD|\u6C3E\u6C34 \u6C3E\u6C34|\u6C88\u4E0B \u6C89\u4E0B|\u6C88\u4E0D\u4F4F\u6C23 \u6C89\u4E0D\u4F4F\u6C14|\u6C88\u4F4F\u6C23 \u6C89\u4F4F\u6C14|\u6C88\u51A4 \u6C89\u51A4|\u6C88\u539A \u6C89\u539A|\u6C88\u541F \u6C89\u541F|\u6C88\u5BC2 \u6C89\u5BC2|\u6C88\u5F97\u4F4F\u6C23 \u6C89\u5F97\u4F4F\u6C14|\u6C88\u601D \u6C89\u601D|\u6C88\u601D\u5F80\u4E8B \u6C89\u601D\u5F80\u4E8B|\u6C88\u60B6 \u6C89\u95F7|\u6C88\u6C92 \u6C89\u6CA1|\u6C88\u6C92\u6210\u672C \u6C89\u6CA1\u6210\u672C|\u6C88\u6D6E \u6C89\u6D6E|\u6C88\u6D78 \u6C89\u6D78|\u6C88\u6D78\u65BC \u6C89\u6D78\u4E8E|\u6C88\u6DEA \u6C89\u6CA6|\u6C88\u6E4E \u6C89\u6E4E|\u6C88\u6E4E\u9152\u8272 \u6C89\u6E4E\u9152\u8272|\u6C88\u6EBA \u6C89\u6EBA|\u6C88\u6EEF \u6C89\u6EDE|\u6C88\u6EEF\u6027 \u6C89\u6EDE\u6027|\u6C88\u6FB1 \u6C89\u6DC0|\u6C88\u6FB1\u51FA\u4F86 \u6C89\u6DC0\u51FA\u6765|\u6C88\u6FB1\u5291 \u6C89\u6DC0\u5242|\u6C88\u6FB1\u6CD5 \u6C89\u6DC0\u6CD5|\u6C88\u6FB1\u7269 \u6C89\u6DC0\u7269|\u6C88\u6FC1 \u6C89\u6D4A|\u6C88\u7538\u7538 \u6C89\u7538\u7538|\u6C88\u75DB \u6C89\u75DB|\u6C88\u75FC \u6C89\u75FC|\u6C88\u75FE \u6C89\u75B4|\u6C88\u7761 \u6C89\u7761|\u6C88\u7761\u4E0D\u9192 \u6C89\u7761\u4E0D\u9192|\u6C88\u7802\u6C60 \u6C89\u7802\u6C60|\u6C88\u7A4D \u6C89\u79EF|\u6C88\u7A4D\u5CA9 \u6C89\u79EF\u5CA9|\u6C88\u7A4D\u77F3 \u6C89\u79EF\u77F3|\u6C88\u7B52 \u6C89\u7B52|\u6C88\u8239 \u6C89\u8239|\u6C88\u843D \u6C89\u843D|\u6C88\u8A69\u4EFB\u7B46 \u6C88\u8BD7\u4EFB\u7B14|\u6C88\u8FF7 \u6C89\u8FF7|\u6C88\u8FF7\u4E0D\u9192 \u6C89\u8FF7\u4E0D\u9192|\u6C88\u9189 \u6C89\u9189|\u6C88\u91CD \u6C89\u91CD|\u6C88\u964D \u6C89\u964D|\u6C88\u9677 \u6C89\u9677|\u6C88\u975C \u6C89\u9759|\u6C88\u975C\u4E0B\u4F86 \u6C89\u9759\u4E0B\u6765|\u6C88\u9999 \u6C89\u9999|\u6C88\u9B31 \u6C89\u90C1|\u6C88\u9B5A\u843D\u96C1 \u6C89\u9C7C\u843D\u96C1|\u6C88\u9ED8 \u6C89\u9ED8|\u6C88\u9ED8\u4E0D\u8A9E \u6C89\u9ED8\u4E0D\u8BED|\u6C88\u9ED8\u5BE1\u8A00 \u6C89\u9ED8\u5BE1\u8A00|\u6C99\u9015 \u6C99\u8FF3|\u6CB3\u9015 \u6CB3\u8FF3|\u6D41\u5FB5 \u6D41\u5FB5|\u6D6A\u8569\u4E7E\u5764 \u6D6A\u8361\u4E7E\u5764|\u6D6E\u6C88 \u6D6E\u6C89|\u6D77\u54E9 \u6D77\u91CC|\u6DF1\u6C88 \u6DF1\u6C89|\u6DF1\u6C88\u4E0D\u9732 \u6DF1\u6C89\u4E0D\u9732|\u6EAB\u6607\u8C6A \u6E29\u6607\u8C6A|\u6ED1\u85C9 \u6ED1\u501F|\u70CF\u6607 \u4E4C\u6607|\u70CF\u6C88\u6C88 \u4E4C\u6C89\u6C89|\u70CF\u9015 \u4E4C\u8FF3|\u7121\u5E8F \u65E0\u5E8F|\u72D0\u85C9\u864E\u5A01 \u72D0\u501F\u864E\u5A01|\u738B\u5F65\u6607 \u738B\u5F66\u6607|\u73CD\u73E0\u9805\u934A \u73CD\u73E0\u9879\u94FE|\u751A\u9245 \u751A\u949C|\u7526\u751F \u82CF\u751F|\u7526\u9192 \u82CF\u9192|\u7533\u6607\u52F3 \u7533\u6607\u52CB|\u7533\u8986 \u7533\u590D|\u7562\u6607 \u6BD5\u6607|\u767C\u8986 \u53D1\u8986|\u76E7\u8C61\u6607 \u5362\u8C61\u6607|\u76EE\u5284 \u76EE\u5284|\u77AD\u54E8 \u77AD\u54E8|\u77AD\u5982 \u4E86\u5982|\u77AD\u5982\u6307\u638C \u4E86\u5982\u6307\u638C|\u77AD\u671B \u77AD\u671B|\u77AD\u7136 \u4E86\u7136|\u77AD\u7136\u65BC\u5FC3 \u4E86\u7136\u4E8E\u5FC3|\u77AD\u82E5\u6307\u638C \u4E86\u82E5\u6307\u638C|\u77AD\u89E3 \u4E86\u89E3|\u77AD\u89E3\u5230 \u4E86\u89E3\u5230|\u7834\u91DC\u6C88\u821F \u7834\u91DC\u6C89\u821F|\u78DA\u574F \u7816\u576F|\u793A\u8986 \u793A\u590D|\u793E\u9015 \u793E\u8FF3|\u7955\u4E15\u7B08 \u7955\u4E15\u7B08|\u7955\u5F6D\u7956 \u7955\u5F6D\u7956|\u7955\u74CA \u7955\u743C|\u795D\u91D0 \u795D\u91D0|\u795E\u7947 \u795E\u7947|\u7A1F\u8986 \u7980\u590D|\u7AFA\u4E7E \u7AFA\u4E7E|\u7B54\u8986 \u7B54\u590D|\u7BE4\u9EBC \u7B03\u9EBD|\u7C21\u55AE\u660E\u77AD \u7B80\u5355\u660E\u4E86|\u7C4C\u756B \u7B79\u5212|\u7D20\u85C9 \u7D20\u501F|\u8001\u614B\u9F8D\u937E \u8001\u6001\u9F99\u949F|\u8033\u6C88 \u8033\u6C89|\u8089\u8129 \u8089\u8129|\u8098\u624B\u934A\u8DB3 \u8098\u624B\u94FE\u8DB3|\u80E4\u7955 \u80E4\u7955|\u8129\u656C \u8129\u656C|\u8129\u70B3 \u8129\u70B3|\u8129\u8121 \u8129\u8121|\u8129\u812F \u8129\u812F|\u8129\u91D1 \u8129\u91D1|\u812B\u574F \u8131\u576F|\u8176\u8129 \u8176\u8129|\u82F1\u54E9 \u82F1\u91CC|\u8305\u8490 \u8305\u8490|\u8335\u85C9 \u8335\u501F|\u842C\u937E \u4E07\u953A|\u843D\u96C1\u6C88\u9B5A \u843D\u96C1\u6C89\u9C7C|\u8490\u4E8E\u7D05 \u8490\u4E8E\u7EA2|\u8490\u65BC\u7D05 \u8490\u4E8E\u7EA2|\u8490\u72E9 \u8490\u72E9|\u8490\u736E \u8490\u72DD|\u8490\u7375 \u8490\u730E|\u8490\u7530 \u8490\u7530|\u8490\u754B \u8490\u754B|\u8490\u82D7 \u8490\u82D7|\u849C\u85B9 \u849C\u85B9|\u8523\u6607 \u848B\u6607|\u8553\u85B9 \u82B8\u85B9|\u8569\u8986 \u8361\u8986|\u856D\u4E7E \u8427\u4E7E|\u85C9\u4EE3 \u501F\u4EE3|\u85C9\u4EE5 \u501F\u4EE5|\u85C9\u52A9 \u501F\u52A9|\u85C9\u52A9\u65BC \u501F\u52A9\u4E8E|\u85C9\u5349 \u501F\u5349|\u85C9\u53E3 \u501F\u53E3|\u85C9\u55BB \u501F\u55BB|\u85C9\u5BC7\u5175 \u501F\u5BC7\u5175|\u85C9\u5BC7\u5175\u9F4E\u76DC\u7CE7 \u501F\u5BC7\u5175\u8D4D\u76D7\u7CAE|\u85C9\u624B \u501F\u624B|\u85C9\u64DA \u501F\u636E|\u85C9\u6545 \u501F\u6545|\u85C9\u6545\u63A8\u8FAD \u501F\u6545\u63A8\u8F9E|\u85C9\u65B9 \u501F\u65B9|\u85C9\u689D \u501F\u6761|\u85C9\u69C1 \u501F\u69C1|\u85C9\u6A5F \u501F\u673A|\u85C9\u6B64 \u501F\u6B64|\u85C9\u6B64\u6A5F\u6703 \u501F\u6B64\u673A\u4F1A|\u85C9\u751A \u501F\u751A|\u85C9\u7531 \u501F\u7531|\u85C9\u7740 \u501F\u7740|\u85C9\u7AEF \u501F\u7AEF|\u85C9\u7AEF\u751F\u4E8B \u501F\u7AEF\u751F\u4E8B|\u85C9\u7BB8\u4EE3\u7C4C \u501F\u7BB8\u4EE3\u7B79|\u85C9\u8349\u6795\u584A \u501F\u8349\u6795\u5757|\u85C9\u85C9 \u85C9\u85C9|\u85C9\u85C9\u65E0\u540D \u85C9\u85C9\u65E0\u540D|\u85C9\u8A5E \u501F\u8BCD|\u85C9\u8B80 \u501F\u8BFB|\u85C9\u8CC7 \u501F\u8D44|\u8879\u5F97 \u53EA\u5F97|\u8879\u898B\u6A39\u6728 \u53EA\u89C1\u6811\u6728|\u8879\u898B\u6A39\u6728\u4E0D\u898B\u68EE\u6797 \u53EA\u89C1\u6811\u6728\u4E0D\u89C1\u68EE\u6797|\u8881\u7955 \u8881\u7955|\u8896\u88CF\u4E7E\u5764 \u8896\u91CC\u4E7E\u5764|\u88B7\u88A2 \u88B7\u88A2|\u88FD\u574F \u5236\u576F|\u8986\u4E0A \u8986\u4E0A|\u8986\u4F4F \u8986\u4F4F|\u8986\u4FE1 \u590D\u4FE1|\u8986\u5192 \u8986\u5192|\u8986\u5448 \u590D\u5448|\u8986\u547D \u590D\u547D|\u8986\u5893 \u590D\u5893|\u8986\u5B97 \u8986\u5B97|\u8986\u5E33 \u590D\u5E10|\u8986\u5E6C \u8986\u5E31|\u8986\u6210 \u8986\u6210|\u8986\u6309 \u590D\u6309|\u8986\u6587 \u590D\u6587|\u8986\u676F \u8986\u676F|\u8986\u6821 \u590D\u6821|\u8986\u74FF \u8986\u74FF|\u8986\u76C2 \u8986\u76C2|\u8986\u76C6 \u8986\u76C6|\u8986\u76C6\u5B50 \u8986\u76C6\u5B50|\u8986\u76E4 \u8986\u76D8|\u8986\u80B2 \u8986\u80B2|\u8986\u8549\u5C0B\u9E7F \u8986\u8549\u5BFB\u9E7F|\u8986\u9006 \u8986\u9006|\u8986\u91A2 \u8986\u91A2|\u8986\u91AC\u74FF \u8986\u9171\u74FF|\u8986\u96FB \u590D\u7535|\u8986\u9732 \u8986\u9732|\u8986\u9E7F\u5C0B\u8549 \u8986\u9E7F\u5BFB\u8549|\u8986\u9E7F\u907A\u8549 \u8986\u9E7F\u9057\u8549|\u8986\u9F0E \u8986\u9F0E|\u898B\u8986 \u89C1\u590D|\u89D2\u5FB5 \u89D2\u5FB5|\u89D2\u5FB5\u7FBD \u89D2\u5FB5\u7FBD|\u8A08\u756B \u8BA1\u5212|\u8A31\u7526\u9B42 \u8BB8\u7526\u9B42|\u8B8A\u5FB5 \u53D8\u5FB5|\u8B8A\u5FB5\u4E4B\u8072 \u53D8\u5FB5\u4E4B\u58F0|\u8B8A\u5FB5\u4E4B\u97F3 \u53D8\u5FB5\u4E4B\u97F3|\u8B8E\u5B9A \u96E0\u5B9A|\u8C3F\u5DE5 \u8C3F\u5DE5|\u8C82\u8986\u984D \u8C82\u8986\u989D|\u8CB7\u81E3\u8986\u6C34 \u4E70\u81E3\u8986\u6C34|\u8D64\u77F3\u9015 \u8D64\u77F3\u8FF3|\u8E05\u9580\u77AD\u6236 \u8E05\u95E8\u4E86\u6237|\u8EAA\u85C9 \u8E8F\u501F|\u8F09\u6C88\u8F09\u6D6E \u8F7D\u6C89\u8F7D\u6D6E|\u8F09\u6D6E\u8F09\u6C88 \u8F7D\u6D6E\u8F7D\u6C89|\u8F9B\u7955 \u8F9B\u7955|\u9006\u91D0 \u9006\u91D0|\u9015\u53E3 \u8FF3\u53E3|\u9015\u806F \u8FF3\u8054|\u9015\u982D \u8FF3\u5934|\u90ED\u5B50\u4E7E \u90ED\u5B50\u4E7E|\u9152\u9022\u77E5\u5DF1\u5343\u937E\u5C11 \u9152\u9022\u77E5\u5DF1\u5343\u953A\u5C11|\u919E\u85C9 \u915D\u501F|\u91CD\u8986 \u91CD\u590D|\u91D1\u5412 \u91D1\u5412|\u91D1\u6607\u739F \u91D1\u6607\u739F|\u91D1\u934A \u91D1\u94FE|\u921E\u8986 \u94A7\u590D|\u9245\u5B50 \u949C\u5B50|\u9245\u842C \u949C\u4E07|\u9245\u9632 \u949C\u9632|\u9278\u934A \u94F0\u94FE|\u9280\u934A \u94F6\u94FE|\u92FC\u574F \u94A2\u576F|\u9322\u937E\u66F8 \u94B1\u953A\u4E66|\u934A\u589C \u94FE\u5760|\u934A\u5B50 \u94FE\u5B50|\u934A\u5F62 \u94FE\u5F62|\u934A\u689D \u94FE\u6761|\u934A\u9318 \u94FE\u9524|\u934A\u9396 \u94FE\u9501|\u935B\u937E \u953B\u953A|\u937E\u7E47 \u953A\u7E47|\u937E\u842C\u6885 \u953A\u4E07\u6885|\u937E\u91CD\u767C \u953A\u91CD\u53D1|\u937E\u935B \u953A\u953B|\u937E\u9997 \u953A\u9997|\u9396\u934A \u9501\u94FE|\u9435\u934A \u94C1\u94FE|\u947D\u77F3\u9805\u934A \u94BB\u77F3\u9879\u94FE|\u947F\u574F \u51FF\u576F|\u95BB\u9DB4\u6607 \u960E\u9E64\u6607|\u9670\u6C88 \u9634\u6C89|\u9670\u6C88\u6C88 \u9634\u6C89\u6C89|\u9670\u9670\u6C88\u6C88 \u9634\u9634\u6C89\u6C89|\u9673\u5FD7\u6607 \u9648\u5FD7\u6607|\u9673\u6607 \u9648\u6607|\u9673\u7526 \u9648\u7526|\u9676\u574F \u9676\u576F|\u96C1\u6773\u9B5A\u6C88 \u96C1\u6773\u9C7C\u6C89|\u96D6\u8986\u80FD\u5FA9 \u867D\u8986\u80FD\u590D|\u96FB\u8986 \u7535\u590D|\u9732\u8986 \u9732\u8986|\u97D3\u6607\u5EF6 \u97E9\u6607\u5EF6|\u97D3\u7526 \u97E9\u7526|\u9805\u934A \u9879\u94FE|\u9817\u8986 \u9887\u8986|\u9838\u934A \u9888\u94FE|\u985B\u4E7E\u5012\u5764 \u98A0\u4E7E\u5012\u5764|\u985B\u5012\u4E7E\u5764 \u98A0\u5012\u4E7E\u5764|\u9867\u85C9 \u987E\u501F|\u99AE\u7526 \u51AF\u7526|\u9B4F\u5FB5 \u9B4F\u5FB5|\u9B5A\u6C88\u96C1\u6773 \u9C7C\u6C89\u96C1\u6773|\u9EAA\u574F\u5152 \u9762\u576F\u513F|\u9EBC\u4E9B\u65CF \u9EBD\u4E9B\u65CF|\u9EC3\u7526 \u9EC4\u7526|\u9EC3\u937E\u516C \u9EC4\u953A\u516C|\u9ED1\u6C88\u6C88 \u9ED1\u6C89\u6C89|\u9F8D\u937E \u9F99\u949F|\u9F94\u6607 \u9F9A\u6607";
+var TSPhrases_default = "\u4E00\u574F \u4E00\u576F|\u4E00\u76EE\u77AD\u7136 \u4E00\u76EE\u4E86\u7136|\u4E03\u9015 \u4E03\u8FF3|\u4E0A\u9015 \u4E0A\u8FF3|\u4E0A\u934A \u4E0A\u94FE|\u4E0D\u53EF\u8CB2\u8A08 \u4E0D\u53EF\u8D40\u8A08|\u4E0D\u77AD\u89E3 \u4E0D\u4E86\u89E3|\u4E48\u9EBC \u5E7A\u9EBD|\u4E48\u9EBD \u5E7A\u9EBD|\u4E5D\u9015\u5C71 \u4E5D\u8FF3\u5C71|\u4E7E\u4E7E\u6DE8\u6DE8 \u5E72\u5E72\u51C0\u51C0|\u4E7E\u4E7E\u8106\u8106 \u5E72\u5E72\u8106\u8106|\u4E7E\u4F51\u7E23 \u4E7E\u4F51\u53BF|\u4E7E\u5143 \u4E7E\u5143|\u4E7E\u5366 \u4E7E\u5366|\u4E7E\u5609 \u4E7E\u5609|\u4E7E\u5716 \u4E7E\u56FE|\u4E7E\u5764 \u4E7E\u5764|\u4E7E\u5764\u4E00\u64F2 \u4E7E\u5764\u4E00\u63B7|\u4E7E\u5764\u518D\u9020 \u4E7E\u5764\u518D\u9020|\u4E7E\u5764\u5927\u632A\u79FB \u4E7E\u5764\u5927\u632A\u79FB|\u4E7E\u5B85 \u4E7E\u5B85|\u4E7E\u5B89\u7E23 \u4E7E\u5B89\u53BF|\u4E7E\u5B89\u93AE \u4E7E\u5B89\u9547|\u4E7E\u5DDE \u4E7E\u5DDE|\u4E7E\u65B7 \u4E7E\u65AD|\u4E7E\u65B7\u98DF \u5E72\u65AD\u98DF|\u4E7E\u65E6 \u4E7E\u65E6|\u4E7E\u66DC \u4E7E\u66DC|\u4E7E\u6E05\u5BAE \u4E7E\u6E05\u5BAB|\u4E7E\u76DB\u4E16 \u4E7E\u76DB\u4E16|\u4E7E\u7D05 \u5E72\u7EA2|\u4E7E\u7DB1 \u4E7E\u7EB2|\u4E7E\u7E23 \u4E7E\u53BF|\u4E7E\u8C61 \u4E7E\u8C61|\u4E7E\u9020 \u4E7E\u9020|\u4E7E\u9053 \u4E7E\u9053|\u4E7E\u95E5\u5A46 \u4E7E\u95FC\u5A46|\u4E7E\u9675 \u4E7E\u9675|\u4E7E\u9686 \u4E7E\u9686|\u4E7E\u9686\u5E74\u9593 \u4E7E\u9686\u5E74\u95F4|\u4E7E\u9686\u7687\u5E1D \u4E7E\u9686\u7687\u5E1D|\u4E8C\u5641\u82F1 \u4E8C\u{2BAC7}\u82F1|\u4EC7\u8B8E \u4EC7\u96E0|\u4EE5\u514D\u85C9\u53E3 \u4EE5\u514D\u501F\u53E3|\u4EE5\u529F\u8986\u904E \u4EE5\u529F\u8986\u8FC7|\u4EFB\u7B46\u6C88\u8A69 \u4EFB\u7B14\u6C88\u8BD7|\u4F94\u5FB7\u8986\u8F09 \u4F94\u5FB7\u8986\u8F7D|\u50A2\u4FF1 \u5BB6\u5177|\u50B7\u4EA1\u6795\u85C9 \u4F24\u4EA1\u6795\u85C9|\u5141\u7955 \u5141\u7955|\u516B\u6FDB\u5C71 \u516B\u6FDB\u5C71|\u5176\u9670\u591A\u8490 \u5176\u9634\u591A\u8490|\u51CC\u85C9 \u51CC\u501F|\u51FA\u919C\u72FC\u85C9 \u51FA\u4E11\u72FC\u85C9|\u51FD\u8986 \u51FD\u590D|\u524B\u67B6 \u524B\u67B6|\u524B\u6BD2 \u524B\u6BD2|\u5343\u937E\u7C9F \u5343\u953A\u7C9F|\u5357\u6C3E \u5357\u6C3E|\u5357\u9015 \u5357\u8FF3|\u53CD\u53CD\u8986\u8986 \u53CD\u53CD\u590D\u590D|\u53CD\u8986 \u53CD\u590D|\u53CD\u8986\u601D\u7DAD \u53CD\u590D\u601D\u7EF4|\u53CD\u8986\u601D\u91CF \u53CD\u590D\u601D\u91CF|\u53CD\u8986\u6027 \u53CD\u590D\u6027|\u540D\u8986\u91D1\u750C \u540D\u590D\u91D1\u74EF|\u5433\u7955 \u5434\u7955|\u5433\u80B2\u6607 \u5434\u80B2\u6607|\u54EA\u5412 \u54EA\u5412|\u56DE\u8986 \u56DE\u590D|\u571F\u574F \u571F\u576F|\u574F\u571F \u576F\u571F|\u574F\u5B50 \u576F\u5B50|\u574F\u5E03 \u576F\u5E03|\u574F\u6236 \u576F\u6237|\u58A8\u6C88\u6C88 \u58A8\u6C89\u6C89|\u58FA\u88CF\u4E7E\u5764 \u58F6\u91CC\u4E7E\u5764|\u5927\u76EE\u4E7E\u9023\u51A5\u9593\u6551\u6BCD\u8B8A\u6587 \u5927\u76EE\u4E7E\u8FDE\u51A5\u95F4\u6551\u6BCD\u53D8\u6587|\u5BAB\u5546\u89D2\u5FB5\u7FBD \u5BAB\u5546\u89D2\u5FB5\u7FBD|\u5C04\u8986 \u5C04\u8986|\u5C3C\u4E7E\u5B50 \u5C3C\u4E7E\u5B50|\u5C3C\u4E7E\u9640 \u5C3C\u4E7E\u9640|\u5E74\u91D0 \u5E74\u91D0|\u5E7A\u9EBC \u5E7A\u9EBD|\u5E7A\u9EBC\u5C0F\u4E11 \u5E7A\u9EBD\u5C0F\u4E11|\u5E7A\u9EBC\u5C0F\u919C \u5E7A\u9EBD\u5C0F\u4E11|\u5EB7\u4E7E \u5EB7\u4E7E|\u5F35\u6607 \u5F20\u6607|\u5F35\u6CD5\u4E7E \u5F20\u6CD5\u4E7E|\u5F77\u5F7F \u4EFF\u4F5B|\u5F77\u5FA8 \u5F77\u5FA8|\u5F90\u80E4\u6607 \u5F90\u80E4\u6607|\u5FA9\u7526 \u590D\u82CF|\u5FB5\u5F26 \u5FB5\u5F26|\u5FB5\u7D43 \u5FB5\u5F26|\u5FB5\u7FBD\u6469\u67EF \u5FB5\u7FBD\u6469\u67EF|\u5FB5\u8072 \u5FB5\u58F0|\u5FB5\u8ABF \u5FB5\u8C03|\u5FB5\u97F3 \u5FB5\u97F3|\u60C5\u6709\u7368\u937E \u60C5\u6709\u72EC\u949F|\u60F3\u50CF \u60F3\u50CF|\u610F\u5FD7\u6D88\u6C88 \u610F\u5FD7\u6D88\u6C89|\u6170\u85C9 \u6170\u85C9|\u6170\u85C9\u7740 \u6170\u85C9\u7740|\u6191\u85C9 \u51ED\u501F|\u6191\u85C9\u7740 \u51ED\u501F\u7740|\u61F7\u91D0 \u6000\u91D0|\u6210\u7526 \u6210\u7526|\u6240\u8CBB\u4E0D\u8CB2 \u6240\u8D39\u4E0D\u8D40|\u624B\u934A \u624B\u94FE|\u6253\u574F \u6253\u576F|\u625E\u683C \u625E\u683C|\u626D\u8F49\u4E7E\u5764 \u626D\u8F6C\u4E7E\u5764|\u6279\u8986 \u6279\u590D|\u627E\u85C9\u53E3 \u627E\u501F\u53E3|\u6298\u621F\u6C88\u6C99 \u6298\u621F\u6C89\u6C99|\u6298\u621F\u6C88\u6CB3 \u6298\u621F\u6C89\u6CB3|\u62C9\u574F \u62C9\u576F|\u62C9\u934A \u62C9\u94FE|\u62C9\u934A\u5DE5\u7A0B \u62C9\u94FE\u5DE5\u7A0B|\u62DC\u8986 \u62DC\u590D|\u6328\u524B \u6328\u524B|\u634F\u574F \u634F\u576F|\u64CA\u6C88 \u51FB\u6C89|\u64DA\u77AD\u89E3 \u636E\u4E86\u89E3|\u6587\u9326\u8986\u9631 \u6587\u9526\u8986\u9631|\u65BC\u4E16\u6210 \u65BC\u4E16\u6210|\u65BC\u4E4E \u65BC\u4E4E|\u65BC\u4EF2\u5B8C \u65BC\u4EF2\u5B8C|\u65BC\u502B \u65BC\u4F26|\u65BC\u5176\u4E00 \u65BC\u5176\u4E00|\u65BC\u5247 \u65BC\u5219|\u65BC\u52C7\u660E \u65BC\u52C7\u660E|\u65BC\u547C\u54C0\u54C9 \u65BC\u547C\u54C0\u54C9|\u65BC\u55AE \u65BC\u5355|\u65BC\u5766 \u65BC\u5766|\u65BC\u5D07\u6587 \u65BC\u5D07\u6587|\u65BC\u5FE0\u7965 \u65BC\u5FE0\u7965|\u65BC\u60DF\u4E00 \u65BC\u60DF\u4E00|\u65BC\u6232 \u65BC\u620F|\u65BC\u6556 \u65BC\u6556|\u65BC\u68A8\u83EF \u65BC\u68A8\u534E|\u65BC\u6E05\u8A00 \u65BC\u6E05\u8A00|\u65BC\u6F5B \u65BC\u6F5C|\u65BC\u7433 \u65BC\u7433|\u65BC\u7A46 \u65BC\u7A46|\u65BC\u7AF9\u5C4B \u65BC\u7AF9\u5C4B|\u65BC\u83DF \u65BC\u83DF|\u65BC\u9091 \u65BC\u9091|\u65BC\u9675\u5B50 \u65BC\u9675\u5B50|\u65CB\u4E7E\u8F49\u5764 \u65CB\u4E7E\u8F6C\u5764|\u65CB\u8F49\u4E7E\u5764 \u65CB\u8F6C\u4E7E\u5764|\u65CB\u8F49\u4E7E\u5764\u4E4B\u529B \u65CB\u8F6C\u4E7E\u5764\u4E4B\u529B|\u660E\u77AD \u660E\u4E86|\u660E\u8986 \u660E\u590D|\u660F\u6C88 \u660F\u6C89|\u6625\u8490 \u6625\u8490|\u6625\u91D0 \u6625\u91D0|\u6697\u6C88\u6C88 \u6697\u6C89\u6C89|\u66F8\u4E2D\u81EA\u6709\u5343\u937E\u7C9F \u4E66\u4E2D\u81EA\u6709\u5343\u953A\u7C9F|\u6709\u5E8F \u6709\u5E8F|\u671D\u4E7E\u5915\u60D5 \u671D\u4E7E\u5915\u60D5|\u6728\u5412 \u6728\u5412|\u674E\u4E7E\u5FB7 \u674E\u4E7E\u5FB7|\u674E\u6607 \u674E\u6607|\u674E\u6607\u52F3 \u674E\u6607\u52CB|\u674E\u6FA4\u9245 \u674E\u6CFD\u949C|\u674E\u7955 \u674E\u7955|\u674E\u934A\u798F \u674E\u94FE\u798F|\u674E\u937E\u90C1 \u674E\u953A\u90C1|\u675F\u8129 \u675F\u8129|\u6771\u6C3E \u4E1C\u6C3E|\u6797\u7526 \u6797\u7526|\u6821\u8B8E \u6821\u96E0|\u6881\u6607\u537F \u6881\u6607\u537F|\u6881\u7AE0\u9245 \u6881\u7AE0\u949C|\u694A\u7526\u68E3 \u6768\u7526\u68E3|\u694A\u806F\u965E \u6768\u8054\u965E|\u6A0A\u65BC\u671F \u6A0A\u65BC\u671F|\u6A61\u6900 \u6A61\u6900|\u6B7B\u6C23\u6C88\u6C88 \u6B7B\u6C14\u6C89\u6C89|\u6BB5\u8129 \u6BB5\u8129|\u6BDB\u574F \u6BDB\u576F|\u6C34\u9015 \u6C34\u8FF3|\u6C3E\u52DD\u4E4B \u6C3E\u80DC\u4E4B|\u6C3E\u5357 \u6C3E\u5357|\u6C3E\u570B \u6C3E\u56FD|\u6C3E\u6C34 \u6C3E\u6C34|\u6C88\u4E0B \u6C89\u4E0B|\u6C88\u4E0D\u4F4F\u6C23 \u6C89\u4E0D\u4F4F\u6C14|\u6C88\u4F4F\u6C23 \u6C89\u4F4F\u6C14|\u6C88\u51A4 \u6C89\u51A4|\u6C88\u539A \u6C89\u539A|\u6C88\u541F \u6C89\u541F|\u6C88\u5BC2 \u6C89\u5BC2|\u6C88\u5F97\u4F4F\u6C23 \u6C89\u5F97\u4F4F\u6C14|\u6C88\u601D \u6C89\u601D|\u6C88\u601D\u5F80\u4E8B \u6C89\u601D\u5F80\u4E8B|\u6C88\u60B6 \u6C89\u95F7|\u6C88\u6C92 \u6C89\u6CA1|\u6C88\u6C92\u6210\u672C \u6C89\u6CA1\u6210\u672C|\u6C88\u6D6E \u6C89\u6D6E|\u6C88\u6D78 \u6C89\u6D78|\u6C88\u6D78\u65BC \u6C89\u6D78\u4E8E|\u6C88\u6DEA \u6C89\u6CA6|\u6C88\u6E4E \u6C89\u6E4E|\u6C88\u6E4E\u9152\u8272 \u6C89\u6E4E\u9152\u8272|\u6C88\u6EBA \u6C89\u6EBA|\u6C88\u6EEF \u6C89\u6EDE|\u6C88\u6EEF\u6027 \u6C89\u6EDE\u6027|\u6C88\u6FB1 \u6C89\u6DC0|\u6C88\u6FB1\u51FA\u4F86 \u6C89\u6DC0\u51FA\u6765|\u6C88\u6FB1\u5291 \u6C89\u6DC0\u5242|\u6C88\u6FB1\u6CD5 \u6C89\u6DC0\u6CD5|\u6C88\u6FB1\u7269 \u6C89\u6DC0\u7269|\u6C88\u6FC1 \u6C89\u6D4A|\u6C88\u7538\u7538 \u6C89\u7538\u7538|\u6C88\u75DB \u6C89\u75DB|\u6C88\u75FC \u6C89\u75FC|\u6C88\u75FE \u6C89\u75B4|\u6C88\u7761 \u6C89\u7761|\u6C88\u7761\u4E0D\u9192 \u6C89\u7761\u4E0D\u9192|\u6C88\u7802\u6C60 \u6C89\u7802\u6C60|\u6C88\u7A4D \u6C89\u79EF|\u6C88\u7A4D\u5CA9 \u6C89\u79EF\u5CA9|\u6C88\u7A4D\u77F3 \u6C89\u79EF\u77F3|\u6C88\u7B52 \u6C89\u7B52|\u6C88\u8239 \u6C89\u8239|\u6C88\u843D \u6C89\u843D|\u6C88\u8A69\u4EFB\u7B46 \u6C88\u8BD7\u4EFB\u7B14|\u6C88\u8FF7 \u6C89\u8FF7|\u6C88\u8FF7\u4E0D\u9192 \u6C89\u8FF7\u4E0D\u9192|\u6C88\u9189 \u6C89\u9189|\u6C88\u91CD \u6C89\u91CD|\u6C88\u964D \u6C89\u964D|\u6C88\u9677 \u6C89\u9677|\u6C88\u975C \u6C89\u9759|\u6C88\u975C\u4E0B\u4F86 \u6C89\u9759\u4E0B\u6765|\u6C88\u9999 \u6C89\u9999|\u6C88\u9B31 \u6C89\u90C1|\u6C88\u9B5A\u843D\u96C1 \u6C89\u9C7C\u843D\u96C1|\u6C88\u9ED8 \u6C89\u9ED8|\u6C88\u9ED8\u4E0D\u8A9E \u6C89\u9ED8\u4E0D\u8BED|\u6C88\u9ED8\u5BE1\u8A00 \u6C89\u9ED8\u5BE1\u8A00|\u6C99\u9015 \u6C99\u8FF3|\u6CB3\u9015 \u6CB3\u8FF3|\u6D41\u5FB5 \u6D41\u5FB5|\u6D6A\u8569\u4E7E\u5764 \u6D6A\u8361\u4E7E\u5764|\u6D6E\u6C88 \u6D6E\u6C89|\u6D77\u54E9 \u6D77\u91CC|\u6DF1\u6C88 \u6DF1\u6C89|\u6DF1\u6C88\u4E0D\u9732 \u6DF1\u6C89\u4E0D\u9732|\u6EAB\u6607\u8C6A \u6E29\u6607\u8C6A|\u6ED1\u85C9 \u6ED1\u501F|\u70CF\u6607 \u4E4C\u6607|\u70CF\u6C88\u6C88 \u4E4C\u6C89\u6C89|\u70CF\u9015 \u4E4C\u8FF3|\u7121\u5E8F \u65E0\u5E8F|\u72D0\u85C9\u864E\u5A01 \u72D0\u501F\u864E\u5A01|\u738B\u5F65\u6607 \u738B\u5F66\u6607|\u73CD\u73E0\u9805\u934A \u73CD\u73E0\u9879\u94FE|\u751A\u9245 \u751A\u949C|\u7526\u751F \u82CF\u751F|\u7526\u9192 \u82CF\u9192|\u7533\u6607\u52F3 \u7533\u6607\u52CB|\u7533\u8986 \u7533\u590D|\u7562\u6607 \u6BD5\u6607|\u767C\u8986 \u53D1\u8986|\u76E7\u8C61\u6607 \u5362\u8C61\u6607|\u76EE\u5284 \u76EE\u5284|\u77AD\u54E8 \u77AD\u54E8|\u77AD\u5982 \u4E86\u5982|\u77AD\u5982\u6307\u638C \u4E86\u5982\u6307\u638C|\u77AD\u671B \u77AD\u671B|\u77AD\u7136 \u4E86\u7136|\u77AD\u7136\u65BC\u5FC3 \u4E86\u7136\u4E8E\u5FC3|\u77AD\u82E5\u6307\u638C \u4E86\u82E5\u6307\u638C|\u77AD\u89E3 \u4E86\u89E3|\u77AD\u89E3\u5230 \u4E86\u89E3\u5230|\u7834\u91DC\u6C88\u821F \u7834\u91DC\u6C89\u821F|\u78DA\u574F \u7816\u576F|\u793A\u8986 \u793A\u590D|\u793E\u9015 \u793E\u8FF3|\u7955\u4E15\u7B08 \u7955\u4E15\u7B08|\u7955\u5F6D\u7956 \u7955\u5F6D\u7956|\u7955\u74CA \u7955\u743C|\u795D\u91D0 \u795D\u91D0|\u795E\u7947 \u795E\u7947|\u7A1F\u8986 \u7980\u590D|\u7AFA\u4E7E \u7AFA\u4E7E|\u7B54\u8986 \u7B54\u590D|\u7BE4\u9EBC \u7B03\u9EBD|\u7C21\u55AE\u660E\u77AD \u7B80\u5355\u660E\u4E86|\u7C4C\u756B \u7B79\u5212|\u7D20\u85C9 \u7D20\u501F|\u8001\u614B\u9F8D\u937E \u8001\u6001\u9F99\u949F|\u8033\u6C88 \u8033\u6C89|\u8089\u8129 \u8089\u8129|\u8098\u624B\u934A\u8DB3 \u8098\u624B\u94FE\u8DB3|\u80E4\u7955 \u80E4\u7955|\u8129\u656C \u8129\u656C|\u8129\u70B3 \u8129\u70B3|\u8129\u8121 \u8129\u8121|\u8129\u812F \u8129\u812F|\u8129\u91D1 \u8129\u91D1|\u812B\u574F \u8131\u576F|\u8176\u8129 \u8176\u8129|\u82F1\u54E9 \u82F1\u91CC|\u8305\u8490 \u8305\u8490|\u8335\u85C9 \u8335\u501F|\u842C\u937E \u4E07\u953A|\u843D\u96C1\u6C88\u9B5A \u843D\u96C1\u6C89\u9C7C|\u8490\u4E8E\u7D05 \u8490\u4E8E\u7EA2|\u8490\u65BC\u7D05 \u8490\u4E8E\u7EA2|\u8490\u72E9 \u8490\u72E9|\u8490\u736E \u8490\u72DD|\u8490\u7375 \u8490\u730E|\u8490\u7530 \u8490\u7530|\u8490\u754B \u8490\u754B|\u8490\u82D7 \u8490\u82D7|\u849C\u85B9 \u849C\u85B9|\u8523\u6607 \u848B\u6607|\u8553\u85B9 \u82B8\u85B9|\u8569\u8986 \u8361\u8986|\u856D\u4E7E \u8427\u4E7E|\u85C9\u4EE3 \u501F\u4EE3|\u85C9\u4EE5 \u501F\u4EE5|\u85C9\u52A9 \u501F\u52A9|\u85C9\u52A9\u65BC \u501F\u52A9\u4E8E|\u85C9\u5349 \u501F\u5349|\u85C9\u53E3 \u501F\u53E3|\u85C9\u55BB \u501F\u55BB|\u85C9\u5BC7\u5175 \u501F\u5BC7\u5175|\u85C9\u5BC7\u5175\u9F4E\u76DC\u7CE7 \u501F\u5BC7\u5175\u8D4D\u76D7\u7CAE|\u85C9\u624B \u501F\u624B|\u85C9\u64DA \u501F\u636E|\u85C9\u6545 \u501F\u6545|\u85C9\u6545\u63A8\u8FAD \u501F\u6545\u63A8\u8F9E|\u85C9\u65B9 \u501F\u65B9|\u85C9\u689D \u501F\u6761|\u85C9\u69C1 \u501F\u69C1|\u85C9\u6A5F \u501F\u673A|\u85C9\u6B64 \u501F\u6B64|\u85C9\u6B64\u6A5F\u6703 \u501F\u6B64\u673A\u4F1A|\u85C9\u751A \u501F\u751A|\u85C9\u7531 \u501F\u7531|\u85C9\u7740 \u501F\u7740|\u85C9\u7AEF \u501F\u7AEF|\u85C9\u7AEF\u751F\u4E8B \u501F\u7AEF\u751F\u4E8B|\u85C9\u7BB8\u4EE3\u7C4C \u501F\u7BB8\u4EE3\u7B79|\u85C9\u8349\u6795\u584A \u501F\u8349\u6795\u5757|\u85C9\u85C9 \u85C9\u85C9|\u85C9\u85C9\u65E0\u540D \u85C9\u85C9\u65E0\u540D|\u85C9\u8A5E \u501F\u8BCD|\u85C9\u8B80 \u501F\u8BFB|\u85C9\u8CC7 \u501F\u8D44|\u8879\u5F97 \u53EA\u5F97|\u8879\u898B\u6A39\u6728 \u53EA\u89C1\u6811\u6728|\u8879\u898B\u6A39\u6728\u4E0D\u898B\u68EE\u6797 \u53EA\u89C1\u6811\u6728\u4E0D\u89C1\u68EE\u6797|\u8881\u7955 \u8881\u7955|\u8896\u88CF\u4E7E\u5764 \u8896\u91CC\u4E7E\u5764|\u88B7\u88A2 \u88B7\u88A2|\u88FD\u574F \u5236\u576F|\u8986\u4E0A \u8986\u4E0A|\u8986\u4F4F \u8986\u4F4F|\u8986\u4FE1 \u590D\u4FE1|\u8986\u5192 \u8986\u5192|\u8986\u5448 \u590D\u5448|\u8986\u547D \u590D\u547D|\u8986\u5893 \u590D\u5893|\u8986\u5B97 \u8986\u5B97|\u8986\u5E33 \u590D\u5E10|\u8986\u5E6C \u8986\u5E31|\u8986\u6210 \u8986\u6210|\u8986\u6309 \u590D\u6309|\u8986\u6587 \u590D\u6587|\u8986\u676F \u8986\u676F|\u8986\u6821 \u590D\u6821|\u8986\u74FF \u8986\u74FF|\u8986\u76C2 \u8986\u76C2|\u8986\u76C6 \u8986\u76C6|\u8986\u76C6\u5B50 \u8986\u76C6\u5B50|\u8986\u76E4 \u8986\u76D8|\u8986\u80B2 \u8986\u80B2|\u8986\u8549\u5C0B\u9E7F \u8986\u8549\u5BFB\u9E7F|\u8986\u9006 \u8986\u9006|\u8986\u91A2 \u8986\u91A2|\u8986\u91AC\u74FF \u8986\u9171\u74FF|\u8986\u96FB \u590D\u7535|\u8986\u9732 \u8986\u9732|\u8986\u9E7F\u5C0B\u8549 \u8986\u9E7F\u5BFB\u8549|\u8986\u9E7F\u907A\u8549 \u8986\u9E7F\u9057\u8549|\u8986\u9F0E \u8986\u9F0E|\u898B\u8986 \u89C1\u590D|\u89D2\u5FB5 \u89D2\u5FB5|\u89D2\u5FB5\u7FBD \u89D2\u5FB5\u7FBD|\u8A08\u756B \u8BA1\u5212|\u8A31\u7526\u9B42 \u8BB8\u7526\u9B42|\u8B8A\u5FB5 \u53D8\u5FB5|\u8B8A\u5FB5\u4E4B\u8072 \u53D8\u5FB5\u4E4B\u58F0|\u8B8A\u5FB5\u4E4B\u97F3 \u53D8\u5FB5\u4E4B\u97F3|\u8B8E\u5B9A \u96E0\u5B9A|\u8C3F\u5DE5 \u8C3F\u5DE5|\u8C82\u8986\u984D \u8C82\u8986\u989D|\u8CB7\u81E3\u8986\u6C34 \u4E70\u81E3\u8986\u6C34|\u8D64\u77F3\u9015 \u8D64\u77F3\u8FF3|\u8E05\u9580\u77AD\u6236 \u8E05\u95E8\u4E86\u6237|\u8EAA\u85C9 \u8E8F\u501F|\u8F09\u6C88\u8F09\u6D6E \u8F7D\u6C89\u8F7D\u6D6E|\u8F09\u6D6E\u8F09\u6C88 \u8F7D\u6D6E\u8F7D\u6C89|\u8F9B\u7955 \u8F9B\u7955|\u9006\u91D0 \u9006\u91D0|\u9015\u53E3 \u8FF3\u53E3|\u9015\u806F \u8FF3\u8054|\u9015\u982D \u8FF3\u5934|\u90ED\u5B50\u4E7E \u90ED\u5B50\u4E7E|\u9152\u9022\u77E5\u5DF1\u5343\u937E\u5C11 \u9152\u9022\u77E5\u5DF1\u5343\u953A\u5C11|\u919E\u85C9 \u915D\u501F|\u91CD\u8986 \u91CD\u590D|\u91D1\u5412 \u91D1\u5412|\u91D1\u6607\u739F \u91D1\u6607\u739F|\u91D1\u934A \u91D1\u94FE|\u921E\u8986 \u94A7\u590D|\u9245\u5B50 \u949C\u5B50|\u9245\u842C \u949C\u4E07|\u9245\u9632 \u949C\u9632|\u9278\u934A \u94F0\u94FE|\u9280\u934A \u94F6\u94FE|\u92FC\u574F \u94A2\u576F|\u9322\u937E\u66F8 \u94B1\u953A\u4E66|\u934A\u589C \u94FE\u5760|\u934A\u5B50 \u94FE\u5B50|\u934A\u5F62 \u94FE\u5F62|\u934A\u689D \u94FE\u6761|\u934A\u9318 \u94FE\u9524|\u934A\u9396 \u94FE\u9501|\u935B\u937E \u953B\u953A|\u937E\u7E47 \u953A\u7E47|\u937E\u842C\u6885 \u953A\u4E07\u6885|\u937E\u91CD\u767C \u953A\u91CD\u53D1|\u937E\u935B \u953A\u953B|\u937E\u9997 \u953A\u9997|\u9396\u934A \u9501\u94FE|\u9435\u934A \u94C1\u94FE|\u947D\u77F3\u9805\u934A \u94BB\u77F3\u9879\u94FE|\u947F\u574F \u51FF\u576F|\u95BB\u9DB4\u6607 \u960E\u9E64\u6607|\u9670\u6C88 \u9634\u6C89|\u9670\u6C88\u6C88 \u9634\u6C89\u6C89|\u9670\u9670\u6C88\u6C88 \u9634\u9634\u6C89\u6C89|\u9673\u5FD7\u6607 \u9648\u5FD7\u6607|\u9673\u6607 \u9648\u6607|\u9673\u7526 \u9648\u7526|\u9676\u574F \u9676\u576F|\u96C1\u6773\u9B5A\u6C88 \u96C1\u6773\u9C7C\u6C89|\u96D6\u8986\u80FD\u5FA9 \u867D\u8986\u80FD\u590D|\u96FB\u8986 \u7535\u590D|\u9732\u8986 \u9732\u8986|\u97D3\u6607\u5EF6 \u97E9\u6607\u5EF6|\u97D3\u7526 \u97E9\u7526|\u9805\u934A \u9879\u94FE|\u9817\u8986 \u9887\u8986|\u9838\u934A \u9888\u94FE|\u985B\u4E7E\u5012\u5764 \u98A0\u4E7E\u5012\u5764|\u985B\u5012\u4E7E\u5764 \u98A0\u5012\u4E7E\u5764|\u9867\u85C9 \u987E\u501F|\u99AE\u7526 \u51AF\u7526|\u9B4F\u5FB5 \u9B4F\u5FB5|\u9B5A\u6C88\u96C1\u6773 \u9C7C\u6C89\u96C1\u6773|\u9EAA\u574F\u5152 \u9762\u576F\u513F|\u9EBC\u4E9B\u65CF \u9EBD\u4E9B\u65CF|\u9EC3\u7526 \u9EC4\u7526|\u9EC3\u937E\u516C \u9EC4\u953A\u516C|\u9ED1\u6C88\u6C88 \u9ED1\u6C89\u6C89|\u9F8D\u937E \u9F99\u949F|\u9F94\u6607 \u9F9A\u6607";
 
 // node_modules/opencc-js/dist/esm-lib/dict/TSCharacters.js
 var TSCharacters_default = "\u346F \u3454|\u3473 \u3447|\u3476 \u3439|\u34E8 \u523E|\u35F2 \u{20D7E}|\u361A \u360E|\u3704 \u36AF|\u370F \u36E3|\u3722 \u{217B1}|\u380F \u37C6|\u3823 \u{2BD77}|\u396E \u3918|\u3A5C \u3A2B|\u3A73 \u39D0|\u3A75 \u64DC|\u3E8F \u{2480B}|\u406A \u{251E2}|\u407B \u4025|\u40EE \u9FCE|\u42B7 \u4336|\u42D9 \u433A|\u42DA \u433B|\u42F9 \u433F|\u42FB \u433E|\u4366 \u4360|\u43B1 \u43AC|\u44E3 \u{2C72F}|\u4661 \u464C|\u4700 \u4727|\u477C \u478D|\u4875 \u{2B7E6}|\u4947 \u4982|\u4951 \u9FCF|\u4955 \u{2CB6F}|\u4971 \u497E|\u499B \u49B6|\u499F \u49B7|\u49E2 \u{28E1F}|\u4B84 \u{2B80A}|\u4BC0 \u4BC5|\u4C3E \u9C83|\u4C77 \u4CA3|\u4C7D \u4C9D|\u4C81 \u9CDA|\u4C98 \u9CE4|\u4D09 \u9E6E|\u4E1F \u4E22|\u4E26 \u5E76|\u4E7E \u5E72|\u4E82 \u4E71|\u4E99 \u4E98|\u4E9E \u4E9A|\u4F47 \u4F2B|\u4F48 \u5E03|\u4F54 \u5360|\u4F75 \u5E76|\u4F86 \u6765|\u4F96 \u4ED1|\u4FB6 \u4FA3|\u4FB7 \u5C40|\u4FC1 \u4FE3|\u4FC2 \u7CFB|\u4FD4 \u4F23|\u4FE0 \u4FA0|\u4FE5 \u4F21|\u4FEC \u79C1|\u5000 \u4F25|\u5006 \u4FE9|\u5008 \u4FEB|\u5009 \u4ED3|\u500B \u4E2A|\u5011 \u4EEC|\u5016 \u5E78|\u502B \u4F26|\u5032 \u3448|\u5049 \u4F1F|\u5051 \u343D|\u5074 \u4FA7|\u5075 \u4FA6|\u507D \u4F2A|\u508C \u3437|\u5091 \u6770|\u5096 \u4F27|\u5098 \u4F1E|\u5099 \u5907|\u50A2 \u5BB6|\u50AD \u4F63|\u50AF \u506C|\u50B3 \u4F20|\u50B4 \u4F1B|\u50B5 \u503A|\u50B7 \u4F24|\u50BE \u503E|\u50C2 \u507B|\u50C5 \u4EC5|\u50C9 \u4F65|\u50D1 \u4FA8|\u50D5 \u4EC6|\u50DE \u4F2A|\u50E4 \u{2B8B8}|\u50E5 \u4FA5|\u50E8 \u507E|\u50F1 \u96C7|\u50F9 \u4EF7|\u5100 \u4EEA|\u5101 \u4FCA|\u5102 \u4FAC|\u5104 \u4EBF|\u5108 \u4FA9|\u5109 \u4FED|\u510E \u50A4|\u5110 \u50A7|\u5114 \u4FE6|\u5115 \u4FAA|\u5118 \u5C3D|\u511F \u507F|\u512A \u4F18|\u5132 \u50A8|\u5137 \u4FEA|\u5138 \u3469|\u513A \u50A9|\u513B \u50A5|\u513C \u4FE8|\u5147 \u51F6|\u514C \u5151|\u5152 \u513F|\u5157 \u5156|\u5167 \u5185|\u5169 \u4E24|\u518A \u518C|\u5191 \u80C4|\u51AA \u5E42|\u51C8 \u51C0|\u51CD \u51BB|\u51DC \u51DB|\u51F1 \u51EF|\u5225 \u522B|\u522A \u5220|\u5244 \u522D|\u5247 \u5219|\u524B \u514B|\u524E \u5239|\u5257 \u522C|\u525B \u521A|\u525D \u5265|\u526E \u5250|\u5274 \u5240|\u5275 \u521B|\u5277 \u94F2|\u5283 \u5212|\u5284 \u672D|\u5287 \u5267|\u5289 \u5218|\u528A \u523D|\u528C \u523F|\u528D \u5251|\u528F \u34E5|\u5291 \u5242|\u529A \u3509|\u52C1 \u52B2|\u52D5 \u52A8|\u52D9 \u52A1|\u52DB \u52CB|\u52DD \u80DC|\u52DE \u52B3|\u52E2 \u52BF|\u52E3 \u{2A7DD}|\u52E9 \u52DA|\u52F1 \u52A2|\u52F3 \u52CB|\u52F5 \u52B1|\u52F8 \u529D|\u52FB \u5300|\u532D \u5326|\u532F \u6C47|\u5331 \u532E|\u5340 \u533A|\u5354 \u534F|\u5379 \u6064|\u537B \u5374|\u537D \u5373|\u5399 \u538D|\u53A0 \u5395|\u53A4 \u5386|\u53AD \u538C|\u53B2 \u5389|\u53B4 \u53A3|\u53C3 \u53C2|\u53C4 \u53C1|\u53E2 \u4E1B|\u5412 \u54A4|\u5433 \u5434|\u5436 \u5450|\u5442 \u5415|\u54BC \u5459|\u54E1 \u5458|\u5504 \u5457|\u5538 \u5FF5|\u554F \u95EE|\u5553 \u542F|\u555E \u54D1|\u555F \u542F|\u5562 \u5521|\u558E \u359E|\u559A \u5524|\u55AA \u4E27|\u55AB \u5403|\u55AC \u4E54|\u55AE \u5355|\u55B2 \u54DF|\u55C6 \u545B|\u55C7 \u556C|\u55CA \u551D|\u55CE \u5417|\u55DA \u545C|\u55E9 \u5522|\u55F0 \u{20BB6}|\u55F6 \u54D4|\u5606 \u53F9|\u560D \u55BD|\u5613 \u556F|\u5614 \u5455|\u5616 \u5567|\u5617 \u5C1D|\u561C \u551B|\u5629 \u54D7|\u562E \u5520|\u562F \u5578|\u5630 \u53FD|\u5635 \u54D3|\u5638 \u5452|\u563D \u5574|\u5641 \u6076|\u5653 \u5618|\u565A \u358A|\u565D \u549D|\u5660 \u54D2|\u5665 \u54DD|\u5666 \u54D5|\u566F \u55F3|\u5672 \u54D9|\u5674 \u55B7|\u5678 \u5428|\u5679 \u5F53|\u5680 \u549B|\u5687 \u5413|\u568C \u54DC|\u5690 \u5C1D|\u5695 \u565C|\u5699 \u556E|\u56A5 \u54BD|\u56A6 \u5456|\u56A7 \u{20C37}|\u56A8 \u5499|\u56AE \u5411|\u56B2 \u4EB8|\u56B3 \u55BE|\u56B4 \u4E25|\u56B6 \u5624|\u56C0 \u556D|\u56C1 \u55EB|\u56C2 \u56A3|\u56C5 \u5181|\u56C8 \u5453|\u56C9 \u5570|\u56CC \u82CF|\u56D1 \u5631|\u56EA \u56F1|\u5707 \u56F5|\u570B \u56FD|\u570D \u56F4|\u5712 \u56ED|\u5713 \u5706|\u5716 \u56FE|\u5718 \u56E2|\u57BB \u575D|\u57E1 \u57AD|\u57E8 \u{2BB62}|\u57F0 \u91C7|\u57F7 \u6267|\u5805 \u575A|\u580A \u57A9|\u5816 \u57B4|\u581D \u57DA|\u582F \u5C27|\u5831 \u62A5|\u5834 \u573A|\u584A \u5757|\u584B \u8314|\u584F \u57B2|\u5852 \u57D8|\u5857 \u6D82|\u585A \u51A2|\u5862 \u575E|\u5864 \u57D9|\u5875 \u5C18|\u5878 \u{2BB5F}|\u5879 \u5811|\u587F \u{2A8FB}|\u588A \u57AB|\u589C \u5760|\u58A0 \u{2BB83}|\u58AE \u5815|\u58B0 \u575B|\u58B3 \u575F|\u58B6 \u57AF|\u58BB \u5899|\u58BE \u57A6|\u58C7 \u575B|\u58CB \u57B1|\u58CE \u57D9|\u58D3 \u538B|\u58D7 \u{212E4}|\u58D8 \u5792|\u58D9 \u5739|\u58DA \u5786|\u58DC \u575B|\u58DE \u574F|\u58DF \u5784|\u58E0 \u5785|\u58E2 \u575C|\u58E9 \u575D|\u58EA \u5846|\u58EF \u58EE|\u58FA \u58F6|\u58FC \u58F8|\u58FD \u5BFF|\u5920 \u591F|\u5922 \u68A6|\u5925 \u4F19|\u593E \u5939|\u5950 \u5942|\u5967 \u5965|\u5969 \u5941|\u596A \u593A|\u596C \u5956|\u596E \u594B|\u597C \u59F9|\u599D \u5986|\u59CD \u59D7|\u59E6 \u5978|\u5A19 \u{2BC1B}|\u5A1B \u5A31|\u5A41 \u5A04|\u5A66 \u5987|\u5A6D \u5A05|\u5AA7 \u5A32|\u5AAF \u59AB|\u5AB0 \u36C0|\u5ABC \u5AAA|\u5ABD \u5988|\u5ACB \u8885|\u5AD7 \u59AA|\u5AF5 \u59A9|\u5AFA \u5A34|\u5AFB \u5A34|\u5AFF \u5A73|\u5B00 \u59AB|\u5B03 \u5AAD|\u5B08 \u5A06|\u5B0B \u5A75|\u5B0C \u5A07|\u5B19 \u5AF1|\u5B21 \u5AD2|\u5B24 \u5B37|\u5B2A \u5AD4|\u5B30 \u5A74|\u5B38 \u5A76|\u5B43 \u5A18|\u5B4B \u36E4|\u5B4C \u5A08|\u5B6B \u5B59|\u5B78 \u5B66|\u5B7B \u{21967}|\u5B7F \u5B6A|\u5BAE \u5BAB|\u5BC0 \u91C7|\u5BE2 \u5BDD|\u5BE6 \u5B9E|\u5BE7 \u5B81|\u5BE9 \u5BA1|\u5BEB \u5199|\u5BEC \u5BBD|\u5BF5 \u5BA0|\u5BF6 \u5B9D|\u5C07 \u5C06|\u5C08 \u4E13|\u5C0B \u5BFB|\u5C0D \u5BF9|\u5C0E \u5BFC|\u5C37 \u5C34|\u5C46 \u5C4A|\u5C4D \u5C38|\u5C53 \u5C43|\u5C5C \u5C49|\u5C62 \u5C61|\u5C64 \u5C42|\u5C68 \u5C66|\u5C6C \u5C5E|\u5CA1 \u5188|\u5CEF \u5CF0|\u5CF4 \u5C98|\u5CF6 \u5C9B|\u5CFD \u5CE1|\u5D0D \u5D03|\u5D11 \u6606|\u5D17 \u5C97|\u5D19 \u4ED1|\u5D22 \u5CE5|\u5D2C \u5CBD|\u5D50 \u5C9A|\u5D57 \u5C81|\u5D7D \u{2BD87}|\u5D7E \u37E5|\u5D81 \u5D5D|\u5D84 \u5D2D|\u5D87 \u5C96|\u5D94 \u5D5A|\u5D97 \u5D02|\u5DA0 \u5CE4|\u5DA2 \u5CE3|\u5DA7 \u5CC4|\u5DA8 \u5CC3|\u5DAE \u5D04|\u5DB8 \u5D58|\u5DBA \u5CAD|\u5DBC \u5C7F|\u5DBD \u5CB3|\u5DCB \u5CBF|\u5DD2 \u5CE6|\u5DD4 \u5DC5|\u5DD6 \u5CA9|\u5DD8 \u{2AA58}|\u5DF0 \u5DEF|\u5DF9 \u537A|\u5E25 \u5E05|\u5E2B \u5E08|\u5E33 \u5E10|\u5E36 \u5E26|\u5E40 \u5E27|\u5E43 \u5E0F|\u5E53 \u384E|\u5E57 \u5E3C|\u5E58 \u5E3B|\u5E5F \u5E1C|\u5E63 \u5E01|\u5E6B \u5E2E|\u5E6C \u5E31|\u5E77 \u5E76|\u5E79 \u5E72|\u5E7E \u51E0|\u5EAB \u5E93|\u5EC1 \u5395|\u5EC2 \u53A2|\u5EC4 \u53A9|\u5EC8 \u53A6|\u5ECE \u5EBC|\u5ED5 \u836B|\u5EDA \u53A8|\u5EDD \u53AE|\u5EDE \u{2BDF7}|\u5EDF \u5E99|\u5EE0 \u5382|\u5EE1 \u5E91|\u5EE2 \u5E9F|\u5EE3 \u5E7F|\u5EE9 \u5EEA|\u5EEC \u5E90|\u5EF3 \u5385|\u5F12 \u5F11|\u5F14 \u540A|\u5F33 \u5F2A|\u5F35 \u5F20|\u5F37 \u5F3A|\u5F44 \u{2BE29}|\u5F46 \u522B|\u5F48 \u5F39|\u5F4C \u5F25|\u5F4E \u5F2F|\u5F54 \u5F55|\u5F59 \u6C47|\u5F60 \u5F5F|\u5F65 \u5F66|\u5F6B \u96D5|\u5F72 \u5F68|\u5F7F \u4F5B|\u5F8C \u540E|\u5F91 \u5F84|\u5F9E \u4ECE|\u5FA0 \u5F95|\u5FA9 \u590D|\u5FB5 \u5F81|\u5FB9 \u5F7B|\u6046 \u6052|\u6065 \u803B|\u6085 \u60A6|\u609E \u60AE|\u60B5 \u6005|\u60B6 \u95F7|\u60BD \u51C4|\u60E1 \u6076|\u60F1 \u607C|\u60F2 \u607D|\u60FB \u607B|\u611B \u7231|\u611C \u60EC|\u6128 \u60AB|\u6134 \u6006|\u6137 \u607A|\u613E \u5FFE|\u6144 \u6817|\u614B \u6001|\u614D \u6120|\u6158 \u60E8|\u615A \u60ED|\u615F \u6078|\u6163 \u60EF|\u6164 \u60AB|\u616A \u6004|\u616B \u6002|\u616E \u8651|\u6173 \u60AD|\u6176 \u5E86|\u617A \u396A|\u617C \u621A|\u617E \u6B32|\u6182 \u5FE7|\u618A \u60EB|\u6190 \u601C|\u6191 \u51ED|\u6192 \u6126|\u6196 \u616D|\u619A \u60EE|\u61A4 \u6124|\u61AB \u60AF|\u61AE \u6003|\u61B2 \u5BAA|\u61B6 \u5FC6|\u61C7 \u6073|\u61C9 \u5E94|\u61CC \u603F|\u61CD \u61D4|\u61DE \u8499|\u61DF \u603C|\u61E3 \u61D1|\u61E4 \u393D|\u61E8 \u6079|\u61F2 \u60E9|\u61F6 \u61D2|\u61F7 \u6000|\u61F8 \u60AC|\u61FA \u5FCF|\u61FC \u60E7|\u61FE \u6151|\u6200 \u604B|\u6207 \u6206|\u6214 \u620B|\u6227 \u6217|\u6229 \u622C|\u6230 \u6218|\u6231 \u622F|\u6232 \u620F|\u6236 \u6237|\u625E \u634D|\u62CB \u629B|\u62DA \u62FC|\u6329 \u635D|\u6331 \u6332|\u633E \u631F|\u6368 \u820D|\u636B \u626A|\u6371 \u6328|\u6372 \u5377|\u6383 \u626B|\u6384 \u62A1|\u6386 \u39CF|\u6397 \u631C|\u6399 \u6323|\u639B \u6302|\u63A1 \u91C7|\u63C0 \u62E3|\u63DA \u626C|\u63DB \u6362|\u63EE \u6325|\u63EF \u6404|\u640D \u635F|\u6416 \u6447|\u6417 \u6363|\u6427 \u6247|\u6435 \u63FE|\u6436 \u62A2|\u6451 \u63B4|\u645C \u63BC|\u645F \u6402|\u646F \u631A|\u6473 \u62A0|\u6476 \u629F|\u647A \u6298|\u647B \u63BA|\u6488 \u635E|\u648F \u6326|\u6490 \u6491|\u6493 \u6320|\u649D \u39D1|\u649F \u6322|\u64A3 \u63B8|\u64A5 \u62E8|\u64AB \u629A|\u64B2 \u6251|\u64B3 \u63FF|\u64BB \u631E|\u64BE \u631D|\u64BF \u6361|\u64C1 \u62E5|\u64C4 \u63B3|\u64C7 \u62E9|\u64CA \u51FB|\u64CB \u6321|\u64D3 \u39DF|\u64D4 \u62C5|\u64DA \u636E|\u64E0 \u6324|\u64E1 \u62AC|\u64E3 \u6363|\u64EC \u62DF|\u64EF \u6448|\u64F0 \u62E7|\u64F1 \u6401|\u64F2 \u63B7|\u64F4 \u6269|\u64F7 \u64B7|\u64FA \u6446|\u64FB \u64DE|\u64FC \u64B8|\u64FD \u39F0|\u64FE \u6270|\u6504 \u6445|\u6506 \u64B5|\u650F \u62E2|\u6514 \u62E6|\u6516 \u6484|\u6519 \u6400|\u651B \u64BA|\u651C \u643A|\u651D \u6444|\u6522 \u6512|\u6523 \u631B|\u6524 \u644A|\u652A \u6405|\u652C \u63FD|\u654E \u6559|\u6553 \u655A|\u6557 \u8D25|\u6558 \u53D9|\u6575 \u654C|\u6578 \u6570|\u6582 \u655B|\u6583 \u6BD9|\u6586 \u6569|\u6595 \u6593|\u65AC \u65A9|\u65B7 \u65AD|\u65BC \u4E8E|\u65C2 \u65D7|\u65E3 \u65E2|\u6607 \u5347|\u6642 \u65F6|\u6649 \u664B|\u665B \u{2C02A}|\u665D \u663C|\u6688 \u6655|\u6689 \u6656|\u6690 \u{2C029}|\u6698 \u65F8|\u66A2 \u7545|\u66AB \u6682|\u66C4 \u6654|\u66C6 \u5386|\u66C7 \u6619|\u66C9 \u6653|\u66CF \u5411|\u66D6 \u66A7|\u66E0 \u65F7|\u66E5 \u{23190}|\u66E8 \u663D|\u66EC \u6652|\u66F8 \u4E66|\u6703 \u4F1A|\u6725 \u{266E8}|\u6727 \u80E7|\u672E \u672F|\u6771 \u4E1C|\u67B4 \u62D0|\u67F5 \u6805|\u67FA \u62D0|\u67FB \u67E5|\u6871 \u{23415}|\u687F \u6746|\u6894 \u6800|\u6898 \u67A7|\u689C \u{2C0A9}|\u689D \u6761|\u689F \u67AD|\u68B2 \u68C1|\u68C4 \u5F03|\u68CA \u68CB|\u68D6 \u67A8|\u68D7 \u67A3|\u68DF \u680B|\u68E1 \u3B4E|\u68E7 \u6808|\u68F2 \u6816|\u68F6 \u68BE|\u690F \u6860|\u6932 \u3B4F|\u694A \u6768|\u6953 \u67AB|\u6968 \u6862|\u696D \u4E1A|\u6975 \u6781|\u6998 \u77E9|\u69A6 \u5E72|\u69AA \u6769|\u69AE \u8363|\u69B2 \u6985|\u69BF \u6864|\u69CB \u6784|\u69CD \u67AA|\u69D3 \u6760|\u69E4 \u68BF|\u69E7 \u6920|\u69E8 \u6901|\u69EE \u692E|\u69F3 \u6868|\u69F6 \u6922|\u69FC \u691D|\u6A01 \u6869|\u6A02 \u4E50|\u6A05 \u679E|\u6A11 \u6881|\u6A13 \u697C|\u6A19 \u6807|\u6A1E \u67A2|\u6A22 \u3B64|\u6A23 \u6837|\u6A27 \u699D|\u6A2B \u3B74|\u6A33 \u686A|\u6A38 \u6734|\u6A39 \u6811|\u6A3A \u6866|\u6A3F \u692B|\u6A48 \u6861|\u6A4B \u6865|\u6A5F \u673A|\u6A62 \u692D|\u6A6B \u6A2A|\u6A6F \u{234FF}|\u6A81 \u6AA9|\u6A89 \u67FD|\u6A94 \u6863|\u6A9C \u6867|\u6A9F \u69DA|\u6AA2 \u68C0|\u6AA3 \u6A2F|\u6AAE \u68BC|\u6AAF \u53F0|\u6AB3 \u69DF|\u6AB8 \u67E0|\u6ABB \u69DB|\u6AC3 \u67DC|\u6ACD \u{2C0CA}|\u6AD3 \u6A79|\u6ADA \u6988|\u6ADB \u6809|\u6ADD \u691F|\u6ADE \u6A7C|\u6ADF \u680E|\u6AE5 \u6A71|\u6AE7 \u69E0|\u6AE8 \u680C|\u6AEA \u67A5|\u6AEB \u6A65|\u6AEC \u6987|\u6AF1 \u8616|\u6AF3 \u680A|\u6AF8 \u6989|\u6AFB \u6A31|\u6B04 \u680F|\u6B05 \u6989|\u6B0A \u6743|\u6B0F \u6924|\u6B12 \u683E|\u6B13 \u{235CB}|\u6B16 \u6984|\u6B1E \u68C2|\u6B3D \u94A6|\u6B4E \u53F9|\u6B50 \u6B27|\u6B5F \u6B24|\u6B61 \u6B22|\u6B72 \u5C81|\u6B77 \u5386|\u6B78 \u5F52|\u6B7F \u6B81|\u6B98 \u6B8B|\u6B9E \u6B92|\u6BA4 \u6B87|\u6BA8 \u3C6E|\u6BAB \u6B9A|\u6BAD \u50F5|\u6BAE \u6B93|\u6BAF \u6BA1|\u6BB0 \u3C69|\u6BB2 \u6B7C|\u6BBA \u6740|\u6BBB \u58F3|\u6BBC \u58F3|\u6BC0 \u6BC1|\u6BC6 \u6BB4|\u6BFF \u6BF5|\u6C02 \u7266|\u6C08 \u6BE1|\u6C0C \u6C07|\u6C23 \u6C14|\u6C2B \u6C22|\u6C2C \u6C29|\u6C33 \u6C32|\u6C3E \u6CDB|\u6C4E \u6CDB|\u6C59 \u6C61|\u6C7A \u51B3|\u6C92 \u6CA1|\u6C96 \u51B2|\u6CC1 \u51B5|\u6CDD \u6EAF|\u6D29 \u6CC4|\u6D36 \u6C79|\u6D79 \u6D43|\u6D7F \u{2C1D9}|\u6D87 \u6CFE|\u6D97 \u6D9A|\u6DBC \u51C9|\u6DD2 \u51C4|\u6DDA \u6CEA|\u6DE5 \u6E0C|\u6DE8 \u51C0|\u6DE9 \u51CC|\u6DEA \u6CA6|\u6DF5 \u6E0A|\u6DF6 \u6D9E|\u6DFA \u6D45|\u6E19 \u6DA3|\u6E1B \u51CF|\u6E22 \u6CA8|\u6E26 \u6DA1|\u6E2C \u6D4B|\u6E3E \u6D51|\u6E4A \u51D1|\u6E4B \u{23C97}|\u6E5E \u6D48|\u6E67 \u6D8C|\u6E6F \u6C64|\u6E88 \u6CA9|\u6E96 \u51C6|\u6E9D \u6C9F|\u6EAB \u6E29|\u6EAE \u6D49|\u6EB3 \u6DA2|\u6EBC \u6E7F|\u6EC4 \u6CA7|\u6EC5 \u706D|\u6ECC \u6DA4|\u6ECE \u8365|\u6ED9 \u6C47|\u6EEC \u6CAA|\u6EEF \u6EDE|\u6EF2 \u6E17|\u6EF7 \u5364|\u6EF8 \u6D52|\u6EFB \u6D50|\u6EFE \u6EDA|\u6EFF \u6EE1|\u6F01 \u6E14|\u6F0A \u6E87|\u6F0D \u{2C1F9}|\u6F1A \u6CA4|\u6F22 \u6C49|\u6F23 \u6D9F|\u6F2C \u6E0D|\u6F32 \u6DA8|\u6F35 \u6E86|\u6F38 \u6E10|\u6F3F \u6D46|\u6F41 \u988D|\u6F51 \u6CFC|\u6F54 \u6D01|\u6F55 \u{23C98}|\u6F59 \u6CA9|\u6F5A \u3D0B|\u6F5B \u6F5C|\u6F64 \u6DA6|\u6F6F \u6D54|\u6F70 \u6E83|\u6F77 \u6ED7|\u6F7F \u6DA0|\u6F80 \u6DA9|\u6F86 \u6D47|\u6F87 \u6D9D|\u6F90 \u6C84|\u6F97 \u6DA7|\u6FA0 \u6E11|\u6FA4 \u6CFD|\u6FA6 \u6EEA|\u6FA9 \u6CF6|\u6FAB \u{2C1D5}|\u6FAE \u6D4D|\u6FB1 \u6DC0|\u6FBE \u3CE0|\u6FC1 \u6D4A|\u6FC3 \u6D53|\u6FC4 \u3CE1|\u6FC6 \u{23E23}|\u6FD5 \u6E7F|\u6FD8 \u6CDE|\u6FDA \u6E81|\u6FDB \u8499|\u6FDC \u6D55|\u6FDF \u6D4E|\u6FE4 \u6D9B|\u6FE7 \u3CD4|\u6FEB \u6EE5|\u6FF0 \u6F4D|\u6FF1 \u6EE8|\u6FFA \u6E85|\u6FFC \u6CFA|\u6FFE \u6EE4|\u7002 \u6F9B|\u7005 \u6EE2|\u7006 \u6E0E|\u7007 \u3CBF|\u7009 \u6CFB|\u700B \u6C88|\u700F \u6D4F|\u7015 \u6FD2|\u7018 \u6CF8|\u701D \u6CA5|\u701F \u6F47|\u7020 \u6F46|\u7026 \u6F74|\u7027 \u6CF7|\u7028 \u6FD1|\u7030 \u5F25|\u7032 \u6F4B|\u703E \u6F9C|\u7043 \u6CA3|\u7044 \u6EE0|\u7051 \u6D12|\u7052 \u{2ADFD}|\u7055 \u6F13|\u7058 \u6EE9|\u7059 \u{23EBC}|\u705D \u704F|\u7061 \u3CD5|\u7063 \u6E7E|\u7064 \u6EE6|\u7067 \u6EDF|\u7069 \u6EDF|\u707D \u707E|\u70BA \u4E3A|\u70CF \u4E4C|\u70F4 \u70C3|\u7121 \u65E0|\u7149 \u70BC|\u7152 \u709C|\u7159 \u70DF|\u7162 \u8315|\u7165 \u7115|\u7169 \u70E6|\u716C \u7080|\u7171 \u3DBD|\u7185 \u7174|\u7192 \u8367|\u7197 \u709D|\u71B0 \u{2C27C}|\u71B1 \u70ED|\u71B2 \u988E|\u71BE \u70BD|\u71C0 \u{2C2A4}|\u71C1 \u70E8|\u71C8 \u706F|\u71C9 \u7096|\u71D2 \u70E7|\u71D6 \u{2C288}|\u71D9 \u70EB|\u71DC \u7116|\u71DF \u8425|\u71E6 \u707F|\u71EC \u6BC1|\u71ED \u70DB|\u71F4 \u70E9|\u71F6 \u3DB6|\u71FB \u718F|\u71FC \u70EC|\u71FE \u7118|\u720D \u70C1|\u7210 \u7089|\u721B \u70C2|\u722D \u4E89|\u7232 \u4E3A|\u723A \u7237|\u723E \u5C14|\u7240 \u5E8A|\u7246 \u5899|\u7258 \u724D|\u7274 \u62B5|\u727D \u7275|\u7296 \u8366|\u729B \u7266|\u72A2 \u728A|\u72A7 \u727A|\u72C0 \u72B6|\u72F9 \u72ED|\u72FD \u72C8|\u7319 \u72F0|\u7336 \u72B9|\u733B \u72F2|\u7341 \u72B8|\u7343 \u5446|\u7344 \u72F1|\u7345 \u72EE|\u734E \u5956|\u7368 \u72EC|\u736A \u72EF|\u736B \u7303|\u736E \u72DD|\u7370 \u72DE|\u7371 \u3E8D|\u7372 \u83B7|\u7375 \u730E|\u7377 \u72B7|\u7378 \u517D|\u737A \u736D|\u737B \u732E|\u737C \u7315|\u7380 \u7321|\u73FE \u73B0|\u7431 \u96D5|\u743A \u73D0|\u743F \u73F2|\u744B \u73AE|\u7452 \u739A|\u7463 \u7410|\u7464 \u7476|\u7469 \u83B9|\u746A \u739B|\u7472 \u73B1|\u7489 \u740F|\u748A \u{2B7A9}|\u7495 \u{2C364}|\u7497 \u{2C361}|\u74A1 \u740E|\u74A3 \u7391|\u74A6 \u7477|\u74AB \u73F0|\u74AF \u3EC5|\u74B0 \u73AF|\u74B5 \u7399|\u74B8 \u7478|\u74BD \u73BA|\u74BF \u7487|\u74C5 \u{2C35B}|\u74CA \u743C|\u74CF \u73D1|\u74D4 \u748E|\u74DA \u74D2|\u74DB \u{24A7D}|\u750C \u74EF|\u7515 \u74EE|\u7522 \u4EA7|\u7523 \u4EA7|\u755D \u4EA9|\u7562 \u6BD5|\u756B \u753B|\u7570 \u5F02|\u7575 \u753B|\u7576 \u5F53|\u7587 \u7574|\u758A \u53E0|\u75D9 \u75C9|\u75E0 \u9178|\u75FE \u75B4|\u7602 \u75D6|\u760B \u75AF|\u760D \u75A1|\u7613 \u75EA|\u761E \u7617|\u7621 \u75AE|\u7627 \u759F|\u762E \u7606|\u7632 \u75AD|\u763A \u7618|\u763B \u7618|\u7642 \u7597|\u7646 \u75E8|\u7647 \u75EB|\u7649 \u7605|\u7652 \u6108|\u7658 \u75A0|\u765F \u762A|\u7661 \u75F4|\u7662 \u75D2|\u7664 \u7596|\u7665 \u75C7|\u7667 \u75AC|\u7669 \u765E|\u766C \u7663|\u766D \u763F|\u766E \u763E|\u7670 \u75C8|\u7671 \u762B|\u7672 \u766B|\u767C \u53D1|\u7681 \u7682|\u769A \u7691|\u76B0 \u75B1|\u76B8 \u76B2|\u76BA \u76B1|\u76C3 \u676F|\u76DC \u76D7|\u76DE \u76CF|\u76E1 \u5C3D|\u76E3 \u76D1|\u76E4 \u76D8|\u76E7 \u5362|\u76EA \u8361|\u771E \u771F|\u7725 \u7726|\u773E \u4F17|\u774D \u{2AFA2}|\u774F \u56F0|\u775C \u7741|\u775E \u7750|\u7798 \u770D|\u779C \u4056|\u779E \u7792|\u77B6 \u7786|\u77BC \u7751|\u77C7 \u8499|\u77D3 \u772C|\u77DA \u77A9|\u77EF \u77EB|\u7843 \u6731|\u785C \u7841|\u7864 \u7856|\u7868 \u7817|\u786F \u781A|\u7895 \u57FC|\u78A9 \u7855|\u78AD \u7800|\u78B8 \u781C|\u78BA \u786E|\u78BC \u7801|\u78BD \u40B5|\u78D1 \u7859|\u78DA \u7816|\u78E0 \u7875|\u78E3 \u789C|\u78E7 \u789B|\u78EF \u77F6|\u78FD \u7857|\u78FE \u40C5|\u7904 \u785A|\u790E \u7840|\u7910 \u{2C488}|\u7919 \u788D|\u7926 \u77FF|\u792A \u783A|\u792B \u783E|\u792C \u77FE|\u7931 \u783B|\u7955 \u79D8|\u797F \u7984|\u798D \u7978|\u798E \u796F|\u7995 \u794E|\u79A1 \u7943|\u79A6 \u5FA1|\u79AA \u7985|\u79AE \u793C|\u79B0 \u7962|\u79B1 \u7977|\u79BF \u79C3|\u79C8 \u7C7C|\u7A05 \u7A0E|\u7A08 \u79C6|\u7A0F \u4149|\u7A1C \u68F1|\u7A1F \u7980|\u7A2E \u79CD|\u7A31 \u79F0|\u7A40 \u8C37|\u7A47 \u415F|\u7A4C \u7A23|\u7A4D \u79EF|\u7A4E \u9896|\u7A60 \u79FE|\u7A61 \u7A51|\u7A62 \u79FD|\u7A69 \u7A33|\u7A6B \u83B7|\u7A6D \u7A5E|\u7AA9 \u7A9D|\u7AAA \u6D3C|\u7AAE \u7A77|\u7AAF \u7A91|\u7AB5 \u7A8E|\u7AB6 \u7AAD|\u7ABA \u7AA5|\u7AC4 \u7A9C|\u7AC5 \u7A8D|\u7AC7 \u7AA6|\u7AC8 \u7076|\u7ACA \u7A83|\u7AEA \u7AD6|\u7AF6 \u7ADE|\u7B46 \u7B14|\u7B4D \u7B0B|\u7B67 \u7B15|\u7B74 \u41F2|\u7B87 \u4E2A|\u7B8B \u7B3A|\u7B8F \u7B5D|\u7B9A \u672D|\u7BC0 \u8282|\u7BC4 \u8303|\u7BC9 \u7B51|\u7BCB \u7BA7|\u7BD4 \u7B7C|\u7BE0 \u7B7F|\u7BE2 \u{2C542}|\u7BE4 \u7B03|\u7BE9 \u7B5B|\u7BF3 \u7B5A|\u7BF8 \u{25BBE}|\u7C00 \u7BA6|\u7C0D \u7BD3|\u7C11 \u84D1|\u7C1E \u7BAA|\u7C21 \u7B80|\u7C23 \u7BD1|\u7C2B \u7BAB|\u7C39 \u7B5C|\u7C3D \u7B7E|\u7C3E \u5E18|\u7C43 \u7BEE|\u7C45 \u{25AE3}|\u7C4C \u7B79|\u7C54 \u4264|\u7C59 \u7B93|\u7C5B \u7BEF|\u7C5C \u7BA8|\u7C5F \u7C41|\u7C60 \u7B3C|\u7C64 \u7B7E|\u7C69 \u7B3E|\u7C6A \u7C16|\u7C6C \u7BF1|\u7C6E \u7BA9|\u7C72 \u5401|\u7CB5 \u7CA4|\u7CC9 \u7CBD|\u7CDD \u7CC1|\u7CDE \u7CAA|\u7CE7 \u7CAE|\u7CF0 \u56E2|\u7CF2 \u7C9D|\u7CF4 \u7C74|\u7CF6 \u7C9C|\u7CF9 \u7E9F|\u7CFE \u7EA0|\u7D00 \u7EAA|\u7D02 \u7EA3|\u7D03 \u{2C613}|\u7D04 \u7EA6|\u7D05 \u7EA2|\u7D06 \u7EA1|\u7D07 \u7EA5|\u7D08 \u7EA8|\u7D09 \u7EAB|\u7D0B \u7EB9|\u7D0D \u7EB3|\u7D10 \u7EBD|\u7D13 \u7EBE|\u7D14 \u7EAF|\u7D15 \u7EB0|\u7D16 \u7EBC|\u7D17 \u7EB1|\u7D18 \u7EAE|\u7D19 \u7EB8|\u7D1A \u7EA7|\u7D1B \u7EB7|\u7D1C \u7EAD|\u7D1D \u7EB4|\u7D1E \u{2C618}|\u7D21 \u7EBA|\u7D2C \u4337|\u7D2E \u624E|\u7D30 \u7EC6|\u7D31 \u7EC2|\u7D32 \u7EC1|\u7D33 \u7EC5|\u7D35 \u7EBB|\u7D39 \u7ECD|\u7D3A \u7EC0|\u7D3C \u7ECB|\u7D3F \u7ED0|\u7D40 \u7ECC|\u7D42 \u7EC8|\u7D43 \u5F26|\u7D44 \u7EC4|\u7D45 \u4339|\u7D46 \u7ECA|\u7D4E \u7ED7|\u7D50 \u7ED3|\u7D55 \u7EDD|\u7D5B \u7EE6|\u7D5D \u7ED4|\u7D5E \u7EDE|\u7D61 \u7EDC|\u7D62 \u7EDA|\u7D66 \u7ED9|\u7D68 \u7ED2|\u7D6A \u{2C621}|\u7D70 \u7ED6|\u7D71 \u7EDF|\u7D72 \u4E1D|\u7D73 \u7EDB|\u7D76 \u7EDD|\u7D79 \u7EE2|\u7D7A \u{2B128}|\u7D81 \u7ED1|\u7D83 \u7EE1|\u7D84 \u{2C62B}|\u7D86 \u7EE0|\u7D88 \u7EE8|\u7D89 \u7EE3|\u7D8C \u7EE4|\u7D8E \u{2C629}|\u7D8F \u7EE5|\u7D90 \u433C|\u7D91 \u6346|\u7D93 \u7ECF|\u7D96 \u{2B127}|\u7D9C \u7EFC|\u7D9D \u{2C62D}|\u7D9E \u7F0D|\u7DA0 \u7EFF|\u7DA1 \u{2B7C5}|\u7DA2 \u7EF8|\u7DA3 \u7EFB|\u7DA7 \u{2C62F}|\u7DAA \u{2C62C}|\u7DAB \u7EBF|\u7DAC \u7EF6|\u7DAD \u7EF4|\u7DAF \u7EF9|\u7DB0 \u7EFE|\u7DB1 \u7EB2|\u7DB2 \u7F51|\u7DB3 \u7EF7|\u7DB4 \u7F00|\u7DB5 \u5F69|\u7DB8 \u7EB6|\u7DB9 \u7EFA|\u7DBA \u7EEE|\u7DBB \u7EFD|\u7DBD \u7EF0|\u7DBE \u7EEB|\u7DBF \u7EF5|\u7DC4 \u7EF2|\u7DC7 \u7F01|\u7DCA \u7D27|\u7DCB \u7EEF|\u7DD1 \u7EFF|\u7DD2 \u7EEA|\u7DD3 \u7EEC|\u7DD4 \u7EF1|\u7DD7 \u7F03|\u7DD8 \u7F04|\u7DD9 \u7F02|\u7DDA \u7EBF|\u7DDD \u7F09|\u7DDE \u7F0E|\u7DE0 \u7F14|\u7DE1 \u7F17|\u7DE3 \u7F18|\u7DE6 \u7F0C|\u7DE8 \u7F16|\u7DE9 \u7F13|\u7DEC \u7F05|\u7DEF \u7EAC|\u7DF1 \u7F11|\u7DF2 \u7F08|\u7DF4 \u7EC3|\u7DF6 \u7F0F|\u7DF9 \u7F07|\u7DFB \u81F4|\u7DFC \u7F0A|\u7E08 \u8426|\u7E09 \u7F19|\u7E0A \u7F22|\u7E0B \u7F12|\u7E10 \u7EC9|\u7E11 \u7F23|\u7E15 \u7F0A|\u7E17 \u7F1E|\u7E1B \u7F1A|\u7E1D \u7F1C|\u7E1E \u7F1F|\u7E1F \u7F1B|\u7E23 \u53BF|\u7E27 \u7EE6|\u7E2B \u7F1D|\u7E2D \u7F21|\u7E2E \u7F29|\u7E2F \u{2C642}|\u7E31 \u7EB5|\u7E32 \u7F27|\u7E33 \u4338|\u7E34 \u7EA4|\u7E35 \u7F26|\u7E36 \u7D77|\u7E37 \u7F15|\u7E39 \u7F25|\u7E3D \u603B|\u7E3E \u7EE9|\u7E43 \u7EF7|\u7E45 \u7F2B|\u7E46 \u7F2A|\u7E52 \u7F2F|\u7E54 \u7EC7|\u7E55 \u7F2E|\u7E5A \u7F2D|\u7E5E \u7ED5|\u7E61 \u7EE3|\u7E62 \u7F0B|\u7E69 \u7EF3|\u7E6A \u7ED8|\u7E6B \u7CFB|\u7E6D \u8327|\u7E6E \u7F30|\u7E6F \u7F33|\u7E70 \u7F32|\u7E73 \u7F34|\u7E76 \u{2B137}|\u7E78 \u4341|\u7E79 \u7ECE|\u7E7B \u{26221}|\u7E7C \u7EE7|\u7E7D \u7F24|\u7E7E \u7F31|\u7E7F \u4340|\u7E81 \u{2B138}|\u7E86 \u{2C64A}|\u7E87 \u98A3|\u7E88 \u7F2C|\u7E8A \u7EA9|\u7E8C \u7EED|\u7E8D \u7D2F|\u7E8F \u7F20|\u7E93 \u7F28|\u7E94 \u624D|\u7E95 \u{2C64B}|\u7E96 \u7EA4|\u7E98 \u7F35|\u7E9C \u7F06|\u7F3D \u94B5|\u7F43 \u44E8|\u7F48 \u575B|\u7F4C \u7F42|\u7F4E \u575B|\u7F70 \u7F5A|\u7F75 \u9A82|\u7F77 \u7F62|\u7F85 \u7F57|\u7F86 \u7F74|\u7F88 \u7F81|\u7F8B \u8288|\u7FA3 \u7FA4|\u7FA5 \u7F9F|\u7FA8 \u7FA1|\u7FA9 \u4E49|\u7FB6 \u81BB|\u7FD2 \u4E60|\u7FEB \u73A9|\u7FEC \u7FDA|\u7FF9 \u7FD8|\u7FFD \u7FD9|\u802C \u8027|\u802E \u8022|\u8056 \u5723|\u805E \u95FB|\u806F \u8054|\u8070 \u806A|\u8072 \u58F0|\u8073 \u8038|\u8075 \u8069|\u8076 \u8042|\u8077 \u804C|\u8079 \u804D|\u807D \u542C|\u807E \u804B|\u8085 \u8083|\u8105 \u80C1|\u8108 \u8109|\u811B \u80EB|\u8123 \u5507|\u8129 \u4FEE|\u812B \u8131|\u8139 \u80C0|\u814E \u80BE|\u8156 \u80E8|\u8161 \u8136|\u8166 \u8111|\u816B \u80BF|\u8173 \u811A|\u8178 \u80A0|\u8183 \u817D|\u8195 \u8158|\u819A \u80A4|\u819E \u43DD|\u81A0 \u80F6|\u81A2 \u{2677C}|\u81A9 \u817B|\u81BD \u80C6|\u81BE \u810D|\u81BF \u8113|\u81C9 \u8138|\u81CD \u8110|\u81CF \u8191|\u81D8 \u814A|\u81DA \u80EA|\u81DF \u810F|\u81E0 \u8114|\u81E2 \u81DC|\u81E5 \u5367|\u81E8 \u4E34|\u81FA \u53F0|\u8207 \u4E0E|\u8208 \u5174|\u8209 \u4E3E|\u820A \u65E7|\u8216 \u94FA|\u8218 \u9986|\u8259 \u8231|\u8264 \u8223|\u8266 \u8230|\u826B \u823B|\u8271 \u8270|\u8277 \u8273|\u82BB \u520D|\u82E7 \u82CE|\u8332 \u5179|\u834A \u8346|\u838A \u5E84|\u8396 \u830E|\u83A2 \u835A|\u83A7 \u82CB|\u83EF \u534E|\u83F4 \u5EB5|\u83F8 \u70DF|\u8407 \u82CC|\u840A \u83B1|\u842C \u4E07|\u8434 \u835D|\u8435 \u83B4|\u8449 \u53F6|\u8452 \u836D|\u8464 \u836E|\u8466 \u82C7|\u846F \u836F|\u8477 \u8364|\u848D \u{2B1ED}|\u8490 \u641C|\u8493 \u83BC|\u8494 \u83B3|\u8495 \u8480|\u849E \u8385|\u84BC \u82CD|\u84C0 \u836A|\u84C6 \u5E2D|\u84CB \u76D6|\u84EE \u83B2|\u84EF \u82C1|\u84F4 \u83BC|\u84FD \u835C|\u8504 \u{2C72C}|\u8514 \u535C|\u8518 \u53C2|\u851E \u848C|\u8523 \u848B|\u8525 \u8471|\u8526 \u8311|\u852D \u836B|\u852F \u{2B21F}|\u853F \u{2B1ED}|\u8541 \u8368|\u8546 \u8487|\u854E \u835E|\u8552 \u836C|\u8553 \u82B8|\u8555 \u83B8|\u8558 \u835B|\u8562 \u8489|\u8569 \u8361|\u856A \u829C|\u856D \u8427|\u8577 \u84E3|\u8580 \u8570|\u8588 \u835F|\u858A \u84DF|\u858C \u8297|\u8591 \u59DC|\u8594 \u8537|\u8598 \u8359|\u859F \u83B6|\u85A6 \u8350|\u85A9 \u8428|\u85B3 \u44D5|\u85B4 \u82E7|\u85B5 \u44D3|\u85B9 \u82D4|\u85BA \u8360|\u85CD \u84DD|\u85CE \u8369|\u85DD \u827A|\u85E5 \u836F|\u85EA \u85AE|\u85ED \u44D6|\u85F4 \u8574|\u85F6 \u82C8|\u85F9 \u853C|\u85FA \u853A|\u8600 \u841A|\u8604 \u8572|\u8606 \u82A6|\u8607 \u82CF|\u860A \u8574|\u860B \u82F9|\u861A \u85D3|\u861E \u8539|\u861F \u{26ED5}|\u8622 \u830F|\u862D \u5170|\u863A \u84E0|\u863F \u841D|\u8646 \u8502|\u8649 \u{2C7C1}|\u8655 \u5904|\u865B \u865A|\u865C \u864F|\u865F \u53F7|\u8667 \u4E8F|\u866F \u866C|\u86FA \u86F1|\u86FB \u8715|\u8706 \u86AC|\u8740 \u{2C7FD}|\u8755 \u8680|\u875F \u732C|\u8766 \u867E|\u8768 \u8671|\u8778 \u8717|\u8784 \u86F3|\u879E \u8682|\u87A2 \u8424|\u87AE \u45D6|\u87BB \u877C|\u87BF \u8780|\u87C4 \u86F0|\u87C8 \u8748|\u87CE \u87A8|\u87E3 \u866E|\u87EC \u8749|\u87EF \u86F2|\u87F2 \u866B|\u87F3 \u{2B2BB}|\u87F6 \u86CF|\u87FB \u8681|\u8801 \u8683|\u8805 \u8747|\u8806 \u867F|\u880D \u874E|\u8810 \u86F4|\u8811 \u877E|\u8814 \u869D|\u881F \u8721|\u8823 \u86CE|\u8828 \u87CF|\u8831 \u86CA|\u8836 \u8695|\u883B \u86EE|\u8846 \u4F17|\u884A \u8511|\u8853 \u672F|\u8855 \u540C|\u885A \u80E1|\u885B \u536B|\u885D \u51B2|\u889E \u886E|\u88B7 \u5939|\u88CA \u8885|\u88CF \u91CC|\u88DC \u8865|\u88DD \u88C5|\u88E1 \u91CC|\u88FD \u5236|\u8907 \u590D|\u890C \u88C8|\u8918 \u8886|\u8932 \u88E4|\u8933 \u88E2|\u8938 \u891B|\u893B \u4EB5|\u8940 \u{2B300}|\u8947 \u88E5|\u8949 \u88E5|\u894F \u88AF|\u8956 \u8884|\u895D \u88E3|\u8960 \u88C6|\u8964 \u8934|\u896A \u889C|\u896C \u6446|\u896F \u886C|\u8972 \u88AD|\u8974 \u8955|\u8988 \u6838|\u898B \u89C1|\u898E \u89C3|\u898F \u89C4|\u8993 \u89C5|\u8996 \u89C6|\u8998 \u89C7|\u89A1 \u89CB|\u89A5 \u89CD|\u89A6 \u89CE|\u89AA \u4EB2|\u89AC \u89CA|\u89AF \u89CF|\u89B2 \u89D0|\u89B7 \u89D1|\u89BA \u89C9|\u89BD \u89C8|\u89BF \u89CC|\u89C0 \u89C2|\u89F4 \u89DE|\u89F6 \u89EF|\u89F8 \u89E6|\u8A01 \u8BA0|\u8A02 \u8BA2|\u8A03 \u8BA3|\u8A08 \u8BA1|\u8A0A \u8BAF|\u8A0C \u8BA7|\u8A0E \u8BA8|\u8A0F \u{2C8D9}|\u8A10 \u8BA6|\u8A12 \u8BB1|\u8A13 \u8BAD|\u8A15 \u8BAA|\u8A16 \u8BAB|\u8A17 \u6258|\u8A18 \u8BB0|\u8A1B \u8BB9|\u8A1D \u8BB6|\u8A1F \u8BBC|\u8A22 \u4723|\u8A23 \u8BC0|\u8A25 \u8BB7|\u8A29 \u8BBB|\u8A2A \u8BBF|\u8A2D \u8BBE|\u8A31 \u8BB8|\u8A34 \u8BC9|\u8A36 \u8BC3|\u8A3A \u8BCA|\u8A3B \u6CE8|\u8A3C \u8BC1|\u8A40 \u{27BAA}|\u8A41 \u8BC2|\u8A46 \u8BCB|\u8A4E \u8BB5|\u8A50 \u8BC8|\u8A52 \u8BD2|\u8A54 \u8BCF|\u8A55 \u8BC4|\u8A56 \u8BD0|\u8A57 \u8BC7|\u8A58 \u8BCE|\u8A5B \u8BC5|\u8A5D \u{2C8DE}|\u8A5E \u8BCD|\u8A60 \u548F|\u8A61 \u8BE9|\u8A62 \u8BE2|\u8A63 \u8BE3|\u8A66 \u8BD5|\u8A69 \u8BD7|\u8A6A \u{2C8F3}|\u8A6B \u8BE7|\u8A6C \u8BDF|\u8A6D \u8BE1|\u8A6E \u8BE0|\u8A70 \u8BD8|\u8A71 \u8BDD|\u8A72 \u8BE5|\u8A73 \u8BE6|\u8A75 \u8BDC|\u8A77 \u{2B363}|\u8A7C \u8BD9|\u8A7F \u8BD6|\u8A84 \u8BD4|\u8A85 \u8BDB|\u8A86 \u8BD3|\u8A87 \u5938|\u8A8C \u5FD7|\u8A8D \u8BA4|\u8A91 \u8BF3|\u8A92 \u8BF6|\u8A95 \u8BDE|\u8A98 \u8BF1|\u8A9A \u8BEE|\u8A9E \u8BED|\u8AA0 \u8BDA|\u8AA1 \u8BEB|\u8AA3 \u8BEC|\u8AA4 \u8BEF|\u8AA5 \u8BF0|\u8AA6 \u8BF5|\u8AA8 \u8BF2|\u8AAA \u8BF4|\u8AAC \u8BF4|\u8AB0 \u8C01|\u8AB2 \u8BFE|\u8AB6 \u8C07|\u8AB9 \u8BFD|\u8ABC \u8C0A|\u8ABE \u8A1A|\u8ABF \u8C03|\u8AC2 \u8C04|\u8AC4 \u8C06|\u8AC7 \u8C08|\u8AC9 \u8BFF|\u8ACB \u8BF7|\u8ACD \u8BE4|\u8ACF \u8BF9|\u8AD1 \u8BFC|\u8AD2 \u8C05|\u8AD3 \u{2C8E1}|\u8AD6 \u8BBA|\u8AD7 \u8C02|\u8ADB \u8C00|\u8ADC \u8C0D|\u8ADD \u8C1E|\u8ADE \u8C1D|\u8ADF \u{2C90A}|\u8AE1 \u8C25|\u8AE2 \u8BE8|\u8AE4 \u8C14|\u8AE6 \u8C1B|\u8AE7 \u8C10|\u8AEB \u8C0F|\u8AED \u8C15|\u8AEE \u54A8|\u8AF1 \u8BB3|\u8AF2 \u{2C907}|\u8AF3 \u8C19|\u8AF4 \u{2B36F}|\u8AF6 \u8C0C|\u8AF7 \u8BBD|\u8AF8 \u8BF8|\u8AFA \u8C1A|\u8AFC \u8C16|\u8AFE \u8BFA|\u8B00 \u8C0B|\u8B01 \u8C12|\u8B02 \u8C13|\u8B04 \u8A8A|\u8B05 \u8BCC|\u8B0A \u8C0E|\u8B0E \u8C1C|\u8B0F \u{2B372}|\u8B10 \u8C27|\u8B14 \u8C11|\u8B16 \u8C21|\u8B17 \u8C24|\u8B19 \u8C26|\u8B1A \u8C25|\u8B1B \u8BB2|\u8B1D \u8C22|\u8B20 \u8C23|\u8B21 \u8C23|\u8B28 \u8C1F|\u8B2B \u8C2A|\u8B2C \u8C2C|\u8B2D \u8C2B|\u8B33 \u8BB4|\u8B39 \u8C28|\u8B3E \u8C29|\u8B41 \u54D7|\u8B49 \u8BC1|\u8B4E \u8C32|\u8B4F \u8BA5|\u8B53 \u{2C91D}|\u8B56 \u8C2E|\u8B58 \u8BC6|\u8B59 \u8C2F|\u8B5A \u8C2D|\u8B5C \u8C31|\u8B5E \u{2B37D}|\u8B5F \u566A|\u8B6B \u8C35|\u8B6D \u6BC1|\u8B6F \u8BD1|\u8B70 \u8BAE|\u8B74 \u8C34|\u8B77 \u62A4|\u8B78 \u8BEA|\u8B7D \u8A89|\u8B7E \u8C2B|\u8B80 \u8BFB|\u8B85 \u8C09|\u8B8A \u53D8|\u8B8B \u8A5F|\u8B8C \u4729|\u8B8E \u96E0|\u8B92 \u8C17|\u8B93 \u8BA9|\u8B95 \u8C30|\u8B96 \u8C36|\u8B9A \u8D5E|\u8B9C \u8C20|\u8B9E \u8C33|\u8C3F \u6EAA|\u8C48 \u5C82|\u8C4E \u7AD6|\u8C50 \u4E30|\u8C54 \u8273|\u8C6C \u732A|\u8C76 \u8C6E|\u8C8D \u72F8|\u8C93 \u732B|\u8C99 \u4759|\u8C9D \u8D1D|\u8C9E \u8D1E|\u8C9F \u8D20|\u8CA0 \u8D1F|\u8CA1 \u8D22|\u8CA2 \u8D21|\u8CA7 \u8D2B|\u8CA8 \u8D27|\u8CA9 \u8D29|\u8CAA \u8D2A|\u8CAB \u8D2F|\u8CAC \u8D23|\u8CAF \u8D2E|\u8CB0 \u8D33|\u8CB2 \u8D40|\u8CB3 \u8D30|\u8CB4 \u8D35|\u8CB6 \u8D2C|\u8CB7 \u4E70|\u8CB8 \u8D37|\u8CBA \u8D36|\u8CBB \u8D39|\u8CBC \u8D34|\u8CBD \u8D3B|\u8CBF \u8D38|\u8CC0 \u8D3A|\u8CC1 \u8D32|\u8CC2 \u8D42|\u8CC3 \u8D41|\u8CC4 \u8D3F|\u8CC5 \u8D45|\u8CC7 \u8D44|\u8CC8 \u8D3E|\u8CCA \u8D3C|\u8CD1 \u8D48|\u8CD2 \u8D4A|\u8CD3 \u5BBE|\u8CD5 \u8D47|\u8CD9 \u8D52|\u8CDA \u8D49|\u8CDC \u8D50|\u8CDE \u8D4F|\u8CE0 \u8D54|\u8CE1 \u8D53|\u8CE2 \u8D24|\u8CE3 \u5356|\u8CE4 \u8D31|\u8CE6 \u8D4B|\u8CE7 \u8D55|\u8CEA \u8D28|\u8CEB \u8D4D|\u8CEC \u8D26|\u8CED \u8D4C|\u8CF0 \u4790|\u8CF4 \u8D56|\u8CF5 \u8D57|\u8CFA \u8D5A|\u8CFB \u8D59|\u8CFC \u8D2D|\u8CFD \u8D5B|\u8CFE \u8D5C|\u8D04 \u8D3D|\u8D05 \u8D58|\u8D07 \u8D5F|\u8D08 \u8D60|\u8D0A \u8D5E|\u8D0B \u8D5D|\u8D0D \u8D61|\u8D0F \u8D62|\u8D10 \u8D46|\u8D13 \u8D43|\u8D14 \u8D51|\u8D16 \u8D4E|\u8D17 \u8D5D|\u8D1B \u8D63|\u8D1C \u8D43|\u8D6C \u8D6A|\u8D95 \u8D76|\u8D99 \u8D75|\u8DA8 \u8D8B|\u8DB2 \u8DB1|\u8DE1 \u8FF9|\u8E10 \u8DF5|\u8E30 \u903E|\u8E34 \u8E0A|\u8E4C \u8DC4|\u8E55 \u8DF8|\u8E5F \u8FF9|\u8E60 \u8DD6|\u8E63 \u8E52|\u8E64 \u8E2A|\u8E7A \u8DF7|\u8E82 \u8DF6|\u8E89 \u8DB8|\u8E8A \u8E0C|\u8E8B \u8DFB|\u8E8D \u8DC3|\u8E8E \u47E2|\u8E91 \u8E2F|\u8E92 \u8DDE|\u8E93 \u8E2C|\u8E95 \u8E70|\u8E9A \u8DF9|\u8EA1 \u8E51|\u8EA5 \u8E7F|\u8EA6 \u8E9C|\u8EAA \u8E8F|\u8EC0 \u8EAF|\u8ECA \u8F66|\u8ECB \u8F67|\u8ECC \u8F68|\u8ECD \u519B|\u8ECF \u{2B404}|\u8ED1 \u8F6A|\u8ED2 \u8F69|\u8ED4 \u8F6B|\u8EDB \u8F6D|\u8EDD \u{2CA02}|\u8EDF \u8F6F|\u8EE4 \u8F77|\u8EEB \u8F78|\u8EF2 \u8F71|\u8EF8 \u8F74|\u8EF9 \u8F75|\u8EFA \u8F7A|\u8EFB \u8F72|\u8EFC \u8F76|\u8EFE \u8F7C|\u8F03 \u8F83|\u8F04 \u{28408}|\u8F05 \u8F82|\u8F07 \u8F81|\u8F08 \u8F80|\u8F09 \u8F7D|\u8F0A \u8F7E|\u8F0B \u{2AA36}|\u8F12 \u8F84|\u8F13 \u633D|\u8F14 \u8F85|\u8F15 \u8F7B|\u8F17 \u{2B410}|\u8F1B \u8F86|\u8F1C \u8F8E|\u8F1D \u8F89|\u8F1E \u8F8B|\u8F1F \u8F8D|\u8F25 \u8F8A|\u8F26 \u8F87|\u8F29 \u8F88|\u8F2A \u8F6E|\u8F2C \u8F8C|\u8F2E \u{2B413}|\u8F2F \u8F91|\u8F33 \u8F8F|\u8F36 \u{2CA0E}|\u8F38 \u8F93|\u8F3B \u8F90|\u8F3C \u8F92|\u8F3E \u8F97|\u8F3F \u8206|\u8F40 \u8F92|\u8F42 \u6BC2|\u8F44 \u8F96|\u8F45 \u8F95|\u8F46 \u8F98|\u8F49 \u8F6C|\u8F4D \u8F99|\u8F4E \u8F7F|\u8F54 \u8F9A|\u8F5F \u8F70|\u8F61 \u8F94|\u8F62 \u8F79|\u8F64 \u8F73|\u8FA6 \u529E|\u8FAD \u8F9E|\u8FAE \u8FAB|\u8FAF \u8FA9|\u8FB2 \u519C|\u8FF4 \u56DE|\u9015 \u5F84|\u9019 \u8FD9|\u9023 \u8FDE|\u9031 \u5468|\u9032 \u8FDB|\u904A \u6E38|\u904B \u8FD0|\u904E \u8FC7|\u9054 \u8FBE|\u9055 \u8FDD|\u9059 \u9065|\u905C \u900A|\u905E \u9012|\u9060 \u8FDC|\u9061 \u6EAF|\u9069 \u9002|\u9072 \u8FDF|\u9076 \u7ED5|\u9077 \u8FC1|\u9078 \u9009|\u907A \u9057|\u907C \u8FBD|\u9081 \u8FC8|\u9084 \u8FD8|\u9087 \u8FE9|\u908A \u8FB9|\u908F \u903B|\u9090 \u9026|\u90DF \u90CF|\u90F5 \u90AE|\u9106 \u90D3|\u9109 \u4E61|\u9112 \u90B9|\u9114 \u90AC|\u9116 \u90E7|\u9127 \u9093|\u9129 \u{2CA7D}|\u912D \u90D1|\u9130 \u90BB|\u9132 \u90F8|\u9133 \u{2B461}|\u9134 \u90BA|\u9136 \u90D0|\u913A \u909D|\u9147 \u9142|\u9148 \u90E6|\u9183 \u814C|\u9196 \u915D|\u919C \u4E11|\u919E \u915D|\u919F \u848F|\u91A3 \u7CD6|\u91AB \u533B|\u91AC \u9171|\u91B1 \u9166|\u91B2 \u{2CAA9}|\u91C0 \u917F|\u91C1 \u8845|\u91C3 \u917E|\u91C5 \u917D|\u91CB \u91CA|\u91D0 \u5398|\u91D2 \u9485|\u91D3 \u9486|\u91D4 \u9487|\u91D5 \u948C|\u91D7 \u948A|\u91D8 \u9489|\u91D9 \u948B|\u91DD \u9488|\u91E3 \u9493|\u91E4 \u9490|\u91E6 \u6263|\u91E7 \u948F|\u91E9 \u9492|\u91F4 \u{2CB29}|\u91F5 \u9497|\u91F7 \u948D|\u91F9 \u9495|\u91FA \u948E|\u91FE \u497A|\u91FF \u{2CB31}|\u9200 \u94AF|\u9201 \u94AB|\u9203 \u9498|\u9204 \u94AD|\u9205 \u94A5|\u9207 \u{2B4E7}|\u9208 \u949A|\u9209 \u94A0|\u920D \u949D|\u920E \u94A9|\u9210 \u94A4|\u9211 \u94A3|\u9212 \u9491|\u9214 \u949E|\u9215 \u94AE|\u921E \u94A7|\u9221 \u949F|\u9223 \u9499|\u9225 \u94AC|\u9226 \u949B|\u9227 \u94AA|\u922E \u94CC|\u9230 \u94C8|\u9233 \u94B6|\u9234 \u94C3|\u9237 \u94B4|\u9238 \u94B9|\u9239 \u94CD|\u923A \u94B0|\u923D \u94B8|\u923E \u94C0|\u923F \u94BF|\u9240 \u94BE|\u9245 \u5DE8|\u9246 \u94BB|\u9248 \u94CA|\u9249 \u94C9|\u924A \u{2CB3F}|\u924B \u94C7|\u924D \u94CB|\u9251 \u94C2|\u9255 \u94B7|\u9257 \u94B3|\u925A \u94C6|\u925B \u94C5|\u925D \u{2B7F7}|\u925E \u94BA|\u9262 \u94B5|\u9264 \u94A9|\u9265 \u{2CB38}|\u9266 \u94B2|\u9267 \u{2CB41}|\u926C \u94BC|\u926D \u94BD|\u926E \u{2CB39}|\u9273 \u952B|\u9276 \u94CF|\u9277 \u{2B7F9}|\u9278 \u94F0|\u927A \u94D2|\u927B \u94EC|\u927F \u94EA|\u9280 \u94F6|\u9283 \u94F3|\u9285 \u94DC|\u9288 \u{2B4EF}|\u928D \u94DA|\u9291 \u94E3|\u9293 \u94E8|\u9296 \u94E2|\u9298 \u94ED|\u929A \u94EB|\u929B \u94E6|\u929C \u8854|\u92A0 \u94D1|\u92A3 \u94F7|\u92A5 \u94F1|\u92A6 \u94DF|\u92A8 \u94F5|\u92A9 \u94E5|\u92AA \u94D5|\u92AB \u94EF|\u92AC \u94D0|\u92B1 \u94DE|\u92B3 \u9510|\u92B6 \u{28C47}|\u92B7 \u9500|\u92B9 \u9508|\u92BB \u9511|\u92BC \u9509|\u92C1 \u94DD|\u92C3 \u9512|\u92C5 \u950C|\u92C7 \u94A1|\u92CC \u94E4|\u92CF \u94D7|\u92D0 \u{2CB4E}|\u92D2 \u950B|\u92D7 \u{2B4F6}|\u92D9 \u94FB|\u92DD \u950A|\u92DF \u9513|\u92E3 \u94D8|\u92E4 \u9504|\u92E5 \u9503|\u92E6 \u9514|\u92E8 \u9507|\u92E9 \u94D3|\u92EA \u94FA|\u92ED \u9510|\u92EE \u94D6|\u92EF \u9506|\u92F0 \u9502|\u92F1 \u94FD|\u92F6 \u950D|\u92F8 \u952F|\u92F9 \u{2CB2E}|\u92FC \u94A2|\u9300 \u{2CB2D}|\u9301 \u951E|\u9304 \u5F55|\u9306 \u9516|\u9307 \u952B|\u9308 \u9529|\u930F \u94D4|\u9310 \u9525|\u9312 \u9515|\u9315 \u951F|\u9318 \u9524|\u9319 \u9531|\u931A \u94EE|\u931B \u951B|\u931E \u{2CB5A}|\u931F \u952C|\u9320 \u952D|\u9321 \u951C|\u9322 \u94B1|\u9324 \u{2B4F9}|\u9326 \u9526|\u9328 \u951A|\u9329 \u9520|\u932B \u9521|\u932E \u9522|\u932F \u9519|\u9332 \u5F55|\u9333 \u9530|\u9336 \u8868|\u9338 \u94FC|\u933C \u954E|\u9340 \u951D|\u9341 \u9528|\u9343 \u952A|\u9345 \u94AB|\u9346 \u9494|\u9347 \u9534|\u9348 \u9533|\u934A \u70BC|\u934B \u9505|\u934D \u9540|\u9354 \u9537|\u9358 \u94E1|\u935A \u9496|\u935B \u953B|\u9360 \u953D|\u9364 \u9538|\u9365 \u9532|\u9369 \u9518|\u936C \u9539|\u936D \u{2CB64}|\u9370 \u953E|\u9375 \u952E|\u9376 \u9536|\u937A \u9517|\u937C \u9488|\u937E \u949F|\u9382 \u9541|\u9384 \u953F|\u9387 \u9545|\u938A \u9551|\u938C \u9570|\u9393 \u{2CB69}|\u9394 \u9555|\u9396 \u9501|\u9398 \u9549|\u939A \u9524|\u939B \u9548|\u939D \u{28C4F}|\u93A1 \u9543|\u93A2 \u94A8|\u93A3 \u84E5|\u93A6 \u954F|\u93A7 \u94E0|\u93A9 \u94E9|\u93AA \u953C|\u93AC \u9550|\u93AD \u9547|\u93AE \u9547|\u93B0 \u9552|\u93B2 \u954B|\u93B3 \u954D|\u93B5 \u9553|\u93B6 \u9FD4|\u93B8 \u954C|\u93BF \u954E|\u93C3 \u955E|\u93C7 \u65CB|\u93C8 \u94FE|\u93CC \u9546|\u93CD \u9559|\u93CF \u{2CB6C}|\u93D0 \u9560|\u93D1 \u955D|\u93D7 \u94FF|\u93D8 \u9535|\u93DC \u9557|\u93DD \u9558|\u93DE \u955B|\u93DF \u94F2|\u93E1 \u955C|\u93E2 \u9556|\u93E4 \u9542|\u93E8 \u933E|\u93F0 \u955A|\u93F5 \u94E7|\u93F7 \u9564|\u93F9 \u956A|\u93FA \u497D|\u93FB \u{2CB78}|\u93FD \u9508|\u9403 \u94D9|\u9404 \u{28C51}|\u9407 \u{2B50D}|\u940B \u94F4|\u940D \u{2B50E}|\u940F \u{28C54}|\u9410 \u9563|\u9412 \u94F9|\u9413 \u9566|\u9414 \u9561|\u9418 \u949F|\u9419 \u956B|\u941D \u9562|\u9420 \u9568|\u9425 \u4985|\u9426 \u950E|\u9427 \u950F|\u9428 \u9544|\u9429 \u{2CB7C}|\u942B \u954C|\u942E \u9570|\u942F \u4983|\u9432 \u956F|\u9433 \u956D|\u9435 \u94C1|\u9436 \u956E|\u9438 \u94CE|\u943A \u94DB|\u943D \u{2B7FC}|\u943F \u9571|\u9444 \u94F8|\u944A \u956C|\u944C \u9554|\u9451 \u9274|\u9452 \u9274|\u9454 \u9572|\u9455 \u9527|\u945E \u9574|\u9460 \u94C4|\u9463 \u9573|\u9465 \u9565|\u946A \u{2CB3B}|\u946D \u9567|\u9470 \u94A5|\u9471 \u9575|\u9472 \u9576|\u9477 \u954A|\u9479 \u9569|\u947C \u9523|\u947D \u94BB|\u947E \u92AE|\u947F \u51FF|\u9481 \u9562|\u9482 \u954B|\u9577 \u957F|\u9580 \u95E8|\u9582 \u95E9|\u9583 \u95EA|\u9586 \u95EB|\u9588 \u95EC|\u9589 \u95ED|\u958B \u5F00|\u958C \u95F6|\u958E \u95F3|\u958F \u95F0|\u9591 \u95F2|\u9592 \u95F2|\u9593 \u95F4|\u9594 \u95F5|\u9598 \u95F8|\u95A1 \u9602|\u95A3 \u9601|\u95A4 \u5408|\u95A5 \u9600|\u95A8 \u95FA|\u95A9 \u95FD|\u95AB \u9603|\u95AC \u9606|\u95AD \u95FE|\u95B1 \u9605|\u95B2 \u9605|\u95B6 \u960A|\u95B9 \u9609|\u95BB \u960E|\u95BC \u960F|\u95BD \u960D|\u95BE \u9608|\u95BF \u960C|\u95C3 \u9612|\u95C6 \u677F|\u95C7 \u6697|\u95C8 \u95F1|\u95C9 \u{2CBB1}|\u95CA \u9614|\u95CB \u9615|\u95CC \u9611|\u95CD \u9607|\u95D0 \u9617|\u95D1 \u{2B536}|\u95D2 \u9618|\u95D3 \u95FF|\u95D4 \u9616|\u95D5 \u9619|\u95D6 \u95EF|\u95DC \u5173|\u95DE \u961A|\u95E0 \u9613|\u95E1 \u9610|\u95E2 \u8F9F|\u95E4 \u961B|\u95E5 \u95FC|\u9658 \u9649|\u965D \u9655|\u965E \u5347|\u9663 \u9635|\u9670 \u9634|\u9673 \u9648|\u9678 \u9646|\u967D \u9633|\u9689 \u9667|\u968A \u961F|\u968E \u9636|\u9691 \u{2CBBF}|\u9695 \u9668|\u969B \u9645|\u96A4 \u{2CBCE}|\u96A8 \u968F|\u96AA \u9669|\u96AE \u{2CBC0}|\u96AF \u9666|\u96B1 \u9690|\u96B4 \u9647|\u96B8 \u96B6|\u96BB \u53EA|\u96CB \u96BD|\u96D6 \u867D|\u96D9 \u53CC|\u96DB \u96CF|\u96DC \u6742|\u96DE \u9E21|\u96E2 \u79BB|\u96E3 \u96BE|\u96F2 \u4E91|\u96FB \u7535|\u9711 \u6CBE|\u9722 \u9721|\u9727 \u96FE|\u973D \u9701|\u9742 \u96F3|\u9744 \u972D|\u9746 \u53C7|\u9748 \u7075|\u9749 \u53C6|\u975A \u9753|\u975C \u9759|\u975D \u9754|\u9766 \u817C|\u9768 \u9765|\u978F \u5DE9|\u979D \u7EF1|\u97A6 \u79CB|\u97BD \u9792|\u97C1 \u7F30|\u97C3 \u9791|\u97C6 \u5343|\u97C9 \u97AF|\u97CB \u97E6|\u97CC \u97E7|\u97CD \u97E8|\u97D3 \u97E9|\u97D9 \u97EA|\u97DC \u97EC|\u97DD \u97B2|\u97DE \u97EB|\u97FB \u97F5|\u97FF \u54CD|\u9801 \u9875|\u9802 \u9876|\u9803 \u9877|\u9805 \u9879|\u9806 \u987A|\u9807 \u9878|\u9808 \u987B|\u980A \u987C|\u980C \u9882|\u980D \u{2B806}|\u980E \u9880|\u980F \u9883|\u9810 \u9884|\u9811 \u987D|\u9812 \u9881|\u9813 \u987F|\u9814 \u{2CC56}|\u9817 \u9887|\u9818 \u9886|\u981C \u988C|\u9820 \u{2CC5F}|\u9821 \u9889|\u9824 \u9890|\u9826 \u988F|\u982B \u{2B5AF}|\u982D \u5934|\u982E \u9892|\u9830 \u988A|\u9832 \u988B|\u9834 \u9895|\u9835 \u{2B5B3}|\u9837 \u9894|\u9838 \u9888|\u9839 \u9893|\u983B \u9891|\u983D \u9893|\u9846 \u9897|\u984C \u9898|\u984D \u989D|\u984E \u989A|\u984F \u989C|\u9852 \u9899|\u9853 \u989B|\u9854 \u989C|\u9857 \u{2B5AE}|\u9858 \u613F|\u9859 \u98A1|\u985B \u98A0|\u985E \u7C7B|\u9862 \u989F|\u9865 \u98A2|\u9867 \u987E|\u986B \u98A4|\u986C \u98A5|\u986F \u663E|\u9870 \u98A6|\u9871 \u9885|\u9873 \u989E|\u9874 \u98A7|\u98A8 \u98CE|\u98AD \u98D0|\u98AE \u98D1|\u98AF \u98D2|\u98B1 \u53F0|\u98B3 \u522E|\u98B6 \u98D3|\u98B8 \u98D4|\u98BA \u98CF|\u98BB \u98D6|\u98BC \u98D5|\u98C0 \u98D7|\u98C4 \u98D8|\u98C6 \u98D9|\u98C8 \u98DA|\u98DB \u98DE|\u98E0 \u9963|\u98E2 \u9965|\u98E3 \u9964|\u98E5 \u9966|\u98E9 \u9968|\u98EA \u996A|\u98EB \u996B|\u98ED \u996C|\u98EF \u996D|\u98F1 \u98E7|\u98F2 \u996E|\u98F4 \u9974|\u98FC \u9972|\u98FD \u9971|\u98FE \u9970|\u98FF \u9973|\u9903 \u997A|\u9904 \u9978|\u9905 \u997C|\u9908 \u7CCD|\u9909 \u9977|\u990A \u517B|\u990C \u9975|\u990E \u9979|\u990F \u997B|\u9911 \u997D|\u9912 \u9981|\u9913 \u997F|\u9915 \u9982|\u9916 \u997E|\u9917 \u{2B5E7}|\u9918 \u4F59|\u991A \u80B4|\u991B \u9984|\u991C \u9983|\u991E \u996F|\u9921 \u9985|\u9928 \u9986|\u992C \u7CCA|\u9931 \u7CC7|\u9933 \u9967|\u9935 \u5582|\u9936 \u9989|\u9937 \u9987|\u9938 \u{2980C}|\u993A \u998E|\u993C \u9969|\u993E \u998F|\u993F \u998A|\u9941 \u998C|\u9943 \u998D|\u9945 \u9992|\u9948 \u9990|\u9949 \u9991|\u994A \u9993|\u994B \u9988|\u994C \u9994|\u9951 \u9965|\u9952 \u9976|\u9957 \u98E8|\u9958 \u{2B5F4}|\u995C \u990D|\u995E \u998B|\u9962 \u9995|\u99AC \u9A6C|\u99AD \u9A6D|\u99AE \u51AF|\u99B1 \u9A6E|\u99B3 \u9A70|\u99B4 \u9A6F|\u99B9 \u9A72|\u99BC \u{2B61C}|\u99C1 \u9A73|\u99C3 \u{2B61D}|\u99C9 \u{2CCF6}|\u99D0 \u9A7B|\u99D1 \u9A7D|\u99D2 \u9A79|\u99D3 \u{2CCF5}|\u99D4 \u9A75|\u99D5 \u9A7E|\u99D8 \u9A80|\u99D9 \u9A78|\u99DB \u9A76|\u99DD \u9A7C|\u99DF \u9A77|\u99E1 \u9A82|\u99E2 \u9A88|\u99EA \u{2CCFD}|\u99ED \u9A87|\u99F0 \u9A83|\u99F1 \u9A86|\u99F8 \u9A8E|\u99FC \u{2CCFF}|\u99FF \u9A8F|\u9A01 \u9A8B|\u9A02 \u9A8D|\u9A04 \u{2B627}|\u9A05 \u9A93|\u9A0A \u{2B626}|\u9A0C \u9A94|\u9A0D \u9A92|\u9A0E \u9A91|\u9A0F \u9A90|\u9A11 \u{2CD02}|\u9A16 \u9A9B|\u9A19 \u9A97|\u9A1E \u{2CD03}|\u9A20 \u{2B628}|\u9A24 \u9A99|\u9A27 \u4BC4|\u9A2B \u9A9E|\u9A2D \u9A98|\u9A2E \u9A9D|\u9A30 \u817E|\u9A31 \u{2B62C}|\u9A35 \u{2B62A}|\u9A36 \u9A7A|\u9A37 \u9A9A|\u9A38 \u9A9F|\u9A3E \u9AA1|\u9A40 \u84E6|\u9A41 \u9A9C|\u9A42 \u9A96|\u9A43 \u9AA0|\u9A44 \u9AA2|\u9A45 \u9A71|\u9A4A \u9A85|\u9A4C \u9A95|\u9A4D \u9A81|\u9A4E \u{2CD0A}|\u9A4F \u9AA3|\u9A55 \u9A84|\u9A57 \u9A8C|\u9A5A \u60CA|\u9A5B \u9A7F|\u9A5F \u9AA4|\u9A62 \u9A74|\u9A64 \u9AA7|\u9A65 \u9AA5|\u9A66 \u9AA6|\u9A6A \u9A8A|\u9A6B \u9A89|\u9AAF \u80AE|\u9ACF \u9AC5|\u9AD2 \u810F|\u9AD4 \u4F53|\u9AD5 \u9ACC|\u9AD6 \u9ACB|\u9AEE \u53D1|\u9B06 \u677E|\u9B0D \u80E1|\u9B1A \u987B|\u9B22 \u9B13|\u9B25 \u6597|\u9B27 \u95F9|\u9B28 \u54C4|\u9B29 \u960B|\u9B2E \u9604|\u9B31 \u90C1|\u9B39 \u9B36|\u9B4E \u9B49|\u9B58 \u9B47|\u9B5A \u9C7C|\u9B5B \u9C7D|\u9B5F \u{2B689}|\u9B62 \u9C7E|\u9B68 \u9C80|\u9B6F \u9C81|\u9B74 \u9C82|\u9B77 \u9C7F|\u9B7A \u9C84|\u9B80 \u{2CD8D}|\u9B81 \u9C85|\u9B83 \u9C86|\u9B86 \u{2B696}|\u9B88 \u{2CD8B}|\u9B8A \u9C8C|\u9B8B \u9C89|\u9B8D \u9C8F|\u9B8E \u9C87|\u9B90 \u9C90|\u9B91 \u9C8D|\u9B92 \u9C8B|\u9B93 \u9C8A|\u9B9A \u9C92|\u9B9C \u9C98|\u9B9D \u9C9E|\u9B9E \u9C95|\u9B9F \u{29F7E}|\u9BA0 \u{2CD8F}|\u9BA1 \u{2CD90}|\u9BA3 \u4C9F|\u9BA6 \u9C96|\u9BAA \u9C94|\u9BAB \u9C9B|\u9BAD \u9C91|\u9BAE \u9C9C|\u9BB3 \u9C93|\u9BB6 \u9CAA|\u9BB8 \u{29F83}|\u9BBA \u9C9D|\u9BC0 \u9CA7|\u9BC1 \u9CA0|\u9BC7 \u9CA9|\u9BC9 \u9CA4|\u9BCA \u9CA8|\u9BD2 \u9CAC|\u9BD4 \u9CBB|\u9BD5 \u9CAF|\u9BD6 \u9CAD|\u9BD7 \u9C9E|\u9BDB \u9CB7|\u9BDD \u9CB4|\u9BE1 \u9CB1|\u9BE2 \u9CB5|\u9BE4 \u9CB2|\u9BE7 \u9CB3|\u9BE8 \u9CB8|\u9BEA \u9CAE|\u9BEB \u9CB0|\u9BF0 \u9CB6|\u9BF4 \u9CBA|\u9BF7 \u9CC0|\u9BFB \u{2CD9F}|\u9BFD \u9CAB|\u9BFF \u9CCA|\u9C01 \u9CC8|\u9C02 \u9C97|\u9C03 \u9CC2|\u9C06 \u4CA0|\u9C08 \u9CBD|\u9C09 \u9CC7|\u9C0A \u{2CDA0}|\u9C0C \u4CA1|\u9C0D \u9CC5|\u9C0F \u9CBE|\u9C10 \u9CC4|\u9C12 \u9CC6|\u9C13 \u9CC3|\u9C1B \u9CC1|\u9C1C \u9CD2|\u9C1F \u9CD1|\u9C20 \u9CCB|\u9C23 \u9CA5|\u9C24 \u{2B695}|\u9C25 \u9CCF|\u9C27 \u4CA2|\u9C28 \u9CCE|\u9C29 \u9CD0|\u9C2D \u9CCD|\u9C2E \u9CC1|\u9C31 \u9CA2|\u9C32 \u9CCC|\u9C33 \u9CD3|\u9C35 \u9CD8|\u9C36 \u{2CDAD}|\u9C37 \u9CA6|\u9C39 \u9CA3|\u9C3A \u9CB9|\u9C3B \u9CD7|\u9C3C \u9CDB|\u9C3E \u9CD4|\u9C40 \u{2CDA8}|\u9C42 \u9CC9|\u9C45 \u9CD9|\u9C47 \u{29F8C}|\u9C48 \u9CD5|\u9C49 \u9CD6|\u9C52 \u9CDF|\u9C54 \u9CDD|\u9C56 \u9CDC|\u9C57 \u9CDE|\u9C58 \u9C9F|\u9C5A \u{2CDAE}|\u9C5D \u9CBC|\u9C5F \u9C8E|\u9C60 \u9C99|\u9C63 \u9CE3|\u9C64 \u9CE1|\u9C67 \u9CE2|\u9C68 \u9CBF|\u9C6D \u9C9A|\u9C6F \u9CE0|\u9C72 \u{2B6AD}|\u9C77 \u9CC4|\u9C78 \u9C88|\u9C7A \u9CA1|\u9CE5 \u9E1F|\u9CE7 \u51EB|\u9CE9 \u9E20|\u9CEC \u51EB|\u9CF2 \u9E24|\u9CF3 \u51E4|\u9CF4 \u9E23|\u9CF6 \u9E22|\u9CFE \u4D13|\u9D06 \u9E29|\u9D07 \u9E28|\u9D09 \u9E26|\u9D12 \u9E30|\u9D15 \u9E35|\u9D1B \u9E33|\u9D1D \u9E32|\u9D1E \u9E2E|\u9D1F \u9E31|\u9D23 \u9E2A|\u9D26 \u9E2F|\u9D28 \u9E2D|\u9D2F \u9E38|\u9D30 \u9E39|\u9D34 \u9E3B|\u9D37 \u4D15|\u9D3B \u9E3F|\u9D3F \u9E3D|\u9D41 \u4D14|\u9D42 \u9E3A|\u9D43 \u9E3C|\u9D4F \u{2CDD5}|\u9D50 \u9E40|\u9D51 \u9E43|\u9D52 \u9E46|\u9D53 \u9E41|\u9D5C \u9E48|\u9D5D \u9E45|\u9D5F \u{2B6ED}|\u9D60 \u9E44|\u9D61 \u9E49|\u9D6A \u9E4C|\u9D6C \u9E4F|\u9D6E \u9E50|\u9D6F \u9E4E|\u9D70 \u96D5|\u9D72 \u9E4A|\u9D77 \u9E53|\u9D7E \u9E4D|\u9D84 \u4D16|\u9D87 \u9E2B|\u9D89 \u9E51|\u9D8A \u9E52|\u9D93 \u9E4B|\u9D96 \u9E59|\u9D98 \u9E55|\u9D9A \u9E57|\u9DA0 \u{2CE18}|\u9DA1 \u9E56|\u9DA5 \u9E5B|\u9DA9 \u9E5C|\u9DAA \u4D17|\u9DAC \u9E27|\u9DAF \u83BA|\u9DB1 \u{2CE23}|\u9DB2 \u9E5F|\u9DB4 \u9E64|\u9DB9 \u9E60|\u9DBA \u9E61|\u9DBB \u9E58|\u9DBC \u9E63|\u9DBF \u9E5A|\u9DC0 \u9E5A|\u9DC1 \u9E62|\u9DC2 \u9E5E|\u9DC4 \u9E21|\u9DC9 \u4D18|\u9DCA \u9E5D|\u9DD3 \u9E67|\u9DD6 \u9E65|\u9DD7 \u9E25|\u9DD9 \u9E37|\u9DDA \u9E68|\u9DDF \u{2CE26}|\u9DE5 \u9E36|\u9DE6 \u9E6A|\u9DEB \u9E54|\u9DED \u{2CE2A}|\u9DEF \u9E69|\u9DF2 \u9E6B|\u9DF3 \u9E47|\u9DF4 \u9E47|\u9DF8 \u9E6C|\u9DF9 \u9E70|\u9DFA \u9E6D|\u9DFD \u9E34|\u9E02 \u3D89|\u9E07 \u9E6F|\u9E0A \u4D19|\u9E0C \u9E71|\u9E0F \u9E72|\u9E11 \u{2CE1A}|\u9E15 \u9E2C|\u9E18 \u9E74|\u9E1A \u9E66|\u9E1B \u9E73|\u9E1D \u9E42|\u9E1E \u9E3E|\u9E75 \u5364|\u9E79 \u54B8|\u9E7A \u9E7E|\u9E7C \u78B1|\u9E7D \u76D0|\u9E97 \u4E3D|\u9EA5 \u9EA6|\u9EA9 \u9EB8|\u9EAA \u9762|\u9EAB \u9762|\u9EAC \u{24FF2}|\u9EAF \u66F2|\u9EB3 \u{2A38C}|\u9EB4 \u66F2|\u9EB5 \u9762|\u9EBC \u4E48|\u9EBD \u4E48|\u9EC3 \u9EC4|\u9ECC \u9EC9|\u9EDE \u70B9|\u9EE8 \u515A|\u9EF2 \u9EEA|\u9EF4 \u9709|\u9EF6 \u9EE1|\u9EF7 \u9EE9|\u9EFD \u9EFE|\u9EFF \u9F0B|\u9F02 \u9F0C|\u9F09 \u9F0D|\u9F15 \u51AC|\u9F34 \u9F39|\u9F4A \u9F50|\u9F4B \u658B|\u9F4E \u8D4D|\u9F4F \u9F51|\u9F52 \u9F7F|\u9F54 \u9F80|\u9F55 \u9F81|\u9F57 \u9F82|\u9F58 \u{2CE7C}|\u9F59 \u9F85|\u9F5C \u9F87|\u9F5F \u9F83|\u9F60 \u9F86|\u9F61 \u9F84|\u9F63 \u51FA|\u9F66 \u9F88|\u9F67 \u556E|\u9F6A \u9F8A|\u9F6C \u9F89|\u9F6E \u{2CE88}|\u9F6F \u{2B81C}|\u9F72 \u9F8B|\u9F76 \u816D|\u9F77 \u9F8C|\u9F7C \u{2CE93}|\u9F8D \u9F99|\u9F8E \u5390|\u9F90 \u5E9E|\u9F91 \u4DAE|\u9F94 \u9F9A|\u9F95 \u9F9B|\u9F9C \u9F9F|\u9FC1 \u4724|\u9FD3 \u9FD2|\u{2005E} \u{2003E}|\u{20325} \u{20325}|\u{203E2} \u{203E2}|\u{2040A} \u{2040A}|\u{205E3} \u34C6|\u{20786} \u{20786}|\u{2080E} \u{2080E}|\u{20B19} \u{20B19}|\u{20F24} \u{20F24}|\u{20F43} \u{20F43}|\u{20FD5} \u{20FD5}|\u{210A1} \u{210A1}|\u{210C4} \u{210C4}|\u{210D5} \u{20D1B}|\u{210E4} \u{210E4}|\u{21114} \u{21114}|\u{21123} \u{21123}|\u{2114F} \u{20CA5}|\u{2116F} \u{2116F}|\u{2144D} \u{2BB7C}|\u{2146D} \u{212D7}|\u{214C1} \u{214C1}|\u{214FE} \u{212C0}|\u{21516} \u{21363}|\u{217B5} \u36DF|\u{217EB} \u{217EB}|\u{21839} \u36FF|\u{21883} \u36E0|\u{21B89} \u{21B5C}|\u{21BA3} \u{21B6C}|\u{21CF3} \u{21CC3}|\u{21E17} \u{21E17}|\u{21E6C} \u{21E6C}|\u{21ED5} \u5C81|\u{21F57} \u{21F57}|\u{21FB1} \u37DC|\u{21FD6} \u{21FD6}|\u{22370} \u{22370}|\u{2283C} \u{2283C}|\u{228D0} \u{228D0}|\u{228DA} \u{2261D}|\u{228ED} \u{228ED}|\u{22929} \u{22929}|\u{22931} \u{22931}|\u{2293F} \u{2293F}|\u{22BF7} \u{22BF7}|\u{22D92} \u{22D92}|\u{22DAB} \u{22ADE}|\u{22DEE} \u{22DEE}|\u{22E7F} \u{22B26}|\u{22EB3} \u{22EB3}|\u{23236} \u6685|\u{232CB} \u{232CB}|\u{23350} \u{23350}|\u{2364E} \u3B63|\u{2372C} \u{2372C}|\u{23755} \u{23755}|\u{237BB} \u{23613}|\u{23829} \u{2378E}|\u{23832} \u{23476}|\u{23BE9} \u{23BE9}|\u{23BF4} \u{23BF4}|\u{23BF6} \u6BF6|\u{23F4F} \u{23F4F}|\u{23FB7} \u3CE2|\u{23FC9} \u{23FC9}|\u{24063} \u{23EBD}|\u{24137} \u{24137}|\u{24176} \u{23DF7}|\u{24473} \u{24473}|\u{24479} \u{24479}|\u{2448E} \u{2448E}|\u{244BB} \u{244BB}|\u{244CC} \u{244CC}|\u{244CE} \u{244CE}|\u{244E9} \u{242B0}|\u{24600} \u{24600}|\u{246EE} \u{246EE}|\u{246F1} \u{246F1}|\u{24706} \u{24706}|\u{2482E} \u{2482E}|\u{2489F} \u{2489F}|\u{248BB} \u{248BB}|\u{24A42} \u{24A42}|\u{24ABA} \u3ED8|\u{24AE9} \u3ECF|\u{24B05} \u{24B05}|\u{24CF7} \u{24CF7}|\u{24CF8} \u{24CC4}|\u{24DC3} \u{24DC3}|\u{24E2B} \u{24E2B}|\u{24E94} \u{24E94}|\u{2529D} \u{2517F}|\u{25303} \u{25158}|\u{253DD} \u{253DD}|\u{25565} \u{25430}|\u{25585} \u{2542F}|\u{255B2} \u{255B2}|\u{255C7} \u{255C7}|\u{255FD} \u{2C497}|\u{25710} \u{25710}|\u{25730} \u{25730}|\u{257B5} \u{257B5}|\u{258A2} \u416A|\u{258B6} \u{258B6}|\u{258B7} \u{258B7}|\u{25A10} \u{25A10}|\u{25A82} \u{25A82}|\u{25BE4} \u{25BE4}|\u{25D28} \u{25D28}|\u{25D3C} \u{25D3C}|\u{25D43} \u{25D43}|\u{25D4A} \u{25D4A}|\u{25DBD} \u{25DBD}|\u{25E20} \u{25B8B}|\u{25EE6} \u{25EE6}|\u{25F3D} \u{25E65}|\u{25F56} \u{25F56}|\u{25FAF} \u{25FAF}|\u{25FCA} \u{25FCA}|\u{26016} \u{26016}|\u{26085} \u{26085}|\u{260C4} \u{260C4}|\u{260E9} \u{260E9}|\u{26147} \u{26147}|\u{26148} \u{26148}|\u{261B2} \u{261B2}|\u{26480} \u{26480}|\u{26516} \u{26516}|\u{26627} \u{21CD2}|\u{267FC} \u{267FC}|\u{26805} \u{26805}|\u{2685D} \u{2685D}|\u{26888} \u{26888}|\u{268CE} \u{267D7}|\u{269FA} \u{269FA}|\u{26A99} \u447D|\u{26ABD} \u{26ABD}|\u{26C4C} \u{26C4C}|\u{26F9F} \u{26F9F}|\u{27388} \u{27388}|\u{274AF} \u{274AF}|\u{27525} \u{27525}|\u{2755F} \u{2755F}|\u{27717} \u461E|\u{27735} \u464A|\u{2775E} \u461B|\u{277AB} \u{277AB}|\u{277C0} \u{27767}|\u{27874} \u{27874}|\u{27884} \u{27884}|\u{2799D} \u{2799D}|\u{279A7} \u{279A7}|\u{27A55} \u{27A55}|\u{27A59} \u4725|\u{27A7C} \u{27A7C}|\u{27ADD} \u{27ADD}|\u{27B24} \u{27B24}|\u{27B48} \u{27B48}|\u{27B79} \u{27B79}|\u{27CDF} \u{27CDF}|\u{27D73} \u478C|\u{27D94} \u{27D94}|\u{27DA7} \u478E|\u{27DCE} \u{27DCE}|\u{27E18} \u{27E18}|\u{27E48} \u{27E48}|\u{27F6F} \u{27F6F}|\u{28090} \u{28090}|\u{28123} \u{28123}|\u{2814D} \u{2814D}|\u{281AA} \u{281AA}|\u{281C1} \u{281C1}|\u{281DE} \u{281DE}|\u{281E4} \u{281E4}|\u{281F0} \u{281F0}|\u{281FD} \u{281FD}|\u{2820A} \u{2820A}|\u{2820C} \u{2820C}|\u{282B0} \u4880|\u{282B8} \u4881|\u{282BB} \u{282BB}|\u{282E2} \u4882|\u{28308} \u{28308}|\u{28370} \u{28370}|\u{2838C} \u{2838C}|\u{283AE} \u{283AE}|\u{283E0} \u{283E0}|\u{283E5} \u{283E5}|\u{287BA} \u{287BA}|\u{287CA} \u{287CA}|\u{288BF} \u{288BF}|\u{288C8} \u{288C8}|\u{288DE} \u{288DE}|\u{288E7} \u{288E7}|\u{2893B} \u{28930}|\u{2895B} \u{2895B}|\u{2895F} \u{2895F}|\u{289AB} \u4980|\u{289C0} \u{2CB4A}|\u{289DC} \u4981|\u{289F0} \u{289F0}|\u{289F1} \u{289F1}|\u{28A0F} \u{2CB5B}|\u{28A1B} \u{28A1B}|\u{28A22} \u{28A22}|\u{28A70} \u{28A70}|\u{28A95} \u{28A95}|\u{28AD2} \u{28AD2}|\u{28B16} \u{28B16}|\u{28B46} \u{2CB76}|\u{28B4E} \u{2CB73}|\u{28B56} \u{28B56}|\u{28B78} \u{28B78}|\u{28B82} \u{28B82}|\u{28BB3} \u{28BB3}|\u{28BC5} \u497F|\u{28BDF} \u{28BDF}|\u{28C03} \u{28C03}|\u{28C0B} \u{28C0B}|\u{28C25} \u{28C25}|\u{28C32} \u{28C32}|\u{28CB3} \u{28CB3}|\u{28CD1} \u{28CD1}|\u{28CD5} \u{28CD5}|\u{28D17} \u{28D17}|\u{28D39} \u{28D39}|\u{28D69} \u{28D69}|\u{28D78} \u{28D78}|\u{28D80} \u{28D80}|\u{28D8F} \u{28D8F}|\u{28DAE} \u{28DAE}|\u{28DB2} \u{28DB2}|\u{28DF2} \u{28DF2}|\u{28F33} \u{28F33}|\u{28F4F} \u{28F4F}|\u{29028} \u{29028}|\u{29159} \u{29159}|\u{29396} \u{29396}|\u{293A2} \u{293A2}|\u{293C2} \u{293C2}|\u{293E0} \u{293E0}|\u{293EA} \u{293EA}|\u{293F7} \u{293F7}|\u{29454} \u{29454}|\u{2948E} \u{2948E}|\u{294E3} \u{294E3}|\u{294E5} \u{294E5}|\u{29511} \u{29511}|\u{29533} \u{29533}|\u{295B0} \u{295B0}|\u{295C0} \u{295C0}|\u{295D3} \u{295D3}|\u{295F4} \u{295F4}|\u{29600} \u{29600}|\u{2961D} \u{2961D}|\u{29639} \u{29639}|\u{2963A} \u{2963A}|\u{29648} \u{29648}|\u{2969B} \u{2969B}|\u{296A5} \u{296A5}|\u{296A9} \u{296A9}|\u{296B5} \u{296B5}|\u{296C6} \u{296C6}|\u{296CC} \u{296CC}|\u{296E1} \u{296E1}|\u{296E9} \u{296E9}|\u{29707} \u{29707}|\u{29726} \u{29726}|\u{29735} \u{29735}|\u{29754} \u{29754}|\u{2977D} \u{2977D}|\u{29784} \u{29784}|\u{297A6} \u{297A6}|\u{297AF} \u4B6A|\u{297D0} \u{297D0}|\u{297D7} \u{297D7}|\u{29834} \u{29820}|\u{29863} \u{29863}|\u{2987A} \u{2987A}|\u{298A1} \u{298A1}|\u{298B4} \u{298B4}|\u{298B8} \u{298B8}|\u{298BE} \u{298BE}|\u{298CF} \u{298CF}|\u{298D1} \u4BC3|\u{298EB} \u{298EB}|\u{298F5} \u{298F5}|\u{298FA} \u{298FA}|\u{2990A} \u{2990A}|\u{29919} \u{29919}|\u{29932} \u{29932}|\u{29938} \u{29938}|\u{29944} \u{29944}|\u{29947} \u{29947}|\u{29949} \u{29949}|\u{29951} \u{29951}|\u{299A0} \u{299A0}|\u{299C6} \u{299C6}|\u{29B59} \u{29B59}|\u{29BC1} \u{29BC1}|\u{29BF3} \u{29BF3}|\u{29C00} \u{29C00}|\u{29C39} \u{29C39}|\u{29CE4} \u{29CE4}|\u{29D35} \u{29D35}|\u{29D66} \u{29D66}|\u{29D69} \u{29D69}|\u{29D79} \u{29D79}|\u{29D81} \u{29D81}|\u{29D98} \u4C9E|\u{29DB0} \u{29DB0}|\u{29DB1} \u{29DB1}|\u{29DF0} \u{29DF0}|\u{29E03} \u{29E03}|\u{29E04} \u{29E04}|\u{29E21} \u{29E21}|\u{29E26} \u{29E26}|\u{29ED7} \u{29ED7}|\u{29EEC} \u{29EEC}|\u{29EEE} \u{29EEE}|\u{29F36} \u{29F36}|\u{29F47} \u{29F47}|\u{29FC5} \u{29FC5}|\u{29FE4} \u{29FE4}|\u{29FEA} \u{29FEA}|\u{2A016} \u{2A016}|\u{2A026} \u{2A026}|\u{2A03E} \u{2A03E}|\u{2A048} \u{2A048}|\u{2A056} \u{2A056}|\u{2A086} \u{2A086}|\u{2A0CD} \u{2A0CD}|\u{2A0CF} \u{2A0CF}|\u{2A0D2} \u{2A0D2}|\u{2A0E7} \u{2A0E7}|\u{2A106} \u{2A106}|\u{2A115} \u{2A115}|\u{2A142} \u{2A142}|\u{2A1B7} \u{2A1B7}|\u{2A1F3} \u{2A1F3}|\u{2A23C} \u{2A23C}|\u{2A278} \u{2A278}|\u{2A2FF} \u{2A2FF}|\u{2A32D} \u{2A32D}|\u{2A360} \u{2A360}|\u{2A4F0} \u{2A4F0}|\u{2A535} \u{2A535}|\u{2A600} \u{2A600}|\u{2A62F} \u{2A62F}|\u{2A64F} \u{2A64F}|\u{2A7D6} \u{2A7D6}|\u{2ADD3} \u{2ADD3}|\u{2B4A1} \u{2B4A1}|\u{2B726} \u{2B726}|\u{30EDE} \u{30EDD}";
@@ -5123,10 +5157,10 @@ var TSCharacters_default = "\u346F \u3454|\u3473 \u3447|\u3476 \u3439|\u34E8 \u5
 var cn_default = [[TSPhrases_default, TSCharacters_default]];
 
 // node_modules/opencc-js/dist/esm-lib/dict/TWVariantsPhrases.js
-var TWVariantsPhrases_default = "\u55AB\u8336\u5C0F\u8216 \u55AB\u8336\u5C0F\u8216|\u725B\u9A65\u540C\u4E00\u7681 \u725B\u9A65\u540C\u4E00\u7681|\u725B\u9A65\u540C\u7681 \u725B\u9A65\u540C\u7681|\u7D14\u55AB\u8336 \u7D14\u55AB\u8336";
+var TWVariantsPhrases_default = "\u55AB\u8336\u5C0F\u8216 \u55AB\u8336\u5C0F\u8216|\u5F35\u68DF\u6A11 \u5F35\u68DF\u6A11|\u6797\u570B\u6A11 \u6797\u570B\u6A11|\u6797\u6770\u6A11 \u6797\u6770\u6A11|\u694A\u58EB\u6A11 \u694A\u58EB\u6A11|\u725B\u9A65\u540C\u4E00\u7681 \u725B\u9A65\u540C\u4E00\u7681|\u725B\u9A65\u540C\u7681 \u725B\u9A65\u540C\u7681|\u7D14\u55AB\u8336 \u7D14\u55AB\u8336|\u7F85\u8208\u6A11 \u7F85\u8208\u6A11|\u8449\u6B65\u6A11 \u8449\u6B65\u6A11|\u8523\u570B\u6A11 \u8523\u570B\u6A11|\u9EC3\u6771\u6A11 \u9EC3\u6771\u6A11";
 
 // node_modules/opencc-js/dist/esm-lib/dict/TWVariants.js
-var TWVariants_default = "\u50DE \u507D|\u5553 \u555F|\u55AB \u5403|\u5AFA \u5AFB|\u5B00 \u5AAF|\u5CEF \u5CF0|\u5E7A \u4E48|\u68F1 \u7A1C|\u6A90 \u7C37|\u6C61 \u6C59|\u6CC4 \u6D29|\u6F59 \u6E88|\u6F68 \u6F40|\u7232 \u70BA|\u7240 \u5E8A|\u75F9 \u75FA|\u7661 \u75F4|\u7681 \u7682|\u7740 \u8457|\u777E \u776A|\u7955 \u79D8|\u7AC8 \u7076|\u7CC9 \u7CBD|\u7E6E \u97C1|\u7E94 \u624D|\u7FA3 \u7FA4|\u8123 \u5507|\u8518 \u53C3|\u853F \u848D|\u8846 \u773E|\u88CF \u88E1|\u8988 \u6838|\u8E0A \u8E34|\u9262 \u7F3D|\u937C \u91DD|\u9B8E \u9BF0|\u9EAA \u9EB5|\u9F76 \u984E";
+var TWVariants_default = "\u50DE \u507D|\u5553 \u555F|\u55AB \u5403|\u5AFA \u5AFB|\u5B00 \u5AAF|\u5CEF \u5CF0|\u5E7A \u4E48|\u68F1 \u7A1C|\u6A11 \u6881|\u6A90 \u7C37|\u6C61 \u6C59|\u6CC4 \u6D29|\u6F59 \u6E88|\u6F68 \u6F40|\u7232 \u70BA|\u7240 \u5E8A|\u75F9 \u75FA|\u7661 \u75F4|\u7681 \u7682|\u7740 \u8457|\u777E \u776A|\u7955 \u79D8|\u7AC8 \u7076|\u7CC9 \u7CBD|\u7E6E \u97C1|\u7E94 \u624D|\u7FA3 \u7FA4|\u8123 \u5507|\u8518 \u53C3|\u853F \u848D|\u8846 \u773E|\u88CF \u88E1|\u8988 \u6838|\u8E0A \u8E34|\u9262 \u7F3D|\u937C \u91DD|\u9B8E \u9BF0|\u9EAA \u9EB5|\u9F76 \u984E";
 
 // node_modules/opencc-js/dist/esm-lib/to/tw.js
 var tw_default = [[TWVariantsPhrases_default, TWVariants_default]];
@@ -5218,12 +5252,15 @@ function convertChineseNumber(chineseNumber) {
 function sanitizeSearchKeyword(str) {
   return str ? String(str).replace(/[\u200B-\u200F\uFEFF]/g, "").trim() : "";
 }
-function normalizeSpaces(str) {
+function stripNonTitleChars(str) {
   return str ? String(str).replace(/[^\u4e00-\u9fa5\u3400-\u4DBF\u{20000}-\u{2EE5F}\u{30000}-\u{323AF}\u3040-\u30ff\uFF65-\uFF9F\uAC00-\uD7AFa-zA-Z0-9\uFF10-\uFF19\uFF21-\uFF3A\uFF41-\uFF5A\u2160-\u217F\u0400-\u04FF\u00C0-\u024F\u0370-\u03FF]/gu, "") : "";
+}
+function normalizeTitleForMatch(str) {
+  return str ? stripNonTitleChars(simplized(String(str))) : "";
 }
 function strictTitleMatch(title, query) {
   if (!title || !query) return !1;
-  let tagFilter = globals.titleNoiseFilter || null, cleanTitle = tagFilter ? title.replace(tagFilter, "").trim() : title, cleanQuery = tagFilter ? query.replace(tagFilter, "").trim() : query, t = normalizeSpaces(cleanTitle), q = normalizeSpaces(cleanQuery);
+  let tagFilter = globals.titleNoiseFilter || null, cleanTitle = tagFilter ? title.replace(tagFilter, "").trim() : title, cleanQuery = tagFilter ? query.replace(tagFilter, "").trim() : query, t = normalizeTitleForMatch(cleanTitle), q = normalizeTitleForMatch(cleanQuery);
   if (t === q) return !0;
   if (t.startsWith(q) && t.length > q.length) {
     let suffix = t.substring(q.length);
@@ -5246,19 +5283,14 @@ function titleMatches(title, query, parsedSeason = null, forceNonStrict = !1, th
   let titleText = String(title), queryText = String(query);
   if (!titleText || !queryText) return !1;
   if (!forceNonStrict && globals.strictTitleMatch) return strictTitleMatch(titleText, queryText);
-  let tagFilter = globals.titleNoiseFilter || null, cleanTitle = tagFilter ? titleText.replace(tagFilter, "").trim() : titleText, t = normalizeSpaces(cleanTitle).toLowerCase(), qList = [normalizeSpaces(queryText).toLowerCase()];
-  try {
-    qList = [.../* @__PURE__ */ new Set([queryText, simplized(queryText), traditionalized(queryText)])].map((kw) => normalizeSpaces(kw).toLowerCase()).filter(Boolean);
-  } catch {
-  }
-  let querySeason = parsedSeason !== null ? parsedSeason : getExplicitSeasonNumber(queryText);
+  let tagFilter = globals.titleNoiseFilter || null, cleanTitle = tagFilter ? titleText.replace(tagFilter, "").trim() : titleText, t = normalizeTitleForMatch(cleanTitle).toLowerCase(), qList = [normalizeTitleForMatch(queryText).toLowerCase()], querySeason = parsedSeason !== null ? parsedSeason : getExplicitSeasonNumber(queryText);
   if (querySeason !== null && parsedSeason === null) {
     let seasonStripped = queryText.replace(/(?:season|s|第)\s*[0-9一二三四五六七八九十]+\s*(?:季|期|部(?!分))?/gi, "").trim();
-    seasonStripped && seasonStripped !== queryText && (qList = [.../* @__PURE__ */ new Set([...qList, normalizeSpaces(seasonStripped).toLowerCase()])]);
+    seasonStripped && seasonStripped !== queryText && (qList = [.../* @__PURE__ */ new Set([...qList, normalizeTitleForMatch(seasonStripped).toLowerCase()])]);
   }
   if (tagFilter) {
     let tagStripped = queryText.replace(tagFilter, "").trim();
-    tagStripped && tagStripped !== queryText && (qList = [.../* @__PURE__ */ new Set([...qList, normalizeSpaces(tagStripped).toLowerCase()])]);
+    tagStripped && tagStripped !== queryText && (qList = [.../* @__PURE__ */ new Set([...qList, normalizeTitleForMatch(tagStripped).toLowerCase()])]);
   }
   if (querySeason !== null) {
     let titleSeason = getExplicitSeasonNumber(titleText);
@@ -5281,7 +5313,7 @@ function titleMatches(title, query, parsedSeason = null, forceNonStrict = !1, th
   if (!simMatch) {
     let yearStripped = queryText.replace(/[\(\（]\s*(?:19|20)\d{2}\s*[\)\）]|\b(?:19|20)\d{2}\b/g, "").trim();
     if (yearStripped && yearStripped !== queryText) {
-      let cleanYear = tagFilter ? yearStripped.replace(tagFilter, "").trim() : yearStripped, yearQ = normalizeSpaces(cleanYear).toLowerCase(), titleHasYear = /[\(\（]\s*(?:19|20)\d{2}\s*[\)\）]|\b(?:19|20)\d{2}\b/.test(titleText);
+      let cleanYear = tagFilter ? yearStripped.replace(tagFilter, "").trim() : yearStripped, yearQ = normalizeTitleForMatch(cleanYear).toLowerCase(), titleHasYear = /[\(\（]\s*(?:19|20)\d{2}\s*[\)\）]|\b(?:19|20)\d{2}\b/.test(titleText);
       if (yearQ && t.includes(yearQ) && !titleHasYear) return !0;
     }
   }
@@ -5300,7 +5332,7 @@ function validateType(value, expectedType) {
 }
 function extractSeasonNumberFromAnimeTitle(animeTitle) {
   if (!animeTitle) return { season: null, baseTitle: null };
-  let match = animeTitle.match(/^(.*?)\(\d{4}\)/), rawTitleWithoutYear = match ? match[1].trim() : animeTitle.split("(")[0].trim(), titleWithoutYear = normalizeSpaces(rawTitleWithoutYear), explicitSeasonMatch = titleWithoutYear.match(/第\s*([0-9一二三四五六七八九十壹贰叁肆伍陆柒捌玖拾]+)\s*[季期部]/);
+  let match = animeTitle.match(/^(.*?)\(\d{4}\)/), rawTitleWithoutYear = match ? match[1].trim() : animeTitle.split("(")[0].trim(), titleWithoutYear = stripNonTitleChars(rawTitleWithoutYear), explicitSeasonMatch = titleWithoutYear.match(/第\s*([0-9一二三四五六七八九十壹贰叁肆伍陆柒捌玖拾]+)\s*[季期部]/);
   if (explicitSeasonMatch)
     return {
       season: convertChineseNumber(explicitSeasonMatch[1]),
@@ -5327,9 +5359,15 @@ function extractSeasonNumberFromAnimeTitle(animeTitle) {
     };
   }
   let trailingChinese = titleWithoutYear.match(/([一二三四五六七八九十壹贰叁肆伍陆柒捌玖拾]+)$/);
-  return trailingChinese ? {
-    season: convertChineseNumber(trailingChinese[1]),
-    baseTitle: titleWithoutYear.replace(trailingChinese[0], "").trim()
+  if (trailingChinese)
+    return {
+      season: convertChineseNumber(trailingChinese[1]),
+      baseTitle: titleWithoutYear.replace(trailingChinese[0], "").trim()
+    };
+  let romanMatch = titleWithoutYear.match(/[\u2160-\u216B]/);
+  return romanMatch ? {
+    season: romanMatch[0].codePointAt(0) - 8544 + 1,
+    baseTitle: titleWithoutYear.replace(romanMatch[0], "").trim()
   } : { season: null, baseTitle: titleWithoutYear };
 }
 function extractEpisodeNumberFromTitle(episodeTitle) {
@@ -5404,7 +5442,7 @@ function resolveOffsetRule(rules, { anime, season, episode, source }) {
   for (let level of levels) {
     let specificMatch = null, allMatch = null, genericMatch = null;
     for (let rule of rules)
-      if (normalizeSpaces(rule.anime) === normalizeSpaces(anime)) {
+      if (normalizeTitleForMatch(rule.anime) === normalizeTitleForMatch(anime)) {
         if (level.matchEpisode) {
           if (!rule.season || !rule.episode || rule.season !== season || rule.episode !== episode) continue;
         } else if (level.matchSeason) {
@@ -5572,11 +5610,12 @@ var _Envs = class _Envs {
    * @param {string} key 环境变量的键
    * @param {any} defaultValue 默认值
    * @param {'string' | 'number' | 'boolean'} type 类型
+   * @param {boolean} [encrypt] 是否按加密变量读取，其值按掩码写入预览集合
    * @returns {any} 转换后的值
    */
   static get(key, defaultValue, type = "string", encrypt = !1) {
-    if (type === "string" && !encrypt && _Envs.RAW_ENV_KEYS.has(key))
-      return this.getRawEnv(key, defaultValue);
+    if (encrypt && _Envs.sensitiveKeys.add(key), type === "string" && _Envs.RAW_ENV_KEYS.has(key))
+      return this.getRawEnv(key, defaultValue, encrypt);
     let value;
     typeof this.env < "u" && this.env[key] ? (value = this.env[key], this.originalEnvVars.set(key, value)) : typeof process < "u" && process.env?.[key] ? (value = process.env[key], this.originalEnvVars.set(key, value)) : (value = defaultValue, this.originalEnvVars.set(key, ""));
     let parsedValue;
@@ -5634,13 +5673,14 @@ var _Envs = class _Envs {
     return result;
   }
   /**
-   * 读取自定义文本类变量，绕过 dotenv 截断保留 #：系统环境变量 > .env 原始值 > 默认值；非 Node 部署退化为普通取值。
+   * 读取文本类变量，绕过 dotenv 截断保留 #：系统环境变量 > .env 原始值 > 默认值；非 Node 部署退化为普通取值。
    * @param {string} key 环境变量键
    * @param {string} defaultValue 默认值
+   * @param {boolean} encrypt 是否按掩码写入预览集合
    * @returns {string} 原始值（含 #）
    */
-  static getRawEnv(key, defaultValue = "") {
-    let finalize = (v) => (this.originalEnvVars.set(key, v), this.accessedEnvVars.set(key, v), v);
+  static getRawEnv(key, defaultValue = "", encrypt = !1) {
+    let finalize = (v) => (this.originalEnvVars.set(key, v), this.accessedEnvVars.set(key, encrypt ? this.encryptStr(v) : v), v);
     return _Envs.systemEnvBackup ? Object.prototype.hasOwnProperty.call(_Envs.systemEnvBackup, key) ? finalize(_Envs.systemEnvBackup[key]) : _Envs.rawEnvValues && Object.prototype.hasOwnProperty.call(_Envs.rawEnvValues, key) ? finalize(_Envs.rawEnvValues[key]) : typeof process < "u" && process.env?.[key] ? finalize(process.env[key]) : finalize(defaultValue) : this.env && this.env[key] ? finalize(this.env[key]) : typeof process < "u" && process.env?.[key] ? finalize(process.env[key]) : finalize(defaultValue);
   }
   /**
@@ -5680,8 +5720,8 @@ var _Envs = class _Envs {
    * 支持使用分号或逗号分隔多组配置
    * 支持一主多从配置，第一个为主源，后续为副源
    * 允许单源配置（用于保留特定源的原始结果，不被合并消耗）
-   * 格式示例: bilibili&animeko, dandan&animeko&bahamut,dandan
-   * @returns {Array} 合并配置数组 [{primary: 'dandan', secondaries: ['animeko', 'bahamut']}, {primary: 'renren', secondaries: []}]
+   * 格式示例: dandan&bahamut&animeko,renren&hanjutv,renren
+   * @returns {Array} 合并配置数组 [{primary: 'dandan', secondaries: ['bahamut', 'animeko']}, {primary: 'renren', secondaries: ['hanjutv']}, {primary: 'renren', secondaries: []}]
    */
   static resolveMergeSourcePairs() {
     let config = this.get("MERGE_SOURCE_PAIRS", "", "string");
@@ -5873,7 +5913,7 @@ var _Envs = class _Envs {
    * @returns {RegExp|null} 全局正则，显式设为空时返回 null（禁用）
    */
   static resolveTitleNoiseFilter() {
-    let defaultPattern = "[\uFF08(\\[](?:\u81FB\u5F69|\u771F\u5F69|\u9AD8\u6E05|\u6807\u6E05|\u8D85\u6E05|\u56FD\u914D|\u4E2D\u914D|\u65E5\u914D|\u7CA4\u8BED|\u539F\u58F0|\u53F0\u914D|\u65E0\u4FEE|\u672A\u5220\u51CF|\u5B8C\u6574\u7248|\u65E5\u8BED\u7248|\u56FD\u8BED\u7248|\u82F1\u8BED\u7248|\u4E2D\u5B57|\u5B57\u5E55|\u52A9\u542C|\u539F\u7248)[\\])\uFF09]", raw = this.get("TITLE_NOISE_FILTER", "", "string").trim(), hasKey = this.env && "TITLE_NOISE_FILTER" in this.env || typeof process < "u" && "TITLE_NOISE_FILTER" in process.env;
+    let defaultPattern = String.raw`[（(\[［](?:臻彩|真彩|高清|标清|超清|国配|中配|日配|粤语|原声|台配|无修|未删减|完整版|日语版|国语版|英语版|中字|字幕|助听|原版)[\])）］]`, raw = this.get("TITLE_NOISE_FILTER", "", "string").trim(), hasKey = this.env && "TITLE_NOISE_FILTER" in this.env || typeof process < "u" && "TITLE_NOISE_FILTER" in process.env;
     if (raw)
       this.accessedEnvVars.set("TITLE_NOISE_FILTER", raw);
     else {
@@ -5939,12 +5979,13 @@ var _Envs = class _Envs {
       TOKEN: { category: "api", type: "text", description: "API\u8BBF\u95EE\u4EE4\u724C" },
       ADMIN_TOKEN: { category: "api", type: "text", description: "\u7CFB\u7EDF\u7BA1\u7406\u8BBF\u95EE\u4EE4\u724C" },
       FAVORITE_REQUIRE_ADMIN: { category: "api", type: "boolean", description: "\u6536\u85CF\u5199\u5165\u548C\u7BA1\u7406\u63A5\u53E3\u662F\u5426\u5FC5\u987B\u4F7F\u7528 ADMIN_TOKEN\uFF0C\u9ED8\u8BA4\u5173\u95ED\uFF1B\u6536\u85CF\u5217\u8868\u59CB\u7EC8\u53EF\u516C\u5F00\u8BFB\u53D6" },
+      LOCAL_DANMU_NOT_REQUIRE_ADMIN: { category: "api", type: "boolean", description: "\u672C\u5730\u5F39\u5E55\u4E0A\u4F20\u548C\u5220\u9664\u662F\u5426\u65E0\u9700 ADMIN \u6743\u9650\uFF0C\u9ED8\u8BA4 false\uFF1B\u5F00\u542F\u540E\u5141\u8BB8\u666E\u901A TOKEN \u7528\u6237\u4E0A\u4F20\u548C\u5220\u9664\uFF0CADMIN_TOKEN \u59CB\u7EC8\u5141\u8BB8\uFF1B\u666E\u901A TOKEN \u7528\u6237\u53EF\u67E5\u770B\u5DF2\u5BFC\u5165\u5217\u8868" },
       RATE_LIMIT_MAX_REQUESTS: { category: "api", type: "number", description: "\u9650\u6D41\u914D\u7F6E\uFF1A1\u5206\u949F\u5185\u6700\u5927\u8BF7\u6C42\u6B21\u6570\uFF0C0\u8868\u793A\u4E0D\u9650\u6D41\uFF0C\u9ED8\u8BA43", min: 0, max: 50 },
       // 源配置
-      SOURCE_ORDER: { category: "source", type: "multi-select", options: this.ALLOWED_SOURCES, description: "\u6E90\u6392\u5E8F\u914D\u7F6E\uFF0C\u9ED8\u8BA4douban,360,renren,hanjutv" },
+      SOURCE_ORDER: { category: "source", type: "multi-select", options: this.ALLOWED_SOURCES, description: "\u6E90\u6392\u5E8F\u914D\u7F6E\uFF0C\u9ED8\u8BA4douban,360,renren,hanjutv\uFF1B\u6DFB\u52A0 local \u53EF\u641C\u7D22\u5DF2\u4E0A\u4F20\u7684\u672C\u5730\u5F39\u5E55\uFF0C\u6309\u914D\u7F6E\u987A\u5E8F\u6392\u5217\u641C\u7D22\u7ED3\u679C" },
       MERGE_SOURCE_PAIRS: { category: "source", type: "multi-select", options: this.MERGE_ALLOWED_SOURCES, description: `\u6E90\u5408\u5E76\u914D\u7F6E\uFF0C\u914D\u7F6E\u540E\u5C06\u5BF9\u5E94\u6E90\u5408\u5E76\u540C\u65F6\u4E00\u8D77\u83B7\u53D6\u5F39\u5E55\u8FD4\u56DE\uFF0C\u5141\u8BB8\u591A\u7EC4\uFF0C\u5141\u8BB8\u591A\u6E90\uFF0C\u5141\u8BB8\u586B\u5355\u6E90\u8868\u793A\u4FDD\u7559\u539F\u7ED3\u679C\uFF0C\u4E00\u7EC4\u4E2D\u7B2C\u4E00\u4E2A\u4E3A\u4E3B\u6E90\u5176\u4F59\u4E3A\u526F\u6E90\uFF0C\u526F\u6E90\u5F80\u4E3B\u6E90\u5408\u5E76\uFF0C\u4E3B\u6E90\u5982\u679C\u6CA1\u6709\u7ED3\u679C\u4F1A\u8F6E\u66FF\u4E0B\u4E00\u4E2A\u4F5C\u4E3A\u4E3B\u6E90\u3002
 \u683C\u5F0F\uFF1A\u6E901&\u6E902&\u6E903 \uFF0C\u591A\u7EC4\u7528\u9017\u53F7\u5206\u9694\u3002
-\u793A\u4F8B\uFF1Adandan&animeko&bahamut,bilibili&animeko,dandan` },
+\u793A\u4F8B\uFF1Adandan&bahamut&animeko,renren&hanjutv,renren` },
       CUSTOM_MERGE_RULES: { category: "source", type: "text", sources: this.MERGE_ALLOWED_SOURCES, description: `\u5408\u5E76\u6620\u5C04\u8868\uFF0C\u7528\u4E8E\u81EA\u5B9A\u4E49\u6E90\u5408\u5E76\u884C\u4E3A\u3002
 \u683C\u5F0F1(\u5408\u5E76)\uFF1A\u526F\u6E90\u5267\u540D/S\u5B63\u6570@\u6765\u6E90 -> \u4E3B\u6E90\u5267\u540D/S\u5B63\u6570@\u6765\u6E90 | E\u526F\u6E90\u96C6\u6570>E\u4E3B\u6E90\u96C6\u6570
 \u683C\u5F0F2(\u963B\u65AD)\uFF1A\u526F\u6E90\u5267\u540D/S\u5B63\u6570@\u6765\u6E90 \xD7 \u4E3B\u6E90\u5267\u540D/S\u5B63\u6570@\u6765\u6E90
@@ -5961,12 +6002,13 @@ var _Envs = class _Envs {
       BILIBILI_COOKIE: { category: "source", type: "text", description: "B\u7AD9Cookie" },
       DOUBAN_COOKIE: { category: "source", type: "text", description: "\u8C46\u74E3Cookie" },
       YOUKU_CONCURRENCY: { category: "source", type: "number", description: "\u4F18\u9177\u5E76\u53D1\u914D\u7F6E\uFF0C\u9ED8\u8BA48", min: 1, max: 16 },
-      NIPAPLAY_REPLACE_DANDAN: { category: "source", type: "boolean", description: `NipaPlay \u5F39\u5F39302\u5173\u8054\u5F39\u5E55\u66FF\u4EE3\u5F00\u5173\uFF08\u7528\u4E8E dandan \u6E90\uFF09\u3002
-\u9ED8\u8BA4\u4E3A false\uFF08\u5173\u95ED\uFF0C\u4F7F\u7528\u5F39\u5F39\u539F\u751F\u5F39\u5E55\uFF09\uFF0C\u53EF\u9009\u503C\uFF1Atrue\u3001false\u3002
-\u5F00\u542F\u540E dandan \u6E90\u4EE5 nipaplay \u5F39\u5F39302\u5173\u8054\u5F39\u5E55\u66FF\u4EE3\u5F39\u5F39\u539F\u751F\u5F39\u5E55\uFF0C\u56E0\u4F7F\u7528\u7684\u662F\u9879\u76EE\u94FE\u8DEF\u83B7\u53D6\u5F39\u5E55\u6240\u4EE5\uFF1A
-1.\u4F1A\u4E22\u5931\u5F39\u5F39\u5E73\u53F0\u5F39\u5E55
-2.\u65E0\u6CD5\u83B7\u53D6\u4E0B\u67B6\u89C6\u9891
-3.\u5982\u679C\u5173\u8054\u4E2D\u6709\u5DF4\u54C8\u59C6\u7279\u5E73\u53F0\u9700\u8981\u786E\u4FDD\u80FD\u591F\u8FDE\u901A\u5DF4\u54C8` },
+      DANDANPLAY_ACCOUNT: { category: "source", type: "text", description: `\u5F39\u5F39play\u8D26\u53F7\uFF08dandan \u6E90\u83B7\u53D6\u5F39\u5E55\u4F7F\u7528\uFF09\u3002
+\u4E0E\u5BC6\u7801\u540C\u65F6\u586B\u5199\u540E\u81EA\u52A8\u5F00\u542F\uFF0C\u65E0\u9700\u989D\u5916\u5F00\u5173\u3002
+\u5F00\u542F\u540E dandan \u6E90\u6539\u7531 NipaPlay \u4E2D\u8F6C\u5F39\u5F39play\u670D\u52A1\u7AEF\u83B7\u53D6\u5F39\u5E55\uFF0C\u5E76\u628A\u540C\u4E00\u8BF7\u6C42\u4E0B\u53D1\u7684\u5F39\u5F39\u5173\u8054\u94FE\u63A5\u5206\u53D1\u7ED9\u5BF9\u5E94\u5E73\u53F0\u6E90\u5B9E\u65F6\u62C9\u53D6\uFF08\u9700\u5F00\u542F\u5BF9\u5E94\u6E90\uFF09\uFF1A
+\u6700\u7EC8\u5F39\u5E55\u4E3A NipaPlay \u4E2D\u8F6C\u5F39\u5F39play\u670D\u52A1\u7AEF\u5F39\u5E55\u4E0E\u81EA\u6709\u94FE\u8DEF\u5F39\u5E55\u5408\u5E76\u53BB\u91CD\u540E\u7684\u7ED3\u679C\u3002
+\u6CE8\u610F\uFF1A\u5173\u8054\u94FE\u63A5\u6307\u5411\u7684\u5E73\u53F0\u89C6\u9891\u82E5\u5DF2\u4E0B\u67B6\u5C06\u65E0\u6CD5\u901A\u8FC7\u81EA\u6709\u94FE\u8DEF\u8865\u53D6\uFF1B\u5173\u8054\u542B\u5DF4\u54C8\u59C6\u7279\u5E73\u53F0\u65F6\u9700\u786E\u4FDD\u80FD\u591F\u8FDE\u901A\u5DF4\u54C8` },
+      DANDANPLAY_PASSWORD: { category: "source", type: "text", description: `\u5F39\u5F39play\u5BC6\u7801\uFF08dandan \u6E90\u83B7\u53D6\u5F39\u5E55\u4F7F\u7528\uFF09\u3002
+\u70B9\u51FB\u7F16\u8F91\u754C\u9762\u7684\u6D4B\u8BD5\u8FDE\u901A\u6027\u6309\u94AE\u53EF\u9A8C\u8BC1\u8D26\u53F7\u4E0E NipaPlay \u4E2D\u8F6C\u5F39\u5F39play\u670D\u52A1\u7AEF\u662F\u5426\u53EF\u7528` },
       // 匹配配置
       PLATFORM_ORDER: { category: "match", type: "multi-select", options: this.ALLOWED_PLATFORMS, description: `\u5E73\u53F0\u6392\u5E8F\u914D\u7F6E\uFF0C\u53EF\u4EE5\u914D\u7F6E\u81EA\u52A8\u5339\u914D\u65F6\u7684\u4F18\u9009\u5E73\u53F0\u3002
 \u5F53\u914D\u7F6E\u5408\u5E76\u5E73\u53F0\u7684\u65F6\u5019\uFF0C\u53EF\u4EE5\u6307\u5B9A\u671F\u671B\u7684\u5408\u5E76\u6E90\uFF0C
@@ -5985,7 +6027,7 @@ var _Envs = class _Envs {
 \u6709\u9650\u8303\u56F4\uFF1A\u6C38\u751F S05E02~03 -> \u6C38\u751F S01E58~59
 \u6307\u5B9A\u7ED3\u679C\uFF1A\u6D77\u8D3C\u738B S02E01 -> \u822A\u6D77\u738B(1999)\u3010\u52A8\u6F2B\u3011 S01E62
 \u6307\u5B9A\u5E73\u53F0\uFF1A\u822A\u6D77\u738B S01E01 -> \u822A\u6D77\u738B S01E01 @qiyi` },
-      TITLE_NOISE_FILTER: { category: "match", type: "text", description: "\u5267\u540D\u6742\u97F3\u6E05\u7406\u89C4\u5219\uFF0C\u6309\u6B63\u5219\u8868\u8FBE\u5F0F\u6E05\u7406\u641C\u7D22\u4E0E\u5339\u914D\u9636\u6BB5\u7684\u5267\u540D\u6742\u97F3\u8BCD\uFF08\u5982`\u767E\u82B1\u6740\uFF08\u771F\u5F69\uFF09`\u2192`\u767E\u82B1\u6740`\uFF09\u3002\u9ED8\u8BA4\u503C\uFF1A[\uFF08(\\[](?:\u81FB\u5F69|\u771F\u5F69|\u9AD8\u6E05|\u6807\u6E05|\u8D85\u6E05|\u56FD\u914D|\u4E2D\u914D|\u65E5\u914D|\u7CA4\u8BED|\u539F\u58F0|\u53F0\u914D|\u65E0\u4FEE|\u672A\u5220\u51CF|\u5B8C\u6574\u7248|\u65E5\u8BED\u7248|\u56FD\u8BED\u7248|\u82F1\u8BED\u7248|\u4E2D\u5B57|\u5B57\u5E55|\u52A9\u542C|\u539F\u7248)[\\])\uFF09]\uFF0C\u4E2D\u82F1\u6587\u5706\u65B9\u62EC\u53F7\u5747\u5339\u914D\u3002\u8BBE\u4E3A\u7A7A\u503C\u53EF\u7981\u7528" },
+      TITLE_NOISE_FILTER: { category: "match", type: "text", description: "\u5267\u540D\u6742\u97F3\u6E05\u7406\u89C4\u5219\uFF0C\u6309\u6B63\u5219\u8868\u8FBE\u5F0F\u6E05\u7406\u641C\u7D22\u4E0E\u5339\u914D\u9636\u6BB5\u7684\u5267\u540D\u6742\u97F3\u8BCD\uFF08\u5982`\u767E\u82B1\u6740\uFF08\u771F\u5F69\uFF09`\u2192`\u767E\u82B1\u6740`\uFF09\u3002\n\u9ED8\u8BA4\u503C\uFF1A[\uFF08(\\[\uFF3B](?:\u81FB\u5F69|\u771F\u5F69|\u9AD8\u6E05|\u6807\u6E05|\u8D85\u6E05|\u56FD\u914D|\u4E2D\u914D|\u65E5\u914D|\u7CA4\u8BED|\u539F\u58F0|\u53F0\u914D|\u65E0\u4FEE|\u672A\u5220\u51CF|\u5B8C\u6574\u7248|\u65E5\u8BED\u7248|\u56FD\u8BED\u7248|\u82F1\u8BED\u7248|\u4E2D\u5B57|\u5B57\u5E55|\u52A9\u542C|\u539F\u7248)[\\])\uFF09\uFF3D]\uFF0C\u4E2D\u82F1\u6587\u5706\u65B9\u62EC\u53F7\u5747\u5339\u914D\u3002\n\u8BBE\u4E3A\u7A7A\u503C\u53EF\u7981\u7528" },
       AI_BASE_URL: { category: "match", type: "text", description: "AI\u670D\u52A1\u57FA\u7840URL\uFF0C\u4E0D\u586B\u9ED8\u8BA4\u4E3Ahttps://api.openai.com/v1" },
       AI_MODEL: { category: "match", type: "text", description: "AI\u6A21\u578B\u540D\u79F0\uFF0C\u4E0D\u586B\u9ED8\u8BA4\u4E3Agpt-4o" },
       AI_API_KEY: { category: "match", type: "text", description: "AI\u670D\u52A1API\u5BC6\u94A5\uFF0C\u9ED8\u8BA4\u4E3A\u7A7A\uFF0C\u9700\u624B\u52A8\u586B\u5199" },
@@ -6008,6 +6050,7 @@ var _Envs = class _Envs {
       HONGGUO_MERGE_ALL_EPISODES: { category: "danmu", type: "boolean", description: "\u7EA2\u679C\u77ED\u5267\u5408\u5E76\u5168\u96C6\u5F39\u5E55\uFF0C\u9ED8\u8BA4\u5173\u95ED" },
       DANMU_OFFSET: { category: "danmu", type: "text", sources: this.ALLOWED_SOURCES, description: "\u5F39\u5E55\u65F6\u95F4\u504F\u79FB\u914D\u7F6E\uFF0C\u683C\u5F0F\uFF1A\u5267\u540D:\u79D2 \u6216 \u5267\u540D/\u5B63:\u79D2 \u6216 \u5267\u540D/\u5B63/\u96C6:\u79D2\uFF0C\u652F\u6301\u6307\u5B9A\u6765\u6E90\uFF1A\u5267\u540D@\u6765\u6E90:\u79D2 \u6216 \u5267\u540D/\u5B63@\u6765\u6E901&\u6765\u6E902:\u79D2\uFF0C\u591A\u6761\u7528\u9017\u53F7\u5206\u9694\uFF0C\u6B63\u6570\u8868\u793A\u5F39\u5E55\u5EF6\u540E\uFF08\u5411\u53F3\uFF09\uFF0C\u8D1F\u6570\u8868\u793A\u5F39\u5E55\u63D0\u524D\uFF08\u5411\u5DE6\uFF09\u3002\u652F\u6301\u767E\u5206\u6BD4\u6A21\u5F0F\uFF1A\u5728\u8DEF\u5F84\u6216\u6765\u6E90\u672B\u5C3E\u8FFD\u52A0 %\uFF0C\u5982 \u4E1C\u65B9/S03/E02@tencent%:11\uFF0C\u6309\u516C\u5F0F \u539F\u65F6\u95F4 * (\u89C6\u9891\u65F6\u957F + \u504F\u79FB\u79D2\u6570) / \u89C6\u9891\u65F6\u957F \u7F29\u653E\u5168\u90E8\u5F39\u5E55\u65F6\u95F4\u3002\u793A\u4F8B\uFF1Aoverlord/S01:90,re-zero/S02@bilibili:120,re-zero/S02/E03@dandan&bilibili:10,\u4E1C\u65B9/S03/E02@tencent%:11" },
       // 缓存配置
+      LOCAL_CACHE_ENABLED: { category: "cache", type: "boolean", description: "\u901A\u7528\u6587\u4EF6\u7F13\u5B58\u5F00\u5173\uFF0C\u9ED8\u8BA4\u5F00\u542F\u4E14\u4ECD\u9700\u5DF2\u6709 .cache \u76EE\u5F55\uFF1B\u5173\u95ED\u540E\u4E0D\u8BFB\u53D6\u6216\u5199\u5165\u901A\u7528\u6587\u4EF6\u7F13\u5B58\uFF0C\u5305\u62EC\u6536\u85CF\u4E0E\u5B9A\u65F6\u8BA1\u5212\uFF1B\u5DF2\u914D\u7F6E Upstash \u65F6\u4ECD\u53EF\u6301\u4E45\u5316\u3002\u4E0D\u5F71\u54CD\u672C\u5730\u5F39\u5E55\u6587\u4EF6\u3001Bangumi Data \u6216 Redis" },
       SEARCH_CACHE_MINUTES: { category: "cache", type: "number", description: "\u641C\u7D22\u7ED3\u679C\u7F13\u5B58\u65F6\u95F4(\u5206\u949F)\uFF0C\u9ED8\u8BA43", min: 1, max: 120 },
       COMMENT_CACHE_MINUTES: { category: "cache", type: "number", description: "\u5F39\u5E55\u7F13\u5B58\u65F6\u95F4(\u5206\u949F)\uFF0C\u9ED8\u8BA43", min: 1, max: 120 },
       COMMENT_CACHE_MIN_COUNT: { category: "cache", type: "number", description: "\u5F39\u5E55\u7F13\u5B58\u6700\u5C11\u6761\u6570\uFF0C\u4F4E\u4E8E\u8BE5\u503C\u65F6\u91CD\u65B0\u83B7\u53D6\uFF0C\u9ED8\u8BA4100\uFF0C\u8BBE\u7F6E0\u5173\u95ED", min: 0, max: 1e4 },
@@ -6038,6 +6081,7 @@ var _Envs = class _Envs {
       // admin token，用于系统管理访问控制
       favoriteRequireAdmin: this.get("FAVORITE_REQUIRE_ADMIN", !1, "boolean"),
       // 收藏写入和管理接口是否必须使用 admin token；列表始终公开
+      localDanmuNotRequireAdmin: this.get("LOCAL_DANMU_NOT_REQUIRE_ADMIN", !1, "boolean"),
       sourceOrderArr: this.resolveSourceOrder(),
       // 源排序
       mergeSourcePairs: this.resolveMergeSourcePairs(),
@@ -6060,6 +6104,10 @@ var _Envs = class _Envs {
       // 豆瓣cookie
       youkuConcurrency: Math.min(this.get("YOUKU_CONCURRENCY", 8, "number"), 16),
       // 优酷并发配置
+      dandanplayAccount: this.get("DANDANPLAY_ACCOUNT", "", "string", !0),
+      // 弹弹play账号，dandan 源获取弹幕使用
+      dandanplayPassword: this.get("DANDANPLAY_PASSWORD", "", "string", !0),
+      // 弹弹play密码，dandan 源获取弹幕使用
       platformOrderArr: this.resolvePlatformOrder(),
       // 自动匹配优选平台
       animeTitleFilter: this.resolveAnimeTitleFilter(),
@@ -6094,6 +6142,8 @@ var _Envs = class _Envs {
       // upstash redis url
       redisToken: this.get("UPSTASH_REDIS_REST_TOKEN", "", "string", !0),
       // upstash redis url
+      localCacheEnabled: this.get("LOCAL_CACHE_ENABLED", !0, "boolean"),
+      // 允许使用已有 .cache 目录保存通用文件缓存
       localRedisUrl: this.get("LOCAL_REDIS_URL", "", "string", !0),
       // 本地 Redis 连接URL，示例：redis://:password@127.0.0.1:6379/0，只支持本地部署和docker部署
       rateLimitMaxRequests: this.get("RATE_LIMIT_MAX_REQUESTS", 3, "number"),
@@ -6110,8 +6160,6 @@ var _Envs = class _Envs {
       // 弹幕缓存最少条数，低于该值时忽略缓存（默认 100，0 表示关闭）
       hongguoMergeAllEpisodes: this.get("HONGGUO_MERGE_ALL_EPISODES", !1, "boolean"),
       // 红果短剧是否合并全集弹幕（默认 false）
-      nipaplayReplaceDandan: this.get("NIPAPLAY_REPLACE_DANDAN", !1, "boolean"),
-      // NipaPlay 弹弹302关联弹幕替代开关，开启后 dandan 源以 nipaplay 弹弹302关联弹幕替代弹弹原生弹幕
       convertTopBottomToScroll: this.get("CONVERT_TOP_BOTTOM_TO_SCROLL", !1, "boolean"),
       // 顶部/底部弹幕转换为浮动弹幕配置（默认 false，禁用转换）
       convertColor: this.get("CONVERT_COLOR", "default", "string"),
@@ -6169,10 +6217,11 @@ var _Envs = class _Envs {
 };
 __publicField(_Envs, "env"), // 记录获取过的环境变量
 __publicField(_Envs, "originalEnvVars", /* @__PURE__ */ new Map()), __publicField(_Envs, "accessedEnvVars", /* @__PURE__ */ new Map()), // Node 本地部署时由 server.js 注入：启动前的真实系统环境变量快照（最高优先级判定依据）与 .env 原始解析结果
-__publicField(_Envs, "systemEnvBackup", null), __publicField(_Envs, "rawEnvValues", null), // 允许在值中写入 # 等 dotenv 视为注释字符的文本类变量；读取时绕过 dotenv 截断以保留完整内容。仅纳入 encrypt=false 变量（带令牌/密码 URL 若入此集合会绕过加密返回明文，故禁止纳入）。
-__publicField(_Envs, "RAW_ENV_KEYS", /* @__PURE__ */ new Set(["AI_MATCH_PROMPT", "ANIME_TITLE_FILTER", "AUTO_MATCH_MAPPING_TABLE", "BLOCKED_WORDS", "COLOR_POOL", "CUSTOM_MERGE_RULES", "DANMU_OFFSET", "DANMU_PUSH_URL", "EPISODE_TITLE_FILTER", "IP_BLACKLIST", "OTHER_SERVER", "TITLE_MAPPING_TABLE", "TITLE_NOISE_FILTER", "VOD_SERVERS"])), __publicField(_Envs, "VOD_ALLOWED_PLATFORMS", ["qiyi", "bilibili1", "imgo", "youku", "qq", "migu", "sohu", "leshi", "xigua", "maiduidui", "aiyifan"]), // vod允许的播放平台
+__publicField(_Envs, "systemEnvBackup", null), __publicField(_Envs, "rawEnvValues", null), // 按 encrypt 读取的变量（凭据类），随 Envs.get 调用登记，供日志脱敏判定是否为敏感变量
+__publicField(_Envs, "sensitiveKeys", /* @__PURE__ */ new Set()), // 允许在值中写入 # 等 dotenv 视为注释字符的变量；读取时绕过 dotenv 截断以保留完整内容。加密变量按掩码写入预览集合，原始值仅供运行期使用与日志脱敏。
+__publicField(_Envs, "RAW_ENV_KEYS", /* @__PURE__ */ new Set(["ADMIN_TOKEN", "AI_API_KEY", "AI_MATCH_PROMPT", "ANIME_TITLE_FILTER", "AUTO_MATCH_MAPPING_TABLE", "BLOCKED_WORDS", "BILIBILI_COOKIE", "COLOR_POOL", "CUSTOM_MERGE_RULES", "CUSTOM_SOURCE_API_URL", "DANDANPLAY_ACCOUNT", "DANDANPLAY_PASSWORD", "DANMU_OFFSET", "DANMU_PUSH_URL", "DEPLOY_PLATFROM_ACCOUNT", "DEPLOY_PLATFROM_PROJECT", "DEPLOY_PLATFROM_TOKEN", "DOUBAN_COOKIE", "EPISODE_TITLE_FILTER", "IP_BLACKLIST", "LOCAL_REDIS_URL", "OTHER_SERVER", "PROXY_URL", "TITLE_MAPPING_TABLE", "TITLE_NOISE_FILTER", "TMDB_API_KEY", "TOKEN", "UPSTASH_REDIS_REST_TOKEN", "UPSTASH_REDIS_REST_URL", "VOD_SERVERS"])), __publicField(_Envs, "VOD_ALLOWED_PLATFORMS", ["qiyi", "bilibili1", "imgo", "youku", "qq", "migu", "sohu", "leshi", "xigua", "maiduidui", "aiyifan"]), // vod允许的播放平台
 __publicField(_Envs, "ALLOWED_PLATFORMS", ["qiyi", "bilibili1", "imgo", "youku", "qq", "migu", "renren", "hanjutv", "sohu", "leshi", "xigua", "maiduidui", "aiyifan", "hongguo", "dandan", "bahamut", "animeko", "custom"]), // 全部源允许的播放平台
-__publicField(_Envs, "ALLOWED_SOURCES", ["360", "vod", "tmdb", "douban", "tencent", "youku", "iqiyi", "imgo", "bilibili", "migu", "renren", "hanjutv", "sohu", "leshi", "xigua", "maiduidui", "aiyifan", "hongguo", "dandan", "bahamut", "animeko", "custom"]), // 允许的源
+__publicField(_Envs, "ALLOWED_SOURCES", ["360", "vod", "tmdb", "douban", "tencent", "youku", "iqiyi", "imgo", "bilibili", "migu", "renren", "hanjutv", "sohu", "leshi", "xigua", "maiduidui", "aiyifan", "hongguo", "dandan", "bahamut", "animeko", "custom", "local"]), // 允许的源
 __publicField(_Envs, "MERGE_ALLOWED_SOURCES", ["tencent", "youku", "iqiyi", "imgo", "bilibili", "migu", "renren", "hanjutv", "sohu", "leshi", "xigua", "maiduidui", "aiyifan", "hongguo", "dandan", "bahamut", "animeko"]), // 允许的源合并
 __publicField(_Envs, "DEFAULT_AI_MATCH_PROMPT", `\u4F60\u662F\u4E00\u4E2A\u4E13\u4E1A\u7684\u5F71\u89C6\u5339\u914D\u4E13\u5BB6\uFF0C\u4F60\u7684\u7684\u4EFB\u52A1\u662F\u6839\u636E\u7528\u6237\u63D0\u4F9B\u7684 JSON \u6570\u636E\uFF0C\u4ECE\u5019\u9009\u52A8\u6F2B\u5217\u8868\u4E2D\u5339\u914D\u6700\u7B26\u5408\u6761\u4EF6\u7684\u52A8\u6F2B\u53CA\u96C6\u6570\u3002
 
@@ -6221,7 +6270,7 @@ var Globals = {
   originalEnvVars: {},
   accessedEnvVars: {},
   // 静态常量
-  VERSION: "1.20.10",
+  VERSION: "1.21.4",
   MAX_LOGS: 1e3,
   // 日志存储，最多保存 1000 行
   MAX_RECORDS: 100,
@@ -6238,6 +6287,14 @@ var Globals = {
   // 本地缓存是否生效
   localCacheInitialized: !1,
   // 本地缓存是否已初始化
+  localRedisCacheInitialized: !1,
+  // 本地 Redis 缓存是否已初始化
+  queryCacheInitialized: !1,
+  // 查询数据只恢复一次，之后以内存为准
+  queryCacheWritable: {},
+  // 后端成功读取后才可写入；失败后本进程保留远端数据
+  favoriteCacheWritable: {},
+  // 收藏读取失败时保护原快照，与查询恢复状态独立
   redisValid: !1,
   // redis是否生效
   localRedisValid: !1,
@@ -6252,16 +6309,10 @@ var Globals = {
   // 记录请求历史，包括接口/参数/请求时间
   todayReqNum: 0,
   // 今日请求数量统计
-  lastHashes: {
-    // 存储上一次各变量哈希值
-    animes: null,
-    episodeIds: null,
-    episodeNum: null,
-    lastSelectMap: null,
-    reqRecords: null,
-    todayReqNum: null,
-    favoriteCache: null
-  },
+  // 各后端只记录自身已确认持有的数据；缺少哈希表示尚未持久化。
+  localFileHashes: {},
+  upstashHashes: {},
+  localRedisHashes: {},
   searchCache: /* @__PURE__ */ new Map(),
   // 搜索结果缓存，存储格式：{ keyword: { results, timestamp } }
   commentCache: /* @__PURE__ */ new Map(),
@@ -7654,77 +7705,6 @@ function resolveFavoriteForSearchKeyword(keyword) {
   return null;
 }
 
-// danmu_api/utils/redis-util.js
-async function setRedisKey(key, value) {
-  let serializedValue = serializeValue(key, value), currentHash = simpleHash(serializedValue);
-  if (globals.lastHashes[key] === currentHash)
-    return log("info", `[system] [redis] \u952E ${key} \u65E0\u53D8\u5316\uFF0C\u8DF3\u8FC7 SET \u8BF7\u6C42`), { result: "OK" };
-  let url = `${globals.redisUrl}/set/${key}`;
-  log("info", "[system] [redis] \u5F00\u59CB\u53D1\u9001 SET \u8BF7\u6C42:", url);
-  try {
-    let result = await (await fetch(url, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${globals.redisToken}`,
-        "Content-Type": "application/json"
-      },
-      body: serializedValue
-    })).json();
-    return globals.lastHashes[key] = currentHash, log("info", `[system] [redis] \u952E ${key} \u66F4\u65B0\u6210\u529F`), result;
-  } catch (error) {
-    log("error", "[system] [redis] SET \u8BF7\u6C42\u5931\u8D25:", error.message), log("error", "- [system] [redis] \u9519\u8BEF\u7C7B\u578B:", error.name), error.cause && (log("error", "- [system] [redis] \u7801:", error.cause.code), log("error", "- [system] [redis] \u539F\u56E0:", error.cause.message));
-  }
-}
-async function runPipeline(commands) {
-  let url = `${globals.redisUrl}/pipeline`;
-  log("info", "[system] [redis] \u5F00\u59CB\u53D1\u9001 PIPELINE \u8BF7\u6C42:", url);
-  try {
-    return await (await fetch(url, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${globals.redisToken}`,
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify(commands)
-      // commands 是一个数组，包含多个 Redis 命令
-    })).json();
-  } catch (error) {
-    log("error", "[system] [redis] Pipeline \u8BF7\u6C42\u5931\u8D25:", error.message), log("error", "- [system] [redis] \u9519\u8BEF\u7C7B\u578B:", error.name), error.cause && (log("error", "- [system] [redis] \u7801:", error.cause.code), log("error", "- [system] [redis] \u539F\u56E0:", error.cause.message));
-  }
-}
-async function updateRedisCaches() {
-  try {
-    log("info", "[system] [redis] updateCaches start.");
-    let commands = [], updates = [], variables = [
-      { key: "animes", value: globals.animes },
-      { key: "episodeIds", value: globals.episodeIds },
-      { key: "episodeNum", value: globals.episodeNum },
-      { key: "reqRecords", value: globals.reqRecords },
-      { key: "lastSelectMap", value: globals.lastSelectMap },
-      { key: "todayReqNum", value: globals.todayReqNum },
-      { key: "favoriteCache", value: globals.favoriteCache }
-    ];
-    for (let { key, value } of variables) {
-      let serializedValue = serializeValue(key, value), currentHash = simpleHash(serializedValue);
-      currentHash !== globals.lastHashes[key] && (commands.push(["SET", key, serializedValue]), updates.push({ key, hash: currentHash }));
-    }
-    if (commands.length > 0) {
-      log("info", `[system] [redis] Updating ${commands.length} changed keys: ${updates.map((u) => u.key).join(", ")}`);
-      let results = await runPipeline(commands), successCount = 0, failureCount = 0;
-      Array.isArray(results) && results.forEach((result, index) => {
-        result && result.result === "OK" ? successCount++ : (failureCount++, log("warn", `[system] [redis] Failed to update Redis key: ${updates[index]?.key}, result: ${JSON.stringify(result)}`));
-      }), failureCount === 0 ? (updates.forEach(({ key, hash }) => {
-        globals.lastHashes[key] = hash;
-      }), log("info", `[system] [redis] Redis update completed successfully: ${successCount} keys updated`)) : log("warn", `[system] [redis] Redis update partially failed: ${successCount} succeeded, ${failureCount} failed`);
-    } else
-      log("info", "[system] [redis] No changes detected, skipping Redis update.");
-  } catch (error) {
-    log("error", `[system] [redis] updateRedisCaches failed: ${error.message}`, error.stack), log("error", `[system] [redis] Error details - Name: ${error.name}, Cause: ${error.cause ? error.cause.message : "N/A"}`);
-  }
-}
-
-// danmu_api/apis/dandan-api.js
-
 // danmu_api/models/dandan-model.js
 var Anime = class _Anime {
   constructor({
@@ -7921,7 +7901,13 @@ var Season = class _Season {
 };
 
 // danmu_api/utils/cache-util.js
-var fs, path, lastSearchMap = /* @__PURE__ */ new Map();
+var fs, path, nodeModulesPromise;
+async function loadFileCacheModules() {
+  nodeModulesPromise || (nodeModulesPromise = Promise.all([import("fs"), import("path")]).catch((error) => {
+    throw nodeModulesPromise = null, error;
+  })), [fs, path] = await nodeModulesPromise;
+}
+var lastSearchMap = /* @__PURE__ */ new Map();
 function getLastSearch(ip) {
   return lastSearchMap.get(ip);
 }
@@ -8114,12 +8100,33 @@ function setCommentCache(videoUrl, comments) {
   }
   log("info", `[cache] Cached comments for "${videoUrl}" (${comments.length} comments)`);
 }
-function addEpisode(url, title) {
+function getEpisodeIdFloor() {
+  let maxId = 10001, include = (episode) => {
+    Number.isSafeInteger(episode?.id) && episode.id >= 0 && (maxId = Math.max(maxId, episode.id));
+  }, includeDetails = (details) => {
+    if (Array.isArray(details))
+      for (let anime of details)
+        Array.isArray(anime?.links) && anime.links.forEach(include);
+  };
+  if (globals.episodeIds.forEach(include), includeDetails(globals.animes), globals.favoriteCache instanceof Map)
+    for (let cached of globals.favoriteCache.values()) includeDetails(cached?.details);
+  let now = Date.now();
+  if (globals.searchCache instanceof Map)
+    for (let cached of globals.searchCache.values())
+      (now - cached?.timestamp) / 6e4 > globals.searchCacheMinutes || includeDetails(cached?.details);
+  return maxId;
+}
+function allocateEpisode(url, title) {
   let existingEpisode = globals.episodeIds.find((episode) => episode.url === url && episode.title === title);
-  if (existingEpisode)
+  if (existingEpisode) {
+    if (!Number.isSafeInteger(existingEpisode.id) || existingEpisode.id < 0 || globals.episodeIds.some((episode) => episode.id === existingEpisode.id && episode.url !== url))
+      throw new Error("\u5267\u96C6 ID \u6620\u5C04\u65E0\u6548\uFF0C\u8BF7\u6E05\u7406\u5267\u96C6\u7F13\u5B58\u540E\u91CD\u8BD5");
     return log("info", `[cache] Episode with URL ${url} and title ${title} already exists in episodeIds, returning existing episode.`), existingEpisode;
-  globals.episodeNum++;
-  let newEpisode = { id: globals.episodeNum, url, title };
+  }
+  let nextId = globals.episodeNum + 1;
+  if (!Number.isSafeInteger(nextId) || nextId >= Number.MAX_SAFE_INTEGER) throw new Error("\u5267\u96C6 ID \u8D85\u51FA\u5B89\u5168\u8303\u56F4\uFF0C\u8BF7\u6E05\u7406\u5267\u96C6\u7F13\u5B58\u540E\u91CD\u8BD5");
+  globals.episodeNum = nextId;
+  let newEpisode = { id: nextId, url, title };
   return globals.episodeIds.push(newEpisode), log("info", `[cache] Added to episodeIds: ${JSON.stringify(newEpisode)}`), newEpisode;
 }
 function removeEpisodeByUrl(url) {
@@ -8153,33 +8160,51 @@ function findAnimeTitleById(id) {
   let resolved = resolveEpisodeContextById(id);
   return resolved?.anime?.animeTitle ? (log("info", `[cache] Found animeTitle for ID ${id}: ${resolved.anime.animeTitle}`), resolved.anime.animeTitle) : (log("error", `[cache] No animeTitle found for ID: ${id}`), null);
 }
+function getAddAnimeError(detailStore) {
+  return detailStore instanceof Map && detailStore.__addAnimeError || "";
+}
+function mergeAddAnimeError(target, source) {
+  if (source instanceof Map && target instanceof Map && !getAddAnimeError(target)) {
+    let message = getAddAnimeError(source);
+    message && (target.__addAnimeError = message);
+  }
+  return target;
+}
 function addAnime(anime, detailStore = null) {
   anime = Anime.fromJson(anime);
+  let previousEpisodeCount = globals.episodeIds.length, previousEpisodeNum = globals.episodeNum, allocationComplete = !1;
   try {
     if (!anime.links || !Array.isArray(anime.links))
       return log("error", `[cache] Invalid or missing links in anime: ${JSON.stringify(anime)}`), !1;
+    globals.episodeNum = Math.max(globals.episodeNum, getEpisodeIdFloor()), previousEpisodeNum = globals.episodeNum;
     let newLinks = [];
     anime.links.forEach((link) => {
       if (link.url) {
-        let episode = addEpisode(link.url, link.title);
+        let episode = allocateEpisode(link.url, link.title);
         episode && newLinks.push(episode);
       } else
         log("error", `[cache] Invalid link in anime, missing url: ${JSON.stringify(link)}`);
     });
     let animeCopy = Anime.fromJson({ ...anime, links: newLinks });
-    storeAnimeDetail(detailStore, animeCopy);
+    allocationComplete = !0, storeAnimeDetail(detailStore, animeCopy);
     let existingAnimeIndex = globals.animes.findIndex((a) => a.animeId === anime.animeId);
-    return existingAnimeIndex !== -1 && (globals.animes.splice(existingAnimeIndex, 1), log("info", `[cache] Removed old anime at index: ${existingAnimeIndex}`)), globals.animes.push(animeCopy), log("info", `[cache] Added anime to latest position: ${anime.animeId}`), globals.animes.length > globals.MAX_ANIMES && (removeEarliestAnime() || log("error", "[cache] Failed to remove earliest anime, but continuing")), log("info", `[cache] animes: ${JSON.stringify(
-      globals.animes.map((anime2) => ({
-        links: anime2.links,
-        animeId: anime2.animeId,
-        bangumiId: anime2.bangumiId,
-        animeTitle: anime2.animeTitle
-      })),
-      (key, value) => key === "links" ? value.length : value
-    )}`), !0;
+    return existingAnimeIndex !== -1 && (globals.animes.splice(existingAnimeIndex, 1), log("info", `[cache] Removed old anime at index: ${existingAnimeIndex}`)), globals.animes.push(animeCopy), log("info", `[cache] Added anime to latest position: ${anime.animeId}`), globals.animes.length > globals.MAX_ANIMES && (removeEarliestAnime() || log("error", "[cache] Failed to remove earliest anime, but continuing")), !0;
   } catch (error) {
-    return log("error", `[cache] addAnime failed: ${error.message}`), !1;
+    return allocationComplete || (globals.episodeIds.length = previousEpisodeCount, globals.episodeNum = previousEpisodeNum), log("error", `[cache] addAnime failed: ${error.message}`), detailStore instanceof Map && (detailStore.__addAnimeError = error.message), !1;
+  } finally {
+    try {
+      log("info", `[cache] animes: ${JSON.stringify(
+        globals.animes.map((anime2) => ({
+          links: anime2.links,
+          animeId: anime2.animeId,
+          bangumiId: anime2.bangumiId,
+          animeTitle: anime2.animeTitle
+        })),
+        (key, value) => key === "links" ? Array.isArray(value) ? value.length : 0 : value
+      )}`);
+    } catch (error) {
+      log("warn", `[cache] animes \u8BCA\u65AD\u5E8F\u5217\u5316\u5931\u8D25: ${error.message}`);
+    }
   }
 }
 function removeEarliestAnime() {
@@ -8235,17 +8260,57 @@ function setPreferForTitle(title, animeId, source, season = null, offset = null)
     ...Object.keys(offsets).length > 0 && { offsets }
   }), globals.lastSelectMap.size > globals.MAX_LAST_SELECT_MAP && globals.lastSelectMap.delete(globals.lastSelectMap.keys().next().value), key;
 }
+var queryCacheKeys = [
+  "animes",
+  "episodeIds",
+  "episodeNum",
+  "reqRecords",
+  "lastSelectMap",
+  "todayReqNum"
+];
+function canPersistCacheKey(key, backend) {
+  return key === "favoriteCache" || key === "favoritesCache" ? globals.favoriteCacheWritable[backend] !== !1 : !queryCacheKeys.includes(key) || globals.queryCacheInitialized && globals.queryCacheWritable[backend] === !0;
+}
+var backedUpCacheFiles = /* @__PURE__ */ new Set(), backupRetryAfter = /* @__PURE__ */ new Map(), cacheFileSequence = 0;
+function backupQueryCacheFile(key) {
+  let cacheFilePath = path.join(getDirname(), "..", "..", ".cache", key);
+  if (backedUpCacheFiles.has(cacheFilePath) || !fs.existsSync(cacheFilePath)) return !0;
+  if (Date.now() < (backupRetryAfter.get(cacheFilePath) || 0)) return !1;
+  let backup = `${cacheFilePath}.bak-${Date.now()}-${process.pid}-${++cacheFileSequence}`, temporary = `${backup}.tmp`;
+  try {
+    fs.copyFileSync(cacheFilePath, temporary, fs.constants.COPYFILE_EXCL), fs.renameSync(temporary, backup);
+    let directory = path.dirname(cacheFilePath), backups = fs.readdirSync(directory).filter((name) => name.startsWith(`${key}.bak-`) && /^\d+-\d+(?:-\d+)?$/.test(name.slice(`${key}.bak-`.length))).map((name) => ({ name, mtime: fs.statSync(path.join(directory, name)).mtimeMs })).sort((a, b) => b.mtime - a.mtime || b.name.localeCompare(a.name));
+    for (let old of backups.slice(2)) fs.unlinkSync(path.join(directory, old.name));
+    return backedUpCacheFiles.add(cacheFilePath), backupRetryAfter.delete(cacheFilePath), log("warn", `[cache] \u5DF2\u4FDD\u7559\u8986\u76D6\u524D\u7684\u67E5\u8BE2\u7F13\u5B58: ${backup}`), !0;
+  } catch (error) {
+    for (let target of [temporary, backup])
+      try {
+        fs.unlinkSync(target);
+      } catch {
+      }
+    return backupRetryAfter.set(cacheFilePath, Date.now() + 3e4), log("warn", `[cache] ${key} \u5907\u4EFD\u5931\u8D25\uFF0C30 \u79D2\u540E\u91CD\u8BD5\uFF0C\u539F\u6587\u4EF6\u4FDD\u6301\u4E0D\u53D8: ${error.message}`), !1;
+  }
+}
 function getDirname() {
   return typeof __dirname < "u" ? __dirname : path.join(process.cwd(), "danmu_api", "utils");
 }
-function writeCacheToFile(key, value) {
+function writeCacheToFile(key, value, { force = !1 } = {}) {
+  if (globals.localCacheEnabled === !1 || !force && !canPersistCacheKey(key, "file")) return !1;
   let cacheFilePath = path.join(getDirname(), "..", "..", ".cache", `${key}`);
-  fs.writeFileSync(cacheFilePath, JSON.stringify(value), "utf8");
-}
-async function updateLocalCaches() {
+  if (queryCacheKeys.includes(key) && !backupQueryCacheFile(key)) return !1;
+  let temporaryPath = `${cacheFilePath}.tmp-${process.pid}-${++cacheFileSequence}`;
   try {
-    log("info", "[cache] updateLocalCaches start.");
-    let updates = [], variables = [
+    fs.writeFileSync(temporaryPath, JSON.stringify(value), { encoding: "utf8", flag: "wx" }), fs.renameSync(temporaryPath, cacheFilePath);
+  } finally {
+    fs.existsSync(temporaryPath) && fs.unlinkSync(temporaryPath);
+  }
+  return !0;
+}
+async function updateLocalCaches({ keys, force = !1 } = {}) {
+  if (globals.localCacheEnabled === !1) return !0;
+  try {
+    await loadFileCacheModules(), log("info", "[cache] updateLocalCaches start.");
+    let updates = [], saved = !0, variables = [
       { key: "animes", value: globals.animes },
       { key: "episodeIds", value: globals.episodeIds },
       { key: "episodeNum", value: globals.episodeNum },
@@ -8255,16 +8320,103 @@ async function updateLocalCaches() {
       { key: "favoritesCache", value: globals.favoriteCache }
     ];
     for (let { key, value } of variables) {
+      if (keys && !keys.includes(key)) continue;
+      if (!force && !canPersistCacheKey(key, "file")) {
+        saved = !1;
+        continue;
+      }
       let serializedValue = JSON.stringify(key === "lastSelectMap" ? Object.fromEntries(value) : key === "favoritesCache" ? saveFavorites() : value), currentHash = simpleHash(serializedValue), hashKey = key === "favoritesCache" ? "favoriteCache" : key;
-      currentHash !== globals.lastHashes[hashKey] && (writeCacheToFile(key, serializedValue), updates.push({ key, hashKey, hash: currentHash }));
+      if (force || currentHash !== globals.localFileHashes[hashKey]) {
+        if (!writeCacheToFile(key, serializedValue, { force })) {
+          saved = !1;
+          continue;
+        }
+        globals.localFileHashes[hashKey] = currentHash, updates.push({ key });
+      }
     }
-    updates.length > 0 ? (log("info", `[cache] Updated local caches for keys: ${updates.map((u) => u.key).join(", ")}`), updates.forEach(({ hashKey, hash }) => {
-      globals.lastHashes[hashKey] = hash;
-    })) : log("info", "[cache] No changes detected, skipping local cache update.");
+    return updates.length > 0 ? log("info", `[cache] Updated local caches for keys: ${updates.map((u) => u.key).join(", ")}`) : log("info", "[cache] No changes detected, skipping local cache update."), saved;
   } catch (error) {
-    log("error", `[cache] updateLocalCaches failed: ${error.message}`, error.stack), log("error", `[cache] Error details - Name: ${error.name}, Cause: ${error.cause ? error.cause.message : "N/A"}`);
+    return log("error", `[cache] updateLocalCaches failed: ${error.message}`, error.stack), log("error", `[cache] Error details - Name: ${error.name}, Cause: ${error.cause ? error.cause.message : "N/A"}`), !1;
   }
 }
+
+// danmu_api/utils/redis-util.js
+var redisConnectionVersion = 0;
+var currentRedisConnectionKey = () => globals.redisUrl && globals.redisToken ? JSON.stringify([globals.redisUrl, globals.redisToken]) : null, isCurrentConnection = (version, key) => version === redisConnectionVersion && key === currentRedisConnectionKey();
+var requestTimeout = (key) => String(key).startsWith("localDanmu:") ? 6e4 : 3e4;
+async function setRedisKey(key, value) {
+  let version = redisConnectionVersion, connectionKey = currentRedisConnectionKey();
+  if (!canPersistCacheKey(key, "upstash")) return { result: "ERROR" };
+  let serializedValue = serializeValue(key, value), currentHash = simpleHash(serializedValue);
+  if (globals.upstashHashes[key] === currentHash)
+    return log("info", `[system] [redis] \u952E ${key} \u65E0\u53D8\u5316\uFF0C\u8DF3\u8FC7 SET \u8BF7\u6C42`), { result: "OK" };
+  let url = `${globals.redisUrl}/set/${key}`;
+  log("info", "[system] [redis] \u5F00\u59CB\u53D1\u9001 SET \u8BF7\u6C42:", url);
+  try {
+    let response = await fetch(url, {
+      method: "POST",
+      signal: AbortSignal.timeout(requestTimeout(key)),
+      headers: {
+        Authorization: `Bearer ${globals.redisToken}`,
+        "Content-Type": "application/json"
+      },
+      body: serializedValue
+    }), result = await response.json();
+    if (!response.ok || result?.result !== "OK") throw new Error(`SET \u672A\u6210\u529F: ${JSON.stringify(result)}`);
+    if (!isCurrentConnection(version, connectionKey)) throw new Error("Redis \u8FDE\u63A5\u5DF2\u5207\u6362");
+    return globals.upstashHashes[key] = currentHash, log("info", `[system] [redis] \u952E ${key} \u66F4\u65B0\u6210\u529F`), result;
+  } catch (error) {
+    return log("error", "[system] [redis] SET \u8BF7\u6C42\u5931\u8D25:", error.message), log("error", "- [system] [redis] \u9519\u8BEF\u7C7B\u578B:", error.name), error.cause && (log("error", "- [system] [redis] \u7801:", error.cause.code), log("error", "- [system] [redis] \u539F\u56E0:", error.cause.message)), { result: "ERROR" };
+  }
+}
+async function runPipeline(commands, { timeoutMs = Math.max(3e4, ...commands.map(([, key]) => requestTimeout(key))) } = {}) {
+  let version = redisConnectionVersion, connectionKey = currentRedisConnectionKey(), url = `${globals.redisUrl}/pipeline`;
+  log("info", "[system] [redis] \u5F00\u59CB\u53D1\u9001 PIPELINE \u8BF7\u6C42:", url);
+  try {
+    let response = await fetch(url, {
+      method: "POST",
+      signal: AbortSignal.timeout(timeoutMs),
+      headers: {
+        Authorization: `Bearer ${globals.redisToken}`,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify(commands)
+      // commands 是一个数组，包含多个 Redis 命令
+    });
+    if (!response.ok) throw new Error(`Pipeline HTTP ${response.status}`);
+    let result = await response.json();
+    if (!isCurrentConnection(version, connectionKey)) throw new Error("Redis \u8FDE\u63A5\u5DF2\u5207\u6362");
+    return result;
+  } catch (error) {
+    log("error", "[system] [redis] Pipeline \u8BF7\u6C42\u5931\u8D25:", error.message), log("error", "- [system] [redis] \u9519\u8BEF\u7C7B\u578B:", error.name), error.cause && (log("error", "- [system] [redis] \u7801:", error.cause.code), log("error", "- [system] [redis] \u539F\u56E0:", error.cause.message));
+  }
+}
+async function updateRedisCaches({ keys, force = !1, timeoutMs } = {}) {
+  let version = redisConnectionVersion, connectionKey = currentRedisConnectionKey();
+  try {
+    log("info", "[system] [redis] updateCaches start.");
+    let commands = [], updates = [], variables = [...queryCacheKeys, "favoriteCache"].filter((key) => (!keys || keys.includes(key)) && (force || canPersistCacheKey(key, "upstash"))).map((key) => ({ key, value: globals[key] }));
+    for (let { key, value } of variables) {
+      let serializedValue = serializeValue(key, value), currentHash = simpleHash(serializedValue);
+      (force || currentHash !== globals.upstashHashes[key]) && (commands.push(["SET", key, serializedValue]), updates.push({ key, hash: currentHash }));
+    }
+    if (commands.length > 0) {
+      log("info", `[system] [redis] Updating ${commands.length} changed keys: ${updates.map((u) => u.key).join(", ")}`);
+      let results = await runPipeline(commands, { timeoutMs });
+      if (!isCurrentConnection(version, connectionKey)) return !1;
+      let successCount = 0, failureCount = 0;
+      return updates.forEach(({ key, hash }, index) => {
+        let result = Array.isArray(results) ? results[index] : null;
+        result?.result === "OK" && !result.error ? (globals.upstashHashes[key] = hash, successCount++) : (failureCount++, log("warn", `[system] [redis] Failed to update Redis key: ${key}, result: ${JSON.stringify(result)}`));
+      }), failureCount === 0 ? log("info", `[system] [redis] Redis update completed successfully: ${successCount} keys updated`) : log("warn", `[system] [redis] Redis update partially failed: ${successCount} succeeded, ${failureCount} failed`), failureCount === 0;
+    } else
+      return log("info", "[system] [redis] No changes detected, skipping Redis update."), !0;
+  } catch (error) {
+    return log("error", `[system] [redis] updateRedisCaches failed: ${error.message}`, error.stack), log("error", `[system] [redis] Error details - Name: ${error.name}, Cause: ${error.cause ? error.cause.message : "N/A"}`), !1;
+  }
+}
+
+// danmu_api/apis/dandan-api.js
 
 // danmu_api/utils/danmu-util.js
 function groupDanmusByMinute(filteredDanmus, n, isMultiSource = !1) {
@@ -9642,8 +9794,8 @@ function getMatchingCustomRule(pAnime, sAnime) {
       cleanAnime = cleanAnime.replace(RegexStore.Clean.SOURCE_TAG, "").replace(/\[.*?\]/g, "");
     }
     return !cleanRule.includes("\u5B63") && !cleanRule.includes("season") && (cleanAnime = cleanAnime.replace(RegexStore.Season.INFO_STRONG, "")), cleanAnime = cleanAnime.replace(RegexStore.Clean.MOVIE_KEYWORDS, ""), {
-      target: normalizeSpaces(cleanAnime).replace(/\s+/g, ""),
-      rule: normalizeSpaces(cleanRule).replace(/\s+/g, "")
+      target: stripNonTitleChars(cleanAnime).replace(/\s+/g, ""),
+      rule: stripNonTitleChars(cleanRule).replace(/\s+/g, "")
     };
   };
   for (let rule of rules) {
@@ -13163,27 +13315,10 @@ var BahamutSource = class extends BaseSource {
     function bahamutTitleMatches(itemTitle, queryTitle2, searchUsedTitle) {
       if (!itemTitle) return !1;
       let tItem = String(itemTitle), q = String(queryTitle2 || ""), used = String(searchUsedTitle || "");
-      if (globals.strictTitleMatch) {
-        if (strictTitleMatch(tItem, q) || used && strictTitleMatch(tItem, used)) return !0;
-        try {
-          if (strictTitleMatch(tItem, traditionalized(q)) || strictTitleMatch(tItem, simplized(q)) || used && (strictTitleMatch(tItem, traditionalized(used)) || strictTitleMatch(tItem, simplized(used))))
-            return !0;
-        } catch {
-        }
-        return !1;
-      }
-      let normalizedItem = normalizeSpaces(tItem), normalizedQ = normalizeSpaces(q), normalizedUsed = used ? normalizeSpaces(used) : "";
-      if (normalizedItem.includes(normalizedQ) || normalizedUsed && normalizedItem.includes(normalizedUsed)) return !0;
-      try {
-        if (normalizedItem.includes(normalizeSpaces(traditionalized(q))) || normalizedItem.includes(normalizeSpaces(simplized(q))) || normalizedUsed && (normalizedItem.includes(normalizeSpaces(traditionalized(used))) || normalizedItem.includes(normalizeSpaces(simplized(used)))))
-          return !0;
-      } catch {
-      }
-      try {
-        if (normalizedItem.toLowerCase().includes(normalizedQ.toLowerCase()) || normalizedUsed && normalizedItem.toLowerCase().includes(normalizedUsed.toLowerCase())) return !0;
-      } catch {
-      }
-      return !1;
+      if (globals.strictTitleMatch)
+        return !!(strictTitleMatch(tItem, q) || used && strictTitleMatch(tItem, used));
+      let normalizedItem = normalizeTitleForMatch(tItem), normalizedQ = normalizeTitleForMatch(q), normalizedUsed = used ? normalizeTitleForMatch(used) : "";
+      return !!(normalizedItem.includes(normalizedQ) || normalizedUsed && normalizedItem.includes(normalizedUsed) || normalizedItem.toLowerCase().includes(normalizedQ.toLowerCase()) || normalizedUsed && normalizedItem.toLowerCase().includes(normalizedUsed.toLowerCase()));
     }
     let filtered = (Array.isArray(sourceAnimes) ? sourceAnimes : []).filter((item) => {
       let itemTitle = item.title || "", usedSearchTitle = item._searchUsedTitle || item._originalQuery || "";
@@ -13301,9 +13436,83 @@ var BahamutSource = class extends BaseSource {
 };
 
 // danmu_api/utils/nipaplay-util.js
-var _keyMask = new Uint8Array([237, 67, 45, 109, 89, 4, 82, 107, 109, 211, 243, 208, 85, 182, 233, 79]), _keyXored = new Uint8Array([163, 42, 93, 12, 127, 72, 61, 12, 59, 178, 129, 246, 103, 84, 105, 196]), NIPAPLAY_AES_KEY = utf8BytesToString(new Uint8Array(_keyXored.map((b, i) => b ^ _keyMask[i]))), _appIdFrag = ["wBQ0gL26", "oPlbCiLn", "f37+sQ=="], NIPAPLAY_APP_ID_CIPHERTEXT = _appIdFrag.join(""), _secretFrag = ["9CB0Qo6tW1", "CfUDx3jCtV", "rUat/EMK+x", "voco1Y2MF8", "YQUuM14JDN", "1/wWqIRHP", "H/buF"], NIPAPLAY_APP_SECRET_CIPHERTEXT = _secretFrag.join(""), NIPAPLAY_APP_ID = aesDecryptBase64(NIPAPLAY_APP_ID_CIPHERTEXT, NIPAPLAY_AES_KEY), NIPAPLAY_APP_SECRET = aesDecryptBase64(NIPAPLAY_APP_SECRET_CIPHERTEXT, NIPAPLAY_AES_KEY);
-function generateNipaplaySignature(appId, timestamp, apiPath, appSecret) {
-  return bytesToBase64(sha256(`${appId}${timestamp}${apiPath}${appSecret}`));
+var NIPAPLAY_GATEWAY_SERVERS = [
+  "https://nipaplay.aimes-soft.com/dandanplay",
+  "http://43.142.85.190/dandanplay"
+], GATEWAY_FAILURE_THRESHOLD = 3, GATEWAY_FAILOVER_DURATION = 300 * 1e3, TOKEN_RENEW_AHEAD = 1440 * 60 * 1e3, NIPAPLAY_USER_AGENT = `LogVar Danmu API/${globals.version}`, primaryFailures = 0, failoverUntil = 0, accountToken = null, tokenExpireTime = 0, tokenAccount = "", loginTask = null;
+function isNipaplayAccountConfigured() {
+  return !!(globals.dandanplayAccount && globals.dandanplayPassword);
+}
+function currentAccount() {
+  return globals.dandanplayAccount || "";
+}
+function activeGateway() {
+  return failoverUntil && Date.now() >= failoverUntil && (failoverUntil = 0, primaryFailures = 0, log("info", "[dandan] [nipaplay] NipaPlay \u4E2D\u8F6C\u5F39\u5F39play\u670D\u52A1\u7AEF\u5907\u7528\u7EBF\u8DEF\u63A5\u66FF\u7ED3\u675F\uFF0C\u6062\u590D\u4E3B\u7EBF\u8DEF")), failoverUntil ? NIPAPLAY_GATEWAY_SERVERS[1] : NIPAPLAY_GATEWAY_SERVERS[0];
+}
+function reportGatewayResult(success) {
+  if (success) {
+    primaryFailures = 0;
+    return;
+  }
+  failoverUntil || (primaryFailures++, !(primaryFailures < GATEWAY_FAILURE_THRESHOLD) && (primaryFailures = 0, failoverUntil = Date.now() + GATEWAY_FAILOVER_DURATION, log("info", `[dandan] [nipaplay] NipaPlay \u4E2D\u8F6C\u5F39\u5F39play\u670D\u52A1\u7AEF\u4E3B\u7EBF\u8DEF\u8FDE\u7EED\u5931\u8D25\uFF0C\u4E34\u65F6\u5207\u6362\u5907\u7528\u7EBF\u8DEF: ${NIPAPLAY_GATEWAY_SERVERS[1]}`)));
+}
+async function requestGateway(run) {
+  let gateway = activeGateway();
+  try {
+    let result = await run(gateway);
+    return reportGatewayResult(!0), result;
+  } catch (error) {
+    throw reportGatewayResult(!1), error;
+  }
+}
+async function loginAccount(account, password) {
+  return (await requestGateway((gateway) => Widget.http.post(
+    `${gateway}/api/v2/login`,
+    JSON.stringify({ userName: account, password }),
+    {
+      headers: {
+        "Content-Type": "application/json",
+        Accept: "application/json",
+        "User-Agent": NIPAPLAY_USER_AGENT
+      },
+      validStatusCodes: [200, 401],
+      retries: 1
+    }
+  )))?.data || null;
+}
+async function renewAccountToken(token) {
+  return (await requestGateway((gateway) => Widget.http.get(`${gateway}/api/v2/login/renew`, {
+    headers: {
+      Accept: "application/json",
+      "User-Agent": NIPAPLAY_USER_AGENT,
+      Authorization: `Bearer ${token}`
+    },
+    validStatusCodes: [200, 401],
+    retries: 1
+  })))?.data || null;
+}
+function applyTokenData(data) {
+  if (!data?.token) return null;
+  accountToken = data.token, tokenAccount = currentAccount();
+  let expire = Date.parse(data.tokenExpireTime);
+  return tokenExpireTime = Number.isFinite(expire) ? expire : 0, accountToken;
+}
+function clearAccountToken() {
+  accountToken = null, tokenExpireTime = 0, tokenAccount = "";
+}
+async function getAccountToken() {
+  let account = currentAccount();
+  return accountToken && tokenAccount === account && (!tokenExpireTime || Date.now() < tokenExpireTime - TOKEN_RENEW_AHEAD) ? accountToken : (loginTask || (loginTask = (async () => {
+    if (accountToken && tokenAccount === account) {
+      let renewed = applyTokenData(await renewAccountToken(accountToken));
+      if (renewed) return renewed;
+    }
+    let data = await loginAccount(globals.dandanplayAccount, globals.dandanplayPassword), token = applyTokenData(data);
+    if (!token) throw new Error(data?.errorMessage || "\u8D26\u53F7\u767B\u5F55\u672A\u8FD4\u56DE\u4EE4\u724C");
+    return token;
+  })().finally(() => {
+    loginTask = null;
+  })), loginTask);
 }
 var RELATED_PLATFORM_BY_HOST = {
   "bilibili.com": "bilibili",
@@ -13338,7 +13547,7 @@ function parseNipaplayRelatedLinks(location) {
     }
     let hostKey = Object.keys(RELATED_PLATFORM_BY_HOST).find((key) => host.endsWith(key)) || null;
     if (!hostKey) {
-      log("info", `[nipaplay] \u5F39\u5F39302\u5173\u8054\u94FE\u63A5\u542B\u672A\u652F\u6301\u5E73\u53F0\uFF0C\u8DF3\u8FC7: ${urls[i]}`);
+      log("info", `[dandan] [nipaplay] \u5F39\u5F39302\u5173\u8054\u94FE\u63A5\u542B\u672A\u652F\u6301\u5E73\u53F0\uFF0C\u8DF3\u8FC7: ${urls[i]}`);
       continue;
     }
     let platform = RELATED_PLATFORM_BY_HOST[hostKey], shift = shifts[i] || 0;
@@ -13350,29 +13559,6 @@ function parseNipaplayRelatedLinks(location) {
     result[platform].push({ url: urls[i], shift });
   }
   return result;
-}
-var NIPAPLAY_USER_AGENT = `LogVar Danmu API/${globals.version}`;
-async function fetchNipaplayRelatedLinks(episodeId) {
-  if (!NIPAPLAY_APP_ID || !NIPAPLAY_APP_SECRET)
-    return log("info", "[nipaplay] \u51ED\u8BC1\u672A\u5C31\u7EEA\uFF0C\u8DF3\u8FC7\u5F39\u5F39302\u5173\u8054\u515C\u5E95"), null;
-  let timestamp = Math.round(Date.now() / 1e3), apiPath = `/api/v2/comment/${episodeId}`, signature = generateNipaplaySignature(NIPAPLAY_APP_ID, timestamp, apiPath, NIPAPLAY_APP_SECRET), url = `https://api.dandanplay.net${apiPath}?withRelated=true&chConvert=0`;
-  try {
-    let resp = await Widget.http.get(url, {
-      headers: {
-        Accept: "application/json",
-        "User-Agent": NIPAPLAY_USER_AGENT,
-        "X-AppId": NIPAPLAY_APP_ID,
-        "X-Timestamp": String(timestamp),
-        "X-Signature": signature
-      },
-      allow_redirects: !1,
-      validStatusCodes: [302],
-      retries: 1
-    });
-    return resp.status !== 302 || !resp.headers.location ? (log("info", `[nipaplay] \u5F39\u5F39302\u5173\u8054\u94FE\u63A5\u672A\u8FD4\u56DE 302 (status=${resp.status})`), null) : parseNipaplayRelatedLinks(resp.headers.location);
-  } catch (error) {
-    return log("error", `[nipaplay] \u5F39\u5F39302\u5173\u8054\u94FE\u63A5\u8BF7\u6C42\u5931\u8D25: ${error.message}`), null;
-  }
 }
 function resolveNipaplayLink(url) {
   let host = "";
@@ -13390,12 +13576,55 @@ function resolveNipaplayLink(url) {
 }
 function applyShiftToDanmu(danmu, shift = 0) {
   if (!danmu || typeof danmu != "object") return danmu;
-  let next = { ...danmu };
-  if (typeof next.p == "string") {
-    let parts = next.p.split(","), time = parseFloat(parts[0]);
-    isNaN(time) || (parts[0] = (time + shift).toFixed(2)), next.p = parts.join(",");
+  let [shifted] = applyOffset([danmu], shift);
+  return { ...shifted, isRealTimePulled: !0 };
+}
+async function fetchNativeComments(location) {
+  let resp = await Widget.http.get(location, {
+    headers: {
+      Accept: "application/json",
+      "User-Agent": NIPAPLAY_USER_AGENT
+    },
+    retries: 1
+  });
+  return Array.isArray(resp?.data?.comments) ? resp.data.comments : [];
+}
+async function fetchNipaplayDanmaku(episodeId) {
+  if (!isNipaplayAccountConfigured()) return null;
+  try {
+    return await requestNipaplayDanmaku(episodeId, !1);
+  } catch (error) {
+    return log("error", `[dandan] [nipaplay] NipaPlay \u4E2D\u8F6C\u5F39\u5F39play\u670D\u52A1\u7AEF\u5F39\u5E55\u8BF7\u6C42\u5931\u8D25: ${error.message}`), null;
   }
-  return typeof next.t == "number" && (next.t += shift), next.isRealTimePulled = !0, next;
+}
+async function requestNipaplayDanmaku(episodeId, retried) {
+  let token = await getAccountToken(), resp = await requestGateway((gateway) => Widget.http.get(
+    `${gateway}/api/v2/comment/${episodeId}?withRelated=true&chConvert=0`,
+    {
+      headers: {
+        Accept: "application/json",
+        "User-Agent": NIPAPLAY_USER_AGENT,
+        Authorization: `Bearer ${token}`
+      },
+      allow_redirects: !1,
+      validStatusCodes: [200, 302, 401],
+      retries: 1
+    }
+  ));
+  if (resp.status === 401) {
+    if (retried) throw new Error("\u8D26\u53F7\u767B\u5F55\u5DF2\u5931\u6548");
+    return log("info", "[dandan] [nipaplay] NipaPlay \u4E2D\u8F6C\u5F39\u5F39play\u670D\u52A1\u7AEF\u8FD4\u56DE\u767B\u5F55\u5931\u6548\uFF0C\u91CD\u65B0\u767B\u5F55\u540E\u91CD\u8BD5"), clearAccountToken(), requestNipaplayDanmaku(episodeId, !0);
+  }
+  let location = resp.headers?.location || resp.headers?.Location, relatedLinks = resp.status === 302 && location ? parseNipaplayRelatedLinks(location) : null, comments = [];
+  if (resp.status === 200)
+    comments = Array.isArray(resp.data?.comments) ? resp.data.comments : [];
+  else if (location)
+    try {
+      comments = await fetchNativeComments(location);
+    } catch (error) {
+      log("error", `[dandan] [nipaplay] \u5F39\u5F39play \u539F\u751F\u5F39\u5E55\u83B7\u53D6\u5931\u8D25: ${error.message}`);
+    }
+  return { comments, relatedLinks };
 }
 
 // danmu_api/sources/tencent.js
@@ -14754,13 +14983,13 @@ var MangoSource = class extends BaseSource {
     for (let ep of rawEpisodes) {
       let fullTitle = `${ep.t2 || ""} ${ep.t1 || ""}`.trim();
       if (hasQiFormat) {
-        let qiUpMidDownMatch = fullTitle.match(/第(\d+)期([上中下])/), qiPureMatch = fullTitle.match(/第(\d+)期/), hasUpMidDown = /第\d+期[上中下]/.test(fullTitle);
+        let qiUpMidDownMatch = fullTitle.match(/第(\d+)期([上中下])/), qiPureMatch = fullTitle.match(/第(\d+)期/);
         if (qiUpMidDownMatch) {
           let qiNum = qiUpMidDownMatch[1], upMidDown = qiUpMidDownMatch[2], qiUpMidDownText = `\u7B2C${qiNum}\u671F${upMidDown}`, afterUpMidDown = fullTitle.substring(fullTitle.indexOf(qiUpMidDownText) + qiUpMidDownText.length);
           /^(加更|会员版|纯享版|特别版|独家版|Plus|\+|花絮|预告|彩蛋|抢先|精选|未播|回顾|特辑|幕后)/.test(afterUpMidDown) ? log("info", `[mango] \u7EFC\u827A\u8FC7\u6EE4\u4E0A\u4E2D\u4E0B\u683C\u5F0F+\u540E\u7F00: ${fullTitle}`) : (qiInfoMap.set(ep, [parseInt(qiNum), upMidDown]), episodeInfos.push(ep), log("info", `[mango] \u7EFC\u827A\u4FDD\u7559\u4E0A\u4E2D\u4E0B\u683C\u5F0F: ${fullTitle}`));
-        } else if (qiPureMatch && !hasUpMidDown) {
-          let qiNum = qiPureMatch[1];
-          qiInfoMap.set(ep, [parseInt(qiNum), ""]), episodeInfos.push(ep), log("info", `[mango] \u7EFC\u827A\u4FDD\u7559\u6807\u51C6\u671F\u6570: ${fullTitle}`);
+        } else if (qiPureMatch) {
+          let qiNum = qiPureMatch[1], trailingPartMatch = fullTitle.match(/[（(]([上中下])[）)]\s*$/);
+          qiInfoMap.set(ep, [parseInt(qiNum), trailingPartMatch ? trailingPartMatch[1] : ""]), episodeInfos.push(ep), log("info", `[mango] \u7EFC\u827A\u4FDD\u7559\u6807\u51C6\u671F\u6570: ${fullTitle}`);
         }
       } else {
         if (fullTitle.includes("\u5E7F\u544A") || fullTitle.includes("\u63A8\u5E7F")) {
@@ -15773,7 +16002,31 @@ __publicField(_BilibiliSource, "APP_KEY", "1d8b6e7d45233436"), __publicField(_Bi
 var BilibiliSource = _BilibiliSource;
 
 // danmu_api/sources/youku.js
+function generateLocalCna() {
+  let chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789", bytes = new Uint8Array(24);
+  if (typeof globalThis.crypto?.getRandomValues == "function")
+    globalThis.crypto.getRandomValues(bytes);
+  else
+    for (let i = 0; i < bytes.length; i++)
+      bytes[i] = Math.floor(Math.random() * 256);
+  let cna = "";
+  for (let byte of bytes)
+    cna += chars[byte % chars.length];
+  return cna;
+}
 var YoukuSource = class extends BaseSource {
+  constructor() {
+    super(), this._useFallbackCna = !1, this._fallbackCna = null;
+  }
+  _getFallbackCna() {
+    return this._fallbackCna || (this._fallbackCna = generateLocalCna()), this._fallbackCna;
+  }
+  _emptySegmentList() {
+    return new SegmentListResponse({
+      type: "youku",
+      segmentList: []
+    });
+  }
   convertYoukuUrl(url) {
     let vidMatch = url.match(/vid=([^&]+)/);
     return !vidMatch || !vidMatch[1] ? null : `https://v.youku.com/v_show/id_${vidMatch[1]}.html`;
@@ -15964,7 +16217,10 @@ var YoukuSource = class extends BaseSource {
   async getEpisodeDanmu(id) {
     if (log("info", "[youku] \u5F00\u59CB\u4ECE\u672C\u5730\u8BF7\u6C42\u4F18\u9177\u5F39\u5E55...", id), !id)
       return [];
-    let segmentList = (await this.getEpisodeDanmuSegments(id)).segmentList, contents = [], concurrency = globals.youkuConcurrency, segments = [...segmentList];
+    let segmentList = (await this.getEpisodeDanmuSegments(id))?.segmentList ?? [];
+    if (segmentList.length === 0)
+      return log("info", "[youku] \u672A\u83B7\u53D6\u5230\u5F39\u5E55\u5206\u7247\uFF0C\u8FD4\u56DE\u7A7A\u7ED3\u679C"), [];
+    let contents = [], concurrency = Math.max(1, Number(globals.youkuConcurrency) || 8), segments = [...segmentList];
     for (let i = 0; i < segments.length; i += concurrency) {
       let batch = segments.slice(i, i + concurrency).map(async (segment) => {
         let response = await Widget.http.post(segment.url, buildQueryString({ data: segment.data }), {
@@ -15995,16 +16251,14 @@ var YoukuSource = class extends BaseSource {
   }
   async getEpisodeDanmuSegments(id) {
     if (log("info", "[youku] \u83B7\u53D6\u4F18\u9177\u5F39\u5E55\u5206\u6BB5\u5217\u8868...", id), !id)
-      return new SegmentListResponse({
-        type: "youku",
-        segmentList: []
-      });
-    id.includes("youku.com/video?vid") && (id = this.convertYoukuUrl(id));
+      return this._emptySegmentList();
+    if (id.includes("youku.com/video?vid") && (id = this.convertYoukuUrl(id)), !id)
+      return log("error", "[youku] Invalid URL"), this._emptySegmentList();
     let api_video_info = "https://openapi.youku.com/v2/videos/show.json", api_danmaku = "https://acs.youku.com/h5/mopen.youku.danmu.list/1.0/", regex = /^(https?:\/\/[^\/]+)(\/[^?#]*)/, match = id.match(regex), path2;
     if (match)
       path2 = match[2].split("/").filter(Boolean), path2.unshift(""), log("info", "[youku]", path2);
     else
-      return log("error", "[youku] Invalid URL"), [];
+      return log("error", "[youku] Invalid URL"), this._emptySegmentList();
     let video_id = path2[path2.length - 1].split(".")[0].slice(3);
     log("info", `[youku] video_id: ${video_id}`);
     let res;
@@ -16018,23 +16272,40 @@ var YoukuSource = class extends BaseSource {
         allow_redirects: !1
       });
     } catch (error) {
-      return log("error", "[youku] \u8BF7\u6C42\u89C6\u9891\u4FE1\u606F\u5931\u8D25:", error), [];
+      return log("error", "[youku] \u8BF7\u6C42\u89C6\u9891\u4FE1\u606F\u5931\u8D25:", error), this._emptySegmentList();
     }
-    let data = typeof res.data == "string" ? JSON.parse(res.data) : res.data, title = data.title, duration = data.duration;
-    log("info", `[youku] \u6807\u9898: ${title}, \u65F6\u957F: ${duration}`);
-    let cna, _m_h5_tk_enc, _m_h5_tk;
+    let data;
     try {
-      let cnaUrl = "https://log.mmstat.com/eg.js", tkEncUrl = "https://acs.youku.com/h5/mtop.com.youku.aplatform.weakget/1.0/?jsv=2.5.1&appKey=24679788", cnaRes = await Widget.http.get(cnaUrl, {
-        headers: {
-          "Content-Type": "application/json",
-          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/79.0.3945.88 Safari/537.36"
-        },
-        allow_redirects: !1
-      });
-      log("info", `[youku] cnaRes: ${JSON.stringify(cnaRes)}`), log("info", `[youku] cnaRes.headers: ${JSON.stringify(cnaRes.headers)}`);
-      let etag = cnaRes.headers.etag || cnaRes.headers.Etag;
-      log("info", `[youku] etag: ${etag}`), cna = etag.replace(/^"|"$/g, ""), log("info", `[youku] cna: ${cna}`);
-      let tkEncRes;
+      data = typeof res?.data == "string" ? JSON.parse(res.data) : res?.data;
+    } catch (error) {
+      return log("error", "[youku] \u89C6\u9891\u4FE1\u606F\u89E3\u6790\u5931\u8D25:", error.message), this._emptySegmentList();
+    }
+    if (!data)
+      return log("error", "[youku] \u89C6\u9891\u4FE1\u606F\u4E3A\u7A7A"), this._emptySegmentList();
+    let title = data.title, duration = Number(data.duration);
+    if (!Number.isFinite(duration) || duration <= 0)
+      return log("error", `[youku] \u89C6\u9891\u65F6\u957F\u65E0\u6548: ${data.duration}`), this._emptySegmentList();
+    log("info", `[youku] \u6807\u9898: ${title}, \u65F6\u957F: ${duration}`);
+    let cna = null, _m_h5_tk_enc = null, _m_h5_tk = null;
+    if (this._useFallbackCna)
+      cna = this._getFallbackCna();
+    else {
+      try {
+        let cnaRes = await Widget.http.get("https://log.mmstat.com/eg.js", {
+          headers: {
+            "Content-Type": "application/json",
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/79.0.3945.88 Safari/537.36"
+          },
+          allow_redirects: !1
+        }), etag = cnaRes?.headers?.etag || cnaRes?.headers?.Etag;
+        typeof etag == "string" && etag.trim() && (cna = etag.replace(/^"|"$/g, ""));
+      } catch (error) {
+        log("info", `[youku] \u83B7\u53D6 cna \u5931\u8D25\uFF0C\u5207\u6362\u672C\u5730\u751F\u6210\u503C\u515C\u5E95: ${error.message}`);
+      }
+      cna || (this._useFallbackCna = !0, cna = this._getFallbackCna(), log("info", `[youku] \u4F7F\u7528\u672C\u5730\u751F\u6210 cna \u515C\u5E95: ${cna}`));
+    }
+    try {
+      let tkEncUrl = "https://acs.youku.com/h5/mtop.com.youku.aplatform.weakget/1.0/?jsv=2.5.1&appKey=24679788", tkEncRes;
       for (; !tkEncRes; )
         tkEncRes = await Widget.http.get(tkEncUrl, {
           headers: {
@@ -16043,16 +16314,15 @@ var YoukuSource = class extends BaseSource {
           },
           allow_redirects: !1
         });
-      log("info", `[youku] tkEncRes: ${JSON.stringify(tkEncRes)}`), log("info", `[youku] tkEncRes.headers: ${JSON.stringify(tkEncRes.headers)}`);
-      let tkEncSetCookie = tkEncRes.headers["set-cookie"] || tkEncRes.headers["Set-Cookie"];
-      log("info", `[youku] tkEncSetCookie: ${tkEncSetCookie}`);
-      let tkEncMatch = tkEncSetCookie.match(/_m_h5_tk_enc=([^;]+)/);
+      let tkEncSetCookie = tkEncRes?.headers?.["set-cookie"] || tkEncRes?.headers?.["Set-Cookie"] || "", tkEncMatch = tkEncSetCookie.match(/_m_h5_tk_enc=([^;]+)/);
       _m_h5_tk_enc = tkEncMatch ? tkEncMatch[1] : null;
       let tkH5Match = tkEncSetCookie.match(/_m_h5_tk=([^;]+)/);
       _m_h5_tk = tkH5Match ? tkH5Match[1] : null, log("info", `[youku] _m_h5_tk_enc: ${_m_h5_tk_enc}`), log("info", `[youku] _m_h5_tk: ${_m_h5_tk}`);
     } catch (error) {
-      return log("error", "[youku] \u83B7\u53D6 cna \u6216 tk_enc \u5931\u8D25:", error), [];
+      return log("error", "[youku] \u83B7\u53D6 tk_enc \u5931\u8D25:", error), this._emptySegmentList();
     }
+    if (!_m_h5_tk || !_m_h5_tk_enc)
+      return log("error", "[youku] \u672A\u83B7\u53D6\u5230\u6709\u6548\u7684 mtop token\uFF0C\u8DF3\u8FC7\u5F39\u5E55\u8BF7\u6C42"), this._emptySegmentList();
     let step = 60, max_mat = Math.floor(duration / step) + 1, segmentList = [], requestOneMat = async (mat) => {
       let msg = {
         ctime: Date.now(),
@@ -16143,86 +16413,24 @@ var YoukuSource = class extends BaseSource {
         uid: 0,
         content: ""
       };
-      content.timepoint = item.playat / 1e3;
-      let prop = JSON.parse(item.propertis);
+      content.timepoint = Number(item.playat) / 1e3 || 0;
+      let prop = null;
+      try {
+        prop = item.propertis ? JSON.parse(item.propertis) : null;
+      } catch (error) {
+        log("info", `[youku] \u5F39\u5E55\u5C5E\u6027\u89E3\u6790\u5931\u8D25\uFF0C\u5DF2\u5FFD\u7565\u989C\u8272/\u4F4D\u7F6E: ${error.message}`);
+      }
       if (prop?.color && (content.color = typeof prop.color == "string" ? parseInt(prop.color, 10) : prop.color), prop?.pos) {
         let pos = prop.pos;
         pos === 1 ? content.ct = 5 : pos === 2 && (content.ct = 4);
       }
-      return content.content = item.content, content.like = item.extFields.voteUp, content;
+      return content.content = item.content, content.like = item.extFields?.voteUp ?? 0, content;
     });
   }
 };
 
 // danmu_api/sources/dandan.js
-var tencentSource = new TencentSource(), iqiyiSource = new IqiyiSource(), mangoSource = new MangoSource(), bilibiliSource = new BilibiliSource(), youkuSource = new YoukuSource(), bahamutSource = new BahamutSource(), DandanUserAgent = `LogVar Danmu API/${globals.version}`, SOURCE_TO_PLATFORM = {
-  bilibili: "bilibili1",
-  bahamut: "bahamut",
-  iqiyi: "qiyi",
-  youku: "youku",
-  tencent: "qq",
-  imgo: "imgo"
-};
-async function getRelatedDanmuViaNipaplay(episodeId, coveredSources) {
-  let links = await fetchNipaplayRelatedLinks(episodeId);
-  if (!links) return [];
-  let summary = Object.entries(links).filter(([, arr]) => arr && arr.length).map(([p, arr]) => `${SOURCE_TO_PLATFORM[p] || p}\xD7${arr.length}`).join(", ");
-  summary && log("info", `[dandan] nipaplay \u5F39\u5F39302\u5173\u8054\u515C\u5E95\u63D0\u53D6\u5230\u5F39\u5F39302\u5173\u8054\u94FE\u63A5: ${summary}`);
-  let sourceMap = {
-    bilibili: bilibiliSource,
-    bahamut: bahamutSource,
-    iqiyi: iqiyiSource,
-    youku: youkuSource,
-    tencent: tencentSource,
-    imgo: mangoSource
-  }, pending = [], skipped = [];
-  for (let [platform, linksOfPlatform] of Object.entries(links)) {
-    if (!linksOfPlatform || linksOfPlatform.length === 0) continue;
-    let platformLabel = SOURCE_TO_PLATFORM[platform];
-    if (!platformLabel || coveredSources.has(platform) || coveredSources.has(platformLabel)) {
-      platformLabel && skipped.push(platformLabel);
-      continue;
-    }
-    let sourceInstance = sourceMap[platform];
-    if (sourceInstance)
-      for (let { url, shift } of linksOfPlatform) {
-        let { source, realId } = resolveNipaplayLink(url);
-        if (source !== platform) {
-          log("info", `[dandan] nipaplay \u5F39\u5F39302\u5173\u8054\u94FE\u63A5\u5E73\u53F0\u89E3\u6790\u4E0D\u4E00\u81F4\uFF0C\u58F0\u660E ${platform} \u5B9E\u5F97 ${source}\uFF0C\u8DF3\u8FC7: ${url}`);
-          continue;
-        }
-        pending.push({
-          platformLabel,
-          run: () => sourceInstance.getEpisodeDanmu(realId, []).then((raw) => sourceInstance.formatComments(raw || []).map((d) => applyShiftToDanmu({ ...d, _sourceLabel: platformLabel }, shift))).catch((e) => (log("error", `[dandan] nipaplay \u5F39\u5F39302\u5173\u8054\u62C9\u53D6 ${platformLabel} \u5931\u8D25: ${e.message}`), []))
-        });
-      }
-  }
-  skipped.length && log("info", `[dandan] nipaplay \u5F39\u5F39302\u5173\u8054\u515C\u5E95\u8DF3\u8FC7\u5DF2\u5408\u5E76\u6E90\uFF08\u907F\u514D\u91CD\u590D\u62C9\u53D6\uFF09: ${skipped.join(", ")}`);
-  let groups = /* @__PURE__ */ new Map();
-  for (let task of pending)
-    groups.has(task.platformLabel) || groups.set(task.platformLabel, []), groups.get(task.platformLabel).push(task.run);
-  return (await Promise.all(Array.from(groups.values()).map(async (runs) => {
-    let items = [];
-    for (let i = 0; i < runs.length; i++)
-      items.push(...await runs[i]()), i < runs.length - 1 && await new Promise((r) => setTimeout(r, 1e3));
-    return items;
-  }))).flat().filter(Boolean);
-}
-async function fetchDandanComments(id) {
-  try {
-    let resp = await Widget.http.get(`https://api.danmaku.weeblify.app/ddp/v1?path=%2Fv2%2Fcomment%2F${id}%3Ffrom%3D0%26withRelated%3Dtrue%26chConvert%3D0`, {
-      headers: {
-        "Content-Type": "application/json",
-        "User-Agent": DandanUserAgent
-      },
-      retries: 1
-    });
-    return resp && resp.data && resp.data.comments ? resp.data.comments : [];
-  } catch (e) {
-    return log("error", `[dandan] dandan base comments error: ${e.message}`), [];
-  }
-}
-var DandanSource = class extends BaseSource {
+var tencentSource = new TencentSource(), iqiyiSource = new IqiyiSource(), mangoSource = new MangoSource(), bilibiliSource = new BilibiliSource(), youkuSource = new YoukuSource(), bahamutSource = new BahamutSource(), DandanSource = class extends BaseSource {
   /**
    * 搜索动画条目
    * 包含常规搜索、TMDB 日语原名搜索，以及去除季度信息后的降级搜索策略
@@ -16302,21 +16510,37 @@ var DandanSource = class extends BaseSource {
         }
       })(), originalResult = await originalSearchPromise;
       if (originalResult.success) {
-        let resolvedSeason = getExplicitSeasonNumber(keyword), preFiltered = originalResult.data.filter((anime) => {
-          if (anime.isTmdbSource) return !0;
-          let t = anime.animeTitle || anime.title || "";
-          return titleMatches(t, keyword, resolvedSeason, !0, 0.8);
-        });
+        let resolvedSeason = getExplicitSeasonNumber(keyword), preFiltered;
+        if (isNonChinese(keyword)) {
+          let kw = normalizeTitleForMatch(keyword).toLowerCase();
+          if (kw) {
+            let directHits = originalResult.data.filter((anime) => anime.isTmdbSource ? !0 : normalizeTitleForMatch(anime.animeTitle || anime.title || "").toLowerCase().includes(kw));
+            preFiltered = directHits.length > 0 ? directHits : originalResult.data;
+          } else
+            preFiltered = originalResult.data;
+        } else
+          preFiltered = originalResult.data.filter((anime) => {
+            if (anime.isTmdbSource) return !0;
+            let t = anime.animeTitle || anime.title || "";
+            return titleMatches(t, keyword, resolvedSeason, !0, 0.8);
+          });
         if (preFiltered.length > 0)
           return tmdbAbortController.abort(), preFiltered._originalAnimeIds = originalResult.data.map((a) => a.animeId), preFiltered;
       }
       let tmdbResult = await tmdbSearchPromise;
       if (tmdbResult.success) {
-        let resolvedSeason = getExplicitSeasonNumber(keyword), tmdbFiltered = tmdbResult.data.filter((anime) => {
-          let t = anime.animeTitle || anime.title || "";
-          return titleMatches(t, keyword, resolvedSeason, !0, 0.19);
-        });
-        if (tmdbFiltered.length > 0) return tmdbFiltered;
+        let resolvedSeason = getExplicitSeasonNumber(keyword);
+        if (isNonChinese(keyword)) {
+          let relaxed = tmdbResult.data.map(({ isTmdbSource, _tmdbCnAlias, ...rest }) => rest);
+          if (relaxed.length > 0)
+            return log("info", `[dandan] \u5916\u6587\u68C0\u7D22\u8BCD\u8DF3\u8FC7TMDB\u7ED3\u679C\u9884\u8FC7\u6EE4\uFF0C\u5265\u79BB\u514D\u68C0\u6807\u8BB0\u540E\u4EA4\u7531\u522B\u540D\u6C60\u5339\u914D (${relaxed.length} \u6761)`), relaxed;
+        } else {
+          let tmdbFiltered = tmdbResult.data.filter((anime) => {
+            let t = anime.animeTitle || anime.title || "";
+            return titleMatches(t, keyword, resolvedSeason, !0, 0.19);
+          });
+          if (tmdbFiltered.length > 0) return tmdbFiltered;
+        }
       }
       if (log("info", `[dandan] \u539F\u59CB\u641C\u7D22\u548C\u57FA\u4E8ETMDB\u7684\u641C\u7D22\u5747\u672A\u8FD4\u56DE\u4EFB\u4F55\u7ED3\u679C (\u5F53\u524D\u641C\u7D22\u8BCD: ${keyword})`), !isFallback) {
         let strippedKeyword = keyword.replace(/(?:第\s*[0-9一二三四五六七八九十百千万]+\s*[季期部])|(?:S(?:eason)?\s*\d+)|(?:Part\s*\d+)/gi, "").trim();
@@ -16498,26 +16722,21 @@ var DandanSource = class extends BaseSource {
     }
     return this.sortAndPushAnimesByYear(tmpAnimes, curAnimes), tmpAnimes;
   }
-  // 接收 mergedSources 参数，包含所有参与合并的具体源链接信息，用于避免重复获取
+  // 合并链接按 $$$ 拆分后逐段传入，每段形如 `<源名>:<真实ID>`；据此取出已参与合并的源名，避免对其重复拉取
   async getEpisodeDanmu(id, mergedSources = []) {
-    let allDanmus = [], coveredSources = new Set((mergedSources || []).map((m) => (typeof m == "string" ? m.split(":")[0] : m?.logicalSource) || "").filter(Boolean));
+    let coveredSources = new Set((mergedSources || []).map((part) => String(part).split(":")[0]).filter(Boolean));
     try {
-      if (globals.nipaplayReplaceDandan) {
-        let related = await getRelatedDanmuViaNipaplay(id, coveredSources);
-        related.length > 0 ? (allDanmus = related, log("info", `[dandan] NIPAPLAY_REPLACE_DANDAN \u542F\u7528\uFF0Cnipaplay \u5F39\u5F39302\u5173\u8054\u5F39\u5E55\u66FF\u4EE3\u5F39\u5F39\u539F\u751F\u5F39\u5E55\uFF08${related.length} \u6761\uFF09`)) : (log("info", "[dandan] NIPAPLAY_REPLACE_DANDAN \u5F39\u5F39302\u5173\u8054\u94FE\u63A5\u4E3A\u7A7A\uFF0C\u56DE\u9000\u5F39\u5F39\u81EA\u8EAB\u5F39\u5E55"), allDanmus = await fetchDandanComments(id));
-      } else if (allDanmus = await fetchDandanComments(id), allDanmus.length === 0) {
-        log("info", "[dandan] dandan \u539F\u751F\u5F39\u5E55\u4E3A\u7A7A\uFF0C\u89E6\u53D1 NipaPlay \u5F39\u5F39302\u5173\u8054\u515C\u5E95");
-        let related = await getRelatedDanmuViaNipaplay(id, coveredSources);
-        related.length > 0 ? (allDanmus = related, log("info", `[dandan] nipaplay \u5F39\u5F39302\u5173\u8054\u515C\u5E95\u8865\u5145 ${related.length} \u6761\u8DE8\u5E73\u53F0\u5F39\u5E55`)) : log("info", "[dandan] nipaplay \u5F39\u5F39302\u5173\u8054\u515C\u5E95\u672A\u83B7\u53D6\u5230\u8DE8\u5E73\u53F0\u5F39\u5E55");
-      }
+      let nipaplay = await fetchNipaplayDanmaku(id);
+      if (!nipaplay) return await fetchDandanComments(id);
+      let related = await getRelatedDanmuViaNipaplay(nipaplay.relatedLinks, coveredSources);
+      return log("info", `[dandan] NipaPlay \u4E2D\u8F6C\u5F39\u5F39play\u670D\u52A1\u7AEF\u5F39\u5E55 ${nipaplay.comments.length} \u6761\uFF0C\u5F39\u5F39302\u5173\u8054\u94FE\u63A5\u83B7\u53D6 ${related.length} \u6761`), [...nipaplay.comments, ...related];
     } catch (error) {
-      log("error", "[dandan] getEpisodeDanmu error:", {
+      return log("error", "[dandan] getEpisodeDanmu error:", {
         message: error.message,
         name: error.name,
         stack: error.stack
-      });
+      }), [];
     }
-    return allDanmus;
   }
   async getEpisodeDanmuSegments(id) {
     return log("info", "[dandan] \u83B7\u53D6\u5F39\u5F39play\u5F39\u5E55\u5206\u6BB5\u5217\u8868...", id), new SegmentListResponse({
@@ -16543,7 +16762,77 @@ var DandanSource = class extends BaseSource {
       m: c.m
     });
   }
+}, DandanUserAgent = `LogVar Danmu API/${globals.version}`, SOURCE_TO_PLATFORM = {
+  bilibili: "bilibili1",
+  bahamut: "bahamut",
+  iqiyi: "qiyi",
+  youku: "youku",
+  tencent: "qq",
+  imgo: "imgo"
 };
+async function getRelatedDanmuViaNipaplay(links, coveredSources) {
+  if (!links) return [];
+  let enabledSources = new Set(globals.sourceOrderArr), summary = Object.entries(links).filter(([p, arr]) => arr && arr.length && enabledSources.has(p)).map(([p, arr]) => `${SOURCE_TO_PLATFORM[p] || p}\xD7${arr.length}`).join(", ");
+  summary && log("info", `[dandan] \u5F39\u5F39302\u5173\u8054\u94FE\u63A5\u5206\u53D1\u76EE\u6807: ${summary}`);
+  let sourceMap = {
+    bilibili: bilibiliSource,
+    bahamut: bahamutSource,
+    iqiyi: iqiyiSource,
+    youku: youkuSource,
+    tencent: tencentSource,
+    imgo: mangoSource
+  }, pending = [], skippedDisabled = [], skippedCovered = [];
+  for (let [platform, linksOfPlatform] of Object.entries(links)) {
+    if (!linksOfPlatform || linksOfPlatform.length === 0) continue;
+    let platformLabel = SOURCE_TO_PLATFORM[platform];
+    if (!platformLabel) continue;
+    if (!enabledSources.has(platform)) {
+      skippedDisabled.push(platformLabel);
+      continue;
+    }
+    if (coveredSources.has(platform) || coveredSources.has(platformLabel)) {
+      skippedCovered.push(platformLabel);
+      continue;
+    }
+    let sourceInstance = sourceMap[platform];
+    if (sourceInstance)
+      for (let { url, shift } of linksOfPlatform) {
+        let { source, realId } = resolveNipaplayLink(url);
+        if (source !== platform) {
+          log("info", `[dandan] \u5F39\u5F39302\u5173\u8054\u94FE\u63A5\u5E73\u53F0\u89E3\u6790\u4E0D\u4E00\u81F4\uFF0C\u58F0\u660E ${platform} \u5B9E\u5F97 ${source}\uFF0C\u8DF3\u8FC7: ${url}`);
+          continue;
+        }
+        pending.push({
+          platformLabel,
+          run: () => sourceInstance.getEpisodeDanmu(realId).then((raw) => sourceInstance.formatComments(raw || []).map((d) => applyShiftToDanmu({ ...d, realTimeSource: platformLabel }, shift))).catch((e) => (log("error", `[dandan] \u5F39\u5F39302\u5173\u8054\u62C9\u53D6 ${platformLabel} \u5931\u8D25: ${e.message}`), []))
+        });
+      }
+  }
+  skippedCovered.length && log("info", `[dandan] \u5F39\u5F39302\u5173\u8054\u5206\u53D1\u8DF3\u8FC7\u5DF2\u5408\u5E76\u6E90\uFF08\u907F\u514D\u91CD\u590D\u62C9\u53D6\uFF09: ${skippedCovered.join(", ")}`), skippedDisabled.length && log("info", `[dandan] \u5F39\u5F39302\u5173\u8054\u5206\u53D1\u8DF3\u8FC7\u672A\u5728 SOURCE_ORDER \u5F00\u542F\u7684\u6E90: ${skippedDisabled.join(", ")}`);
+  let groups = /* @__PURE__ */ new Map();
+  for (let task of pending)
+    groups.has(task.platformLabel) || groups.set(task.platformLabel, []), groups.get(task.platformLabel).push(task.run);
+  return (await Promise.all(Array.from(groups.values()).map(async (runs) => {
+    let items = [];
+    for (let i = 0; i < runs.length; i++)
+      items.push(...await runs[i]()), i < runs.length - 1 && await new Promise((r) => setTimeout(r, 1e3));
+    return items;
+  }))).flat().filter(Boolean);
+}
+async function fetchDandanComments(id) {
+  try {
+    let resp = await Widget.http.get(`https://api.danmaku.weeblify.app/ddp/v1?path=%2Fv2%2Fcomment%2F${id}%3Ffrom%3D0%26withRelated%3Dtrue%26chConvert%3D0`, {
+      headers: {
+        "Content-Type": "application/json",
+        "User-Agent": DandanUserAgent
+      },
+      retries: 1
+    });
+    return resp && resp.data && resp.data.comments ? resp.data.comments : [];
+  } catch (e) {
+    return log("error", `[dandan] dandan base comments error: ${e.message}`), [];
+  }
+}
 
 // danmu_api/sources/custom.js
 var CustomSource = class extends BaseSource {
@@ -19702,7 +19991,7 @@ var API_HEALTH2 = {
    * @returns {Array<Object>} 包含节点类型与 URL 的配置数组
    */
   _getSubjectServerPriority() {
-    let officialBase = "https://api.bgm.tv", mirrorBase = "https://api.bangumi.pro", proxyOfficialBase = this._applyProxyForSearch(officialBase), animekoNodes = (/* @__PURE__ */ new Date()).getTimezoneOffset() === -480 ? [
+    let officialBase = "https://api.bgm.tv", mirrorBase = "https://api.bangumi.vip", proxyOfficialBase = this._applyProxyForSearch(officialBase), animekoNodes = (/* @__PURE__ */ new Date()).getTimezoneOffset() === -480 ? [
       { type: "V2", url: "https://api.animeko.org" },
       { type: "V2", url: "https://danmaku-global.myani.org" },
       { type: "V2", url: "https://danmaku-cn.myani.org" },
@@ -19854,7 +20143,7 @@ var API_HEALTH2 = {
       log("info", `[animeko] \u5F00\u59CB\u641C\u7D22 (V0): ${searchKeyword}`);
       let allFilteredResults = [], offset = 0, limit = 20;
       for (; ; ) {
-        let searchPath = `/v0/search/subjects?limit=${limit}&offset=${offset}`, officialUrl = `https://api.bgm.tv${searchPath}`, mirrorUrl = `https://api.bangumi.pro${searchPath}`, proxySearchUrl = this._applyProxyForSearch(officialUrl), endpointQueue = [];
+        let searchPath = `/v0/search/subjects?limit=${limit}&offset=${offset}`, officialUrl = `https://api.bgm.tv${searchPath}`, mirrorUrl = `https://api.bangumi.vip${searchPath}`, proxySearchUrl = this._applyProxyForSearch(officialUrl), endpointQueue = [];
         proxySearchUrl !== officialUrl ? endpointQueue = [
           { id: "PROXY_OFFICIAL", url: proxySearchUrl },
           { id: "MIRROR", url: mirrorUrl }
@@ -20259,6 +20548,22 @@ var OtherSource = class extends BaseSource {
   }
 };
 
+// forward-optional-modules:local-source
+var LocalSource = class {
+  async search() {
+    return [];
+  }
+  async handleAnimes() {
+    return [];
+  }
+  async getComments(id, sourceName = "local", segmentFlag = !1) {
+    return segmentFlag ? { type: "local", segmentList: [], duration: 0 } : [];
+  }
+  async getSegmentComments() {
+    return [];
+  }
+};
+
 // danmu_api/sources/registry.js
 var SOURCE_REGISTRY = [
   { key: "360", logName: "360kan", factory: () => new Kan360Source(), deps: [] },
@@ -20285,7 +20590,7 @@ var SOURCE_REGISTRY = [
     logName: "",
     factory: () => new CustomSource(),
     deps: [],
-    handleAdapter: (instance, searchResult, queryTitle, isolatedAnimes) => instance.handleAnimes(searchResult, queryTitle, isolatedAnimes)
+    handleAdapter: (instance, searchResult, queryTitle, isolatedAnimes, isolatedDetailStore) => instance.handleAnimes(searchResult, queryTitle, isolatedAnimes, isolatedDetailStore)
   },
   { key: "tencent", logName: "", factory: () => new TencentSource(), deps: [] },
   { key: "iqiyi", logName: "", factory: () => new IqiyiSource(), deps: [] },
@@ -20300,7 +20605,8 @@ var SOURCE_REGISTRY = [
   { key: "aiyifan", logName: "", factory: () => new AiyifanSource(), deps: [] },
   { key: "hongguo", logName: "", factory: () => new HongguoSource(), deps: [] },
   { key: "animeko", logName: "", factory: () => new AnimekoSource(), deps: [] },
-  { key: "other", logName: "", factory: () => new OtherSource(), deps: [] }
+  { key: "other", logName: "", factory: () => new OtherSource(), deps: [] },
+  { key: "local", logName: "local", factory: () => new LocalSource(), deps: [] }
 ], instanceMap = /* @__PURE__ */ new Map(), metaMap = /* @__PURE__ */ new Map(), initialized = !1;
 function initSources() {
   if (initialized) return;
@@ -20342,7 +20648,7 @@ function getLogNameByKey(key) {
 initSources();
 
 // danmu_api/apis/dandan-api.js
-var kan360Source = getSourceByKey("360"), vodSource = getSourceByKey("vod"), renrenSource = getSourceByKey("renren"), hanjutvSource = getSourceByKey("hanjutv"), bahamutSource2 = getSourceByKey("bahamut"), dandanSource = getSourceByKey("dandan"), customSource = getSourceByKey("custom"), tencentSource2 = getSourceByKey("tencent"), youkuSource2 = getSourceByKey("youku"), iqiyiSource2 = getSourceByKey("iqiyi"), mangoSource2 = getSourceByKey("imgo"), bilibiliSource2 = getSourceByKey("bilibili"), miguSource = getSourceByKey("migu"), sohuSource = getSourceByKey("sohu"), leshiSource = getSourceByKey("leshi"), xiguaSource = getSourceByKey("xigua"), maiduiduiSource = getSourceByKey("maiduidui"), aiyifanSource = getSourceByKey("aiyifan"), hongguoSource = getSourceByKey("hongguo"), animekoSource = getSourceByKey("animeko"), otherSource = getSourceByKey("other"), doubanSource = getSourceByKey("douban"), tmdbSource = getSourceByKey("tmdb"), PENDING_DANMAKU_REQUESTS = /* @__PURE__ */ new Map();
+var kan360Source = getSourceByKey("360"), vodSource = getSourceByKey("vod"), renrenSource = getSourceByKey("renren"), hanjutvSource = getSourceByKey("hanjutv"), bahamutSource2 = getSourceByKey("bahamut"), dandanSource = getSourceByKey("dandan"), customSource = getSourceByKey("custom"), tencentSource2 = getSourceByKey("tencent"), youkuSource2 = getSourceByKey("youku"), iqiyiSource2 = getSourceByKey("iqiyi"), mangoSource2 = getSourceByKey("imgo"), bilibiliSource2 = getSourceByKey("bilibili"), miguSource = getSourceByKey("migu"), sohuSource = getSourceByKey("sohu"), leshiSource = getSourceByKey("leshi"), xiguaSource = getSourceByKey("xigua"), maiduiduiSource = getSourceByKey("maiduidui"), aiyifanSource = getSourceByKey("aiyifan"), hongguoSource = getSourceByKey("hongguo"), animekoSource = getSourceByKey("animeko"), otherSource = getSourceByKey("other"), localSource = getSourceByKey("local"), doubanSource = getSourceByKey("douban"), tmdbSource = getSourceByKey("tmdb"), PENDING_DANMAKU_REQUESTS = /* @__PURE__ */ new Map();
 function resolveCommentCacheKey(url) {
   let value = String(url || "");
   return globals.hongguoMergeAllEpisodes && (value.includes("hongguo:") || /https?:\/\/(?:www\.)?hongguoduanju\.com(?::\d+)?\/player\//i.test(value)) ? `${value}::hongguo-all-episodes` : url;
@@ -20404,7 +20710,7 @@ async function resolveMergedDuration(url) {
   }
 }
 function matchSeason(anime, queryTitle, season) {
-  let match = anime.animeTitle.match(/^(.*?)\(\d{4}\)/), originalTitle = match ? match[1].trim() : anime.animeTitle.split("(")[0].trim(), normalizedAnimeTitle = normalizeSpaces(originalTitle), normalizedQueryTitle = normalizeSpaces(queryTitle);
+  let match = anime.animeTitle.match(/^(.*?)\(\d{4}\)/), originalTitle = match ? match[1].trim() : anime.animeTitle.split("(")[0].trim(), normalizedAnimeTitle = normalizeTitleForMatch(originalTitle), seasonQueryTitle = anime.source === "local" ? queryTitle.replace(/[（(]\s*(?:19|20)\d{2}\s*[）)]/g, "").trim() : queryTitle, normalizedQueryTitle = normalizeTitleForMatch(seasonQueryTitle);
   if (normalizedAnimeTitle.includes(normalizedQueryTitle)) {
     if (normalizedAnimeTitle.startsWith(normalizedQueryTitle)) {
       let afterTitle = normalizedAnimeTitle.substring(normalizedQueryTitle.length).trim();
@@ -20490,6 +20796,7 @@ async function executeSourceHandlers(resultData, queryTitle, targetAnimesList, r
       existingAnimeIds.has(anime.animeId) || (targetAnimesList.push(anime), existingAnimeIds.add(anime.animeId));
     for (let [key, value] of isolatedDetailStore)
       requestAnimeDetailsMap.has(key) || requestAnimeDetailsMap.set(key, value);
+    mergeAddAnimeError(requestAnimeDetailsMap, isolatedDetailStore);
   }
 }
 async function searchAnime(url, preferAnimeId = null, preferSource = null, detailStore = null, targetPlatform = null, forceRefresh = !1) {
@@ -20665,6 +20972,7 @@ async function searchAnimeBody(url, preferAnimeId = null, preferSource = null, d
         existingAnimeIds.has(anime.animeId) || (curAnimes.push(anime), existingAnimeIds.add(anime.animeId));
       for (let [key, value] of isolatedDetailStore)
         requestAnimeDetailsMap.has(key) || requestAnimeDetailsMap.set(key, value);
+      mergeAddAnimeError(requestAnimeDetailsMap, isolatedDetailStore);
     }
     curAnimes.length > 0 && setSearchCache(cacheKey, curAnimes.map(({ links, ...pureAnime }) => pureAnime), requestAnimeDetailsMap);
     let unsatisfiedPlatforms = /* @__PURE__ */ new Set();
@@ -20742,7 +21050,7 @@ async function searchAnimeBody(url, preferAnimeId = null, preferSource = null, d
   return jsonResponse({
     errorCode: 0,
     success: !0,
-    errorMessage: "",
+    errorMessage: responseAnimes.length === 0 ? getAddAnimeError(requestAnimeDetailsMap) : "",
     animes: responseAnimes,
     tmdbSeasonBoundaries
   });
@@ -20796,14 +21104,14 @@ async function getBangumi(path2, detailStore = null, source = null) {
 }
 function buildBangumiData(anime, idParam = "") {
   log("info", `[system] [bangumi] Fetched details for anime ID: ${idParam || anime.bangumiId}`);
-  let episodesList = [];
+  let localSeason = anime.source === "local" ? extractSeasonNumberFromAnimeTitle(anime.animeTitle).season ?? 1 : 1, episodesList = [];
   for (let i = 0; i < anime.links.length; i++) {
     let link = anime.links[i];
     episodesList.push({
       seasonId: `season-${anime.animeId}`,
       episodeId: link.id,
       episodeTitle: `${link.title}`,
-      episodeNumber: `${i + 1}`,
+      episodeNumber: `${anime.source === "local" ? extractEpisodeNumberFromTitle(link.title) ?? i + 1 : i + 1}`,
       airDate: anime.startDate,
       url: link.url || ""
     });
@@ -20818,7 +21126,7 @@ function buildBangumiData(anime, idParam = "") {
       };
     episodesList = episodesList.map((episode, index) => ({
       ...episode,
-      episodeNumber: `${index + 1}`
+      episodeNumber: anime.source === "local" ? episode.episodeNumber : `${index + 1}`
     }));
   }
   return {
@@ -20840,7 +21148,7 @@ function buildBangumiData(anime, idParam = "") {
         {
           id: `season-${anime.animeId}`,
           airDate: anime.startDate,
-          name: "Season 1",
+          name: `Season ${localSeason}`,
           episodeCount: anime.episodeCount
         }
       ],
@@ -20959,7 +21267,29 @@ async function fetchMergedComments(url, animeTitle, commentId) {
   return log("info", `[merge] \u805A\u5408\u539F\u59CB\u6570\u636E\u5B8C\u6210: \u603B\u8BA1 ${mergedList.length} \u6761 (${statDetails})`), convertToDanmakuJson(mergedList, sourceTag);
 }
 async function getComment(path2, queryFormat, segmentFlag, clientIp, includeDuration = !1) {
-  let commentId = parseInt(path2.split("/").pop()), animeTitle = findAnimeTitleById(commentId), url = findUrlById(commentId), title = findTitleById(commentId), plat = title ? extractEpisodeTitle(title) : null, shouldAttachDuration = shouldIncludeVideoDuration(queryFormat, includeDuration);
+  let commentId = parseInt(path2.split("/").pop()), animeTitle = findAnimeTitleById(commentId), url = findUrlById(commentId), title = findTitleById(commentId), plat = title ? extractEpisodeTitle(title) : null;
+  if (url?.startsWith("local:"))
+    return getCommentByUrl(url, queryFormat, segmentFlag, includeDuration);
+  let localResource = segmentFlag ? null : await (async () => {
+    try {
+      let { findLocalDanmu: findLocalDanmu2 } = await Promise.resolve().then(() => (init_local_store(), local_store_exports)), [localAnimeId] = findAnimeIdByCommentId(commentId), localAnime = globals.animes.find((a) => String(a.animeId) === String(localAnimeId)), matchTitle = extractAnimeTitle(animeTitle || "").split("\u3010")[0].trim(), seasonSuffix = matchTitle.match(/\s*(?:第\s*[0-9一二三四五六七八九十壹贰叁肆伍陆柒捌玖拾]+\s*[季期部]|(?:S(?:eason)?|Part)\s*\d+)\s*$/i), season = seasonSuffix ? extractSeasonNumberFromAnimeTitle(matchTitle).season ?? 1 : 1;
+      return findLocalDanmu2({
+        videoId: String(commentId),
+        title: seasonSuffix ? matchTitle.slice(0, seasonSuffix.index).trim() : matchTitle,
+        year: extractYear(animeTitle || ""),
+        type: localAnime?.typeDescription || localAnime?.type || "",
+        season,
+        episode: extractEpisodeNumberFromTitle(title || "")
+      });
+    } catch {
+      return null;
+    }
+  })();
+  if (localResource && !segmentFlag) {
+    let localComments = await localSource.getComments(localResource.resourceKey, "local");
+    return formatDanmuResponse(buildDanmuResponse({ count: localComments.length, comments: localComments }, null), queryFormat);
+  }
+  let shouldAttachDuration = shouldIncludeVideoDuration(queryFormat, includeDuration);
   if (log("info", "[system] [LogVar-API] comment url...", url), log("info", "[system] [LogVar-API] comment title...", title), log("info", "[system] [LogVar-API] comment platform...", plat), !url)
     return log("error", `[system] [LogVar-API] Comment with ID ${commentId} not found`), jsonResponse({ count: 0, comments: [] }, 404);
   log("info", `[system] [LogVar-API] Fetched comment ID: ${commentId}`);
@@ -21054,6 +21384,70 @@ async function getComment(path2, queryFormat, segmentFlag, clientIp, includeDura
   );
   return formatDanmuResponse(responseData, queryFormat);
 }
+async function getCommentByUrl(videoUrl, queryFormat, segmentFlag, includeDuration = !1) {
+  try {
+    if (!videoUrl || typeof videoUrl != "string")
+      return log("error", "[system] [LogVar-API] Missing or invalid url parameter"), jsonResponse(
+        { errorCode: 400, success: !1, errorMessage: "Missing or invalid url parameter", count: 0, comments: [] },
+        400
+      );
+    if (videoUrl = videoUrl.trim(), videoUrl.startsWith("local:")) {
+      let key = videoUrl.slice(6);
+      if (segmentFlag) return jsonResponse(await localSource.getComments(key, "local", !0));
+      let localComments = await localSource.getComments(key, "local");
+      return localComments.length ? formatDanmuResponse(buildDanmuResponse({ count: localComments.length, comments: localComments }, null), queryFormat) : jsonResponse({ success: !1, count: 0, comments: [] }, 404);
+    }
+    if (!videoUrl.startsWith("http"))
+      return log("error", "[system] [LogVar-API] Invalid url format, must start with http or https"), jsonResponse(
+        { errorCode: 400, success: !1, errorMessage: "Invalid url format, must start with http or https", count: 0, comments: [] },
+        400
+      );
+    log("info", `[system] [LogVar-API] Processing comment request for URL: ${videoUrl}`);
+    let url = videoUrl, shouldAttachDuration = shouldIncludeVideoDuration(queryFormat, includeDuration), cacheKey = resolveCommentCacheKey(url), cachedComments = getCommentCache(cacheKey);
+    if (cachedComments !== null) {
+      let responseData2 = buildDanmuResponse({
+        errorCode: 0,
+        success: !0,
+        errorMessage: "",
+        count: cachedComments.length,
+        comments: cachedComments
+      }, shouldAttachDuration ? await resolveMergedDuration(url) : null);
+      return formatDanmuResponse(responseData2, queryFormat);
+    }
+    log("info", "[system] [LogVar-API] \u5F00\u59CB\u4ECE\u672C\u5730\u8BF7\u6C42\u5F39\u5E55...", url);
+    let danmus = [], durationPromise = shouldAttachDuration ? resolveMergedDuration(url) : null, linkMeta = stripLinkOffset(url), singleUrlOffset = linkMeta.offset, singleUrlOffsetPercent = linkMeta.percent, cleanUrl = linkMeta.cleanUrl;
+    if (singleUrlOffset !== 0 && log("info", `[system] [LogVar-API] \u68C0\u6D4B\u5230\u94FE\u63A5${singleUrlOffsetPercent ? "\u767E\u5206\u6BD4" : ""}\u504F\u79FB: ${singleUrlOffset}s`), url.includes(".qq.com"))
+      danmus = await sourceLogContext.run("tencent", () => tencentSource2.getComments(cleanUrl, "qq", segmentFlag));
+    else if (url.includes(".iqiyi.com"))
+      danmus = await sourceLogContext.run("iqiyi", () => iqiyiSource2.getComments(cleanUrl, "qiyi", segmentFlag));
+    else if (url.includes(".mgtv.com"))
+      danmus = await sourceLogContext.run("mango", () => mangoSource2.getComments(cleanUrl, "imgo", segmentFlag));
+    else if (url.includes(".bilibili.com") || url.includes("b23.tv")) {
+      let resolvedUrl = cleanUrl;
+      resolvedUrl.includes("b23.tv") && (resolvedUrl = await sourceLogContext.run("bilibili", () => bilibiliSource2.resolveB23Link(resolvedUrl))), danmus = await sourceLogContext.run("bilibili", () => bilibiliSource2.getComments(resolvedUrl, "bilibili1", segmentFlag));
+    } else url.includes(".youku.com") ? danmus = await sourceLogContext.run("youku", () => youkuSource2.getComments(cleanUrl, "youku", segmentFlag)) : url.includes(".miguvideo.com") ? danmus = await sourceLogContext.run("migu", () => miguSource.getComments(cleanUrl, "migu", segmentFlag)) : url.includes(".sohu.com") ? danmus = await sourceLogContext.run("sohu", () => sohuSource.getComments(cleanUrl, "sohu", segmentFlag)) : url.includes(".le.com") ? danmus = await sourceLogContext.run("leshi", () => leshiSource.getComments(cleanUrl, "leshi", segmentFlag)) : url.includes(".douyin.com") || url.includes(".ixigua.com") ? danmus = await sourceLogContext.run("xigua", () => xiguaSource.getComments(cleanUrl, "xigua", segmentFlag)) : url.includes(".mddcloud.com.cn") ? danmus = await sourceLogContext.run("maiduidui", () => maiduiduiSource.getComments(cleanUrl, "maiduidui", segmentFlag)) : url.includes(".yfsp.tv") ? danmus = await sourceLogContext.run("aiyifan", () => aiyifanSource.getComments(cleanUrl, "aiyifan", segmentFlag)) : isHongguoPlayerUrl(cleanUrl) ? danmus = await sourceLogContext.run("hongguo", () => hongguoSource.getComments(cleanUrl, "hongguo", segmentFlag)) : /^(https?:\/\/)?([\w.-]+)\.([a-z]{2,})(\/.*)?$/i.test(cleanUrl) && (danmus = await sourceLogContext.run("other", () => otherSource.getComments(cleanUrl, "other_server", segmentFlag)));
+    if (log("info", `[system] [LogVar-API] Successfully fetched ${danmus.length} comments from URL`), singleUrlOffset !== 0 && danmus && Array.isArray(danmus) && danmus.length > 0)
+      if (singleUrlOffsetPercent) {
+        let maxTime = Math.max(...danmus.map((d) => parseFloat(String(d.p).split(",")[0]) || 0), 0);
+        danmus = applyOffset(danmus, singleUrlOffset, { usePercent: !0, videoDuration: maxTime || 1 }), log("info", `[system] [LogVar-API] \u5E94\u7528\u94FE\u63A5\u767E\u5206\u6BD4\u504F\u79FB ${singleUrlOffset}s (\u65F6\u957F=${maxTime}s)`);
+      } else
+        danmus = applyOffset(danmus, singleUrlOffset), log("info", `[system] [LogVar-API] \u5E94\u7528\u94FE\u63A5\u504F\u79FB ${singleUrlOffset}s`);
+    danmus.length > 0 && setCommentCache(cacheKey, danmus);
+    let responseData = buildDanmuResponse({
+      errorCode: 0,
+      success: !0,
+      errorMessage: "",
+      count: danmus.length,
+      comments: danmus
+    }, durationPromise ? await durationPromise : null);
+    return formatDanmuResponse(responseData, queryFormat);
+  } catch (error) {
+    return log("error", `[system] [LogVar-API] Failed to process comment by URL request: ${error.message}`), jsonResponse(
+      { errorCode: 500, success: !1, errorMessage: "Internal server error", count: 0, comments: [] },
+      500
+    );
+  }
+}
 async function getSegmentComment(segment, queryFormat) {
   try {
     let url = segment.url, platform = segment.type;
@@ -21076,7 +21470,7 @@ async function getSegmentComment(segment, queryFormat) {
     }
     log("info", `[system] [segmentcomment] \u5F00\u59CB\u4ECE\u672C\u5730\u8BF7\u6C42\u5206\u6BB5\u5F39\u5E55... URL: ${url}`);
     let danmus = [];
-    platform === "qq" ? danmus = await sourceLogContext.run("tencent", () => tencentSource2.getSegmentComments(segment)) : platform === "qiyi" ? danmus = await sourceLogContext.run("iqiyi", () => iqiyiSource2.getSegmentComments(segment)) : platform === "imgo" ? danmus = await sourceLogContext.run("mango", () => mangoSource2.getSegmentComments(segment)) : platform === "bilibili1" ? danmus = await sourceLogContext.run("bilibili", () => bilibiliSource2.getSegmentComments(segment)) : platform === "youku" ? danmus = await sourceLogContext.run("youku", () => youkuSource2.getSegmentComments(segment)) : platform === "migu" ? danmus = await sourceLogContext.run("migu", () => miguSource.getSegmentComments(segment)) : platform === "sohu" ? danmus = await sourceLogContext.run("sohu", () => sohuSource.getSegmentComments(segment)) : platform === "leshi" ? danmus = await sourceLogContext.run("leshi", () => leshiSource.getSegmentComments(segment)) : platform === "xigua" ? danmus = await sourceLogContext.run("xigua", () => xiguaSource.getSegmentComments(segment)) : platform === "maiduidui" ? danmus = await sourceLogContext.run("maiduidui", () => maiduiduiSource.getSegmentComments(segment)) : platform === "aiyifan" ? danmus = await sourceLogContext.run("aiyifan", () => aiyifanSource.getSegmentComments(segment)) : platform === "hongguo" ? danmus = await sourceLogContext.run("hongguo", () => hongguoSource.getSegmentComments(segment)) : platform === "hanjutv" ? danmus = await sourceLogContext.run("hanjutv", () => hanjutvSource.getSegmentComments(segment)) : platform === "bahamut" ? danmus = await sourceLogContext.run("bahamut", () => bahamutSource2.getSegmentComments(segment)) : platform === "renren" ? danmus = await sourceLogContext.run("renren", () => renrenSource.getSegmentComments(segment)) : platform === "dandan" ? danmus = await sourceLogContext.run("dandan", () => dandanSource.getSegmentComments(segment)) : platform === "animeko" ? danmus = await sourceLogContext.run("animeko", () => animekoSource.getSegmentComments(segment)) : platform === "custom" ? danmus = await sourceLogContext.run("custom", () => customSource.getSegmentComments(segment)) : platform === "other_server" && (danmus = await sourceLogContext.run("other", () => otherSource.getSegmentComments(segment))), log("info", `[system] [segmentcomment] Successfully fetched ${danmus.length} segment comments from URL`), danmus.length > 0 && setCommentCache(cacheKey, danmus);
+    platform === "qq" ? danmus = await sourceLogContext.run("tencent", () => tencentSource2.getSegmentComments(segment)) : platform === "qiyi" ? danmus = await sourceLogContext.run("iqiyi", () => iqiyiSource2.getSegmentComments(segment)) : platform === "imgo" ? danmus = await sourceLogContext.run("mango", () => mangoSource2.getSegmentComments(segment)) : platform === "bilibili1" ? danmus = await sourceLogContext.run("bilibili", () => bilibiliSource2.getSegmentComments(segment)) : platform === "youku" ? danmus = await sourceLogContext.run("youku", () => youkuSource2.getSegmentComments(segment)) : platform === "migu" ? danmus = await sourceLogContext.run("migu", () => miguSource.getSegmentComments(segment)) : platform === "sohu" ? danmus = await sourceLogContext.run("sohu", () => sohuSource.getSegmentComments(segment)) : platform === "leshi" ? danmus = await sourceLogContext.run("leshi", () => leshiSource.getSegmentComments(segment)) : platform === "xigua" ? danmus = await sourceLogContext.run("xigua", () => xiguaSource.getSegmentComments(segment)) : platform === "maiduidui" ? danmus = await sourceLogContext.run("maiduidui", () => maiduiduiSource.getSegmentComments(segment)) : platform === "aiyifan" ? danmus = await sourceLogContext.run("aiyifan", () => aiyifanSource.getSegmentComments(segment)) : platform === "hongguo" ? danmus = await sourceLogContext.run("hongguo", () => hongguoSource.getSegmentComments(segment)) : platform === "hanjutv" ? danmus = await sourceLogContext.run("hanjutv", () => hanjutvSource.getSegmentComments(segment)) : platform === "bahamut" ? danmus = await sourceLogContext.run("bahamut", () => bahamutSource2.getSegmentComments(segment)) : platform === "renren" ? danmus = await sourceLogContext.run("renren", () => renrenSource.getSegmentComments(segment)) : platform === "dandan" ? danmus = await sourceLogContext.run("dandan", () => dandanSource.getSegmentComments(segment)) : platform === "animeko" ? danmus = await sourceLogContext.run("animeko", () => animekoSource.getSegmentComments(segment)) : platform === "custom" ? danmus = await sourceLogContext.run("custom", () => customSource.getSegmentComments(segment)) : platform === "local" ? danmus = await sourceLogContext.run("local", () => localSource.getSegmentComments(segment)) : platform === "other_server" && (danmus = await sourceLogContext.run("other", () => otherSource.getSegmentComments(segment))), log("info", `[system] [segmentcomment] Successfully fetched ${danmus.length} segment comments from URL`), danmus.length > 0 && setCommentCache(cacheKey, danmus);
     let responseData = {
       errorCode: 0,
       success: !0,
@@ -21094,7 +21488,7 @@ async function getSegmentComment(segment, queryFormat) {
 }
 
 // forward/forward-widget.js
-var wv = "1.20.10";
+var wv = "1.21.4";
 WidgetMetadata = {
   id: "forward.auto.danmu2",
   title: "\u81EA\u52A8\u94FE\u63A5\u5F39\u5E55v2",
@@ -22131,5 +22525,5 @@ async function getDanmuWithSegmentTime(params = {}) {
 /*! Bundled license information:
 
 pako/dist/pako.esm.mjs:
-  (*! pako 2.1.0 https://github.com/nodeca/pako @license (MIT AND Zlib) *)
+  (*! pako 2.2.0 https://github.com/nodeca/pako @license (MIT AND Zlib) *)
 */
