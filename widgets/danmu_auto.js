@@ -5319,16 +5319,16 @@ function titleMatches(title, query, parsedSeason = null, forceNonStrict = !1, th
   }
   return simMatch;
 }
-function validateType(value, expectedType) {
-  let fieldName = value?.constructor?.name;
+function validateType(value, expectedType, fieldName) {
+  let label = fieldName || `${value}`, received = value === null ? "null" : Array.isArray(value) ? "array" : typeof value;
   if (expectedType === "array") {
     if (!Array.isArray(value))
-      throw new TypeError(`${value} \u5FC5\u987B\u662F\u4E00\u4E2A\u6570\u7EC4\uFF0C\u4F46\u4F20\u5165\u7684\u662F ${fieldName}`);
+      throw new TypeError(`${label} \u5FC5\u987B\u662F\u4E00\u4E2A\u6570\u7EC4\uFF0C\u4F46\u4F20\u5165\u7684\u662F ${received}`);
   } else if (expectedType === "boolean") {
     if (typeof value != "boolean" && typeof value != "number")
-      throw new TypeError(`${value} \u5FC5\u987B\u662F boolean \u6216 number\uFF0C\u4F46\u4F20\u5165\u7684\u662F ${fieldName}`);
+      throw new TypeError(`${label} \u5FC5\u987B\u662F boolean \u6216 number\uFF0C\u4F46\u4F20\u5165\u7684\u662F ${received}`);
   } else if (typeof value !== expectedType)
-    throw new TypeError(`${value} \u5FC5\u987B\u662F ${expectedType}\uFF0C\u4F46\u4F20\u5165\u7684\u662F ${fieldName}`);
+    throw new TypeError(`${label} \u5FC5\u987B\u662F ${expectedType}\uFF0C\u4F46\u4F20\u5165\u7684\u662F ${received}`);
 }
 function extractSeasonNumberFromAnimeTitle(animeTitle) {
   if (!animeTitle) return { season: null, baseTitle: null };
@@ -6002,12 +6002,11 @@ var _Envs = class _Envs {
       BILIBILI_COOKIE: { category: "source", type: "text", description: "B\u7AD9Cookie" },
       DOUBAN_COOKIE: { category: "source", type: "text", description: "\u8C46\u74E3Cookie" },
       YOUKU_CONCURRENCY: { category: "source", type: "number", description: "\u4F18\u9177\u5E76\u53D1\u914D\u7F6E\uFF0C\u9ED8\u8BA48", min: 1, max: 16 },
-      DANDANPLAY_ACCOUNT: { category: "source", type: "text", description: `\u5F39\u5F39play\u8D26\u53F7\uFF08dandan \u6E90\u83B7\u53D6\u5F39\u5E55\u4F7F\u7528\uFF09\u3002
-\u4E0E\u5BC6\u7801\u540C\u65F6\u586B\u5199\u540E\u81EA\u52A8\u5F00\u542F\uFF0C\u65E0\u9700\u989D\u5916\u5F00\u5173\u3002
-\u5F00\u542F\u540E dandan \u6E90\u6539\u7531 NipaPlay \u4E2D\u8F6C\u5F39\u5F39play\u670D\u52A1\u7AEF\u83B7\u53D6\u5F39\u5E55\uFF0C\u5E76\u628A\u540C\u4E00\u8BF7\u6C42\u4E0B\u53D1\u7684\u5F39\u5F39\u5173\u8054\u94FE\u63A5\u5206\u53D1\u7ED9\u5BF9\u5E94\u5E73\u53F0\u6E90\u5B9E\u65F6\u62C9\u53D6\uFF08\u9700\u5F00\u542F\u5BF9\u5E94\u6E90\uFF09\uFF1A
-\u6700\u7EC8\u5F39\u5E55\u4E3A NipaPlay \u4E2D\u8F6C\u5F39\u5F39play\u670D\u52A1\u7AEF\u5F39\u5E55\u4E0E\u81EA\u6709\u94FE\u8DEF\u5F39\u5E55\u5408\u5E76\u53BB\u91CD\u540E\u7684\u7ED3\u679C\u3002
-\u6CE8\u610F\uFF1A\u5173\u8054\u94FE\u63A5\u6307\u5411\u7684\u5E73\u53F0\u89C6\u9891\u82E5\u5DF2\u4E0B\u67B6\u5C06\u65E0\u6CD5\u901A\u8FC7\u81EA\u6709\u94FE\u8DEF\u8865\u53D6\uFF1B\u5173\u8054\u542B\u5DF4\u54C8\u59C6\u7279\u5E73\u53F0\u65F6\u9700\u786E\u4FDD\u80FD\u591F\u8FDE\u901A\u5DF4\u54C8` },
-      DANDANPLAY_PASSWORD: { category: "source", type: "text", description: `\u5F39\u5F39play\u5BC6\u7801\uFF08dandan \u6E90\u83B7\u53D6\u5F39\u5E55\u4F7F\u7528\uFF09\u3002
+      DANDANPLAY_ACCOUNT: { category: "source", type: "text", description: `\u5F39\u5F39play\u8D26\u53F7\uFF08dandan \u6E90\u4F7F\u7528\uFF09\u3002
+\u4E0E\u5BC6\u7801\u540C\u65F6\u586B\u5199\u540E\u5F00\u542F NipaPlay \u4E2D\u8F6C\u5F39\u5F39play\u8F85\u52A9\u670D\u52A1\uFF0C\u4F7F\u7528 NipaPlay \u83B7\u53D6\u5F39\u5E55\u4E0E\u515C\u5E95\uFF0C\u89E3\u51B3\u9ED8\u8BA4\u670D\u52A1\u7AEF\u65E0\u5F39\u5E55\u4E0E\u66F4\u65B0\u7F13\u6162\u7684\u95EE\u9898\uFF0C\u5E76\u5F00\u542F\u5F39\u5F39\u805A\u5408\u5F39\u5E55\u5B9E\u65F6\u62C9\u53D6\u529F\u80FD
+\uFF08\u5B9E\u65F6\u62C9\u53D6\u6CE8\u610F\uFF1A\u9700\u5148\u5F00\u542F\u5BF9\u5E94\u6E90\uFF1B\u6307\u5411\u7684\u5E73\u53F0\u89C6\u9891\u82E5\u5DF2\u4E0B\u67B6\u5C06\u65E0\u6CD5\u83B7\u53D6\uFF1B\u542B\u5DF4\u54C8\u59C6\u7279\u5E73\u53F0\u65F6\u9700\u786E\u4FDD\u80FD\u591F\u8FDE\u901A\u5DF4\u54C8\uFF09\u3002` },
+      DANDANPLAY_PASSWORD: { category: "source", type: "text", description: `\u5F39\u5F39play\u5BC6\u7801\uFF08dandan \u6E90\u4F7F\u7528\uFF09
+\u4E0E\u8D26\u53F7\u540C\u65F6\u586B\u5199\u540E\u5F00\u542F NipaPlay \u4E2D\u8F6C\u5F39\u5F39play\u8F85\u52A9\u670D\u52A1\u3002
 \u70B9\u51FB\u7F16\u8F91\u754C\u9762\u7684\u6D4B\u8BD5\u8FDE\u901A\u6027\u6309\u94AE\u53EF\u9A8C\u8BC1\u8D26\u53F7\u4E0E NipaPlay \u4E2D\u8F6C\u5F39\u5F39play\u670D\u52A1\u7AEF\u662F\u5426\u53EF\u7528` },
       // 匹配配置
       PLATFORM_ORDER: { category: "match", type: "multi-select", options: this.ALLOWED_PLATFORMS, description: `\u5E73\u53F0\u6392\u5E8F\u914D\u7F6E\uFF0C\u53EF\u4EE5\u914D\u7F6E\u81EA\u52A8\u5339\u914D\u65F6\u7684\u4F18\u9009\u5E73\u53F0\u3002
@@ -6032,7 +6031,7 @@ var _Envs = class _Envs {
       AI_MODEL: { category: "match", type: "text", description: "AI\u6A21\u578B\u540D\u79F0\uFF0C\u4E0D\u586B\u9ED8\u8BA4\u4E3Agpt-4o" },
       AI_API_KEY: { category: "match", type: "text", description: "AI\u670D\u52A1API\u5BC6\u94A5\uFF0C\u9ED8\u8BA4\u4E3A\u7A7A\uFF0C\u9700\u624B\u52A8\u586B\u5199" },
       AI_MATCH_PROMPT: { category: "match", type: "text", description: "AI\u81EA\u52A8\u5339\u914D\u63D0\u793A\u8BCD\u6A21\u677F\uFF0C\u4E0D\u586B\u63D0\u4F9B\u9ED8\u8BA4\u63D0\u793A\u8BCD\uFF0C\u9ED8\u8BA4\u63D0\u793A\u8BCD\u8BF7\u67E5\u770BREADME" },
-      USE_BANGUMI_DATA: { category: "match", type: "boolean", description: `Bangumi Data \u52A0\u901F\u5339\u914D\u5F00\u5173\uFF0C\u5F00\u542F\u540E\u5C06\u52A8\u753B\u5143\u6570\u636E\u7F13\u5B58\u81F3\u672C\u5730\u6216\u5185\u5B58\u4E2D\u7ED9\u6E90\u8C03\u7528\uFF0C\u63D0\u5347\u52A8\u753B\u6E90\u7684\u68C0\u7D22\u4E0E\u5339\u914D\u901F\u5EA6\u5E76\u89E3\u9501\u9690\u85CF/\u533A\u57DF\u756A\u5267\u3002
+      USE_BANGUMI_DATA: { category: "match", type: "boolean", description: `Bangumi Data \u6570\u636E\u8F85\u52A9\u5F00\u5173\uFF0C\u9ED8\u8BA4\u503C\uFF1Afalse\uFF08\u5173\u95ED\uFF09\uFF0C\u5F00\u542F\u540E\u5C06\u52A8\u753B\u5143\u6570\u636E\u7F13\u5B58\u81F3\u672C\u5730\u6216\u5185\u5B58\u4E2D\u7ED9\u6E90\u8C03\u7528\uFF0C\u63D0\u5347\u52A8\u753B\u6E90\u7684\u68C0\u7D22\u901F\u5EA6\u4E0E\u5339\u914D\u7CBE\u51C6\u5EA6\u5E76\u8865\u5168\u7279\u5B9A\u6570\u636E\u4E0E\u756A\u5267\u3002
 \u672C\u5730\u548CDocker\u90E8\u7F72\u4F7F\u7528\u65F6\u8BF7\u5148\u6302\u8F7D.cache\u76EE\u5F55\u83B7\u5F97\u6700\u4F73\u4F53\u9A8C\uFF0C\u4E91\u90E8\u7F72\u4F7F\u7528\u65F6\u4F1A\u5C06\u6570\u636E\u7F13\u5B58\u81F3\u4E34\u65F6\u5185\u5B58\u4E2D\u5982\u679C\u4F53\u9A8C\u4E0D\u4F73\u8BF7\u5173\u95ED\u3002` },
       // 弹幕配置
       BLOCKED_WORDS: { category: "danmu", type: "text", description: "\u5C4F\u853D\u8BCD\u5217\u8868" },
@@ -6105,9 +6104,9 @@ var _Envs = class _Envs {
       youkuConcurrency: Math.min(this.get("YOUKU_CONCURRENCY", 8, "number"), 16),
       // 优酷并发配置
       dandanplayAccount: this.get("DANDANPLAY_ACCOUNT", "", "string", !0),
-      // 弹弹play账号，dandan 源获取弹幕使用
+      // 弹弹play账号，dandan 源使用
       dandanplayPassword: this.get("DANDANPLAY_PASSWORD", "", "string", !0),
-      // 弹弹play密码，dandan 源获取弹幕使用
+      // 弹弹play密码，dandan 源使用
       platformOrderArr: this.resolvePlatformOrder(),
       // 自动匹配优选平台
       animeTitleFilter: this.resolveAnimeTitleFilter(),
@@ -6193,7 +6192,7 @@ var _Envs = class _Envs {
       aiMatchPrompt: this.get("AI_MATCH_PROMPT", this.DEFAULT_AI_MATCH_PROMPT, "string"),
       // AI自动匹配提示词模板
       useBangumiData: this.get("USE_BANGUMI_DATA", !1, "boolean"),
-      // Bangumi Data 加速匹配开关
+      // Bangumi Data 数据辅助开关
       rememberLastSelect: this.get("REMEMBER_LAST_SELECT", !0, "boolean"),
       // 是否记住手动选择结果，用于match自动匹配时优选上次的选择（默认 true，记住）
       MAX_LAST_SELECT_MAP: this.get("MAX_LAST_SELECT_MAP", 100, "number"),
@@ -6270,7 +6269,7 @@ var Globals = {
   originalEnvVars: {},
   accessedEnvVars: {},
   // 静态常量
-  VERSION: "1.21.4",
+  VERSION: "1.21.5",
   MAX_LOGS: 1e3,
   // 日志存储，最多保存 1000 行
   MAX_RECORDS: 100,
@@ -6814,7 +6813,16 @@ function md5(message) {
     let utf8 = "";
     for (let i = 0; i < str.length; i++) {
       let charCode = str.charCodeAt(i);
-      charCode < 128 ? utf8 += String.fromCharCode(charCode) : charCode < 2048 ? (utf8 += String.fromCharCode(192 | charCode >> 6), utf8 += String.fromCharCode(128 | charCode & 63)) : (utf8 += String.fromCharCode(224 | charCode >> 12), utf8 += String.fromCharCode(128 | charCode >> 6 & 63), utf8 += String.fromCharCode(128 | charCode & 63));
+      if (charCode < 128)
+        utf8 += String.fromCharCode(charCode);
+      else if (charCode < 2048)
+        utf8 += String.fromCharCode(192 | charCode >> 6), utf8 += String.fromCharCode(128 | charCode & 63);
+      else if (charCode < 55296 || charCode >= 57344)
+        utf8 += String.fromCharCode(224 | charCode >> 12), utf8 += String.fromCharCode(128 | charCode >> 6 & 63), utf8 += String.fromCharCode(128 | charCode & 63);
+      else {
+        let codePoint = 65536 + ((charCode & 1023) << 10 | str.charCodeAt(++i) & 1023);
+        utf8 += String.fromCharCode(240 | codePoint >> 18), utf8 += String.fromCharCode(128 | codePoint >> 12 & 63), utf8 += String.fromCharCode(128 | codePoint >> 6 & 63), utf8 += String.fromCharCode(128 | codePoint & 63);
+      }
     }
     return utf8;
   }
@@ -7707,23 +7715,24 @@ function resolveFavoriteForSearchKeyword(keyword) {
 
 // danmu_api/models/dandan-model.js
 var Anime = class _Anime {
-  constructor({
-    animeId = 111,
-    bangumiId = "",
-    animeTitle = "",
-    type = "",
-    typeDescription = "",
-    imageUrl = "",
-    startDate = "",
-    episodeCount = 1,
-    rating = 0,
-    isFavorited = !0,
-    source = "",
-    links = [],
-    mergedChildren = [],
-    isHiddenChild = !1
-  } = {}) {
-    validateType(animeId, "number"), validateType(bangumiId, "string"), validateType(animeTitle, "string"), validateType(type, "string", "type"), validateType(typeDescription, "string"), validateType(imageUrl, "string"), validateType(startDate, "string"), validateType(episodeCount, "number"), validateType(rating, "number"), validateType(isFavorited, "boolean"), validateType(source, "string"), validateType(links, "array"), validateType(mergedChildren, "array"), validateType(isHiddenChild, "boolean"), this.links = links.map((linkData) => Link.fromJson(linkData)), Object.assign(this, {
+  constructor(rawJson = {}) {
+    let {
+      animeId = 111,
+      bangumiId = "",
+      animeTitle = "",
+      type = "",
+      typeDescription = "",
+      imageUrl = "",
+      startDate = "",
+      episodeCount = 1,
+      rating = 0,
+      isFavorited = !0,
+      source = "",
+      links = [],
+      mergedChildren = [],
+      isHiddenChild = !1
+    } = nullToUndefined(rawJson);
+    validateType(animeId, "number", "animeId"), validateType(bangumiId, "string", "bangumiId"), validateType(animeTitle, "string", "animeTitle"), validateType(type, "string", "type"), validateType(typeDescription, "string", "typeDescription"), validateType(imageUrl, "string", "imageUrl"), validateType(startDate, "string", "startDate"), validateType(episodeCount, "number", "episodeCount"), validateType(rating, "number", "rating"), validateType(isFavorited, "boolean", "isFavorited"), validateType(source, "string", "source"), validateType(links, "array", "links"), validateType(mergedChildren, "array", "mergedChildren"), validateType(isHiddenChild, "boolean", "isHiddenChild"), this.links = links.map((linkData) => Link.fromJson(linkData)), Object.assign(this, {
       animeId,
       bangumiId,
       animeTitle,
@@ -7756,8 +7765,14 @@ var Anime = class _Anime {
     };
   }
 }, Link = class _Link {
-  constructor({ name = "", url = "", title = "", id = 10001 } = {}) {
-    validateType(name, "string"), validateType(url, "string"), validateType(title, "string"), validateType(id, "number"), Object.assign(this, { name, url, title, id });
+  constructor(rawJson = {}) {
+    let {
+      name = "",
+      url = "",
+      title = "",
+      id = 10001
+    } = nullToUndefined(rawJson);
+    validateType(name, "string", "name"), validateType(url, "string", "url"), validateType(title, "string", "title"), validateType(id, "number", "id"), Object.assign(this, { name, url, title, id });
   }
   // ---- 静态方法：从 JSON 创建 Link 对象 ----
   static fromJson(json) {
@@ -7771,7 +7786,12 @@ var Anime = class _Anime {
   }
 };
 var Episode = class {
-  constructor({ episodeId = "", episodeTitle = "", url = "" } = {}) {
+  constructor(rawJson = {}) {
+    let {
+      episodeId = "",
+      episodeTitle = "",
+      url = ""
+    } = nullToUndefined(rawJson);
     this.episodeId = episodeId, this.episodeTitle = episodeTitle, this.url = url;
   }
 };
@@ -7783,8 +7803,14 @@ Episode.prototype.toJson = function() {
   };
 };
 var Season = class _Season {
-  constructor({ id = "", airDate = "", name = "", episodeCount = 0 } = {}) {
-    validateType(id, "string"), validateType(airDate, "string"), validateType(name, "string"), validateType(episodeCount, "number"), Object.assign(this, { id, airDate, name, episodeCount });
+  constructor(rawJson = {}) {
+    let {
+      id = "",
+      airDate = "",
+      name = "",
+      episodeCount = 0
+    } = nullToUndefined(rawJson);
+    validateType(id, "string", "id"), validateType(airDate, "string", "airDate"), validateType(name, "string", "name"), validateType(episodeCount, "number", "episodeCount"), Object.assign(this, { id, airDate, name, episodeCount });
   }
   // ---- 静态方法：从 JSON 创建 Season 对象 ----
   static fromJson(json) {
@@ -7797,15 +7823,16 @@ var Season = class _Season {
     return { ...this };
   }
 }, BangumiEpisode = class _BangumiEpisode {
-  constructor({
-    seasonId = "",
-    episodeId = 10001,
-    episodeTitle = "",
-    episodeNumber = "",
-    airDate = "",
-    url = ""
-  } = {}) {
-    validateType(seasonId, "string"), validateType(episodeId, "number"), validateType(episodeTitle, "string"), validateType(episodeNumber, "string"), validateType(airDate, "string"), validateType(url, "string"), Object.assign(this, { seasonId, episodeId, episodeTitle, episodeNumber, airDate, url });
+  constructor(rawJson = {}) {
+    let {
+      seasonId = "",
+      episodeId = 10001,
+      episodeTitle = "",
+      episodeNumber = "",
+      airDate = "",
+      url = ""
+    } = nullToUndefined(rawJson);
+    validateType(seasonId, "string", "seasonId"), validateType(episodeId, "number", "episodeId"), validateType(episodeTitle, "string", "episodeTitle"), validateType(episodeNumber, "string", "episodeNumber"), validateType(airDate, "string", "airDate"), validateType(url, "string", "url"), Object.assign(this, { seasonId, episodeId, episodeTitle, episodeNumber, airDate, url });
   }
   // ---- 静态方法：从 JSON 创建 BangumiEpisode 对象 ----
   static fromJson(json) {
@@ -7818,21 +7845,22 @@ var Season = class _Season {
     return { ...this };
   }
 }, Bangumi = class _Bangumi {
-  constructor({
-    animeId = 111,
-    bangumiId = "",
-    animeTitle = "",
-    imageUrl = "",
-    isOnAir = !0,
-    airDay = 1,
-    isFavorited = !0,
-    rating = 0,
-    type = "",
-    typeDescription = "",
-    seasons = [],
-    episodes = []
-  } = {}) {
-    validateType(animeId, "number"), validateType(bangumiId, "string"), validateType(animeTitle, "string"), validateType(imageUrl, "string"), validateType(isOnAir, "boolean"), validateType(airDay, "number"), validateType(isFavorited, "boolean"), validateType(rating, "number"), validateType(type, "string"), validateType(typeDescription, "string"), validateType(seasons, "array"), validateType(episodes, "array");
+  constructor(rawJson = {}) {
+    let {
+      animeId = 111,
+      bangumiId = "",
+      animeTitle = "",
+      imageUrl = "",
+      isOnAir = !0,
+      airDay = 1,
+      isFavorited = !0,
+      rating = 0,
+      type = "",
+      typeDescription = "",
+      seasons = [],
+      episodes = []
+    } = nullToUndefined(rawJson);
+    validateType(animeId, "number", "animeId"), validateType(bangumiId, "string", "bangumiId"), validateType(animeTitle, "string", "animeTitle"), validateType(imageUrl, "string", "imageUrl"), validateType(isOnAir, "boolean", "isOnAir"), validateType(airDay, "number", "airDay"), validateType(isFavorited, "boolean", "isFavorited"), validateType(rating, "number", "rating"), validateType(type, "string", "type"), validateType(typeDescription, "string", "typeDescription"), validateType(seasons, "array", "seasons"), validateType(episodes, "array", "episodes");
     let seasonInstances = seasons.map((seasonData) => Season.fromJson(seasonData));
     Object.assign(this, {
       animeId,
@@ -7867,8 +7895,13 @@ var Season = class _Season {
     };
   }
 }, SegmentListResponse = class _SegmentListResponse {
-  constructor({ type = "", segmentList = [], duration = 0 } = {}) {
-    validateType(type, "string"), validateType(segmentList, "array"), validateType(duration, "number"), this.segmentList = segmentList.map((segmentData) => Segment.fromJson(segmentData)), Object.assign(this, { type, duration });
+  constructor(rawJson = {}) {
+    let {
+      type = "",
+      segmentList = [],
+      duration = 0
+    } = nullToUndefined(rawJson);
+    validateType(type, "string", "type"), validateType(segmentList, "array", "segmentList"), validateType(duration, "number", "duration"), this.segmentList = segmentList.map((segmentData) => Segment.fromJson(segmentData)), Object.assign(this, { type, duration });
   }
   // ---- 静态方法：从 JSON 创建 SegmentListResponse 对象 ----
   static fromJson(json) {
@@ -7899,6 +7932,12 @@ var Season = class _Season {
     return { ...this };
   }
 };
+function nullToUndefined(json) {
+  let source = json || {}, normalized = /* @__PURE__ */ Object.create(null);
+  for (let key in source)
+    normalized[key] = source[key] === null ? void 0 : source[key];
+  return normalized;
+}
 
 // danmu_api/utils/cache-util.js
 var fs, path, nodeModulesPromise;
@@ -8281,7 +8320,7 @@ function backupQueryCacheFile(key) {
     fs.copyFileSync(cacheFilePath, temporary, fs.constants.COPYFILE_EXCL), fs.renameSync(temporary, backup);
     let directory = path.dirname(cacheFilePath), backups = fs.readdirSync(directory).filter((name) => name.startsWith(`${key}.bak-`) && /^\d+-\d+(?:-\d+)?$/.test(name.slice(`${key}.bak-`.length))).map((name) => ({ name, mtime: fs.statSync(path.join(directory, name)).mtimeMs })).sort((a, b) => b.mtime - a.mtime || b.name.localeCompare(a.name));
     for (let old of backups.slice(2)) fs.unlinkSync(path.join(directory, old.name));
-    return backedUpCacheFiles.add(cacheFilePath), backupRetryAfter.delete(cacheFilePath), log("warn", `[cache] \u5DF2\u4FDD\u7559\u8986\u76D6\u524D\u7684\u67E5\u8BE2\u7F13\u5B58: ${backup}`), !0;
+    return backedUpCacheFiles.add(cacheFilePath), backupRetryAfter.delete(cacheFilePath), backedUpCacheFiles.size === 1 && log("info", `[cache] \u5DF2\u4FDD\u7559\u8986\u76D6\u524D\u7684\u67E5\u8BE2\u7F13\u5B58: ${backup}`), !0;
   } catch (error) {
     for (let target of [temporary, backup])
       try {
@@ -8845,7 +8884,7 @@ async function getTmdbJaOriginalTitle(title, signal = null, sourceLabel = "Unkno
         return aExact && !bExact ? -1 : !aExact && bExact ? 1 : 0;
       });
       let m = localMatches[0], displayTitle = m.titles.find((t) => t && t.includes(cleanTitle)) || m.titles[1] || m.title, jaOriginalTitle = m.title;
-      return log("info", `[system] [tmdb] Bangumi-Data \u672C\u5730\u547D\u4E2D\uFF0C\u63D0\u53D6\u539F\u540D\u6210\u529F: \u539F\u540D=${jaOriginalTitle}, \u522B\u540D=${displayTitle}\uFF08\u68C0\u7D22\u8BCD\uFF1A${cleanTitle}\uFF09`), { title: jaOriginalTitle, cnAlias: displayTitle };
+      return log("info", `[system] [tmdb] Bangumi-Data \u672C\u5730\u547D\u4E2D\uFF0C\u63D0\u53D6\u539F\u540D\u6210\u529F: \u539F\u540D=${jaOriginalTitle}, \u522B\u540D=${displayTitle}\uFF08\u68C0\u7D22\u8BCD\uFF1A${cleanTitle}\uFF09`), { title: stripSeasonMarker(jaOriginalTitle), cnAlias: displayTitle };
     }
   }
   if (!globals.tmdbApiKey)
@@ -8951,7 +8990,7 @@ async function getTmdbJaOriginalTitle(title, signal = null, sourceLabel = "Unkno
             let detail = typeof detailResp.data == "string" ? JSON.parse(detailResp.data) : detailResp.data;
             jaOriginalTitle = detail.original_name || detail.original_title || detail.name || detail.title, log("info", `[system] [tmdb] \u627E\u5230\u65E5\u8BED\u539F\u540D: ${jaOriginalTitle}`);
           }
-          return { title: jaOriginalTitle, cnAlias: bestMatchChineseTitle };
+          return { title: stripSeasonMarker(jaOriginalTitle), cnAlias: bestMatchChineseTitle };
         } catch (error) {
           return error.name === "AbortError" ? (log("info", `[system] [tmdb] \u540E\u53F0\u641C\u7D22\u4EFB\u52A1\u5DF2\u5B8C\u5168\u7EC8\u6B62 (${cleanTitle})`), null) : (log("error", "[system] [tmdb] Background Search error:", {
             message: error.message,
@@ -8984,7 +9023,7 @@ async function getTmdbJaOriginalTitle(title, signal = null, sourceLabel = "Unkno
     signal && (signal.removeEventListener("abort", leaveTask), abortHandler && signal.removeEventListener("abort", abortHandler));
   }
 }
-var SUFFIX_PATTERN = /(?:\s+|^)(?:第?\s*(?:\d+|[一二三四五六七八九十]+)\s*[季期部]|season\s*\d+|s\d+|part\s*\d+|act\s*\d+|phase\s*\d+|the\s+final\s+season|(?:movie|film|ova|oad|sp|剧场版|劇場版|续[篇集]|外传)(?![a-z]))|[:：~～]|\s+.*?篇|(?<=\s|^)\d+$/i, SEPARATOR_REGEX = /[ :：~～]/;
+var SEASON_MARKER_SOURCE = "\u7B2C?\\s*(?:\\d+|[\u4E00\u4E8C\u4E09\u56DB\u4E94\u516D\u4E03\u516B\u4E5D\u5341]+)\\s*(?:[\u5B63\u671F\u90E8]|\u8D5B\u6BB5)|\\d+(?:st|nd|rd|th)\\s+(?:season|stage)|season\\s*\\d+|s\\d+|part\\s*\\d+|act\\s*\\d+|phase\\s*\\d+|the\\s+final\\s+season", KANA_SOURCE = "\\u3041-\\u3096\\u30A1-\\u30FA\\u30FC", SUBTITLE_SEPARATOR_SOURCE = `[:\uFF1A]\\s|[~\uFF5E\\u301C](?![${KANA_SOURCE}]|$)|(?<![${KANA_SOURCE}])[~\uFF5E\\u301C]`, SUFFIX_PATTERN = new RegExp(`(?:\\s+|^)(?:${SEASON_MARKER_SOURCE}|(?:movie|film|ova|oad|sp|\u5267\u573A\u7248|\u5287\u5834\u7248|\u7EED[\u7BC7\u96C6]|\u5916\u4F20)(?![a-z]))|${SUBTITLE_SEPARATOR_SOURCE}|\\s+.*?\u7BC7|(?<=\\s|^)\\d+$`, "i"), SEASON_MARKER_PATTERN = new RegExp(`(?:\\s+|^)(?:${SEASON_MARKER_SOURCE})`, "i"), SEPARATOR_REGEX = new RegExp(` |${SUBTITLE_SEPARATOR_SOURCE}`);
 function detectSuffixStart(title) {
   let match = title.match(SUFFIX_PATTERN);
   return match ? match.index : title.length;
@@ -8992,6 +9031,10 @@ function detectSuffixStart(title) {
 function cleanSearchQuery(title) {
   let limit = detectSuffixStart(title);
   return limit < title.length ? title.substring(0, limit).trim() : title;
+}
+function stripSeasonMarker(title) {
+  let match = title.match(SEASON_MARKER_PATTERN);
+  return match && title.substring(0, match.index).trim() || title;
 }
 function smartTitleReplace(animes, cnAlias) {
   if (!animes || animes.length === 0 || !cnAlias) return;
@@ -9117,20 +9160,20 @@ var MERGE_DELIMITER = "$$$", DISPLAY_CONNECTOR = "&", ENABLE_VERBOSE_MERGE_LOG =
   // 合集判定比率上限（防超大合集误标）
   COLLECTION_DIFF: 6
   // 合集判定数量差阈值（超出N集才认为是合集）
-});
+}), DUB_VERSION_YEAR_SOURCES = /* @__PURE__ */ new Set(["bilibili"]);
 function log2(level, ...args) {
   typeof args[0] == "string" && args[0].includes("[Merge-Check]") && !ENABLE_VERBOSE_MERGE_LOG || log(level, ...args);
 }
-var RegexStore = {
+var LANG_CN_MANDARIN = "\u666E\u901A[\u8BDD\u8A71]|[\u56FD\u570B][\u8BED\u8A9E]|\u4E2D\u6587\u914D\u97F3|\u4E2D\u914D|\u4E2D\u6587", LANG_CN_CANTONESE = "[\u7CA4\u7CB5][\u8BED\u8A9E]\u914D\u97F3|[\u7CA4\u7CB5]\u914D|[\u7CA4\u7CB5][\u8BED\u8A9E]", LANG_CN_TAIWANESE = "[\u53F0\u81FA]\u914D|[\u53F0\u81FA][\u8BED\u8A9E]", LANG_CN_HONGKONG = "\u6E2F\u914D|\u6E2F[\u8BED\u8A9E]", LANG_CN_SUBTITLE = "\u5B57\u5E55|\u52A9[\u542C\u807D]", LANG_CN_SOURCE = `${LANG_CN_MANDARIN}|${LANG_CN_CANTONESE}|${LANG_CN_TAIWANESE}|${LANG_CN_HONGKONG}|${LANG_CN_SUBTITLE}`, LANG_JP_SOURCE = "\u65E5[\u8BED\u8A9E]|\u65E5\u914D|\u539F\u7248|\u539F[\u58F0\u8072]", LANG_JP_DUB = "\u65E5[\u8BED\u8A9E]\u914D\u97F3|\u65E5\u914D", RegexStore = {
   /** 语言识别正则 */
   Lang: {
-    CN: /(普通[话話]|[国國][语語]|中文配音|中配|中文|[粤粵][语語]配音|[粤粵]配|[粤粵][语語]|[台臺]配|[台臺][语語]|港配|港[语語]|字幕|助[听聽])(?:版)?/,
-    JP: /(日[语語]|日配|原版|原[声聲])(?:版)?/,
-    CN_DUB_VER: /(\(|（|\[)?(普通[话話]|[国國][语語]|中文配音|中配|中文|[粤粵][语語]配音|[粤粵]配|[粤粵][语語]|[台臺]配|[台臺][语語]|港配|港[语語]|字幕|助[听聽])版?(\)|）|\])?/g,
-    JP_DUB_VER: /(\(|（|\[)?(日[语語]|日配|原版|原[声聲])版?(\)|）|\])?/g,
-    KEYWORDS_STRONG: /(?:普通[话話]|[国國][语語]|中文配音|中配|中文|[粤粵][语語]配音|[粤粵]配|[粤粵][语語]|[台臺]配|[台臺][语語]|港配|港[语語]|字幕|助[听聽]|日[语語]|日配|原版|原[声聲])(?:版)?/g,
-    CN_STD: /普通[话話]|[国國][语語]|中文配音|中配|中文|[粤粵][语語]配音|[粤粵]配|[粤粵][语語]|[台臺]配|[台臺][语語]|港配|港[语語]|字幕|助[听聽]/g,
-    JP_STD: /日[语語]|日配|原版|原[声聲]/g
+    CN: new RegExp(`(${LANG_CN_SOURCE})(?:\u7248)?`),
+    JP: new RegExp(`(${LANG_JP_SOURCE})(?:\u7248)?`),
+    CN_DUB_VER: new RegExp(`(\\(|\uFF08|\\[)?(${LANG_CN_SOURCE})\u7248?(\\)|\uFF09|\\])?`, "g"),
+    JP_DUB_VER: new RegExp(`(\\(|\uFF08|\\[)?(${LANG_JP_SOURCE})\u7248?(\\)|\uFF09|\\])?`, "g"),
+    KEYWORDS_STRONG: new RegExp(`(?:${LANG_CN_SOURCE}|${LANG_JP_SOURCE})(?:\u7248)?`, "g"),
+    CN_STD: new RegExp(LANG_CN_SOURCE, "g"),
+    JP_STD: new RegExp(LANG_JP_SOURCE, "g")
   },
   /** 季度解析正则 */
   Season: {
@@ -9140,7 +9183,8 @@ var RegexStore = {
     FINAL: /(?:The\s+)?Final\s+Season/gi,
     NORM: /(?:Season|S)\s*(\d+)/gi,
     CN: /第\s*([一二三四五六七八九十]+)\s*季/g,
-    ROMAN: /(\s|^)(IV|III|II|I)(\s|$)/g,
+    ROMAN: /(\s|^)(IV|III|II)(\s|$)/g,
+    // 不含 I：独立出现的 I 与英文代词同形，不作季度标记
     INFO_STRONG: /(?:season|s|第)\s*[0-9一二三四五六七八九十]+\s*(?:季|期|部(?!分))?/gi,
     PART_INFO_STRONG: /(?:part|p|第)\s*\d+\s*(?:部分)?/gi,
     PART_ANY: /(?:part|p)\s*\d+/gi,
@@ -9263,6 +9307,9 @@ function getLanguageType(text) {
   let t = text.toLowerCase();
   return RegexStore.Lang.CN.test(t) ? "CN" : RegexStore.Lang.JP.test(t) ? "JP" : "Unspecified";
 }
+function getTitleScriptLanguage(text) {
+  return text ? /[\u3041-\u309F\u30A0-\u30FF]/.test(text) ? "JP" : /[\u4E00-\u9FFF\u3400-\u4DBF]/.test(text) ? "CN" : /[A-Za-z]/.test(text) ? "EN" : "Unknown" : "Unknown";
+}
 function normalizeTitleForEngine(title) {
   if (!title) return "";
   let normTitle = title, upperTitle = normTitle.toUpperCase();
@@ -9282,7 +9329,7 @@ function normalizeTitleForEngine(title) {
 function cleanText(text) {
   if (!text) return "";
   let clean = simplized(text);
-  return clean = clean.replace(RegexStore.Clean.NA_TAG, ""), clean = clean.replace(RegexStore.Season.PART_NORM, "part $1"), clean = clean.replace(RegexStore.Season.PART_NORM_2, "part $1"), clean = clean.replace(RegexStore.Season.FINAL, "\u6700\u7EC8\u5B63"), clean = clean.replace(RegexStore.Season.NORM, "\u7B2C$1\u5B63"), clean = clean.replace(RegexStore.Season.CN, (m, num) => `\u7B2C${convertChineseNumber(num)}\u5B63`), clean = clean.replace(RegexStore.Season.ROMAN, (match, p1, roman, p2) => `${p1}\u7B2C${{ I: "1", II: "2", III: "3", IV: "4" }[roman]}\u5B63${p2}`), clean = clean.replace(RegexStore.Lang.CN_DUB_VER, "\u4E2D\u914D\u7248"), clean = clean.replace(RegexStore.Lang.JP_DUB_VER, ""), clean = clean.replace(RegexStore.Clean.SOURCE_TAG, ""), clean = clean.replace(RegexStore.Clean.REGION_LIMIT, ""), clean = clean.replace(/(\d+)\.(\d+)/g, "$1{{DOT}}$2"), clean = clean.replace(RegexStore.Clean.PUNCTUATION, " "), clean = clean.replace(/{{DOT}}/g, "."), clean.replace(RegexStore.Clean.WHITESPACE, " ").toLowerCase().trim();
+  return clean = clean.replace(RegexStore.Clean.NA_TAG, ""), clean = clean.replace(RegexStore.Season.PART_NORM, "part $1"), clean = clean.replace(RegexStore.Season.PART_NORM_2, "part $1"), clean = clean.replace(RegexStore.Season.FINAL, "\u6700\u7EC8\u5B63"), clean = clean.replace(RegexStore.Season.NORM, "\u7B2C$1\u5B63"), clean = clean.replace(RegexStore.Season.CN, (m, num) => `\u7B2C${convertChineseNumber(num)}\u5B63`), clean = clean.replace(RegexStore.Season.ROMAN, (match, p1, roman, p2) => `${p1}\u7B2C${{ II: "2", III: "3", IV: "4" }[roman]}\u5B63${p2}`), clean = clean.replace(RegexStore.Lang.CN_DUB_VER, "\u4E2D\u914D\u7248"), clean = clean.replace(RegexStore.Lang.JP_DUB_VER, ""), clean = clean.replace(RegexStore.Clean.SOURCE_TAG, ""), clean = clean.replace(RegexStore.Clean.REGION_LIMIT, ""), clean = clean.replace(/(\d+)\.(\d+)/g, "$1{{DOT}}$2"), clean = clean.replace(RegexStore.Clean.PUNCTUATION, " "), clean = clean.replace(/{{DOT}}/g, "."), clean.replace(RegexStore.Clean.WHITESPACE, " ").toLowerCase().trim();
 }
 function cleanTitleForSimilarity(text) {
   if (!text) return "";
@@ -9413,6 +9460,21 @@ function getContentCategory(title, typeDesc, source) {
   let fullText = (title + " " + (typeDesc || "")).toLowerCase();
   return RegexStore.Category.ANIME_KW.test(fullText) ? "ANIME" : RegexStore.Category.REAL_KW.test(fullText) ? "REAL" : "UNKNOWN";
 }
+var LANG_DUB_LABELS = [
+  { label: "\u56FD\u8BED", source: LANG_CN_MANDARIN },
+  { label: "\u7CA4\u8BED", source: `${LANG_CN_CANTONESE}|${LANG_CN_HONGKONG}` },
+  { label: "\u53F0\u914D", source: LANG_CN_TAIWANESE },
+  { label: "\u65E5\u8BED", source: LANG_JP_DUB }
+].map(({ label, source }) => ({ label, regex: new RegExp(source) }));
+function getDubVersionLabel(title) {
+  let text = String(title || "");
+  for (let { label, regex } of LANG_DUB_LABELS)
+    if (regex.test(text)) return label;
+  return null;
+}
+function hasDubVersionMarker(title) {
+  return !!title.match(RegexStore.Lang.CN_DUB_VER) || RegexStore.Lang.CN.test(title);
+}
 function checkTitleSubtitleConflict(titleA, titleB, isDateValid = !0) {
   if (!titleA || !titleB || cleanTitleForSimilarity(titleA) === cleanTitleForSimilarity(titleB)) return !1;
   let lightClean = (str) => {
@@ -9487,7 +9549,7 @@ function hasSameSeasonMarker(titleA, titleB, typeA, typeB, aliasesA = [], aliase
   let markersA = extractSeasonMarkers(titleA, typeA, aliasesA), markersB = extractSeasonMarkers(titleB, typeB, aliasesB), seasonsA = Array.from(markersA).filter((m) => m.startsWith("S")), seasonsB = Array.from(markersB).filter((m) => m.startsWith("S"));
   return seasonsA.length > 0 && seasonsB.length > 0 ? seasonsA.some((sa) => seasonsB.includes(sa)) : !1;
 }
-function checkDateMatch(dateA, dateB, isDub = !1) {
+function checkDateMatch(dateA, dateB, isDubVersionYear = !1) {
   if (!dateA.year || !dateB.year) return 0.05;
   let yearDiff = dateA.year - dateB.year;
   if (yearDiff === 0) {
@@ -9498,7 +9560,7 @@ function checkDateMatch(dateA, dateB, isDub = !1) {
     return 0.1;
   }
   let absDiff = Math.abs(yearDiff);
-  return isDub && absDiff <= 10 ? 0 : absDiff > 1 ? -1 : 0;
+  return isDubVersionYear && absDiff <= 10 ? 0 : absDiff > 1 ? -1 : 0;
 }
 function isMergeRatioValid(mergedCount, totalA, totalB, sourceA, sourceB, isAnyCollection = !1) {
   if (/^(dandan|animeko)$/i.test(sourceA) || /^(dandan|animeko)$/i.test(sourceB)) return !0;
@@ -9630,7 +9692,7 @@ function findBestAlignmentOffset(primaryLinks, secondaryLinks, seriesLangA = "Un
   }), sInfos.forEach(({ info }) => {
     info.num !== null && !info.isSpecial && info.num % 1 === 0 && (minNormalB = minNormalB === null ? info.num : Math.min(minNormalB, info.num));
   });
-  let seasonShift = minNormalA !== null && minNormalB !== null ? minNormalA - minNormalB : null, baseRange = 15, targetShift = seasonShift !== null ? -seasonShift : 0, safeMin = Math.max(Math.min(-baseRange, targetShift - baseRange), -Math.max(primaryLinks.length, secondaryLinks.length)), safeMax = Math.min(Math.max(baseRange, targetShift + baseRange), Math.max(primaryLinks.length, secondaryLinks.length)), bestOffset = 0, maxScore = -9999;
+  let seasonShift = minNormalA !== null && minNormalB !== null ? minNormalA - minNormalB : null, sharesEpisodeBase = seasonShift === 0, baseRange = 15, targetShift = seasonShift !== null ? -seasonShift : 0, safeMin = Math.max(Math.min(-baseRange, targetShift - baseRange), -Math.max(primaryLinks.length, secondaryLinks.length)), safeMax = Math.min(Math.max(baseRange, targetShift + baseRange), Math.max(primaryLinks.length, secondaryLinks.length)), bestOffset = 0, maxScore = -9999;
   for (let offset = safeMin; offset <= safeMax; offset++) {
     let totalTextScore = 0, rawTextScoreSum = 0, matchCount = 0, numericDiffs = /* @__PURE__ */ new Map(), hasSeasonShiftMatch = !1, lastPNumLocal = null;
     for (let i = 0; i < secondaryLinks.length; i++) {
@@ -9641,7 +9703,7 @@ function findBestAlignmentOffset(primaryLinks, secondaryLinks, seriesLangA = "Un
       let normLangA = dataA.effLang === "Unspecified" ? "JP" : dataA.effLang, normLangB = dataB.effLang === "Unspecified" ? "JP" : dataB.effLang;
       normLangA === normLangB ? pairScore += MergeWeights.EP_ALIGN.LANG_MATCH : pairScore += MergeWeights.EP_ALIGN.LANG_MISMATCH, infoA.season !== null && infoB.season !== null && infoA.season !== infoB.season && (pairScore += MergeWeights.EP_ALIGN.SEASON_NUM_MISMATCH), (dataA.specialType || dataB.specialType) && (dataA.specialType !== dataB.specialType ? pairScore += MergeWeights.EP_ALIGN.SPECIAL_TYPE_MISMATCH : pairScore += MergeWeights.EP_ALIGN.SPECIAL_TYPE_MATCH), infoA.isSpecial === infoB.isSpecial && (pairScore += MergeWeights.EP_ALIGN.IS_SPECIAL_MATCH), seasonShift !== null && !infoA.isSpecial && !infoB.isSpecial && infoA.num - infoB.num === seasonShift && (pairScore += MergeWeights.EP_ALIGN.SEASON_SHIFT_EXACT, hasSeasonShiftMatch = !0);
       let sim = 0;
-      dataA.effLang === "CN" && dataB.effLang === "CN" && dataA.strictCnCore && dataB.strictCnCore && (dataA.strictCnCore.includes(dataB.strictCnCore) || dataB.strictCnCore.includes(dataA.strictCnCore)) ? sim = infoA.num !== null && infoB.num !== null && infoA.num === infoB.num ? MergeWeights.EP_ALIGN.CN_STRICT_MATCH : MergeWeights.EP_ALIGN.CN_STRICT_MISMATCH : sim = calculateSimilarity(dataA.cleanEpText, dataB.cleanEpText), pairScore += sim, rawTextScoreSum += sim, infoA.num !== null && infoB.num !== null && infoA.num === infoB.num && (pairScore += MergeWeights.EP_ALIGN.NUMERIC_MATCH);
+      dataA.effLang === "CN" && dataB.effLang === "CN" && dataA.strictCnCore && dataB.strictCnCore && (dataA.strictCnCore.includes(dataB.strictCnCore) || dataB.strictCnCore.includes(dataA.strictCnCore)) ? sim = infoA.num !== null && infoB.num !== null && infoA.num === infoB.num ? MergeWeights.EP_ALIGN.CN_STRICT_MATCH : MergeWeights.EP_ALIGN.CN_STRICT_MISMATCH : sim = calculateSimilarity(dataA.cleanEpText, dataB.cleanEpText), pairScore += sim, rawTextScoreSum += sim, sharesEpisodeBase && infoA.num !== null && infoB.num !== null && infoA.num === infoB.num && (pairScore += MergeWeights.EP_ALIGN.NUMERIC_MATCH);
       let weightMultiplier = 1;
       if (infoA.num !== null && !infoA.isSpecial && (lastPNumLocal !== null && infoA.num - lastPNumLocal > 1 ? weightMultiplier = 0.1 : lastPNumLocal = infoA.num), pairScore *= weightMultiplier, sim *= weightMultiplier, rawTextScoreSum += sim, totalTextScore += pairScore, infoA.num !== null && infoB.num !== null) {
         let diffKey = (infoB.num - infoA.num).toFixed(4);
@@ -9655,7 +9717,7 @@ function findBestAlignmentOffset(primaryLinks, secondaryLinks, seriesLangA = "Un
       let consistencyRatio = maxFrequency / matchCount, avgRawTextScore = rawTextScoreSum / matchCount;
       consistencyRatio > 0.6 && (hasSeasonShiftMatch || avgRawTextScore > 0.33) && (finalScore += MergeWeights.EP_ALIGN.PATTERN_CONSISTENCY_BONUS), finalScore += Math.min(matchCount * 0.15, 1.5);
       let zeroDiffCount = numericDiffs.get("0.0000") || 0;
-      zeroDiffCount > 0 && (finalScore += MergeWeights.EP_ALIGN.ZERO_DIFF_BONUS_BASE, finalScore += zeroDiffCount * MergeWeights.EP_ALIGN.ZERO_DIFF_BONUS_PER_HIT), finalScore > maxScore && (maxScore = finalScore, bestOffset = offset);
+      sharesEpisodeBase && zeroDiffCount > 0 && (finalScore += MergeWeights.EP_ALIGN.ZERO_DIFF_BONUS_BASE, finalScore += zeroDiffCount * MergeWeights.EP_ALIGN.ZERO_DIFF_BONUS_PER_HIT), finalScore > maxScore && (maxScore = finalScore, bestOffset = offset);
     }
   }
   return maxScore > 0.3 ? bestOffset : 0;
@@ -9736,6 +9798,23 @@ function stitchUnmatchedEpisodes(derivedAnime, orphans, sourceName) {
 ${addedLogs.join(`
 `)}`);
 }
+function countMainEpisodes(links) {
+  return Array.isArray(links) ? links.filter((l) => {
+    let t = (l.title || l.name || "").toLowerCase();
+    return !RegexStore.Episode.PV_CHECK.test(t) && !RegexStore.Episode.SPECIAL_CHECK.test(t);
+  }).length : 0;
+}
+function extractEpisodeTitles(links) {
+  return Array.isArray(links) ? links.map((l) => cleanEpisodeText(l.title || l.name || "").replace(/\d+/g, "").trim()).filter((t) => t.length > 1) : [];
+}
+function sampleEpisodeTitles(titlesP, titlesS) {
+  let sampleSize = Math.min(titlesP.length, titlesS.length, 5), samples = [], matchHits = 0, mismatchHits = 0;
+  for (let i = 0; i < sampleSize; i++) {
+    let idxP = Math.floor(i * titlesP.length / sampleSize), idxS = Math.floor(i * titlesS.length / sampleSize), sim = calculateSimilarity(titlesP[idxP], titlesS[idxS]);
+    i < 3 && samples.push(`"${titlesP[idxP]}" vs "${titlesS[idxS]}" (${sim.toFixed(2)})`), sim > 0.6 ? matchHits++ : sim < 0.3 && mismatchHits++;
+  }
+  return { sampleSize, matchHits, mismatchHits, samples };
+}
 function detectPeerContextSequels(secondaryList) {
   let contextMap = /* @__PURE__ */ new Map();
   if (!secondaryList || secondaryList.length < 2) return contextMap;
@@ -9764,21 +9843,45 @@ function detectPeerContextSequels(secondaryList) {
 function probeContentMatch(primaryAnime, candidateAnime) {
   let result = { isStrongMatch: !1, isStrongMismatch: !1 };
   if (!primaryAnime.links || !candidateAnime.links || !primaryAnime.links.length || !candidateAnime.links.length) return result;
-  let countEpisodes = (links) => links.filter((l) => {
-    let t = (l.title || l.name || "").toLowerCase();
-    return !RegexStore.Episode.PV_CHECK.test(t) && !RegexStore.Episode.SPECIAL_CHECK.test(t);
-  }).length, countP = countEpisodes(primaryAnime.links), countS = countEpisodes(candidateAnime.links);
-  countP > 5 && countS > 5 && Math.min(countP, countS) / Math.max(countP, countS) < 0.4;
-  let getEpTitles = (links) => links.map((l) => cleanEpisodeText(l.title || l.name || "").replace(/\d+/g, "").trim()).filter((t) => t.length > 1), titlesP = getEpTitles(primaryAnime.links), titlesS = getEpTitles(candidateAnime.links);
+  let titlesP = extractEpisodeTitles(primaryAnime.links), titlesS = extractEpisodeTitles(candidateAnime.links);
   if (titlesP.length < 3 || titlesS.length < 3) return result;
   let langP = getLanguageType(titlesP.join(" ")), langS = getLanguageType(titlesS.join(" "));
   if (langP !== langS || langP === "Unspecified") return result;
-  let sampleSize = Math.min(titlesP.length, titlesS.length, 5), matchHits = 0, mismatchHits = 0, logSamples = [];
-  for (let i = 0; i < sampleSize; i++) {
-    let idxP = Math.floor(i * titlesP.length / sampleSize), idxS = Math.floor(i * titlesS.length / sampleSize), sim = calculateSimilarity(titlesP[idxP], titlesS[idxS]);
-    i < 3 && logSamples.push(`"${titlesP[idxP]}" vs "${titlesS[idxS]}" (${sim.toFixed(2)})`), sim > 0.6 ? matchHits++ : sim < 0.3 && mismatchHits++;
-  }
-  return matchHits >= Math.ceil(sampleSize * 0.6) ? (result.isStrongMatch = !0, log2("info", `[Merge-Check] [probe] \u91C7\u6837\u5BF9\u6BD4 (Match): ${logSamples.join(", ")}`)) : mismatchHits >= Math.ceil(sampleSize * 0.8) && (result.isStrongMismatch = !0, log2("info", `[Merge-Check] [probe] \u91C7\u6837\u5BF9\u6BD4 (Mismatch): ${logSamples.join(", ")}`)), result;
+  let { sampleSize, matchHits, mismatchHits, samples } = sampleEpisodeTitles(titlesP, titlesS);
+  return matchHits >= Math.ceil(sampleSize * 0.6) ? (result.isStrongMatch = !0, log2("info", `[Merge-Check] [probe] \u91C7\u6837\u5BF9\u6BD4 (Match): ${samples.join(", ")}`)) : mismatchHits >= Math.ceil(sampleSize * 0.8) && (result.isStrongMismatch = !0, log2("info", `[Merge-Check] [probe] \u91C7\u6837\u5BF9\u6BD4 (Mismatch): ${samples.join(", ")}`)), result;
+}
+function titleForSimilarity(rawTitle) {
+  return String(rawTitle || "").replace(RegexStore.Clean.YEAR_TAG, "").replace(/【(电影|电视剧)】/g, "").trim();
+}
+function resolveDateRelation(ctx) {
+  let {
+    primaryAnime,
+    candidateAnime,
+    primaryDate,
+    candidateDate,
+    isDubVersionYearRelation,
+    isAnyCollection,
+    isSeasonExactMatch,
+    hasStructureConflict,
+    contentProbe
+  } = ctx;
+  if (isAnyCollection) return { allowed: !0, dateScore: 0 };
+  let dateScore = checkDateMatch(primaryDate, candidateDate, isDubVersionYearRelation);
+  if (dateScore !== -1) return { allowed: !0, dateScore };
+  let allowExemption = isSeasonExactMatch && hasSeasonEvidence(primaryAnime, candidateAnime);
+  return contentProbe.isStrongMatch && (allowExemption = !0), hasStructureConflict && (allowExemption = !1), allowExemption && primaryDate.year && candidateDate.year && Math.abs(primaryDate.year - candidateDate.year) > 2 && !contentProbe.isStrongMatch && (allowExemption = !1), { allowed: allowExemption, dateScore };
+}
+function hasSeasonEvidence(primaryAnime, candidateAnime) {
+  let countP = countMainEpisodes(primaryAnime.links), countS = countMainEpisodes(candidateAnime.links);
+  if (Math.abs(countP - countS) <= 1) return !0;
+  if (identifyRedundantTitle(primaryAnime.links, primaryAnime.animeTitle, primaryAnime.source) || identifyRedundantTitle(candidateAnime.links, candidateAnime.animeTitle, candidateAnime.source))
+    return log2("info", `[Merge-Check] \u96C6\u8BC1\u636E\u5224\u5B9A: ${primaryAnime.animeTitle} <-> ${candidateAnime.animeTitle} \u96C6\u6807\u9898\u4E3A\u5267\u540D\u672C\u8EAB\uFF0C\u4E0D\u4F5C\u96C6\u8BC1\u636E`), !1;
+  let titlesP = extractEpisodeTitles(primaryAnime.links), titlesS = extractEpisodeTitles(candidateAnime.links);
+  if (titlesP.length < 3 || titlesS.length < 3) return !1;
+  let scriptP = getTitleScriptLanguage(titlesP.join(" ")), scriptS = getTitleScriptLanguage(titlesS.join(" "));
+  if (scriptP === "Unknown" || scriptP !== scriptS) return !1;
+  let { sampleSize, matchHits } = sampleEpisodeTitles(titlesP, titlesS), passed = matchHits >= Math.ceil(sampleSize * 0.6);
+  return log2("info", `[Merge-Check] \u96C6\u8BC1\u636E\u5224\u5B9A: \u6B63\u7247\u96C6\u6570 ${countP}/${countS}, \u96C6\u6807\u9898\u547D\u4E2D ${matchHits}/${sampleSize} -> ${passed}`), passed;
 }
 function getMatchingCustomRule(pAnime, sAnime) {
   let rules = globals.customMergeRules || [];
@@ -9793,7 +9896,8 @@ function getMatchingCustomRule(pAnime, sAnime) {
       }
       cleanAnime = cleanAnime.replace(RegexStore.Clean.SOURCE_TAG, "").replace(/\[.*?\]/g, "");
     }
-    return !cleanRule.includes("\u5B63") && !cleanRule.includes("season") && (cleanAnime = cleanAnime.replace(RegexStore.Season.INFO_STRONG, "")), cleanAnime = cleanAnime.replace(RegexStore.Clean.MOVIE_KEYWORDS, ""), {
+    let skipSeasonNoise = cleanRule.includes("\u5B63") || cleanRule.includes("season"), stripSeasonAndTypeNoise = (text) => (skipSeasonNoise ? text : text.replace(RegexStore.Season.INFO_STRONG, "")).replace(RegexStore.Clean.MOVIE_KEYWORDS, "");
+    return cleanAnime = stripSeasonAndTypeNoise(cleanAnime), cleanRule = stripSeasonAndTypeNoise(cleanRule), {
       target: stripNonTitleChars(cleanAnime).replace(/\s+/g, ""),
       rule: stripNonTitleChars(cleanRule).replace(/\s+/g, "")
     };
@@ -9809,7 +9913,7 @@ function getMatchingCustomRule(pAnime, sAnime) {
 }
 function findSecondaryMatches(primaryAnime, secondaryList, collectionAnimeIds = /* @__PURE__ */ new Set(), baseSecondaries = []) {
   if (!secondaryList || secondaryList.length === 0) return [];
-  let rawPrimaryTitle = primaryAnime.animeTitle || "", primaryTitleForSim = rawPrimaryTitle.replace(RegexStore.Clean.YEAR_TAG, "").replace(/【(电影|电视剧)】/g, "").trim(), isPrimaryDub = !!primaryTitleForSim.match(RegexStore.Lang.CN_DUB_VER) || RegexStore.Lang.CN.test(primaryTitleForSim), isPrimaryIgnoredYear = primaryAnime.source === "hanjutv", primaryDate = rawPrimaryTitle.includes("N/A") || isPrimaryIgnoredYear ? { year: null, month: null } : parseDate(primaryAnime.startDate), primaryCount = primaryAnime.episodeCount || (primaryAnime.links ? primaryAnime.links.length : 0), primaryLang = getLanguageType(rawPrimaryTitle), primaryCleanForZhi = cleanText(primaryTitleForSim), cleanPrimarySim = cleanTitleForSimilarity(primaryTitleForSim), markersP = extractSeasonMarkers(rawPrimaryTitle, primaryAnime.typeDescription, primaryAnime.aliases), seasonsP = Array.from(markersP).filter((m) => m.startsWith("S")), combinedForContext = [{ animeId: primaryAnime.animeId, animeTitle: rawPrimaryTitle }, ...secondaryList], ambiguousSequelsMap = detectPeerContextSequels(combinedForContext), isPrimaryContextSequel = ambiguousSequelsMap.has(String(primaryAnime.animeId)), primaryBaseTitleFromContext = ambiguousSequelsMap.get(String(primaryAnime.animeId)), isPrimaryCollection = collectionAnimeIds.has(primaryAnime.animeId), logReason = (secTitle, reason) => {
+  let rawPrimaryTitle = primaryAnime.animeTitle || "", primaryTitleForSim = titleForSimilarity(rawPrimaryTitle), isPrimaryDubVersionYear = hasDubVersionMarker(primaryTitleForSim) && DUB_VERSION_YEAR_SOURCES.has(primaryAnime.source), isPrimaryIgnoredYear = primaryAnime.source === "hanjutv", primaryDate = rawPrimaryTitle.includes("N/A") || isPrimaryIgnoredYear ? { year: null, month: null } : parseDate(primaryAnime.startDate), primaryCount = primaryAnime.episodeCount || (primaryAnime.links ? primaryAnime.links.length : 0), primaryLang = getLanguageType(rawPrimaryTitle), primaryCleanForZhi = cleanText(primaryTitleForSim), cleanPrimarySim = cleanTitleForSimilarity(primaryTitleForSim), markersP = extractSeasonMarkers(rawPrimaryTitle, primaryAnime.typeDescription, primaryAnime.aliases), seasonsP = Array.from(markersP).filter((m) => m.startsWith("S")), combinedForContext = [{ animeId: primaryAnime.animeId, animeTitle: rawPrimaryTitle }, ...secondaryList], ambiguousSequelsMap = detectPeerContextSequels(combinedForContext), isPrimaryContextSequel = ambiguousSequelsMap.has(String(primaryAnime.animeId)), primaryBaseTitleFromContext = ambiguousSequelsMap.get(String(primaryAnime.animeId)), isPrimaryCollection = collectionAnimeIds.has(primaryAnime.animeId), logReason = (secTitle, reason) => {
     log2("info", `[Merge-Check] \u62D2\u7EDD: [${primaryAnime.source}] ${rawPrimaryTitle} vs [${secTitle}] -> ${reason}`);
   }, validCandidates = [], maxScore = 0;
   for (let secAnime of secondaryList) {
@@ -9833,7 +9937,7 @@ function findSecondaryMatches(primaryAnime, secondaryList, collectionAnimeIds = 
       logReason(rawSecTitle, "\u8BE5\u6765\u6E90\u4E3A\u6620\u5C04\u8868\u52A8\u6001\u6CE8\u5165\uFF0C\u4E14\u672A\u547D\u4E2D\u7279\u6743\u89C4\u5219\uFF0C\u53D7\u9650\u4E8E\u6743\u9650\u6C99\u7BB1\u4E88\u4EE5\u963B\u65AD");
       continue;
     }
-    let isSecCollection = collectionAnimeIds.has(secAnime.animeId), isAnyCollection = isPrimaryCollection || isSecCollection, isSecIgnoredYear = secAnime.source === "hanjutv", secDate = rawSecTitle.includes("N/A") || isSecIgnoredYear ? { year: null, month: null } : parseDate(secAnime.startDate), secLang = getLanguageType(rawSecTitle), secTitleForSim = rawSecTitle.replace(RegexStore.Clean.YEAR_TAG, "").replace(/【(电影|电视剧)】/g, "").trim(), isSecDub = !!secTitleForSim.match(RegexStore.Lang.CN_DUB_VER) || RegexStore.Lang.CN.test(secTitleForSim), isDubRelation = isPrimaryDub || isSecDub, secCount = secAnime.episodeCount || (secAnime.links ? secAnime.links.length : 0);
+    let isSecCollection = collectionAnimeIds.has(secAnime.animeId), isAnyCollection = isPrimaryCollection || isSecCollection, isSecIgnoredYear = secAnime.source === "hanjutv", secDate = rawSecTitle.includes("N/A") || isSecIgnoredYear ? { year: null, month: null } : parseDate(secAnime.startDate), secLang = getLanguageType(rawSecTitle), secTitleForSim = titleForSimilarity(rawSecTitle), isSecDubVersionYear = hasDubVersionMarker(secTitleForSim) && DUB_VERSION_YEAR_SOURCES.has(secAnime.source), isDubVersionYearRelation = isPrimaryDubVersionYear || isSecDubVersionYear, secCount = secAnime.episodeCount || (secAnime.links ? secAnime.links.length : 0);
     if (secTitleForSim.includes("\u4E4B")) {
       let parts = secTitleForSim.split("\u4E4B"), prefix = cleanText(parts[0]);
       if (primaryCleanForZhi === prefix) {
@@ -9870,14 +9974,22 @@ function findSecondaryMatches(primaryAnime, secondaryList, collectionAnimeIds = 
         continue;
       }
     }
-    let dateScore = isAnyCollection ? 0 : checkDateMatch(primaryDate, secDate, isDubRelation);
-    if (dateScore === -1) {
-      let allowExemption = isSeasonExactMatch;
-      if (contentProbe.isStrongMatch && (allowExemption = !0), isAnyCollection && (allowExemption = !0), hasStructureConflict && !isAnyCollection && (allowExemption = !1), allowExemption && primaryDate.year && secDate.year && Math.abs(primaryDate.year - secDate.year) > 2 && !contentProbe.isStrongMatch && !isAnyCollection && (allowExemption = !1), !allowExemption) {
-        logReason(rawSecTitle, `\u65E5\u671F\u4E25\u91CD\u4E0D\u5339\u914D\u4E14\u65E0\u8C41\u514D (P:${primaryDate.year} vs S:${secDate.year}, IsDub:${isDubRelation})`);
-        continue;
-      }
+    let dateRelation = resolveDateRelation({
+      primaryAnime,
+      candidateAnime: secAnime,
+      primaryDate,
+      candidateDate: secDate,
+      isDubVersionYearRelation,
+      isAnyCollection,
+      isSeasonExactMatch,
+      hasStructureConflict,
+      contentProbe
+    });
+    if (!dateRelation.allowed) {
+      logReason(rawSecTitle, `\u65E5\u671F\u4E25\u91CD\u4E0D\u5339\u914D\u4E14\u65E0\u8C41\u514D (P:${primaryDate.year} vs S:${secDate.year}, DubVersionYear:${isDubVersionYearRelation})`);
+      continue;
     }
+    let dateScore = dateRelation.dateScore;
     if (!isAnyCollection && checkSeasonMismatch(primaryTitleForSim, secTitleForSim, primaryAnime.typeDescription, secAnime.typeDescription, primaryAnime.aliases, secAnime.aliases))
       if (contentProbe.isStrongMatch)
         log2("info", `[Merge-Check] \u5B63\u5EA6\u51B2\u7A81\u8C41\u514D: [${rawPrimaryTitle}] vs [${rawSecTitle}] (Probe\u5F3A\u5339\u914D)`);
@@ -9885,7 +9997,7 @@ function findSecondaryMatches(primaryAnime, secondaryList, collectionAnimeIds = 
         logReason(rawSecTitle, "\u5B63\u5EA6\u6807\u8BB0\u51B2\u7A81");
         continue;
       }
-    let cleanFn = (t) => t ? String(t).replace(RegexStore.Clean.YEAR_TAG, "").replace(/【(电影|电视剧)】/g, "").trim() : "", primaryCandidates = Array.from(new Set([primaryTitleForSim, ...primaryAnime.aliases || []].map(cleanFn).filter(Boolean))), secCandidates = Array.from(new Set([secTitleForSim, ...secAnime.aliases || []].map(cleanFn).filter(Boolean))), bestScoreFull = 0, bestScoreBase = 0;
+    let primaryCandidates = Array.from(new Set([primaryTitleForSim, ...primaryAnime.aliases || []].map(titleForSimilarity).filter(Boolean))), secCandidates = Array.from(new Set([secTitleForSim, ...secAnime.aliases || []].map(titleForSimilarity).filter(Boolean))), bestScoreFull = 0, bestScoreBase = 0;
     for (let pCand of primaryCandidates) {
       let pBase = removeParentheses(pCand);
       for (let sCand of secCandidates)
@@ -9912,7 +10024,13 @@ function findSecondaryMatches(primaryAnime, secondaryList, collectionAnimeIds = 
     }
     return !1;
   });
-  return finalResults.sort((a, b) => a.isCustomMapped && !b.isCustomMapped ? -1 : !a.isCustomMapped && b.isCustomMapped ? 1 : b.score - a.score), finalResults.map((item) => item.anime);
+  finalResults.sort((a, b) => a.isCustomMapped && !b.isCustomMapped ? -1 : !a.isCustomMapped && b.isCustomMapped ? 1 : b.score - a.score);
+  let dubVersionSeen = /* @__PURE__ */ new Set();
+  return finalResults.filter((item) => {
+    if (item.isCustomMapped) return !0;
+    let dubVersion = getDubVersionLabel(item.debugTitle);
+    return dubVersion ? dubVersionSeen.has(dubVersion) ? !1 : (dubVersionSeen.add(dubVersion), !0) : !0;
+  }).map((item) => item.anime);
 }
 function detectCollectionCandidates(curAnimes) {
   let collectionIds = /* @__PURE__ */ new Set();
@@ -9986,6 +10104,26 @@ ${itemDetails}`);
     }
   }
   return collectionIds;
+}
+function mergeLinkEntry(targetLink, sourceLink, secSource, currentPrimarySource) {
+  let secPart = `${secSource}:${sanitizeUrl(sourceLink.url)}`, url = targetLink.url;
+  !url.includes(MERGE_DELIMITER) && !url.startsWith(currentPrimarySource + ":") && (url = `${currentPrimarySource}:${url}`), url = `${url}${MERGE_DELIMITER}${secPart}`;
+  let title = targetLink.title;
+  if (title) {
+    let sLabel = secSource, sMatch = String(sourceLink.title || "").match(/^【([^】\d]+)(?:\d*)】/);
+    sMatch && (sLabel = sMatch[1].trim()), title = title.replace(/^【([^】]+)】/, (m, content) => `\u3010${content}${DISPLAY_CONNECTOR}${sLabel}\u3011`);
+  }
+  return { url, title };
+}
+function resolveDubVersionLinkIndex(filteredPLinksWithIndex, pIndex, candidateTitle, getCompareTitle, primarySource) {
+  let candidateLabel = getDubVersionLabel(candidateTitle);
+  if (!candidateLabel) return pIndex;
+  let chosenInfo = extractEpisodeInfo(getCompareTitle(filteredPLinksWithIndex[pIndex].link), primarySource), matched = [];
+  return filteredPLinksWithIndex.forEach((item, idx) => {
+    if (getDubVersionLabel(item.link.title || item.link.name) !== candidateLabel) return;
+    let info = extractEpisodeInfo(getCompareTitle(item.link), primarySource);
+    info.isSpecial !== chosenInfo.isSpecial || info.isStrictSpecial !== chosenInfo.isStrictSpecial || info.num === chosenInfo.num && matched.push(idx);
+  }), matched.length === 1 ? matched[0] : pIndex;
 }
 async function processMergeTask(params) {
   let {
@@ -10133,15 +10271,10 @@ async function processMergeTask(params) {
             return pNum === null && !infoP.isStrictSpecial && (pNum = idx + 1), pNum === targetPNum && !infoP.isSpecial && !infoP.isStrictSpecial;
           });
           if (pIndex !== -1) {
-            kToPIndexMap.set(k, pIndex), orphanItem.relativeIndex = pIndex;
-            let originalPIndex = filteredPLinksWithIndex[pIndex].originalIndex, targetLink = derivedAnime.links[originalPIndex], pTitleShort = targetLink.name || targetLink.title || `Index ${originalPIndex}`, idB = sanitizeUrl(sourceLink.url), currentUrl = targetLink.url, secPart = `${secSource}:${idB}`;
-            currentUrl.includes(MERGE_DELIMITER) || currentUrl.startsWith(currentPrimarySource + ":") || (currentUrl = `${currentPrimarySource}:${currentUrl}`);
-            let newMergedUrl = `${currentUrl}${MERGE_DELIMITER}${secPart}`, newMergedTitle = targetLink.title;
-            if (newMergedTitle) {
-              let sLabel = secSource, sMatch = (sourceLink.title || "").match(/^【([^】\d]+)(?:\d*)】/);
-              sMatch && (sLabel = sMatch[1].trim()), newMergedTitle = newMergedTitle.replace(/^【([^】]+)】/, (m, content) => `\u3010${content}${DISPLAY_CONNECTOR}${sLabel}\u3011`);
-            }
-            mappingEntries.push({ idx: pIndex, text: `   [\u5DF2\u8DEF\u7531\u6620\u5C04] ${pTitleShort} <-> ${sTitleShort} (Rule: E${sNum}>E${targetPNum})` }), matchedPIndices.add(pIndex), mergedCount++, pendingMutations.push({ linkIndex: originalPIndex, newUrl: newMergedUrl, newTitle: newMergedTitle });
+            let targetPIndex = resolveDubVersionLinkIndex(filteredPLinksWithIndex, pIndex, match.animeTitle, (link) => getTempTitle(link.title, redundantP), currentPrimarySource);
+            kToPIndexMap.set(k, targetPIndex), orphanItem.relativeIndex = targetPIndex;
+            let originalPIndex = filteredPLinksWithIndex[targetPIndex].originalIndex, targetLink = derivedAnime.links[originalPIndex], pTitleShort = targetLink.name || targetLink.title || `Index ${originalPIndex}`, { url: newMergedUrl, title: newMergedTitle } = mergeLinkEntry(targetLink, sourceLink, secSource, currentPrimarySource);
+            mappingEntries.push({ idx: targetPIndex, text: `   [\u5DF2\u8DEF\u7531\u6620\u5C04] ${pTitleShort} <-> ${sTitleShort} (Rule: E${sNum}>E${targetPNum})` }), matchedPIndices.add(targetPIndex), mergedCount++, pendingMutations.push({ linkIndex: originalPIndex, newUrl: newMergedUrl, newTitle: newMergedTitle });
           } else
             orphanItem.relativeIndex = k + fallbackOffset, mappingEntries.push({ idx: orphanItem.relativeIndex, text: `   [\u8DEF\u7531\u5931\u8D25] \u4E3B\u6E90\u627E\u4E0D\u5230 E${targetPNum} <-> ${sTitleShort}` }), orphanedEpisodes.push(orphanItem);
         }
@@ -10192,8 +10325,9 @@ async function processMergeTask(params) {
           } else
             orphanItem.relativeIndex = pIndex !== -1 ? pIndex : k + offset;
           if (pIndex >= 0 && pIndex < filteredPLinksWithIndex.length) {
-            kToPIndexMap.set(k, pIndex);
-            let originalPIndex = filteredPLinksWithIndex[pIndex].originalIndex, targetLink = derivedAnime.links[originalPIndex], pTitleShort = targetLink.name || targetLink.title || `Index ${originalPIndex}`, cleanTitleP = getTempTitle(targetLink.title, redundantP), specialP = getSpecialEpisodeType(cleanTitleP), specialS = getSpecialEpisodeType(cleanTitleS), infoP = extractEpisodeInfo(cleanTitleP, currentPrimarySource);
+            let targetPIndex = resolveDubVersionLinkIndex(filteredPLinksWithIndex, pIndex, match.animeTitle, (link) => getTempTitle(link.title, redundantP), currentPrimarySource);
+            kToPIndexMap.set(k, targetPIndex);
+            let originalPIndex = filteredPLinksWithIndex[targetPIndex].originalIndex, targetLink = derivedAnime.links[originalPIndex], pTitleShort = targetLink.name || targetLink.title || `Index ${originalPIndex}`, cleanTitleP = getTempTitle(targetLink.title, redundantP), specialP = getSpecialEpisodeType(cleanTitleP), specialS = getSpecialEpisodeType(cleanTitleS), infoP = extractEpisodeInfo(cleanTitleP, currentPrimarySource);
             if (infoS.isPV && !specialP) {
               mappingEntries.push({ idx: orphanItem.relativeIndex, text: `   [\u7565\u8FC7] ${pTitleShort} =/= ${sTitleShort} (PV\u4E0D\u5339\u914D\u6B63\u7247)` }), orphanedEpisodes.push(orphanItem);
               continue;
@@ -10207,18 +10341,8 @@ async function processMergeTask(params) {
               mappingEntries.push({ idx: orphanItem.relativeIndex, text: `   [\u7565\u8FC7] ${pTitleShort} =/= ${sTitleShort} (\u6B63\u7247\u4E0E\u756A\u5916\u963B\u65AD)` }), orphanedEpisodes.push(orphanItem);
               continue;
             }
-            let idB = sanitizeUrl(sourceLink.url), currentUrl = targetLink.url, secPart = `${secSource}:${idB}`;
-            currentUrl.includes(MERGE_DELIMITER) || currentUrl.startsWith(currentPrimarySource + ":") || (currentUrl = `${currentPrimarySource}:${currentUrl}`);
-            let newMergedUrl = `${currentUrl}${MERGE_DELIMITER}${secPart}`, newMergedTitle = targetLink.title;
-            if (newMergedTitle) {
-              let sLabel = secSource;
-              if (sourceLink.title) {
-                let sMatch = sourceLink.title.match(/^【([^】\d]+)(?:\d*)】/);
-                sMatch && (sLabel = sMatch[1].trim());
-              }
-              newMergedTitle = newMergedTitle.replace(/^【([^】]+)】/, (match2, content) => `\u3010${content}${DISPLAY_CONNECTOR}${sLabel}\u3011`);
-            }
-            mappingEntries.push({ idx: orphanItem.relativeIndex, text: `   [\u5339\u914D] ${pTitleShort} <-> ${sTitleShort}` }), matchedPIndices.add(pIndex), mergedCount++, pendingMutations.push({ linkIndex: originalPIndex, newUrl: newMergedUrl, newTitle: newMergedTitle });
+            let { url: newMergedUrl, title: newMergedTitle } = mergeLinkEntry(targetLink, sourceLink, secSource, currentPrimarySource);
+            mappingEntries.push({ idx: targetPIndex, text: `   [\u5339\u914D] ${pTitleShort} <-> ${sTitleShort}` }), matchedPIndices.add(targetPIndex), mergedCount++, pendingMutations.push({ linkIndex: originalPIndex, newUrl: newMergedUrl, newTitle: newMergedTitle });
           } else
             mappingEntries.push({ idx: orphanItem.relativeIndex, text: `   [\u843D\u5355] (\u4E3B\u6E90\u8D8A\u754C) <-> ${sTitleShort}` }), orphanedEpisodes.push(orphanItem);
         }
@@ -10229,7 +10353,25 @@ async function processMergeTask(params) {
           mappingEntries.push({ idx: j, text: `   [\u843D\u5355] ${pTitleShort} <-> (\u526F\u6E90\u7F3A\u5931\u6216\u88AB\u7565\u8FC7)` });
         }
       if (mergedCount > 0) {
-        let isAnyCollection = collectionAnimeIds.has(pAnime.animeId) || collectionAnimeIds.has(match.animeId), isValidMerge = !1;
+        let isAnyCollection = collectionAnimeIds.has(pAnime.animeId) || collectionAnimeIds.has(match.animeId);
+        if (!customRule) {
+          let derivedTitleForSim = titleForSimilarity(derivedAnime.animeTitle), matchTitleForSim = titleForSimilarity(match.animeTitle), derivedDate = String(derivedAnime.animeTitle || "").includes("N/A") || currentPrimarySource === "hanjutv" ? { year: null, month: null } : parseDate(derivedAnime.startDate), matchDate = String(match.animeTitle || "").includes("N/A") || secSource === "hanjutv" ? { year: null, month: null } : parseDate(match.startDate), isDubVersionYearRelation = DUB_VERSION_YEAR_SOURCES.has(currentPrimarySource) && hasDubVersionMarker(derivedTitleForSim) || DUB_VERSION_YEAR_SOURCES.has(secSource) && hasDubVersionMarker(matchTitleForSim);
+          if (!resolveDateRelation({
+            primaryAnime: derivedAnime,
+            candidateAnime: match,
+            primaryDate: derivedDate,
+            candidateDate: matchDate,
+            isDubVersionYearRelation,
+            isAnyCollection,
+            isSeasonExactMatch: hasSameSeasonMarker(derivedTitleForSim, matchTitleForSim, derivedAnime.typeDescription, match.typeDescription, derivedAnime.aliases, match.aliases),
+            hasStructureConflict: checkTitleSubtitleConflict(derivedAnime.animeTitle, match.animeTitle, derivedDate.year !== null && matchDate.year !== null),
+            contentProbe: probeContentMatch(derivedAnime, match)
+          }).allowed) {
+            log2("info", `${logPrefix} \u96C6\u5BF9\u9F50\u4F46\u5E74\u4EFD\u5173\u7CFB\u4E0D\u5141\u8BB8\u5173\u8054: [${currentPrimarySource}] ${logTitleA} <-> [${secSource}] ${logTitleB} (\u5BF9\u9F50 ${mergedCount} \u96C6)`);
+            continue;
+          }
+        }
+        let isValidMerge = !1;
         if (customRule ? isValidMerge = mergedCount > 0 : isValidMerge = isMergeRatioValid(mergedCount, filteredPLinksWithIndex.length, filteredMLinksWithIndex.length, currentPrimarySource, secSource, isAnyCollection), isValidMerge) {
           for (let mutation of pendingMutations) {
             let link = derivedAnime.links[mutation.linkIndex];
@@ -12795,35 +12937,45 @@ var CATE_MAP = { 1: "\u97E9\u5267", 2: "\u7EFC\u827A", 3: "\u7535\u5F71", 4: "\u
    */
   async extractFromPayload(payload, uid, tag) {
     if (!payload || typeof payload != "object") throw new Error(`${tag} \u54CD\u5E94\u4E3A\u7A7A`);
-    if (typeof payload.data == "string" && payload.data.length > 0) {
-      let decoded;
+    let code = payload.rescode ?? payload.code;
+    if (code != null && Number(code) !== 0) throw new Error(`${tag} \u63A5\u53E3\u8FD4\u56DE\u9519\u8BEF: ${code}`);
+    let data = payload;
+    if (typeof payload.data == "string" && payload.data.length > 0)
       try {
-        decoded = await decodeHanjutvEncryptedPayload(payload, uid);
+        data = await decodeHanjutvEncryptedPayload(payload, uid);
       } catch (error) {
         throw new Error(`${tag} \u54CD\u5E94\u89E3\u5BC6\u5931\u8D25: ${error.message}`);
       }
-      let items2 = this.extractSearchItems(decoded);
-      if (items2.length === 0) throw new Error(`${tag} \u89E3\u5BC6\u540E\u65E0\u6709\u6548\u7ED3\u679C`);
-      return items2;
-    }
-    let items = this.extractSearchItems(payload);
-    if (items.length === 0) throw new Error(`${tag} \u65E0\u6709\u6548\u7ED3\u679C`);
+    let list = data?.seriesData?.seriesList ?? data?.seriesList ?? data?.seriesData?.series;
+    if (!Array.isArray(list)) throw new Error(`${tag} \u54CD\u5E94\u7F3A\u5C11\u6709\u6548\u641C\u7D22\u5217\u8868`);
+    if (list.length === 0)
+      return log("info", `[hanjutv] ${tag} \u641C\u7D22\u65E0\u7ED3\u679C`), [];
+    let items = this.extractSearchItems(data);
+    if (items.length === 0) throw new Error(`${tag} \u641C\u7D22\u5217\u8868\u65E0\u6709\u6548\u6761\u76EE`);
     return items;
   }
-  async warmupMobileIdentity(headers) {
+  async warmupMobileIdentity(headers, bypassCache = !1) {
     try {
-      return await Widget.http.get(`${this.appHost}/api/common/configs`, { headers, timeout: 8e3, retries: 0 }), !0;
-    } catch {
-      return !1;
+      let data = (await Widget.http.get(`${this.appHost}/api/common/configs`, {
+        headers,
+        timeout: 3e3,
+        retries: 0,
+        bypassCache
+      }))?.data;
+      if (data?.rescode !== 0 || !data.globalConfigs || typeof data.globalConfigs != "object" || Array.isArray(data.globalConfigs) || !Array.isArray(data.tabs))
+        throw new Error("configs \u54CD\u5E94\u7F3A\u5C11\u6709\u6548\u521D\u59CB\u5316\u914D\u7F6E");
+      return !0;
+    } catch (error) {
+      return log("warn", `[hanjutv] \u624B\u673A\u8EAB\u4EFD\u521D\u59CB\u5316\u5931\u8D25: ${error.message}`), !1;
     }
   }
-  async ensureMobileIdentityWarmed() {
+  async ensureMobileIdentityWarmed(bypassCache = !1) {
     if (this._mobileWarmedUid) return !0;
     if (this._mobileWarmupPromise) return this._mobileWarmupPromise;
     let warmupPromise = (async () => {
       let headerInfo = await this.buildMobileHeaders();
       if (this._mobileWarmedUid === headerInfo.uid) return !0;
-      let warmed = await this.warmupMobileIdentity(headerInfo.headers);
+      let warmed = await this.warmupMobileIdentity(headerInfo.headers, bypassCache);
       return warmed && (this._mobileWarmedUid = headerInfo.uid), warmed;
     })();
     this._mobileWarmupPromise = warmupPromise;
@@ -12834,13 +12986,23 @@ var CATE_MAP = { 1: "\u97E9\u5267", 2: "\u7EFC\u827A", 3: "\u7535\u5F71", 4: "\u
     }
   }
   async searchWithS5Api(keyword) {
-    await this.ensureMobileIdentityWarmed();
-    let { uid, headers } = await this.buildMobileHeaders(), q = encodeURIComponent(keyword), resp = await Widget.http.get(`https://hxqapi.hiyun.tv/api/search/s5?k=${q}&srefer=search_input&type=0&page=1`, {
-      headers,
-      timeout: 1e4,
-      retries: 1
-    });
-    return this.extractFromPayload(resp?.data, uid, "s5");
+    let q = encodeURIComponent(keyword);
+    for (let attempt = 0; attempt < 2; attempt++)
+      try {
+        if (!await this.ensureMobileIdentityWarmed(attempt > 0))
+          throw new Error("s5 \u624B\u673A\u8EAB\u4EFD\u521D\u59CB\u5316\u5931\u8D25");
+        let { uid, headers } = await this.buildMobileHeaders(), resp = await Widget.http.get(`${this.appHost}/api/search/s5?k=${q}&srefer=search_input&type=0&page=1`, {
+          headers,
+          timeout: 1e4,
+          // 恢复由外层统一控制，避免叠加 HTTP 重试；恢复请求必须绕过异常响应缓存。
+          retries: 0,
+          bypassCache: attempt > 0
+        });
+        return await this.extractFromPayload(resp?.data, uid, "s5");
+      } catch (error) {
+        if (this._mobileWarmedUid = null, attempt === 1) throw error;
+        log("warn", `[hanjutv] s5 \u641C\u7D22\u5F02\u5E38\uFF0C\u91CD\u65B0\u521D\u59CB\u5316\u5E76\u91CD\u8BD5\u4E00\u6B21: ${error.message}`);
+      }
   }
   async searchWithTvApi(keyword) {
     let q = encodeURIComponent(keyword), headerInfo = await this.buildTvHeaders(), resp = await Widget.http.get(`https://api.xiawen.tv/api/v1/aggregate/search?key=${q}&scope=101&page=1`, {
@@ -12858,7 +13020,7 @@ var CATE_MAP = { 1: "\u97E9\u5267", 2: "\u7EFC\u827A", 3: "\u7535\u5F71", 4: "\u
         this.tryGet(() => this.searchWithS5Api(key), [], "[hanjutv] s5 \u641C\u7D22\u5931\u8D25"),
         this.tryGet(() => this.searchWithTvApi(key), [], "[hanjutv] TV \u641C\u7D22\u5931\u8D25")
       ]), { resultList, stats } = this.mergeSearchCandidates(key, s5List, tvList), totalMatched = stats.s5Matched + stats.tvMatched;
-      return resultList.length > 0 && totalMatched === 0 ? (log("warn", `[hanjutv] \u6240\u6709\u5019\u9009\u5747\u672A\u547D\u4E2D\u5173\u952E\u8BCD\uFF0C\u4E22\u5F03\u7591\u4F3C\u63A8\u8350\u6D41\u7ED3\u679C: ${key}`), []) : resultList.length === 0 ? (log("info", "[hanjutv] hanjutvSearchresp: s5 \u4E0E TV \u63A5\u53E3\u5747\u65E0\u6709\u6548\u7ED3\u679C"), []) : (log("info", `[hanjutv] \u641C\u7D22\u5019\u9009\u7EDF\u8BA1 s5MatchedList=${JSON.stringify(stats.s5MatchedList)}, s5UnmatchedList=${JSON.stringify(stats.s5UnmatchedList)}, tvMatchedList=${JSON.stringify(stats.tvMatchedList)}, tvUnmatchedList=${JSON.stringify(stats.tvUnmatchedList)}`), log("info", `[hanjutv] \u641C\u7D22\u5019\u9009\u7EDF\u8BA1 s5=${stats.s5Total}(\u547D\u4E2D${stats.s5Matched}), tv=${stats.tvTotal}(\u547D\u4E2D${stats.tvMatched}), merged=${stats.mergedCount}`), log("info", `[hanjutv] \u641C\u7D22\u627E\u5230 ${resultList.length} \u4E2A\u6709\u6548\u7ED3\u679C`), resultList.filter(Boolean));
+      return resultList.length > 0 && totalMatched === 0 ? (log("info", `[hanjutv] \u6240\u6709\u5019\u9009\u5747\u672A\u547D\u4E2D\u5173\u952E\u8BCD\uFF0C\u4E22\u5F03\u7591\u4F3C\u63A8\u8350\u6D41\u7ED3\u679C: ${key}`), []) : resultList.length === 0 ? (log("info", "[hanjutv] hanjutvSearchresp: s5 \u4E0E TV \u63A5\u53E3\u5747\u65E0\u6709\u6548\u7ED3\u679C"), []) : (log("info", `[hanjutv] \u641C\u7D22\u5019\u9009\u7EDF\u8BA1 s5MatchedList=${JSON.stringify(stats.s5MatchedList)}, s5UnmatchedList=${JSON.stringify(stats.s5UnmatchedList)}, tvMatchedList=${JSON.stringify(stats.tvMatchedList)}, tvUnmatchedList=${JSON.stringify(stats.tvUnmatchedList)}`), log("info", `[hanjutv] \u641C\u7D22\u5019\u9009\u7EDF\u8BA1 s5=${stats.s5Total}(\u547D\u4E2D${stats.s5Matched}), tv=${stats.tvTotal}(\u547D\u4E2D${stats.tvMatched}), merged=${stats.mergedCount}`), log("info", `[hanjutv] \u641C\u7D22\u627E\u5230 ${resultList.length} \u4E2A\u6709\u6548\u7ED3\u679C`), resultList.filter(Boolean));
     } catch (error) {
       return this.logError("getHanjutvAnimes error", error), [];
     }
@@ -13625,6 +13787,33 @@ async function requestNipaplayDanmaku(episodeId, retried) {
       log("error", `[dandan] [nipaplay] \u5F39\u5F39play \u539F\u751F\u5F39\u5E55\u83B7\u53D6\u5931\u8D25: ${error.message}`);
     }
   return { comments, relatedLinks };
+}
+async function fetchNipaplayBangumiDetail(animeId) {
+  if (!isNipaplayAccountConfigured()) return null;
+  try {
+    return await requestNipaplayBangumiDetail(animeId, !1);
+  } catch (error) {
+    return log("error", `[dandan] [nipaplay] NipaPlay \u4E2D\u8F6C\u5F39\u5F39play\u670D\u52A1\u7AEF\u8BE6\u60C5\u8BF7\u6C42\u5931\u8D25: ${error.message}`), null;
+  }
+}
+async function requestNipaplayBangumiDetail(animeId, retried) {
+  let token = await getAccountToken(), resp = await requestGateway((gateway) => Widget.http.get(
+    `${gateway}/api/v2/bangumi/${animeId}`,
+    {
+      headers: {
+        Accept: "application/json",
+        "User-Agent": NIPAPLAY_USER_AGENT,
+        Authorization: `Bearer ${token}`
+      },
+      validStatusCodes: [200, 401],
+      retries: 1
+    }
+  ));
+  if (resp.status === 401) {
+    if (retried) throw new Error("\u8D26\u53F7\u767B\u5F55\u5DF2\u5931\u6548");
+    return log("info", "[dandan] [nipaplay] NipaPlay \u4E2D\u8F6C\u5F39\u5F39play\u670D\u52A1\u7AEF\u8BE6\u60C5\u8FD4\u56DE\u767B\u5F55\u5931\u6548\uFF0C\u91CD\u65B0\u767B\u5F55\u540E\u91CD\u8BD5"), clearAccountToken(), requestNipaplayBangumiDetail(animeId, !0);
+  }
+  return resp?.data?.bangumi || null;
 }
 
 // danmu_api/sources/tencent.js
@@ -16451,7 +16640,9 @@ var tencentSource = new TencentSource(), iqiyiSource = new IqiyiSource(), mangoS
             imageUrl: "",
             startDate: m.begin,
             rating: 0,
-            aliases: [...m.titles]
+            aliases: [...m.titles],
+            // 标题与别名取自 Bangumi Data，详情接口不可用时不重复补全
+            _bangumiDataHit: !0
           };
         });
     }
@@ -16557,7 +16748,7 @@ var tencentSource = new TencentSource(), iqiyiSource = new IqiyiSource(), mangoS
     }
   }
   // 获取番剧详情和剧集列表
-  async getEpisodes(id) {
+  async getEpisodes(id, contextAnime = null) {
     try {
       let resp = await Widget.http.get(`https://api.danmaku.weeblify.app/ddp/v1?path=/v2/bangumi/${id}`, {
         headers: {
@@ -16567,22 +16758,50 @@ var tencentSource = new TencentSource(), iqiyiSource = new IqiyiSource(), mangoS
         retries: 1
       });
       if (!resp || !resp.data)
-        return log("info", "[dandan] getDandanEposides: \u8BF7\u6C42\u5931\u8D25\u6216\u65E0\u6570\u636E\u8FD4\u56DE"), { episodes: [], titles: [], relateds: [], type: null, typeDescription: null };
+        return log("info", "[dandan] getDandanEposides: \u8BF7\u6C42\u5931\u8D25\u6216\u65E0\u6570\u636E\u8FD4\u56DE"), await this.resolveUnavailableDetail(id, contextAnime);
       if (!resp.data.bangumi)
-        return log("info", "[dandan] getDandanEposides: bangumi \u6570\u636E\u4E0D\u5B58\u5728"), { episodes: [], titles: [], relateds: [], type: null, typeDescription: null };
-      let bangumiData = resp.data.bangumi, episodes = Array.isArray(bangumiData.episodes) ? bangumiData.episodes : [], titles = Array.isArray(bangumiData.titles) ? bangumiData.titles.map((t) => t.title) : [], relateds = Array.isArray(bangumiData.relateds) ? bangumiData.relateds : [], type = bangumiData.type || null, typeDescription = bangumiData.typeDescription || null, is3D = !1, is2D = !1;
-      bangumiData.tags && Array.isArray(bangumiData.tags) && bangumiData.tags.forEach((tag) => {
-        tag.name && tag.name.toUpperCase().includes("3D") && (is3D = !0), tag.name && tag.name.toUpperCase().includes("2D") && (is2D = !0);
-      }), is3D ? typeDescription = "3D" + (typeDescription || "") : is2D && (typeDescription = "2D" + (typeDescription || ""));
-      let imageUrl = bangumiData.imageUrl || null;
-      return log("info", `[dandan] getDandanEposides: ${JSON.stringify(resp.data.bangumi.episodes)}`), { episodes, titles, relateds, type, typeDescription, imageUrl };
+        return log("info", "[dandan] getDandanEposides: bangumi \u6570\u636E\u4E0D\u5B58\u5728"), await this.resolveUnavailableDetail(id, contextAnime);
+      let bangumiData = resp.data.bangumi, nipaplayDetail = (Array.isArray(bangumiData.episodes) ? bangumiData.episodes.length : 0) === 0 ? await fetchNipaplayBangumiDetail(id) : null;
+      nipaplayDetail && log("info", "[dandan] getDandanEposides: danmaku-anywhere \u955C\u50CF\u5F39\u5F39play\u670D\u52A1\u7AEF\u672A\u8FD4\u56DE\u5267\u96C6\uFF0C\u8BE6\u60C5\u53D6\u81EA NipaPlay \u4E2D\u8F6C\u5F39\u5F39play\u670D\u52A1\u7AEF");
+      let detail = nipaplayDetail || bangumiData;
+      return await this.extractDetailResult(id, detail);
     } catch (error) {
       return log("error", "[dandan] getDandanEposides error:", {
         message: error.message,
         name: error.name,
         stack: error.stack
-      }), { episodes: [], titles: [], relateds: [], type: null, typeDescription: null, imageUrl: null };
+      }), await this.resolveUnavailableDetail(id, contextAnime);
     }
+  }
+  // 详情接口重试后仍不可用时的兜底：NipaPlay 中转弹弹play服务端优先，其次按 Bangumi Data 补全剧集。
+  // Bangumi Data 不提供相关作品、标签与封面，返回空值；标题与别名仅在搜索条目未由 Bangumi Data 提供时补全。
+  async resolveUnavailableDetail(id, contextAnime, lookupItem = lookupBangumiDataItemByAnime) {
+    let nipaplayDetail = await fetchNipaplayBangumiDetail(id);
+    if (nipaplayDetail)
+      return log("info", "[dandan] getDandanEposides: \u8BE6\u60C5\u63A5\u53E3\u4E0D\u53EF\u7528\uFF0C\u8BE6\u60C5\u53D6\u81EA NipaPlay \u4E2D\u8F6C\u5F39\u5F39play\u670D\u52A1\u7AEF"), await this.extractDetailResult(id, nipaplayDetail);
+    let item = await lookupItem(contextAnime, id);
+    if (!item)
+      return log("info", `[dandan] getDandanEposides: \u8BE6\u60C5\u63A5\u53E3\u4E0D\u53EF\u7528\uFF0CBangumi Data \u672A\u547D\u4E2D\u6761\u76EE\uFF08\u4F5C\u54C1 ${id}\uFF09`), emptyEpisodeDetail();
+    let filledEpisodes = await fillMissingEpisodes(id, { metadata: [] }, [], async () => item);
+    if (filledEpisodes.length === 0) return emptyEpisodeDetail();
+    let titles = contextAnime?._bangumiDataHit === !0 ? [] : [...new Set(item.titles || [])];
+    return log("info", `[dandan] getDandanEposides: \u8BE6\u60C5\u63A5\u53E3\u4E0D\u53EF\u7528\uFF0C\u6309 Bangumi Data \u8865\u5168 ${filledEpisodes.length} \u96C6\uFF08\u4F5C\u54C1 ${id}\uFF09`), {
+      episodes: filledEpisodes,
+      titles,
+      relateds: [],
+      type: item.typeId || null,
+      typeDescription: item.typeStr || null,
+      imageUrl: null
+    };
+  }
+  // 从详情数据提取剧集、别名、相关作品、类型与封面，并按 Bangumi Data 的放送区间补全缺失集
+  async extractDetailResult(id, detail) {
+    let episodes = Array.isArray(detail.episodes) ? detail.episodes : [], titles = Array.isArray(detail.titles) ? detail.titles.map((t) => t.title) : [], relateds = Array.isArray(detail.relateds) ? detail.relateds : [], type = detail.type || null, typeDescription = detail.typeDescription || null, is3D = !1, is2D = !1;
+    detail.tags && Array.isArray(detail.tags) && detail.tags.forEach((tag) => {
+      tag.name && tag.name.toUpperCase().includes("3D") && (is3D = !0), tag.name && tag.name.toUpperCase().includes("2D") && (is2D = !0);
+    }), is3D ? typeDescription = "3D" + (typeDescription || "") : is2D && (typeDescription = "2D" + (typeDescription || ""));
+    let imageUrl = detail.imageUrl || null, filledEpisodes = await fillMissingEpisodes(id, detail, episodes);
+    return log("info", `[dandan] getDandanEposides: ${JSON.stringify(filledEpisodes)}`), { episodes: filledEpisodes, titles, relateds, type, typeDescription, imageUrl };
   }
   // 计算两个字符串的文本相似度（字符集交并比算法）
   calculateSimilarity(str1, str2) {
@@ -16621,7 +16840,7 @@ var tencentSource = new TencentSource(), iqiyiSource = new IqiyiSource(), mangoS
       let currentBatch = queue.splice(0, queue.length);
       await Promise.all(currentBatch.map(async (anime) => {
         try {
-          let details = await this.getEpisodes(anime.animeId), eps = details.episodes, apiAliases = details.titles || [], similarity = this.calculateSimilarity(queryTitle, anime.animeTitle), canExpandRelateds = !isTargetFoundInInitial;
+          let details = await this.getEpisodes(anime.animeId, anime), eps = details.episodes, apiAliases = details.titles || [], similarity = this.calculateSimilarity(queryTitle, anime.animeTitle), canExpandRelateds = !isTargetFoundInInitial;
           if (similarity >= 0.1 && details.relateds && Array.isArray(details.relateds)) {
             for (let rel of details.relateds) {
               let hasSeason = extractSeasonNumberFromAnimeTitle(rel.animeTitle).season !== null;
@@ -16762,7 +16981,85 @@ var tencentSource = new TencentSource(), iqiyiSource = new IqiyiSource(), mangoS
       m: c.m
     });
   }
-}, DandanUserAgent = `LogVar Danmu API/${globals.version}`, SOURCE_TO_PLATFORM = {
+}, DAY_MS2 = 1440 * 60 * 1e3, WEEK_MS = 7 * DAY_MS2, SYSTEM_FILLED_MARK = "\uFF08\u7CFB\u7EDF\u8865\u5168\uFF09";
+function parseTimeValue(value) {
+  if (!value || typeof value != "string") return null;
+  let time = Date.parse(value);
+  return Number.isFinite(time) ? time : null;
+}
+function extractBroadcastStart(metadata) {
+  if (!Array.isArray(metadata)) return null;
+  let entry = metadata.find((line) => typeof line == "string" && line.trim().startsWith("\u653E\u9001\u5F00\u59CB")), match = entry && entry.match(/(\d{4})\s*年\s*(\d{1,2})\s*月\s*(\d{1,2})\s*日/);
+  if (!match) return null;
+  let time = Date.UTC(Number(match[1]), Number(match[2]) - 1, Number(match[3]));
+  return Number.isFinite(time) ? time : null;
+}
+function extractBangumiSubjectId(bangumiUrl) {
+  let match = typeof bangumiUrl == "string" ? bangumiUrl.match(/(?:bangumi|bgm)\.tv\/subject\/(\d+)/) : null;
+  return match ? match[1] : null;
+}
+function countEpisodesWeekly(beginTime, untilTime) {
+  return Math.floor((untilTime - beginTime) / WEEK_MS) + 1;
+}
+function buildFilledEpisodes(animeId, episodes, totalCount) {
+  let normalNumbers = episodes.filter((ep) => /^\d+$/.test(String(ep.episodeNumber ?? ""))).map((ep) => Number(ep.episodeNumber)), lastNumber = normalNumbers.length > 0 ? Math.max(...normalNumbers) : 0, filled = [];
+  for (let n = lastNumber + 1; n <= totalCount; n++)
+    filled.push({
+      seasonId: null,
+      episodeId: +`${animeId}${String(n).padStart(4, "0")}`,
+      episodeTitle: `\u7B2C${n}\u8BDD ${SYSTEM_FILLED_MARK}`,
+      episodeNumber: String(n),
+      lastWatched: null,
+      airDate: null
+    });
+  if (filled.length === 0) return episodes;
+  let lastNormalIndex = episodes.reduce((acc, ep, i) => /^\d+$/.test(String(ep.episodeNumber ?? "")) ? i : acc, -1);
+  return [...episodes.slice(0, lastNormalIndex + 1), ...filled, ...episodes.slice(lastNormalIndex + 1)];
+}
+function emptyEpisodeDetail() {
+  return { episodes: [], titles: [], relateds: [], type: null, typeDescription: null, imageUrl: null };
+}
+function selectBangumiDataItem(matches, animeId, subjectId) {
+  let anidbMatches = (matches || []).filter((m) => m.matchedSiteKey === "anidb" && String(m.siteId) === String(animeId));
+  return anidbMatches.length === 1 ? anidbMatches[0] : (matches || []).find((m) => m.matchedSiteKey === "bangumi" && String(m.siteId) === subjectId) || null;
+}
+async function lookupBangumiDataItem(detail, animeId) {
+  let searchTitle = (Array.isArray(detail.titles) ? detail.titles.find((t) => t?.language === "\u4E3B\u6807\u9898")?.title : null) || detail.animeTitle;
+  if (!searchTitle) return null;
+  let matches = await searchBangumiData4(searchTitle, ["anidb", "bangumi"]);
+  return selectBangumiDataItem(matches, animeId, extractBangumiSubjectId(detail.bangumiUrl));
+}
+async function lookupBangumiDataItemByAnime(anime, animeId) {
+  let keywords = [anime?.animeTitle, ...anime?.aliases || []].filter(Boolean);
+  for (let keyword of keywords) {
+    let matches = await searchBangumiData4(keyword, ["anidb"]), item = selectBangumiDataItem(matches, animeId, null);
+    if (item) return item;
+  }
+  return null;
+}
+var DEFAULT_FILL_EPISODE_COUNT = 26, MAX_FILL_EPISODE_COUNT = 100;
+function describeFillCount(inferredCount) {
+  return inferredCount > MAX_FILL_EPISODE_COUNT ? `${inferredCount} \u96C6\uFF0C\u8D85\u8FC7\u4E0A\u9650\u6309 ${MAX_FILL_EPISODE_COUNT} \u96C6\u8865\u5168` : `${inferredCount} \u96C6`;
+}
+async function fillMissingEpisodes(animeId, detail, episodes, lookupItem = lookupBangumiDataItem, now = Date.now()) {
+  let mainTitle = (Array.isArray(detail.titles) ? detail.titles.find((t) => t?.language === "\u4E3B\u6807\u9898")?.title : null) || detail.animeTitle || "", fillLabel = mainTitle ? `${animeId} ${mainTitle}` : `${animeId}`, normalEpisodes = episodes.filter((ep) => /^\d+$/.test(String(ep.episodeNumber ?? ""))), lastAirTime = normalEpisodes.length > 0 ? parseTimeValue(normalEpisodes[normalEpisodes.length - 1].airDate) : null;
+  if (episodes.length > 0 && lastAirTime !== null && now - lastAirTime < WEEK_MS) return episodes;
+  let item = await lookupItem(detail, animeId), beginTime = parseTimeValue(item?.begin) ?? extractBroadcastStart(detail.metadata);
+  if (beginTime === null)
+    return log("info", `[dandan] \u96C6\u8865\u5168\u8DF3\u8FC7\uFF08${fillLabel}\uFF09\uFF1A\u653E\u9001\u5F00\u59CB\u65F6\u95F4\u4E0D\u53EF\u77E5`), episodes;
+  let endTime = parseTimeValue(item?.end);
+  if (episodes.length === 0) {
+    let totalCount2;
+    return endTime !== null ? (totalCount2 = countEpisodesWeekly(beginTime, endTime), log("info", `[dandan] \u96C6\u8865\u5168\uFF08${fillLabel}\uFF0C\u6574\u90E8\u65E0\u96C6\uFF0C\u6309\u653E\u9001\u533A\u95F4\uFF09: \u5E94\u6709 ${describeFillCount(totalCount2)}`)) : Number.isFinite(now) ? (totalCount2 = countEpisodesWeekly(beginTime, now) + 2, log("info", `[dandan] \u96C6\u8865\u5168\uFF08${fillLabel}\uFF0C\u6574\u90E8\u65E0\u96C6\uFF0C\u653E\u9001\u622A\u6B62\u4E0D\u53EF\u77E5\u6309\u5F53\u524D\u5468\u5E76\u989D\u5916\u8865\u4E24\u96C6\uFF09: \u5E94\u6709 ${describeFillCount(totalCount2)}`)) : (totalCount2 = DEFAULT_FILL_EPISODE_COUNT, log("info", `[dandan] \u96C6\u8865\u5168\uFF08${fillLabel}\uFF0C\u6574\u90E8\u65E0\u96C6\uFF0C\u653E\u9001\u622A\u6B62\u4E0E\u7CFB\u7EDF\u65F6\u95F4\u5747\u4E0D\u53EF\u77E5\uFF0C\u6309\u9ED8\u8BA4\u96C6\u6570\uFF09: \u5E94\u6709 ${describeFillCount(totalCount2)}`)), buildFilledEpisodes(animeId, episodes, Math.max(1, Math.min(MAX_FILL_EPISODE_COUNT, totalCount2)));
+  }
+  if (endTime === null)
+    return log("info", `[dandan] \u96C6\u8865\u5168\u8DF3\u8FC7\uFF08${fillLabel}\uFF09\uFF1A\u5DF2\u5B58\u5728\u96C6\u4E14\u653E\u9001\u622A\u6B62\u4E0D\u53EF\u77E5`), episodes;
+  if (lastAirTime !== null && Math.abs(endTime - lastAirTime) <= 2 * DAY_MS2)
+    return log("info", `[dandan] \u96C6\u8865\u5168\u8DF3\u8FC7\uFF08${fillLabel}\uFF09\uFF1A\u672B\u96C6\u653E\u9001\u65E5\u671F\u5DF2\u5BF9\u9F50\u653E\u9001\u622A\u6B62`), episodes;
+  let inferredCount = countEpisodesWeekly(beginTime, endTime), totalCount = Math.min(MAX_FILL_EPISODE_COUNT, inferredCount);
+  return totalCount <= normalEpisodes.length ? (log("info", `[dandan] \u96C6\u8865\u5168\u8DF3\u8FC7\uFF08${fillLabel}\uFF09\uFF1A\u6309\u653E\u9001\u533A\u95F4\u5E94\u6709 ${totalCount} \u96C6\uFF0C\u672A\u8D85\u8FC7\u73B0\u6709 ${normalEpisodes.length} \u96C6`), episodes) : (log("info", `[dandan] \u96C6\u8865\u5168\uFF08${fillLabel}\uFF0C\u8865\u9F50\u672B\u96C6\u4E4B\u540E\u7684\u96C6\uFF09: \u6309\u653E\u9001\u533A\u95F4\u5E94\u6709 ${describeFillCount(inferredCount)}\uFF0C\u73B0\u6709 ${normalEpisodes.length} \u96C6\uFF0C\u8865 ${totalCount - normalEpisodes.length} \u96C6`), buildFilledEpisodes(animeId, episodes, totalCount));
+}
+var DandanUserAgent = `LogVar Danmu API/${globals.version}`, SOURCE_TO_PLATFORM = {
   bilibili: "bilibili1",
   bahamut: "bahamut",
   iqiyi: "qiyi",
@@ -18494,223 +18791,224 @@ var MaiduiduiSource = class _MaiduiduiSource extends BaseSource {
 }, maiduidui_default = MaiduiduiSource;
 
 // danmu_api/utils/aiyifan-util.js
-var DEFAULT_CONFIG_PAGE_URL = "https://www.yfsp.tv/", DEFAULT_USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0 Safari/537.36", AIYIFAN_SIGNING_CONFIG_TTL_MS = 60 * 1e3;
-function safeGet(obj, path2, defaultValue) {
-  if (obj == null) return defaultValue;
-  let keys = path2.split("."), result = obj;
-  for (let i = 0; i < keys.length; i++) {
-    if (result == null) return defaultValue;
-    let key = keys[i], arrayMatch = key.match(/^(.+)\[(\d+)\]$/);
-    if (arrayMatch) {
-      let arrKey = arrayMatch[1], index = parseInt(arrayMatch[2], 10);
-      if (result = result[arrKey], Array.isArray(result) && index < result.length)
-        result = result[index];
-      else
-        return defaultValue;
-    } else
-      result = result[key];
-  }
-  return result !== void 0 ? result : defaultValue;
+var AIYIFAN_APP_BASE_URL = "https://api.tripdata.app/", AIYIFAN_APP_CONFIG_API = "api/home/config", AIYIFAN_APP_CONFIG_TTL_MS = 1800 * 1e3, AIYIFAN_APP_DEFAULT_PRIVATE_KEY = "57688*1-331@", AIYIFAN_APP_USER_AGENT = "okhttp-okgo/jeasonlzy", AIYIFAN_APP_BUNDLE_ID = "com.cqcsy.ifvod", AIYIFAN_APP_VERSION = "1.7.8", AIYIFAN_WEB_SEARCH_API = "https://rankv21.tripdata.app/v3/list/briefsearch", AIYIFAN_WEB_SEARCH_TTL_MS = 1800 * 1e3, AIYIFAN_WEB_SEARCH_CACHE_MAX = 100, AIYIFAN_WEB_YEAR_MAX_WAIT_MS = 5e3, AIYIFAN_WEB_SEARCH_FAILURE_COOLDOWN_MS = 600 * 1e3, AIYIFAN_WEB_USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0 Safari/537.36";
+function computeAiyifanWebSign(query, signingConfig) {
+  return md5(signingConfig.publicKey + "&" + query.toLowerCase() + "&" + signingConfig.privateKey);
 }
-function extractAssignedObjectLiteral(html, variableName) {
-  let match = new RegExp("\\b(?:var|let|const)\\s+" + variableName + "\\s*=\\s*").exec(html);
-  if (!match)
-    return null;
-  let objectStart = html.indexOf("{", match.index + match[0].length);
-  if (objectStart === -1)
-    return null;
-  let depth = 0, inString = !1, quote = "", escaped = !1;
-  for (let i = objectStart; i < html.length; i++) {
-    let char = html[i];
-    if (inString) {
-      escaped ? escaped = !1 : char === "\\" ? escaped = !0 : char === quote && (inString = !1, quote = "");
-      continue;
-    }
-    if (char === '"' || char === "'") {
-      inString = !0, quote = char;
-      continue;
-    }
-    if (char === "{") {
-      depth += 1;
-      continue;
-    }
-    if (char === "}" && (depth -= 1, depth === 0))
-      return html.slice(objectStart, i + 1);
-  }
-  return null;
-}
-function parseFallbackPConfig(html) {
-  let match = html.match(/"pConfig"\s*:\s*\{\s*"publicKey"\s*:\s*"([^"]+)"\s*,\s*"privateKey"\s*:\s*\[(.*?)\]\s*\}/s);
-  if (!match)
-    return null;
-  let privateKeys = [];
-  try {
-    privateKeys = JSON.parse("[" + match[2] + "]");
-  } catch {
-    return null;
-  }
-  return !match[1] || !privateKeys.length ? null : {
-    publicKey: match[1],
-    privateKey: privateKeys[0]
-  };
-}
-function extractPConfigFromInjectJson(injectJson) {
-  let config = safeGet(injectJson, "config[0]", null), pConfig = config ? config.pConfig : null;
-  if (!pConfig) return null;
-  let publicKey = pConfig.publicKey, privateKey = Array.isArray(pConfig.privateKey) ? pConfig.privateKey[0] : pConfig.privateKey;
-  return !publicKey || !privateKey ? null : { publicKey, privateKey };
-}
-function extractPConfigFromHtml(html) {
-  let objectLiteral = extractAssignedObjectLiteral(html, "injectJson");
-  if (objectLiteral)
-    try {
-      let injectJson = JSON.parse(objectLiteral), signingConfig = extractPConfigFromInjectJson(injectJson);
-      if (signingConfig)
-        return signingConfig;
-    } catch (error) {
-      log("warn", "[system] [aiyifan] \u89E3\u6790 injectJson \u5931\u8D25\uFF0C\u56DE\u9000\u5230 pConfig \u63D0\u53D6: " + (error.message || "\u672A\u77E5\u9519\u8BEF"));
-    }
-  return parseFallbackPConfig(html);
-}
-function normalizeQueryValue(value) {
-  return value == null ? null : String(value);
-}
-function isSigningParam(key) {
-  return key === "vv" || key === "pub";
-}
-function splitQueryString(queryString) {
-  return queryString ? queryString.split("&").filter(Boolean).map(function(pair) {
-    let equalsIndex = pair.indexOf("="), rawKey = equalsIndex === -1 ? pair : pair.slice(0, equalsIndex), rawValue = equalsIndex === -1 ? "" : pair.slice(equalsIndex + 1);
-    function safeDecode(str) {
-      try {
-        return decodeURIComponent(str.replace(/\+/g, "%20"));
-      } catch {
-        return str;
-      }
-    }
-    let key = safeDecode(rawKey), value = safeDecode(rawValue);
-    return [key, value];
-  }) : [];
-}
-function getQueryEntries(input) {
-  if (!input)
-    return [];
-  if (typeof input == "string") {
-    let trimmed = input.trim();
-    if (!trimmed)
-      return [];
-    let queryString = trimmed, queryIndex = trimmed.indexOf("?");
-    if (queryIndex !== -1) {
-      let hashIndex = trimmed.indexOf("#", queryIndex);
-      queryString = trimmed.slice(queryIndex + 1, hashIndex === -1 ? void 0 : hashIndex);
-    } else trimmed.charAt(0) === "?" && (queryString = trimmed.slice(1));
-    return splitQueryString(queryString);
-  }
-  if (typeof input == "object" && input !== null) {
-    if (typeof input.entries == "function")
-      try {
-        var entries = input.entries();
-        if (Array.isArray(entries))
-          return entries;
-        var result = [];
-        if (typeof input.forEach == "function")
-          return input.forEach(function(value, key) {
-            result.push([key, normalizeQueryValue(value)]);
-          }), result.filter(function(item) {
-            return item[1] !== null;
-          });
-      } catch {
-      }
-    return Object.keys(input).map(function(key) {
-      return [key, normalizeQueryValue(input[key])];
-    }).filter(function(item) {
-      return item[1] !== null;
-    });
-  }
-  return [];
-}
-function buildCanonicalQuery(input) {
-  return getQueryEntries(input).filter(function(item) {
-    return !isSigningParam(item[0]);
-  }).map(function(item) {
-    return item[0] + "=" + item[1];
-  }).join("&");
-}
-function computeAiyifanVv(input, signingConfig) {
-  let query = buildCanonicalQuery(input), raw = signingConfig.publicKey + "&" + query.toLowerCase() + "&" + signingConfig.privateKey;
-  return md5(raw);
+function computeAiyifanAppSign(query, timestamp, privateKey) {
+  return md5(query + timestamp + privateKey);
 }
 function normalizeJsonPayload(data) {
   return typeof data == "string" ? JSON.parse(data) : data;
 }
-function isSignedRequestSuccessful(payload) {
-  var ret = safeGet(payload, "ret", null), code = safeGet(payload, "data.code", null);
-  return ret === 200 && code === 0;
+function isAppRequestSuccessful(payload) {
+  return !!payload && payload.ret === 200;
 }
 function getFailureMessage(payload, status) {
-  var msg = safeGet(payload, "data.msg", null) || safeGet(payload, "msg", null);
-  return msg || "HTTP " + status;
+  return payload && (payload.msg || payload.data && payload.data.msg) || "HTTP " + status;
 }
-var AiyifanSigningProvider = class {
+var AiyifanAppSigningProvider = class {
   constructor(options) {
-    options = options || {}, this.proxyUrlBuilder = options.proxyUrlBuilder || function(url) {
+    options = options || {}, this.baseUrl = options.baseUrl || AIYIFAN_APP_BASE_URL, this.configUrl = options.configUrl || this.baseUrl + AIYIFAN_APP_CONFIG_API, this.webSearchApi = options.webSearchApi || AIYIFAN_WEB_SEARCH_API, this.proxyUrlBuilder = options.proxyUrlBuilder || function(url) {
       return globals.makeProxyUrl(url);
-    }, this.userAgent = options.userAgent || DEFAULT_USER_AGENT, this.configPageUrl = options.configPageUrl || DEFAULT_CONFIG_PAGE_URL, this.ttlMs = options.ttlMs || AIYIFAN_SIGNING_CONFIG_TTL_MS, this.now = options.now || function() {
+    }, this.userAgent = options.userAgent || AIYIFAN_APP_USER_AGENT, this.webUserAgent = options.webUserAgent || AIYIFAN_WEB_USER_AGENT, this.version = options.version || AIYIFAN_APP_VERSION, this.deviceId = options.deviceId || "2da4a414036a4332782795a031dcab6b4", this.deviceInfo = options.deviceInfo || "Xiaomi 23127PN0CC", this.ttlMs = options.ttlMs || AIYIFAN_APP_CONFIG_TTL_MS, this.webCacheTtlMs = options.webCacheTtlMs || AIYIFAN_WEB_SEARCH_TTL_MS, this.webFailureCooldownMs = options.webFailureCooldownMs || AIYIFAN_WEB_SEARCH_FAILURE_COOLDOWN_MS, this.timeoutMs = options.timeoutMs || 1e4, this.now = options.now || function() {
       return Date.now();
-    }, this.signingConfig = null, this.signingConfigFetchedAt = 0;
+    }, this.signingConfig = null, this.signingConfigFetchedAt = 0, this.inflightConfigRequest = null, this.yearCache = /* @__PURE__ */ new Map(), this.yearLookupDisabledUntil = 0;
   }
+  // App 固定请求头（okhttp-okgo 默认头 + 设备信息）
+  buildCommonHeaders() {
+    return {
+      "User-Agent": this.userAgent,
+      "Accept-Language": "zh-CN,zh;q=0.8",
+      Lat: "0.0",
+      Lng: "0.0",
+      BundleId: AIYIFAN_APP_BUNDLE_ID,
+      AppVersion: this.version,
+      System: "Android",
+      SystemVersion: "17",
+      DeviceInfo: this.deviceInfo,
+      DeviceId: this.deviceId,
+      Version: "V3",
+      Lang: "0"
+    };
+  }
+  buildSignedHeaders(query, timestamp, signingConfig) {
+    let headers = this.buildCommonHeaders();
+    return headers["x-timestamp"] = String(timestamp), headers["x-pub"] = signingConfig.publicKey, headers["x-sign"] = computeAiyifanAppSign(query, timestamp, signingConfig.privateKey), headers;
+  }
+  // 获取（并缓存）pConfig 签名配置；并发请求会合并到同一个请求上
   async getSigningConfig(forceRefresh) {
-    forceRefresh = forceRefresh || !1;
-    var now = this.now(), cacheValid = this.signingConfig && now - this.signingConfigFetchedAt < this.ttlMs;
+    if (forceRefresh = forceRefresh || !1, this.inflightConfigRequest)
+      return await this.inflightConfigRequest;
+    let now = this.now(), cacheValid = this.signingConfig && now - this.signingConfigFetchedAt < this.ttlMs;
     if (!forceRefresh && cacheValid)
       return this.signingConfig;
-    var response = await Widget.http.get(this.proxyUrlBuilder(this.configPageUrl), {
-      headers: {
-        "User-Agent": this.userAgent,
-        Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
-      }
-    }), html = typeof response.data == "string" ? response.data : String(response.data || ""), signingConfig = extractPConfigFromHtml(html);
-    if (!signingConfig)
-      throw new Error("\u672A\u80FD\u4ECE\u684C\u9762\u7AD9\u9875\u9762\u89E3\u6790\u5230 pConfig");
-    return this.signingConfig = signingConfig, this.signingConfigFetchedAt = now, log("info", "[system] [aiyifan] \u5DF2\u66F4\u65B0\u684C\u9762\u7AD9\u7B7E\u540D\u914D\u7F6E: " + signingConfig.publicKey.slice(0, 12) + "..."), signingConfig;
-  }
-  buildSignedParams(baseParams, signingConfig) {
-    var result = {};
-    for (var key in baseParams)
-      baseParams.hasOwnProperty(key) && (result[key] = baseParams[key]);
-    return result.vv = computeAiyifanVv(baseParams, signingConfig), result.pub = signingConfig.publicKey, result;
-  }
-  async signedGetJson(api, baseParams, headers, logPrefix, forceRefresh) {
-    headers = headers || {}, logPrefix = logPrefix || "Aiyifan", forceRefresh = forceRefresh || !1;
-    var signingConfig = await this.getSigningConfig(forceRefresh), signedParams = this.buildSignedParams(baseParams, signingConfig), requestUrl = updateQueryString(api, signedParams), response = await Widget.http.get(this.proxyUrlBuilder(requestUrl), { headers }), payload;
+    let task = this.fetchSigningConfig();
+    this.inflightConfigRequest = task;
     try {
-      payload = normalizeJsonPayload(response.data);
+      return await task;
+    } finally {
+      this.inflightConfigRequest = null;
+    }
+  }
+  async fetchSigningConfig() {
+    let timestamp = Math.floor(this.now() / 1e3), query = "_t=" + timestamp, headers = this.buildCommonHeaders();
+    headers["x-timestamp"] = String(timestamp), headers["x-pub"] = "", headers["x-sign"] = computeAiyifanAppSign(query, timestamp, AIYIFAN_APP_DEFAULT_PRIVATE_KEY);
+    let response = await Widget.http.get(this.proxyUrlBuilder(this.configUrl + "?" + query), {
+      headers,
+      timeout: this.timeoutMs,
+      retries: 2,
+      // 配置已有 TTL 缓存和并发合并；实际获取时绕过请求内缓存，避免同秒刷新复用旧配置。
+      bypassCache: !0
+    }), pConfig = normalizeJsonPayload(response.data)?.data?.list?.pConfig, publicKey = pConfig?.publicKey, privateKeyList = pConfig?.privateKey, privateKey = Array.isArray(privateKeyList) ? privateKeyList[0] : privateKeyList;
+    if (!publicKey || !privateKey)
+      throw new Error("\u672A\u80FD\u4ECE App \u914D\u7F6E\u63A5\u53E3(/api/home/config)\u83B7\u53D6 pConfig");
+    return this.signingConfig = { publicKey, privateKey }, this.signingConfigFetchedAt = this.now(), log("info", "[system] [aiyifan] \u5DF2\u66F4\u65B0 App \u7B7E\u540D\u914D\u7F6E: " + publicKey.slice(0, 12) + "..."), this.signingConfig;
+  }
+  // 按 App 规则拼签名 query：GET 用原始参数，POST 用 _t 时间戳
+  buildSignQuery(method, params, timestamp) {
+    if (method === "POST")
+      return "_t=" + timestamp;
+    let entries = [];
+    for (let key in params) {
+      if (!Object.prototype.hasOwnProperty.call(params, key))
+        continue;
+      let value = params[key];
+      value != null && entries.push(key + "=" + value);
+    }
+    return entries.length ? entries.join("&") : "_t=" + timestamp;
+  }
+  async signedRequest(method, api, params, body, logPrefix, forceRefresh) {
+    let signingConfig = await this.getSigningConfig(forceRefresh), timestamp = Math.floor(this.now() / 1e3), query = this.buildSignQuery(method, params, timestamp), headers = this.buildSignedHeaders(query, timestamp, signingConfig), requestUrl = this.proxyUrlBuilder(api + "?" + query), payload, statusCode = 200;
+    try {
+      if (method === "POST") {
+        headers["Content-Type"] = "application/json;charset=utf-8";
+        let response = await Widget.http.post(requestUrl, JSON.stringify(body), { headers, timeout: this.timeoutMs, retries: 2 });
+        statusCode = response.status != null ? response.status : 200, payload = normalizeJsonPayload(response.data);
+      } else {
+        let response = await Widget.http.get(requestUrl, {
+          headers,
+          timeout: this.timeoutMs,
+          retries: 2,
+          // 签名更新后 URL 可能相同，重试必须重新发送请求。
+          bypassCache: forceRefresh
+        });
+        statusCode = response.status != null ? response.status : 200, payload = normalizeJsonPayload(response.data);
+      }
     } catch (error) {
       if (!forceRefresh)
-        return log("warn", "[" + logPrefix + "] \u54CD\u5E94\u65E0\u6CD5\u89E3\u6790\u4E3A JSON\uFF0C\u5237\u65B0\u7B7E\u540D\u914D\u7F6E\u540E\u91CD\u8BD5: " + (error.message || "\u672A\u77E5\u9519\u8BEF")), this.signedGetJson(api, baseParams, headers, logPrefix, !0);
+        return log("warn", "[" + logPrefix + "] \u8BF7\u6C42\u5F02\u5E38\uFF0C\u5237\u65B0 App \u7B7E\u540D\u914D\u7F6E\u540E\u91CD\u8BD5: " + (error.message || "\u672A\u77E5\u9519\u8BEF")), await this.signedRequest(method, api, params, body, logPrefix, !0);
       throw error;
     }
-    var statusCode = response.status != null ? response.status : 200;
-    if (statusCode !== 200 || !isSignedRequestSuccessful(payload)) {
+    if (statusCode !== 200 || !isAppRequestSuccessful(payload)) {
       if (!forceRefresh)
-        return log("warn", "[" + logPrefix + "] \u5F53\u524D\u7B7E\u540D\u8BF7\u6C42\u5931\u8D25\uFF0C\u5237\u65B0 pConfig \u540E\u91CD\u8BD5: " + getFailureMessage(payload, statusCode)), this.signedGetJson(api, baseParams, headers, logPrefix, !0);
+        return log("warn", "[" + logPrefix + "] \u5F53\u524D\u7B7E\u540D\u8BF7\u6C42\u5931\u8D25\uFF0C\u5237\u65B0 App \u7B7E\u540D\u914D\u7F6E\u540E\u91CD\u8BD5: " + getFailureMessage(payload, statusCode)), await this.signedRequest(method, api, params, body, logPrefix, !0);
       throw new Error(getFailureMessage(payload, statusCode));
     }
     return {
       data: payload,
-      vv: signedParams.vv,
       signingConfig
     };
   }
+  async signedGetJson(api, params, logPrefix, forceRefresh) {
+    return logPrefix = logPrefix || "Aiyifan", forceRefresh = forceRefresh || !1, await this.signedRequest("GET", api, params || {}, null, logPrefix, forceRefresh);
+  }
+  async signedPostJson(api, body, logPrefix, forceRefresh) {
+    return logPrefix = logPrefix || "Aiyifan", forceRefresh = forceRefresh || !1, await this.signedRequest("POST", api, null, body, logPrefix, forceRefresh);
+  }
+  // =====================
+  // 网页版搜索（仅用于补作品年份）
+  // =====================
+  // vv = MD5(publicKey + "&" + query.toLowerCase() + "&" + privateKey)，
+  // 签名结果与 publicKey 一起作为 query 参数追加在 URL 上。
+  buildWebSignedQuery(params, signingConfig) {
+    let entries = [], encodedEntries = [];
+    for (let key in params) {
+      if (!Object.prototype.hasOwnProperty.call(params, key))
+        continue;
+      let value = params[key];
+      value != null && (entries.push(key + "=" + value), encodedEntries.push(encodeURIComponent(key) + "=" + encodeURIComponent(value)));
+    }
+    let query = entries.join("&");
+    return encodedEntries.join("&") + "&vv=" + computeAiyifanWebSign(query, signingConfig) + "&pub=" + encodeURIComponent(signingConfig.publicKey);
+  }
+  async signedWebGetJson(api, params, logPrefix, forceRefresh) {
+    let signingConfig = await this.getSigningConfig(forceRefresh), requestUrl = this.proxyUrlBuilder(api + "?" + this.buildWebSignedQuery(params || {}, signingConfig)), payload, statusCode = 200;
+    try {
+      let response = await Widget.http.get(requestUrl, {
+        headers: {
+          "User-Agent": this.webUserAgent,
+          Accept: "application/json, text/plain, */*",
+          "Accept-Language": "zh-CN,zh;q=0.9,en;q=0.8"
+        },
+        timeout: this.timeoutMs,
+        retries: 2,
+        // 签名更新后 URL 可能相同，重试必须重新发送请求。
+        bypassCache: forceRefresh
+      });
+      statusCode = response.status != null ? response.status : 200, payload = normalizeJsonPayload(response.data);
+    } catch (error) {
+      if (!forceRefresh)
+        return log("warn", "[" + logPrefix + "] \u7F51\u9875\u641C\u7D22\u8BF7\u6C42\u5F02\u5E38\uFF0C\u5237\u65B0\u7B7E\u540D\u914D\u7F6E\u540E\u91CD\u8BD5: " + (error.message || "\u672A\u77E5\u9519\u8BEF")), await this.signedWebGetJson(api, params, logPrefix, !0);
+      throw error;
+    }
+    if (statusCode !== 200 || !isAppRequestSuccessful(payload)) {
+      if (!forceRefresh)
+        return log("warn", "[" + logPrefix + "] \u7F51\u9875\u641C\u7D22\u5931\u8D25\uFF0C\u5237\u65B0\u7B7E\u540D\u914D\u7F6E\u540E\u91CD\u8BD5: " + getFailureMessage(payload, statusCode)), await this.signedWebGetJson(api, params, logPrefix, !0);
+      throw new Error(getFailureMessage(payload, statusCode));
+    }
+    return { data: payload, signingConfig };
+  }
+  // 按关键词查询网页搜索，返回 mediaKey(contxt) -> 作品年份 的映射
+  // 同关键词带 TTL 缓存；失败时返回空 Map（年份保持未知，不影响主链路）
+  async lookupYears(keyword, logPrefix) {
+    logPrefix = logPrefix || "Aiyifan";
+    let cacheKey = String(keyword || "").trim();
+    if (!cacheKey)
+      return /* @__PURE__ */ new Map();
+    let now = this.now(), cached = this.yearCache.get(cacheKey);
+    if (cached && now - cached.fetchedAt < this.webCacheTtlMs)
+      return cached.years;
+    if (now < this.yearLookupDisabledUntil)
+      return /* @__PURE__ */ new Map();
+    let years = /* @__PURE__ */ new Map();
+    try {
+      let { data } = await this.signedWebGetJson(this.webSearchApi, {
+        tags: cacheKey,
+        orderby: 4,
+        page: 1,
+        size: 10,
+        desc: 1,
+        isserial: -1
+      }, logPrefix), groups = data && data.data && data.data.info || [];
+      for (let group of groups)
+        for (let item of group && group.result || []) {
+          if (!item || !item.contxt)
+            continue;
+          let year = parseAiyifanYear(item.postTime);
+          year && years.set(item.contxt, year);
+        }
+      this.yearLookupDisabledUntil = 0;
+    } catch (error) {
+      return this.yearLookupDisabledUntil = this.now() + this.webFailureCooldownMs, log("warn", "[" + logPrefix + "] \u83B7\u53D6\u4F5C\u54C1\u5E74\u4EFD\u5931\u8D25\uFF0C\u672C\u6B21\u4FDD\u7559\u672A\u77E5\u5E74\u4EFD\uFF0C" + Math.round(this.webFailureCooldownMs / 6e4) + " \u5206\u949F\u5185\u4E0D\u518D\u91CD\u8BD5: " + (error.message || "\u672A\u77E5\u9519\u8BEF")), /* @__PURE__ */ new Map();
+    }
+    return this.yearCache.size >= AIYIFAN_WEB_SEARCH_CACHE_MAX && this.yearCache.clear(), this.yearCache.set(cacheKey, { years, fetchedAt: this.now() }), log("info", "[" + logPrefix + "] \u5E74\u4EFD\u67E5\u8BE2\u547D\u4E2D " + years.size + " \u6761: " + cacheKey), years;
+  }
 };
+function parseAiyifanYear(postTime) {
+  if (!postTime || typeof postTime != "string")
+    return null;
+  let match = postTime.match(/^(\d{4})-/);
+  if (!match)
+    return null;
+  let year = parseInt(match[1], 10);
+  return year >= 1900 && year <= 2100 ? year : null;
+}
 
 // danmu_api/sources/aiyifan.js
 var AiyifanSource = class extends BaseSource {
   constructor() {
-    super(), this.USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0 Safari/537.36", this.SEARCH_API = "https://rankv21.tripdata.app/v3/list/briefsearch", this.PLAYLIST_API = "https://m10.yfsp.tv/v3/video/languagesplaylist", this.VIDEO_API = "https://m10.yfsp.tv/v3/video/play", this.DANMU_API = "https://m10.yfsp.tv/api/video/getBarrage", this.DOMAIN_API = "https://www.yfsp.tv/play", this.CONFIG_PAGE_API = "https://www.yfsp.tv/", this.signingProvider = new AiyifanSigningProvider({
-      userAgent: this.USER_AGENT,
-      configPageUrl: this.CONFIG_PAGE_API
-    }), this.inflightDanmuRequests = /* @__PURE__ */ new Map();
+    super(), this.SEARCH_API = AIYIFAN_APP_BASE_URL + "api/List/GetTitleGetData", this.EPISODES_API = AIYIFAN_APP_BASE_URL + "api/Video/VideoChooseGather", this.DETAILS_API = AIYIFAN_APP_BASE_URL + "api/Video/VideoDetails", this.DANMU_API = AIYIFAN_APP_BASE_URL + "api/Video/GetBarrages", this.PLAY_PAGE_BASE = "https://www.yfsp.tv/play", this.DEFAULT_VIDEO_TYPE = 1, this.signingProvider = new AiyifanAppSigningProvider(), this.inflightDanmuRequests = /* @__PURE__ */ new Map();
   }
   extractEpisodeRequestKey(id) {
     try {
@@ -18720,28 +19018,40 @@ var AiyifanSource = class extends BaseSource {
     }
   }
   /**
-   * 搜索电视剧
-   * @param {string} keyword - 搜索关键词
-   * @param {number} page - 页码，默认为1
-   * @param {number} size - 每页数量，默认为10
-   * @returns {Promise<Object>} 搜索结果
+   * 解析剧集链接
+   * 形如 https://www.yfsp.tv/play/{mediaKey}?id={episodeKey}&videoId={uniqueID}&videoType=1
+   * @param {string} id - 剧集链接
+   * @returns {Object|null} { mediaKey, episodeKey, videoId, videoType }
    */
-  async searchDrama(keyword, page = 1, size = 10) {
-    let params = {
-      tags: keyword,
-      orderby: 4,
-      page,
-      size,
-      desc: 1,
-      isserial: -1
-    }, headers = {
-      "User-Agent": this.USER_AGENT,
-      Accept: "application/json"
-    };
-    log("info", `[aiyifan] [\u641C\u7D22] \u5173\u952E\u8BCD: ${keyword}, \u9875\u7801: ${page}`);
+  parseEpisodeLink(id) {
+    if (!id || typeof id != "string")
+      return null;
+    let url;
     try {
-      let urlWithParams = updateQueryString(this.SEARCH_API, params), response = await Widget.http.get(globals.makeProxyUrl(urlWithParams), { headers });
-      return typeof response.data == "string" ? JSON.parse(response.data) : response.data;
+      url = new URL(id);
+    } catch {
+      return null;
+    }
+    let segments = url.pathname.split("/").filter(Boolean);
+    return {
+      mediaKey: segments.length ? segments[segments.length - 1] : "",
+      episodeKey: url.searchParams.get("id") || "",
+      videoId: url.searchParams.get("videoId") || "",
+      videoType: url.searchParams.get("videoType") || String(this.DEFAULT_VIDEO_TYPE)
+    };
+  }
+  /**
+   * 搜索剧目
+   * @param {string} keyword - 搜索关键词
+   * @returns {Promise<Object|null>} 搜索结果
+   */
+  async searchDrama(keyword) {
+    log("info", `[aiyifan] [\u641C\u7D22] \u5173\u952E\u8BCD: ${keyword}`);
+    try {
+      let { data } = await this.signingProvider.signedPostJson(this.SEARCH_API, {
+        SearchCriteria: keyword
+      }, "\u641C\u7D22");
+      return data;
     } catch (error) {
       return log("error", `[aiyifan] [\u641C\u7D22\u5931\u8D25] \u9519\u8BEF: ${error.message}`), null;
     }
@@ -18752,108 +19062,92 @@ var AiyifanSource = class extends BaseSource {
    * @returns {Array} 剧目列表
    */
   extractDramaList(searchResult) {
-    let dramas = [], infoList = searchResult?.data?.info || [];
-    if (!infoList.length)
+    let dramas = [], list = searchResult?.data?.list || [];
+    if (!list.length)
       return log("warn", "[aiyifan] [\u8B66\u544A] \u641C\u7D22\u7ED3\u679C\u4E3A\u7A7A"), dramas;
-    for (let item of infoList) {
-      let result = item.result || [];
-      if (result.length)
-        for (let dramaInfo of result) {
-          let vid = dramaInfo.contxt, title = dramaInfo.title;
-          dramas.push({
-            contxt: vid,
-            title,
-            ...dramaInfo
-          }), log("info", `[aiyifan] [\u53D1\u73B0\u5267\u76EE] ${title}  vid=${vid}`);
-        }
+    for (let item of list) {
+      if (!item || !item.title)
+        continue;
+      let mediaKey = item.mediaKey || item.mediaId;
+      if (!mediaKey)
+        continue;
+      let playableEpisodes = (Array.isArray(item.episodes) ? item.episodes : []).filter((ep) => ep && ep.episodeKey);
+      dramas.push({
+        mediaKey,
+        mediaId: item.mediaId,
+        title: item.title,
+        type: item.mediaType || item.contentType || "\u5F71\u89C6",
+        // App 的 postTime 是站点加入时间，不能作为作品年份
+        year: null,
+        imageUrl: item.coverImgUrl || null,
+        episodeCount: playableEpisodes.length,
+        raw: item
+      }), log("info", `[aiyifan] [\u53D1\u73B0\u5267\u76EE] ${item.title}  mediaKey=${mediaKey}`);
     }
     return dramas;
   }
   /**
-   * 通过 languagesplaylist 接口获取该剧集的全部集信息
-   * @param {string} vid - 剧集唯一标识
-   * @returns {Promise<Array>} 集列表
+   * 获取剧集分集列表
+   * @param {string} id - 剧集 mediaKey
+   * @returns {Promise<Array>} 分集列表
    */
-  async getPlaylist(vid) {
-    let baseParams = {
-      cinema: 1,
-      vid,
-      lsk: 1,
-      taxis: 0,
-      cid: "0,1,4,152"
-    }, headers = {
-      "User-Agent": this.USER_AGENT,
-      Accept: "application/json"
-    };
-    log("info", `[aiyifan] [\u64AD\u653E\u5217\u8868] \u8BF7\u6C42 vid: ${vid}`);
+  async getEpisodes(id) {
+    log("info", `[aiyifan] [\u9009\u96C6] \u8BF7\u6C42 mediaKey: ${id}`);
+    let list = [];
     try {
-      let { data } = await this.signingProvider.signedGetJson(this.PLAYLIST_API, baseParams, headers, "\u64AD\u653E\u5217\u8868"), episodes = [], infoList = data.data?.info || [];
-      for (let info of infoList)
-        for (let ep of info.playList || [])
-          episodes.push(ep);
-      return log("info", `[aiyifan] [\u64AD\u653E\u5217\u8868] \u5171\u83B7\u53D6\u5230 ${episodes.length} \u96C6`), episodes;
+      let { data } = await this.signingProvider.signedPostJson(this.EPISODES_API, {
+        mediaKey: id
+      }, "\u9009\u96C6");
+      list = data?.data?.list || [];
     } catch (error) {
-      return log("error", `[aiyifan] [\u64AD\u653E\u5217\u8868\u5931\u8D25] \u9519\u8BEF: ${error.message}`), [];
+      return log("error", `[aiyifan] [\u9009\u96C6\u5931\u8D25] \u9519\u8BEF: ${error.message}`), [];
     }
+    let result = list.filter((ep) => ep && ep.episodeKey).map((ep, index) => {
+      let videoType = ep.videoType != null ? ep.videoType : this.DEFAULT_VIDEO_TYPE, videoId = ep.uniqueID != null ? ep.uniqueID : ep.episodeId;
+      return {
+        vid: videoId,
+        id: ep.episodeKey,
+        title: ep.episodeTitle || ep.title || `\u7B2C${index + 1}\u96C6`,
+        link: `${this.PLAY_PAGE_BASE}/${id}?id=${encodeURIComponent(ep.episodeKey)}&videoId=${videoId}&videoType=${videoType}`
+      };
+    });
+    return log("info", `[aiyifan] [\u9009\u96C6] \u5171\u83B7\u53D6\u5230 ${result.length} \u96C6`), result;
   }
   /**
-   * 获取视频播放信息，包括 uniqueKey
-   * @param {string} epKey - 剧集的 key
-   * @param {number} epId - 剧集的 id（可选，用于打印）
-   * @returns {Promise<Object>} 包含 uniqueKey 等信息的 data 字典
+   * 获取视频详情（用于补齐老链接缺失的 videoId）
+   * @param {string} mediaKey - 剧集标识
+   * @param {string} episodeKey - 分集标识
+   * @param {string|number} videoType - 视频类型
+   * @returns {Promise<Object>} 详情数据
    */
-  async getVideoInfo(epKey, epId = null) {
-    let baseParams = {
-      cinema: 1,
-      id: epKey,
-      a: 0,
-      lang: "none",
-      usersign: 1,
-      region: "GL.",
-      device: 0,
-      isMasterSupport: 1
-    }, headers = {
-      "User-Agent": this.USER_AGENT,
-      Accept: "application/json"
-    }, epInfo = epId ? `(ID:${epId})` : "";
-    log("info", `[aiyifan] [\u89C6\u9891\u4FE1\u606F] \u8BF7\u6C42 key: ${epKey} ${epInfo}`);
+  async getVideoInfo(mediaKey, episodeKey, videoType) {
+    log("info", `[aiyifan] [\u8BE6\u60C5] \u8BF7\u6C42 mediaKey: ${mediaKey} episodeKey: ${episodeKey}`);
     try {
-      let { data, vv } = await this.signingProvider.signedGetJson(this.VIDEO_API, baseParams, headers, "\u89C6\u9891\u4FE1\u606F");
-      return log("info", `[aiyifan] [\u89C6\u9891\u4FE1\u606F] vv\u7B7E\u540D: ${vv.substring(0, 16)}...`), data.data || {};
+      let { data } = await this.signingProvider.signedGetJson(this.DETAILS_API, {
+        mediaKey,
+        videoType,
+        episodeKey
+      }, "\u8BE6\u60C5");
+      return data?.data || {};
     } catch (error) {
-      return log("error", `[aiyifan] [\u89C6\u9891\u4FE1\u606F\u5931\u8D25] \u9519\u8BEF: ${error.message}`), null;
+      return log("error", `[aiyifan] [\u8BE6\u60C5\u5931\u8D25] \u9519\u8BEF: ${error.message}`), null;
     }
-  }
-  /**
-   * 从视频信息中提取 uniqueKey
-   * @param {Object} videoInfo - 视频信息
-   * @returns {string} uniqueKey
-   */
-  extractUniqueKey(videoInfo) {
-    let uniqueKey = (videoInfo.info?.[0] || {}).uniqueKey;
-    return uniqueKey && log("info", `[aiyifan] [\u89C6\u9891\u4FE1\u606F] \u83B7\u53D6\u5230 uniqueKey: ${uniqueKey}`), uniqueKey;
   }
   /**
    * 获取弹幕列表
-   * @param {string} uniqueKey - 唯一标识
-   * @param {number} page - 页码，默认为1
-   * @param {number} size - 每页数量，默认为30000
+   * @param {string} mediaKey - 剧集标识
+   * @param {string|number} videoId - 分集弹幕标识（uniqueID）
+   * @param {string|number} videoType - 视频类型
    * @returns {Promise<Array>} 弹幕列表
    */
-  async fetchBarrage(uniqueKey, page = 1, size = 3e4) {
-    let baseParams = {
-      cinema: 1,
-      page,
-      size,
-      uniqueKey
-    }, headers = {
-      "User-Agent": this.USER_AGENT
-    };
-    log("info", `[aiyifan] [\u5F39\u5E55] \u8BF7\u6C42 uniqueKey: ${uniqueKey}`);
+  async fetchBarrage(mediaKey, videoId, videoType) {
+    log("info", `[aiyifan] [\u5F39\u5E55] \u8BF7\u6C42 mediaKey=${mediaKey} videoId=${videoId} videoType=${videoType}`);
     try {
-      let { data, vv } = await this.signingProvider.signedGetJson(this.DANMU_API, baseParams, headers, "\u5F39\u5E55");
-      log("info", `[aiyifan] [\u5F39\u5E55] vv\u7B7E\u540D: ${vv.substring(0, 16)}...`);
-      let danmuList = data.data?.info || [];
+      let { data } = await this.signingProvider.signedGetJson(this.DANMU_API, {
+        mediaKey,
+        videoId,
+        videoType
+      }, "\u5F39\u5E55"), danmuList = data?.data?.list || [];
       return log("info", `[aiyifan] [\u5F39\u5E55] \u83B7\u53D6\u5230 ${danmuList.length} \u6761\u5F39\u5E55`), danmuList;
     } catch (error) {
       return log("error", `[aiyifan] [\u5F39\u5E55\u5931\u8D25] \u9519\u8BEF: ${error.message}`), [];
@@ -18866,46 +19160,49 @@ var AiyifanSource = class extends BaseSource {
    */
   async search(keyword) {
     log("info", `[aiyifan] \u5F00\u59CB\u641C\u7D22: ${keyword}`);
-    let searchResult = await this.searchDrama(keyword);
+    let yearPromise = this.waitYearMap(
+      this.signingProvider.lookupYears(keyword, "\u5E74\u4EFD"),
+      AIYIFAN_WEB_YEAR_MAX_WAIT_MS
+    ), searchResult = await this.searchDrama(keyword);
     if (!searchResult)
       return log("error", "[aiyifan] \u641C\u7D22\u5931\u8D25\uFF0C\u9000\u51FA"), [];
     let dramas = this.extractDramaList(searchResult);
     if (!dramas.length)
       return log("warn", "[aiyifan] \u672A\u627E\u5230\u5267\u76EE\u4FE1\u606F\uFF0C\u9000\u51FA"), [];
-    let results = dramas.map((drama) => ({
-      provider: "aiyifan",
-      mediaId: drama.contxt,
-      // vid 作为 mediaId
-      title: drama.title,
-      type: drama.atypeName,
-      // 默认类型
-      year: new Date(drama.postTime).getFullYear(),
-      // 年份信息可能需要从其他地方获取
-      imageUrl: drama.imgPath || null,
-      // 图片链接
-      episodeCount: 0
-      // 初始集数为0，后续获取
-    }));
+    let yearMap = await yearPromise || /* @__PURE__ */ new Map(), results = dramas.map((drama) => {
+      let year = yearMap.get(drama.mediaKey) || null;
+      return {
+        provider: "aiyifan",
+        mediaId: drama.mediaKey,
+        // mediaKey 作为剧集标识
+        title: drama.title,
+        type: drama.type,
+        year,
+        imageUrl: drama.imageUrl,
+        episodeCount: drama.episodeCount
+      };
+    });
     return log("info", `[aiyifan] \u641C\u7D22\u5B8C\u6210\uFF0C\u627E\u5230 ${results.length} \u4E2A\u7ED3\u679C`), results;
   }
   /**
-   * 获取剧集详情
-   * @param {string} id - 剧集ID
-   * @returns {Promise<Array>} 剧集列表
+   * 等待网页搜索补年份的结果，最多等 timeoutMs：
+   * 被 Cloudflare 拦、超时或出错都不阻塞搜索，直接返回 null（调用方保留未知年份）。
+   * 后台请求若稍后完成，结果仍会写入 provider 缓存，下次搜索可直接命中。
+   * @param {Promise<Map>} promise - lookupYears 返回的 Promise
+   * @param {number} timeoutMs - 最长等待时间
+   * @returns {Promise<Map|null>} 年份映射，或 null（超时/失败）
    */
-  async getEpisodes(id) {
-    log("info", `[aiyifan] \u83B7\u53D6\u5267\u96C6\u8BE6\u60C5: ${id}`);
-    let episodes = await this.getPlaylist(id);
-    if (!episodes.length)
-      return log("error", "[aiyifan] \u83B7\u53D6\u64AD\u653E\u5217\u8868\u5931\u8D25"), [];
-    let result = episodes.map((ep, index) => ({
-      vid: ep.key,
-      // 使用key作为vid
-      id: ep.id,
-      title: ep.name || `\u7B2C${index + 1}\u96C6`,
-      link: `${this.DOMAIN_API}/${id}?id=${ep.key}`
-    }));
-    return log("info", `[aiyifan] \u83B7\u53D6\u5230 ${result.length} \u4E2A\u5267\u96C6`), result;
+  waitYearMap(promise, timeoutMs) {
+    return !timeoutMs || timeoutMs <= 0 ? promise : new Promise((resolve) => {
+      let settled = !1, timer = setTimeout(() => {
+        settled || (settled = !0, log("warn", `[aiyifan] \u7F51\u9875\u5E74\u4EFD\u67E5\u8BE2\u8D85\u8FC7 ${timeoutMs}ms \u672A\u8FD4\u56DE\uFF0C\u672C\u6B21\u4FDD\u7559\u672A\u77E5\u5E74\u4EFD`), resolve(null));
+      }, timeoutMs);
+      promise.then((map) => {
+        settled || (settled = !0, clearTimeout(timer), resolve(map));
+      }).catch(() => {
+        settled || (settled = !0, clearTimeout(timer), resolve(null));
+      });
+    });
   }
   /**
    * 处理搜索结果
@@ -18947,7 +19244,7 @@ var AiyifanSource = class extends BaseSource {
           type: anime.type,
           typeDescription: anime.type,
           imageUrl: anime.imageUrl,
-          startDate: generateValidStartDate(anime.year),
+          startDate: anime.year ? generateValidStartDate(anime.year) : "",
           episodeCount: links.length,
           rating: 0,
           isFavorited: !0,
@@ -18962,22 +19259,26 @@ var AiyifanSource = class extends BaseSource {
   }
   /**
    * 获取某集的弹幕
-   * @param {string} id - 视频ID
+   * @param {string} id - 剧集链接
    * @returns {Promise<Array>} 弹幕列表
    */
   async getEpisodeDanmu(id) {
     log("info", `[aiyifan] \u83B7\u53D6\u5F39\u5E55: ${id}`);
+    let episodeLink = this.parseEpisodeLink(id);
+    if (!episodeLink || !episodeLink.mediaKey)
+      return log("error", "[aiyifan] \u65E0\u6CD5\u89E3\u6790\u5267\u96C6\u94FE\u63A5"), [];
     let requestKey = this.extractEpisodeRequestKey(id), inflightRequest = this.inflightDanmuRequests.get(requestKey);
     if (inflightRequest)
       return log("info", `[aiyifan] \u590D\u7528\u8FDB\u884C\u4E2D\u7684\u5F39\u5E55\u8BF7\u6C42: ${requestKey}`), await inflightRequest;
     let requestPromise = (async () => {
-      let videoId = requestKey, videoInfo = await this.getVideoInfo(videoId);
-      if (!videoInfo)
-        return log("error", "[aiyifan] \u83B7\u53D6\u89C6\u9891\u4FE1\u606F\u5931\u8D25"), [];
-      let uniqueKey = this.extractUniqueKey(videoInfo);
-      if (!uniqueKey)
-        return log("error", "[aiyifan] \u672A\u83B7\u53D6\u5230uniqueKey"), [];
-      let danmuList = await this.fetchBarrage(uniqueKey);
+      let videoId = episodeLink.videoId, videoType = episodeLink.videoType;
+      if (!videoId && episodeLink.episodeKey) {
+        let detailInfo = (await this.getVideoInfo(episodeLink.mediaKey, episodeLink.episodeKey, videoType))?.detailInfo || {};
+        videoId = detailInfo.uniqueID != null ? detailInfo.uniqueID : detailInfo.episodeId, detailInfo.videoType != null && (videoType = detailInfo.videoType), log("info", `[aiyifan] \u8BE6\u60C5\u63A5\u53E3\u8865\u9F50 videoId: ${videoId}`);
+      }
+      if (!videoId)
+        return log("error", "[aiyifan] \u672A\u83B7\u53D6\u5230 videoId\uFF0C\u65E0\u6CD5\u83B7\u53D6\u5F39\u5E55"), [];
+      let danmuList = await this.fetchBarrage(episodeLink.mediaKey, videoId, videoType);
       return danmuList.length === 0 ? (log("info", "[aiyifan] \u672A\u83B7\u53D6\u5230\u5F39\u5E55"), []) : (danmuList.sort((a, b) => (a.second || 0) - (b.second || 0)), log("info", `[aiyifan] \u83B7\u53D6\u5230 ${danmuList.length} \u6761\u5F39\u5E55`), danmuList);
     })();
     this.inflightDanmuRequests.set(requestKey, requestPromise);
@@ -18989,20 +19290,20 @@ var AiyifanSource = class extends BaseSource {
   }
   /**
    * 获取某集的弹幕分片列表
-   * @param {string} id - 视频ID
+   * @param {string} id - 剧集链接
    * @returns {Promise<any>} 弹幕分片列表
    */
   async getEpisodeDanmuSegments(id) {
-    let danmaku = await this.getEpisodeDanmu(id), segmentList = [{
-      type: "aiyifan",
-      segment_start: 0,
-      segment_end: Math.max(...danmaku.map((d) => d.second || 0), 0),
-      url: `${this.DANMU_API}?uniqueKey=${id}`
-    }];
+    let danmaku = await this.getEpisodeDanmu(id), maxSecond = danmaku.length ? Math.max(...danmaku.map((d) => d.second || 0)) : 0;
     return {
       type: "aiyifan",
-      duration: Math.max(...danmaku.map((d) => d.second || 0), 0),
-      segmentList
+      duration: maxSecond,
+      segmentList: [{
+        type: "aiyifan",
+        segment_start: 0,
+        segment_end: maxSecond,
+        url: id
+      }]
     };
   }
   /**
@@ -19011,8 +19312,23 @@ var AiyifanSource = class extends BaseSource {
    * @returns {Promise<Array>} 分片弹幕
    */
   async getEpisodeSegmentDanmu(segment) {
-    let uniqueKey = segment.url?.split("uniqueKey=")[1];
-    return uniqueKey ? await this.getEpisodeDanmu(uniqueKey) : [];
+    let link = this.resolveSegmentLink(segment);
+    return link ? await this.getEpisodeDanmu(link) : (log("warn", "[aiyifan] \u5206\u7247\u4FE1\u606F\u7F3A\u5C11\u5267\u96C6\u94FE\u63A5"), []);
+  }
+  resolveSegmentLink(segment) {
+    if (!segment)
+      return null;
+    let rawUrl = typeof segment.url == "string" ? segment.url : "";
+    if (!rawUrl)
+      return null;
+    try {
+      let url = new URL(rawUrl), link = url.searchParams.get("link") || url.searchParams.get("uniqueKey") || rawUrl, episodeUrl = new URL(link);
+      if ((episodeUrl.hostname === "yfsp.tv" || episodeUrl.hostname.endsWith(".yfsp.tv")) && episodeUrl.pathname.startsWith("/play/"))
+        return link;
+    } catch {
+      return null;
+    }
+    return null;
   }
   /**
    * 格式化弹幕
@@ -19020,17 +19336,20 @@ var AiyifanSource = class extends BaseSource {
    * @returns {Array} 格式化后的弹幕
    */
   formatComments(comments) {
-    return comments.map((comment) => ({
-      // 时间（秒）
-      p: `${comment.second || 0},${comment.position === 1 ? 5 : 1},25,${hexToInt(comment.color.replace("#", ""))},0,0,0,0`,
-      // 标准弹幕格式: time, type, fontsize, color, unix_timestamp, pool, uid, row_id
-      m: comment.contxt || comment.content || "",
-      // 弹幕内容
-      like: comment.good,
-      // 点赞数
-      // 保留原始数据
-      ...comment
-    }));
+    return comments.map((comment) => {
+      let colorHex = String(comment.color || "#ffffff").replace("#", "");
+      return {
+        // 时间（秒）
+        p: `${comment.second || 0},${comment.position === 1 ? 5 : 1},25,${hexToInt(colorHex)},0,0,0,0`,
+        // 标准弹幕格式: time, type, fontsize, color, unix_timestamp, pool, uid, row_id
+        m: comment.contxt || comment.content || "",
+        // 弹幕内容
+        like: comment.good,
+        // 点赞数
+        // 保留原始数据
+        ...comment
+      };
+    });
   }
 };
 
@@ -21488,7 +21807,7 @@ async function getSegmentComment(segment, queryFormat) {
 }
 
 // forward/forward-widget.js
-var wv = "1.21.4";
+var wv = "1.21.5";
 WidgetMetadata = {
   id: "forward.auto.danmu2",
   title: "\u81EA\u52A8\u94FE\u63A5\u5F39\u5E55v2",
