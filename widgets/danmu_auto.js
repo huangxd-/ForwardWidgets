@@ -5331,44 +5331,50 @@ function validateType(value, expectedType, fieldName) {
     throw new TypeError(`${label} \u5FC5\u987B\u662F ${expectedType}\uFF0C\u4F46\u4F20\u5165\u7684\u662F ${received}`);
 }
 function extractSeasonNumberFromAnimeTitle(animeTitle) {
-  if (!animeTitle) return { season: null, baseTitle: null };
+  if (!animeTitle) return { season: null, baseTitle: null, fullTitle: null };
   let match = animeTitle.match(/^(.*?)\(\d{4}\)/), rawTitleWithoutYear = match ? match[1].trim() : animeTitle.split("(")[0].trim(), titleWithoutYear = stripNonTitleChars(rawTitleWithoutYear), explicitSeasonMatch = titleWithoutYear.match(/第\s*([0-9一二三四五六七八九十壹贰叁肆伍陆柒捌玖拾]+)\s*[季期部]/);
   if (explicitSeasonMatch)
     return {
       season: convertChineseNumber(explicitSeasonMatch[1]),
-      baseTitle: titleWithoutYear.replace(explicitSeasonMatch[0], "").trim()
+      baseTitle: titleWithoutYear.replace(explicitSeasonMatch[0], "").trim(),
+      fullTitle: titleWithoutYear
     };
   let seasonMatch = titleWithoutYear.match(/(?:S(?:eason)?|Season)\s*(\d+)/i);
   if (seasonMatch)
     return {
       season: parseInt(seasonMatch[1], 10),
-      baseTitle: titleWithoutYear.replace(seasonMatch[0], "").trim()
+      baseTitle: titleWithoutYear.replace(seasonMatch[0], "").trim(),
+      fullTitle: titleWithoutYear
     };
   let partMatch = titleWithoutYear.match(/Part\s*(\d+)/i);
   if (partMatch)
     return {
       season: parseInt(partMatch[1], 10),
-      baseTitle: titleWithoutYear.replace(partMatch[0], "").trim()
+      baseTitle: titleWithoutYear.replace(partMatch[0], "").trim(),
+      fullTitle: titleWithoutYear
     };
   let trailingNumber = titleWithoutYear.match(/(?:^|\s|[^\d])(\d{1,2})$/);
   if (trailingNumber) {
     let season = parseInt(trailingNumber[1], 10);
-    return season === 0 ? { season: null, baseTitle: titleWithoutYear } : {
+    return season === 0 ? { season: null, baseTitle: titleWithoutYear, fullTitle: titleWithoutYear } : {
       season,
-      baseTitle: titleWithoutYear.slice(0, titleWithoutYear.lastIndexOf(trailingNumber[1])).trim()
+      baseTitle: titleWithoutYear.slice(0, titleWithoutYear.lastIndexOf(trailingNumber[1])).trim(),
+      fullTitle: titleWithoutYear
     };
   }
   let trailingChinese = titleWithoutYear.match(/([一二三四五六七八九十壹贰叁肆伍陆柒捌玖拾]+)$/);
   if (trailingChinese)
     return {
       season: convertChineseNumber(trailingChinese[1]),
-      baseTitle: titleWithoutYear.replace(trailingChinese[0], "").trim()
+      baseTitle: titleWithoutYear.replace(trailingChinese[0], "").trim(),
+      fullTitle: titleWithoutYear
     };
   let romanMatch = titleWithoutYear.match(/[\u2160-\u216B]/);
   return romanMatch ? {
     season: romanMatch[0].codePointAt(0) - 8544 + 1,
-    baseTitle: titleWithoutYear.replace(romanMatch[0], "").trim()
-  } : { season: null, baseTitle: titleWithoutYear };
+    baseTitle: titleWithoutYear.replace(romanMatch[0], "").trim(),
+    fullTitle: titleWithoutYear
+  } : { season: null, baseTitle: titleWithoutYear, fullTitle: titleWithoutYear };
 }
 function extractEpisodeNumberFromTitle(episodeTitle) {
   if (!episodeTitle) return null;
@@ -5382,8 +5388,8 @@ function extractEpisodeNumberFromTitle(episodeTitle) {
   return numberMatch ? parseInt(numberMatch[1], 10) : null;
 }
 function extractAnimeInfo(animeTitle, episodeTitle) {
-  let { season, baseTitle } = extractSeasonNumberFromAnimeTitle(animeTitle), episode = extractEpisodeNumberFromTitle(episodeTitle);
-  return { baseTitle, season, episode };
+  let { season, baseTitle, fullTitle } = extractSeasonNumberFromAnimeTitle(animeTitle), episode = extractEpisodeNumberFromTitle(episodeTitle);
+  return { baseTitle, fullTitle, season, episode };
 }
 
 // danmu_api/utils/offset-util.js
@@ -5420,12 +5426,12 @@ function parseOffsetRules(env) {
     let seMatch = pathPart.match(/^(.*?)\/([SE]\d+)(?:\/([SE]\d+))?$/i), anime = seMatch ? seMatch[1].trim() : pathPart.trim();
     if (!anime) return null;
     let season = seMatch ? normalizeSegment(seMatch[2]) : null, episode = seMatch && seMatch[3] ? normalizeSegment(seMatch[3]) : null;
-    return { anime, season, episode, sources, all, offset, usePercent };
+    return { anime, season, episode, sources, all, offset, usePercent, raw: trimmed };
   }).filter(Boolean);
 }
-function resolveOffsetRule(rules, { anime, season, episode, source }) {
+function resolveOffsetRule(rules, { anime, fullTitle, season, episode, source }) {
   if (!Array.isArray(rules) || rules.length === 0 || !anime) return null;
-  let sourceKeys = /* @__PURE__ */ new Set();
+  let animeKey = normalizeTitleForMatch(anime), fullTitleKey = fullTitle ? normalizeTitleForMatch(fullTitle) : "", sourceKeys = /* @__PURE__ */ new Set();
   if (source)
     for (let s of source.split("&")) {
       let trimmed = s.trim().toLowerCase();
@@ -5441,8 +5447,9 @@ function resolveOffsetRule(rules, { anime, season, episode, source }) {
   ];
   for (let level of levels) {
     let specificMatch = null, allMatch = null, genericMatch = null;
-    for (let rule of rules)
-      if (normalizeTitleForMatch(rule.anime) === normalizeTitleForMatch(anime)) {
+    for (let rule of rules) {
+      let ruleTitle = normalizeTitleForMatch(rule.anime);
+      if (!(ruleTitle !== animeKey && !(fullTitleKey && ruleTitle === fullTitleKey))) {
         if (level.matchEpisode) {
           if (!rule.season || !rule.episode || rule.season !== season || rule.episode !== episode) continue;
         } else if (level.matchSeason) {
@@ -5450,6 +5457,7 @@ function resolveOffsetRule(rules, { anime, season, episode, source }) {
         } else if (rule.season || rule.episode) continue;
         rule.sources ? sourceKeys.size > 0 && rule.sources.some((s) => sourceKeys.has(s)) && (specificMatch = rule) : rule.all ? allMatch = rule : genericMatch = rule;
       }
+    }
     if (specificMatch !== null) return specificMatch;
     if (allMatch !== null) return allMatch;
     if (genericMatch !== null) return genericMatch;
@@ -5508,6 +5516,9 @@ function applyOffset(danmus, offsetSeconds, options = {}) {
     }
     return updated;
   });
+}
+function offsetDuration(duration, offset, usePercent) {
+  return !(duration > 0) || !offset ? duration : applyOffset([{ t: duration }], offset, { usePercent, videoDuration: duration })[0].t;
 }
 function stripLinkOffset(rawUrl) {
   let url = String(rawUrl ?? ""), percentMatch = url.match(/@%(-?\d+(?:\.\d+)?)$/);
@@ -5688,7 +5699,7 @@ var _Envs = class _Envs {
    * @returns {Array} 服务器列表
    */
   static resolveVodServers() {
-    let vodServersConfig = this.get("VOD_SERVERS", "\u91D1\u8749@https://zy.jinchancaiji.com,789@https://www.caiji.cyou,\u542C\u98CE@https://gctf.tfdh.top", "string");
+    let vodServersConfig = this.get("VOD_SERVERS", "", "string");
     return !vodServersConfig || vodServersConfig.trim() === "" ? [] : vodServersConfig.split(",").map((s) => s.trim()).filter((s) => s.length > 0).map((item, index) => {
       if (item.includes("@")) {
         let [name, url] = item.split("@").map((s) => s.trim());
@@ -5996,7 +6007,7 @@ var _Envs = class _Envs {
 3. \u963B\u65AD\u5408\u5E76\uFF1A\u8F89\u591C\u5927\u5C0F\u59D0\u60F3\u8BA9\u6211\u544A\u767D\uFF1F\uFF5E\u5929\u624D\u4EEC\u7684\u604B\u7231\u5934\u8111\u6218\uFF5E(2020)@bilibili \xD7 \u8F89\u591C\u5927\u5C0F\u59D0\u60F3\u8BA9\u6211\u544A\u767D\uFF5E\u5929\u624D\u4EEC\u7684\u604B\u7231\u5934\u8111\u6218\uFF5E OVA(2021)\u3010OVA\u3011@dandan` },
       OTHER_SERVER: { category: "source", type: "text", description: "\u7B2C\u4E09\u65B9\u5F39\u5E55\u670D\u52A1\u5668\uFF0C\u9ED8\u8BA4https://api.danmu.icu" },
       CUSTOM_SOURCE_API_URL: { category: "source", type: "text", description: "\u81EA\u5B9A\u4E49\u5F39\u5E55\u6E90API\u5730\u5740\uFF0C\u9ED8\u8BA4\u4E3A\u7A7A\uFF0C\u914D\u7F6E\u540E\u8FD8\u9700\u5728SOURCE_ORDER\u6DFB\u52A0custom\u6E90" },
-      VOD_SERVERS: { category: "source", type: "text", description: "VOD\u7AD9\u70B9\u914D\u7F6E\uFF0C\u683C\u5F0F\uFF1A\u540D\u79F0@URL,\u540D\u79F0@URL\uFF0C\u9ED8\u8BA4\u91D1\u8749@https://zy.jinchancaiji.com,789@https://www.caiji.cyou,\u542C\u98CE@https://gctf.tfdh.top" },
+      VOD_SERVERS: { category: "source", type: "text", description: "VOD\u7AD9\u70B9\u914D\u7F6E\uFF0C\u683C\u5F0F\uFF1A\u540D\u79F0@URL,\u540D\u79F0@URL\uFF0C\u9ED8\u8BA4\u4E3A\u7A7A\uFF1B\u672A\u914D\u7F6E\u65F6\u8DF3\u8FC7 VOD\uFF0C\u4E0D\u53D1\u9001\u8BF7\u6C42" },
       VOD_RETURN_MODE: { category: "source", type: "select", options: ["all", "fastest"], description: "VOD\u8FD4\u56DE\u6A21\u5F0F\uFF1Aall\uFF08\u6240\u6709\u7AD9\u70B9\uFF09\u6216 fastest\uFF08\u6700\u5FEB\u7684\u7AD9\u70B9\uFF09\uFF0C\u9ED8\u8BA4fastest" },
       VOD_REQUEST_TIMEOUT: { category: "source", type: "number", description: "VOD\u8BF7\u6C42\u8D85\u65F6\u65F6\u95F4\uFF0C\u9ED8\u8BA410000", min: 5e3, max: 3e4 },
       BILIBILI_COOKIE: { category: "source", type: "text", description: "B\u7AD9Cookie" },
@@ -6022,7 +6033,8 @@ var _Envs = class _Envs {
       STRICT_TITLE_MATCH: { category: "match", type: "boolean", description: "\u4E25\u683C\u6807\u9898\u5339\u914D\u6A21\u5F0F" },
       TITLE_TO_CHINESE: { category: "match", type: "boolean", description: "\u5916\u8BED\u6807\u9898\u8F6C\u6362\u4E2D\u6587\u5F00\u5173" },
       ANIME_TITLE_SIMPLIFIED: { category: "match", type: "boolean", description: "\u641C\u7D22\u7684\u5267\u540D\u6807\u9898\u81EA\u52A8\u7E41\u8F6C\u7B80" },
-      TITLE_MAPPING_TABLE: { category: "match", type: "map", description: '\u5267\u540D\u6620\u5C04\u8868\uFF0C\u7528\u4E8E\u81EA\u52A8\u5339\u914D\u65F6\u66FF\u6362\u6807\u9898\u8FDB\u884C\u641C\u7D22\uFF0C\u683C\u5F0F\uFF1A\u539F\u59CB\u6807\u9898->\u6620\u5C04\u6807\u9898;\u539F\u59CB\u6807\u9898->\u6620\u5C04\u6807\u9898;... \uFF0C\u4F8B\u5982\uFF1A"\u5510\u671D\u8BE1\u4E8B\u5F55->\u5510\u671D\u8BE1\u4E8B\u5F55\u4E4B\u897F\u884C;\u56FD\u8272\u82B3\u534E->\u9526\u7EE3\u82B3\u534E"' },
+      TITLE_MAPPING_TABLE: { category: "match", type: "map", description: '\u672C\u673A\u5267\u540D\u6620\u5C04\u8868\uFF0C\u7528\u4E8E\u81EA\u52A8\u5339\u914D\u65F6\u66FF\u6362\u6807\u9898\u8FDB\u884C\u641C\u7D22\u3002\u672C\u673A\u89C4\u5219\u4F18\u5148\u4E8E\u8FDC\u7A0B\u89C4\u5219\u3002\u683C\u5F0F\uFF1A\u539F\u59CB\u6807\u9898->\u6620\u5C04\u6807\u9898;\u539F\u59CB\u6807\u9898->\u6620\u5C04\u6807\u9898;...\uFF0C\u4F8B\u5982\uFF1A"\u5510\u671D\u8BE1\u4E8B\u5F55->\u5510\u671D\u8BE1\u4E8B\u5F55\u4E4B\u897F\u884C;\u56FD\u8272\u82B3\u534E->\u9526\u7EE3\u82B3\u534E"' },
+      TITLE_MAPPING_TABLE_URL: { category: "match", type: "text", description: "\u8FDC\u7A0B\u5267\u540D\u6620\u5C04\u8868\uFF08\u9ED8\u8BA4\u5173\u95ED\uFF0C\u586B\u5199\u540E\u542F\u7528\uFF09\u3002\u793A\u4F8B\uFF1Ahttps://raw.githubusercontent.com/xlmc/danmu-mapping/main/Word/2026.txt\u3002\u672C\u673A TITLE_MAPPING_TABLE \u4F18\u5148\uFF1BNode/Docker \u4F1A\u7F13\u5B58\u5230 .cache \u5E76\u5728\u6BCF\u5929\u5317\u4EAC\u65F6\u95F405:30\u540E\u53F0\u66F4\u65B0\uFF1BServerless \u51B7\u542F\u52A8\u540E\u7684\u9996\u6B21\u6807\u9898\u5339\u914D\u4F1A\u540C\u6B65\u4E0B\u8F7D\uFF0C\u6700\u957F\u7EA6\u7B49\u5F855\u79D2\uFF0C\u914D\u7F6E\u672C\u53D8\u91CF\u5373\u8868\u793A\u63A5\u53D7\u8BE5\u5EF6\u8FDF\u3002\u652F\u6301 GitHub \u6587\u4EF6\u9875\u3001Gist\u3001jsDelivr \u548C HTTP/HTTPS TXT \u76F4\u94FE\uFF1B\u5185\u5BB9\u683C\u5F0F\u4E3A\u6BCF\u884C \u539F\u59CB\u6807\u9898->\u6620\u5C04\u6807\u9898\uFF0C# \u6216 // \u5F00\u5934\u4E3A\u6CE8\u91CA" },
       AUTO_MATCH_MAPPING_TABLE: { category: "match", type: "map", description: `\u81EA\u52A8\u5339\u914D\u6620\u5C04\u8868\uFF0C\u4EC5\u4F5C\u7528\u4E8E POST /api/v2/match\u3002\u591A\u4E2A\u89C4\u5219\u4F7F\u7528\u5206\u53F7\u5206\u9694\u3002
 \u5F00\u653E\u6620\u5C04\uFF1A\u6C38\u751F S05E02 -> \u6C38\u751F S01E58
 \u6709\u9650\u8303\u56F4\uFF1A\u6C38\u751F S05E02~03 -> \u6C38\u751F S01E58~59
@@ -6185,6 +6197,8 @@ var _Envs = class _Envs {
       // 搜索的剧名标题自动繁转简
       titleMappingTable: this.resolveTitleMappingTable(),
       // 剧名映射表，用于自动匹配时替换标题进行搜索
+      titleMappingTableUrl: this.get("TITLE_MAPPING_TABLE_URL", "", "string"),
+      // 远程剧名映射表地址（由用户托管维护，自动拉取生效）
       autoMatchMappingTable: this.resolveAutoMatchMappingTable(),
       // 自动匹配标题/季度/集数映射规则
       ipBlacklist: this.resolveIpBlacklist(),
@@ -6275,7 +6289,7 @@ var Globals = {
   originalEnvVars: {},
   accessedEnvVars: {},
   // 静态常量
-  VERSION: "1.21.7",
+  VERSION: "1.21.8",
   MAX_LOGS: 1e3,
   // 日志存储，最多保存 1000 行
   MAX_RECORDS: 100,
@@ -6324,6 +6338,8 @@ var Globals = {
   // 弹幕缓存，存储格式：{ videoUrl: { comments, timestamp } }
   favoriteCache: /* @__PURE__ */ new Map(),
   // 收藏剧集永久缓存，存储格式：{ keyword: { results, details, timestamp } }，无 TTL、无数量上限
+  remoteTitleMappingTable: /* @__PURE__ */ new Map(),
+  // 远端剧名映射，查询时由本机映射优先兜底
   deployPlatform: "",
   // 部署平台配置
   currentToken: "",
@@ -6384,6 +6400,10 @@ var Globals = {
         return targetUrl;
       }
     return universalProxy ? `${universalProxy.replace(/\/$/, "")}/${targetUrl}` : forwardProxy ? `http://127.0.0.1:5321/proxy?url=${encodeURIComponent(targetUrl)}` : targetUrl;
+  },
+  resolveTitleMapping(title) {
+    let key = String(title ?? ""), localMappings = this.envs?.titleMappingTable;
+    return localMappings?.has(key) ? localMappings.get(key) : this.remoteTitleMappingTable.get(key) ?? null;
   },
   /**
    * 获取全局配置快照
@@ -8657,7 +8677,7 @@ function buildGradientSampler(rawStops) {
   };
 }
 function convertToDanmakuJson(contents, platform) {
-  let danmus = [], cidCounter = 1, isMultiSource = !1, colorV2Count = 0, items = [];
+  let danmus = [], cidCounter = 1, sourceLabels = /* @__PURE__ */ new Set(), colorV2Count = 0, items = [];
   if (typeof contents == "string")
     items = [...contents.matchAll(/<d p="([^"]+)">([^<]+)<\/d>/g)].map((match) => ({
       p: match[1],
@@ -8687,7 +8707,7 @@ function convertToDanmakuJson(contents, platform) {
       time = parseFloat(pValues[0]).toFixed(2), mode = pValues[1] || 0, pValues.length === 4 ? color = pValues[2] || 16777215 : pValues.length >= 8 ? color = pValues[3] || 16777215 : color = pValues[3] || pValues[2] || 16777215, m = item.m;
     }
     let currentPlatform = item._sourceLabel || platform;
-    item.realTimeSource && !currentPlatform.includes(item.realTimeSource) && (currentPlatform = `${currentPlatform}\uFF06${item.realTimeSource}`), !isMultiSource && /[&＆]/.test(currentPlatform) && (isMultiSource = !0), attributes = [
+    item.realTimeSource && !currentPlatform.includes(item.realTimeSource) && (currentPlatform = `${currentPlatform}\uFF06${item.realTimeSource}`), sourceLabels.add(currentPlatform), attributes = [
       time,
       mode,
       color,
@@ -8720,7 +8740,8 @@ function convertToDanmakuJson(contents, platform) {
       log("info", `[system] [danmu] [blocked-words] \u2705 \u5C4F\u853D\u8BCD\u5DF2\u751F\u6548: \u62E6\u622A ${removedCount}/${danmus.length} \u6761\u5F39\u5E55${hitSummary ? `\uFF0C\u547D\u4E2D\u660E\u7EC6: ${hitSummary}` : ""}`), blockedSamples.length && log("info", `[system] [danmu] [blocked-words] \u62E6\u622A\u793A\u4F8B(\u6700\u591A3\u6761): ${blockedSamples.join(" | ")}`);
     } else
       log("info", `[system] [danmu] [blocked-words] \u26A0\uFE0F \u89C4\u5219\u5DF2\u52A0\u8F7D(${regexArray.length} \u6761)\u4F46\u672C\u96C6\u5F39\u5E55\u65E0\u547D\u4E2D`);
-  log("info", `[system] [danmu] \u53BB\u91CD\u5206\u949F\u6570: ${globals.groupMinute}`);
+  let isMultiSource = sourceLabels.size > 1;
+  log("info", `[system] [danmu] \u53BB\u91CD\u5206\u949F\u6570: ${globals.groupMinute}\uFF0C\u6765\u6E90\u6807\u7B7E ${sourceLabels.size} \u79CD`);
   let groupedDanmus = groupDanmusByMinute(filteredDanmus, globals.groupMinute, isMultiSource), likeDanmus = handleDanmusLike(groupedDanmus), convertedDanmus = limitDanmusByCount(likeDanmus, globals.danmuLimit);
   if (globals.convertTopBottomToScroll || globals.convertColor === "white" || globals.convertColor === "color") {
     let topBottomCount = 0, colorCount = 0, gradientCount = 0, gradientSampler = globals.convertColor === "color" ? buildGradientSampler(resolveGradientSkin(globals.gradientColors)) : null, gradientChance = Math.min(Math.max(globals.gradientChance || 0, 0), 100) / 100;
@@ -8863,27 +8884,22 @@ async function getTmdbAlternativeTitles(mediaType, tmdbId, options = {}) {
   let url = `${mediaType}/${tmdbId}/alternative_titles?api_key=${globals.tmdbApiKey}`;
   return await tmdbApiGet(url, options);
 }
-function extractChineseTitleFromAlternatives(altData, mediaType, queryTitle = "") {
-  let titles = altData?.data?.results || altData?.data?.titles || [];
+var getAlternativeEntries = (altData) => altData?.data?.results || altData?.data?.titles || [], getAlternativeText = (entry) => entry.title || entry.name || "";
+function pickChineseTitleFromAlternatives(altData) {
+  let titles = getAlternativeEntries(altData);
   if (!titles.length) return null;
-  let cleanQuery = (queryTitle || "").toLowerCase().trim(), getStr = (t) => t.title || t.name || "", priorityRules = [
-    // 1. 最高优先级：精确命中用户搜索词
-    (t) => cleanQuery && getStr(t).toLowerCase().trim() === cleanQuery,
-    // 2. 地区优先级：按 CN > TW > HK > SG 顺序映射出 4 个规则函数
-    ...["CN", "TW", "HK", "SG"].map(
-      (region) => (t) => (t.iso_3166_1 || t.iso_639_1) === region && !isNonChinese(getStr(t))
-    ),
-    // 3. 兜底优先级：任何包含中文的别名
-    (t) => !isNonChinese(getStr(t))
-  ];
-  for (let rule of priorityRules) {
-    let match = titles.find(rule);
-    if (match) {
-      let bestMatchTitle = getStr(match);
-      return log("info", `[system] [tmdb] \u6309\u4F18\u5148\u7EA7\u7B56\u7565\u6210\u529F\u63D0\u53D6\u6700\u4F73\u4E2D\u6587\u522B\u540D: ${bestMatchTitle}`), bestMatchTitle;
-    }
+  for (let region of ["CN", "TW", "HK", "SG"]) {
+    let match = titles.find((t) => (t.iso_3166_1 || t.iso_639_1) === region && !isNonChinese(getAlternativeText(t)));
+    if (match) return getAlternativeText(match);
   }
-  return null;
+  let anyChinese = titles.find((t) => !isNonChinese(getAlternativeText(t)));
+  return anyChinese ? getAlternativeText(anyChinese) : null;
+}
+function extractChineseTitleFromAlternatives(altData, queryTitle = "") {
+  let titles = getAlternativeEntries(altData);
+  if (!titles.length) return null;
+  let cleanQuery = (queryTitle || "").toLowerCase().trim(), exactMatch = cleanQuery && titles.find((t) => getAlternativeText(t).toLowerCase().trim() === cleanQuery), chineseTitle = exactMatch ? getAlternativeText(exactMatch) : pickChineseTitleFromAlternatives(altData);
+  return chineseTitle ? (log("info", `[system] [tmdb] \u6309\u4F18\u5148\u7EA7\u7B56\u7565\u6210\u529F\u63D0\u53D6\u6700\u4F73\u522B\u540D: ${chineseTitle}`), chineseTitle) : null;
 }
 async function getChineseTitleForResult(result, signal, queryTitle = "") {
   let resultTitle = result.name || result.title || "";
@@ -8897,8 +8913,8 @@ async function getChineseTitleForResult(result, signal, queryTitle = "") {
     let altResp = await getTmdbAlternativeTitles(mediaType, result.id, { signal });
     if (signal && signal.aborted)
       throw new DOMException("Aborted", "AbortError");
-    let chineseTitle = extractChineseTitleFromAlternatives(altResp, mediaType, queryTitle);
-    return chineseTitle ? (log("info", `[system] [tmdb] \u5C06\u4F7F\u7528\u4E2D\u6587\u522B\u540D\u8FDB\u884C\u76F8\u4F3C\u5339\u914D: ${chineseTitle}`), chineseTitle) : (log("info", `[system] [tmdb] \u672A\u627E\u5230\u4E2D\u6587\u522B\u540D\uFF0C\u4F7F\u7528\u539F\u6807\u9898: ${resultTitle}`), resultTitle);
+    let chineseTitle = extractChineseTitleFromAlternatives(altResp, queryTitle);
+    return chineseTitle ? (log("info", `[system] [tmdb] \u5C06\u4F7F\u7528\u522B\u540D\u8FDB\u884C\u76F8\u4F3C\u5339\u914D: ${chineseTitle}`), chineseTitle) : (log("info", `[system] [tmdb] \u672A\u627E\u5230\u4E2D\u6587\u522B\u540D\uFF0C\u4F7F\u7528\u539F\u6807\u9898: ${resultTitle}`), resultTitle);
   } catch (error) {
     if (error.name === "AbortError")
       throw error;
@@ -10013,10 +10029,13 @@ function findSecondaryMatches(primaryAnime, secondaryList, collectionAnimeIds = 
       logReason(rawSecTitle, "\u6807\u9898\u7ED3\u6784\u51B2\u7A81\u4E14\u65E5\u671F\u65E0\u6548");
       continue;
     }
-    let isSeasonExactMatch = hasSameSeasonMarker(primaryTitleForSim, secTitleForSim, primaryAnime.typeDescription, secAnime.typeDescription, primaryAnime.aliases, secAnime.aliases), contentProbe = probeContentMatch(primaryAnime, secAnime), hasMovieA = rawPrimaryTitle.search(RegexStore.Clean.MOVIE_KEYWORDS) !== -1, hasMovieB = rawSecTitle.search(RegexStore.Clean.MOVIE_KEYWORDS) !== -1;
+    let isSeasonExactMatch = hasSameSeasonMarker(primaryTitleForSim, secTitleForSim, primaryAnime.typeDescription, secAnime.typeDescription, primaryAnime.aliases, secAnime.aliases), contentProbe = probeContentMatch(primaryAnime, secAnime), primaryCandidates = Array.from(new Set([primaryTitleForSim, ...primaryAnime.aliases || []].map(titleForSimilarity).filter(Boolean))), secCandidates = Array.from(new Set([secTitleForSim, ...secAnime.aliases || []].map(titleForSimilarity).filter(Boolean))), hasMovieA = rawPrimaryTitle.search(RegexStore.Clean.MOVIE_KEYWORDS) !== -1, hasMovieB = rawSecTitle.search(RegexStore.Clean.MOVIE_KEYWORDS) !== -1;
     if (hasMovieA !== hasMovieB) {
-      let markersB = extractSeasonMarkers(rawSecTitle, secAnime.typeDescription, secAnime.aliases), stripMovie = (t) => cleanTitleForSimilarity(t.replace(RegexStore.Clean.MOVIE_KEYWORDS, "")), cleanA = stripMovie(rawPrimaryTitle), cleanB = stripMovie(rawSecTitle);
-      if (calculateSimilarity(cleanA, cleanB) > 0.9 && !markersP.has("SEQUEL") && !markersB.has("SEQUEL")) {
+      let markersB = extractSeasonMarkers(rawSecTitle, secAnime.typeDescription, secAnime.aliases), stripMovie = (t) => cleanTitleForSimilarity(t.replace(RegexStore.Clean.MOVIE_KEYWORDS, "")), bestMovieSim = 0;
+      for (let pCand of primaryCandidates)
+        for (let sCand of secCandidates)
+          bestMovieSim = Math.max(bestMovieSim, calculateSimilarity(stripMovie(pCand), stripMovie(sCand)));
+      if (bestMovieSim > 0.9 && !markersP.has("SEQUEL") && !markersB.has("SEQUEL")) {
         logReason(rawSecTitle, `\u5267\u573A\u7248\u6807\u9898\u963B\u65AD: [${hasMovieA ? "Movie" : "TV"}] vs [${hasMovieB ? "Movie" : "TV"}] (\u65E0\u7EED\u7BC7\u6807\u8BC6)`);
         continue;
       }
@@ -10044,7 +10063,7 @@ function findSecondaryMatches(primaryAnime, secondaryList, collectionAnimeIds = 
         logReason(rawSecTitle, "\u5B63\u5EA6\u6807\u8BB0\u51B2\u7A81");
         continue;
       }
-    let primaryCandidates = Array.from(new Set([primaryTitleForSim, ...primaryAnime.aliases || []].map(titleForSimilarity).filter(Boolean))), secCandidates = Array.from(new Set([secTitleForSim, ...secAnime.aliases || []].map(titleForSimilarity).filter(Boolean))), bestScoreFull = 0, bestScoreBase = 0;
+    let bestScoreFull = 0, bestScoreBase = 0;
     for (let pCand of primaryCandidates) {
       let pBase = removeParentheses(pCand);
       for (let sCand of secCandidates)
@@ -10499,7 +10518,7 @@ ${mappingEntries.map((e) => e.text).join(`
     return derivedAnime.animeTitle = derivedAnime.animeTitle.replace(
       `from ${currentPrimarySource}`,
       `from ${currentPrimarySource}${DISPLAY_CONNECTOR}${joinedSources}`
-    ), derivedAnime.source = currentPrimarySource, derivedAnime;
+    ), derivedAnime.source = currentPrimarySource, derivedAnime.episodeCount = derivedAnime.links.length, derivedAnime;
   }
   return null;
 }
@@ -11189,7 +11208,7 @@ var Kan360Source = class extends BaseSource {
       }
       return episodes;
     } catch (e) {
-      return log("error", `getEpisodesV1 error: ${e && e.message ? e.message : e}`), [];
+      return log("error", `[360kan] getEpisodesV1 error: ${e && e.message ? e.message : e}`), [];
     }
   }
   // 使用 episodesv2 接口获取剧集分集（电视剧/动漫）
@@ -11430,7 +11449,7 @@ var VodSource = class extends BaseSource {
     return log("error", "[VOD fastest mode] \u6240\u6709\u670D\u52A1\u5668\u5747\u65E0\u6709\u6548\u6570\u636E"), [];
   }
   async search(keyword, preferAnimeId = null, preferSource = null) {
-    return !globals.vodServers || globals.vodServers.length === 0 ? [] : globals.vodReturnMode === "fastest" ? await this.getVodAnimesFromFastestServer(keyword, globals.vodServers, preferAnimeId, preferSource) : await this.getVodAnimesFromAllServersImpl(keyword, globals.vodServers);
+    return !globals.vodServers || globals.vodServers.length === 0 ? (log("info", "[vod] \u672A\u914D\u7F6E VOD_SERVERS\uFF0C\u8DF3\u8FC7 VOD \u641C\u7D22"), []) : globals.vodReturnMode === "fastest" ? await this.getVodAnimesFromFastestServer(keyword, globals.vodServers, preferAnimeId, preferSource) : await this.getVodAnimesFromAllServersImpl(keyword, globals.vodServers);
   }
   async getEpisodes(id) {
   }
@@ -11831,7 +11850,23 @@ var CACHED_ALI_ID = null, REQUEST_COUNT = 0, ROTATION_THRESHOLD = 0, API_HEALTH 
   search: "WIN",
   detail: "WEB",
   danmu: "TV"
-}, RenrenSource = class extends BaseSource {
+}, COVER_HOST_ALIASES = {
+  "img.bwcgee.cn": "img.duoduoshipin.vip"
+};
+function normalizeCoverUrl(url) {
+  if (!url) return url;
+  try {
+    let parsed = new URL(url), host = COVER_HOST_ALIASES[parsed.hostname];
+    return host ? (parsed.hostname = host, parsed.toString()) : url;
+  } catch {
+    return url;
+  }
+}
+function getUnavailableReason(data) {
+  let dramaInfo = data?.dramaInfo || {}, playStatus = String(dramaInfo.playStatus || "");
+  return dramaInfo.serialStatus === "NOT_BROADCAST" || playStatus.includes("\u5373\u5C06\u5F00\u64AD") ? "\u5C1A\u672A\u5F00\u64AD" : !dramaInfo.serialStatus && !playStatus ? "\u5C1A\u672A\u4E0A\u7EBF" : "\u65E0\u64AD\u653E\u8D44\u6E90";
+}
+var RenrenSource = class extends BaseSource {
   constructor() {
     super();
     // =====================
@@ -12104,7 +12139,7 @@ ${path2}?${sortedQuery}`;
           type: item.classify || "Renren",
           season: null,
           year: item.year,
-          imageUrl: item.cover,
+          imageUrl: normalizeCoverUrl(item.cover),
           episodeCount: null,
           // 列表页不返回总集数
           currentEpisodeIndex: null
@@ -12135,7 +12170,7 @@ ${path2}?${sortedQuery}`;
           type: item.classify || item.cat || "Renren",
           season: null,
           year: item.year || null,
-          imageUrl: item.cover || item.cover3 || "",
+          imageUrl: normalizeCoverUrl(item.cover || item.cover3 || ""),
           episodeCount: null,
           currentEpisodeIndex: null
         };
@@ -12167,7 +12202,7 @@ ${path2}?${sortedQuery}`;
           type: item.classify || item.cat || "Renren",
           season: null,
           year: item.year || null,
-          imageUrl: item.cover || item.coverUrl,
+          imageUrl: normalizeCoverUrl(item.cover || item.coverUrl),
           episodeCount: null,
           currentEpisodeIndex: null
         };
@@ -12214,7 +12249,7 @@ ${path2}?${sortedQuery}`;
           type: item.classify || "Renren",
           season: null,
           year: item.year,
-          imageUrl: item.cover,
+          imageUrl: normalizeCoverUrl(item.cover),
           episodeCount: item.episodeTotal,
           currentEpisodeIndex: null
         };
@@ -12310,9 +12345,10 @@ ${path2}?${sortedQuery}`;
    * 获取剧集详情 (TV API)
    * @param {string} dramaId 剧集ID
    * @param {string} episodeSid 单集ID (可选)
+   * @param {Object} diagnostics 无分集原因收集对象 (可选)
    * @returns {Object} 详情数据对象
    */
-  async getAppDramaDetail(dramaId, episodeSid = "", signal) {
+  async getAppDramaDetail(dramaId, episodeSid = "", diagnostics = null, signal) {
     try {
       let timestamp = Date.now(), path2 = "/qwtv/drama/details", queryParams = {
         isAgeLimit: "false",
@@ -12328,7 +12364,7 @@ ${path2}?${sortedQuery}`;
       if (!resp || !resp.data)
         return log("info", `[renren] TV\u8BE6\u60C5\u63A5\u53E3\u7F51\u7EDC\u65E0\u54CD\u5E94\u6216\u6570\u636E\u4E3A\u7A7A: ID=${dramaId}`), null;
       let resData = resp.data, msg = resData.msg || resData.message || "";
-      return msg.includes("\u8BE5\u5267\u6682\u4E0D\u53EF\u64AD") ? (log("info", `[renren] TV\u63A5\u53E3\u63D0\u793A'\u8BE5\u5267\u6682\u4E0D\u53EF\u64AD' (ID=${dramaId})\uFF0C\u89C6\u4E3A\u7EF4\u62A4\u4E2D\uFF0C\u89E6\u53D1\u964D\u7EA7`), null) : resData.code !== "0000" ? (log("info", `[renren] TV\u8BE6\u60C5\u63A5\u53E3\u8FD4\u56DE\u9519\u8BEF\u7801: ${resData.code}, msg=${msg} (ID=${dramaId})`), null) : !resData.data || !resData.data.episodeList || resData.data.episodeList.length === 0 ? resData.data?.dramaInfo?.playStatus?.includes("\u5373\u5C06\u5F00\u64AD") ? (log("info", `[renren] TV\u8BE6\u60C5\u63A5\u53E3\u63D0\u793A'\u5373\u5C06\u5F00\u64AD' (ID=${dramaId})\uFF0C\u89C6\u4E3A\u7A7A\u7ED3\u679C`), resData.data.episodeList || (resData.data.episodeList = []), resData.data) : (log("info", `[renren] TV\u8BE6\u60C5\u63A5\u53E3\u8FD4\u56DE\u6570\u636E\u7F3A\u5931\u5206\u96C6\u5217\u8868 (ID=${dramaId})\uFF0C\u5C1D\u8BD5\u964D\u7EA7`), null) : (log("info", `[renren] TV\u7AEF\u8BE6\u60C5\u83B7\u53D6\u4E0E\u5206\u96C6\u89E3\u6790\u6210\u529F: ID=${dramaId}, \u5305\u542B\u96C6\u6570=${resData.data.episodeList.length}`), resData.data);
+      return msg.includes("\u8BE5\u5267\u6682\u4E0D\u53EF\u64AD") ? (log("info", `[renren] TV\u63A5\u53E3\u63D0\u793A'\u8BE5\u5267\u6682\u4E0D\u53EF\u64AD' (ID=${dramaId})\uFF0C\u89C6\u4E3A\u7EF4\u62A4\u4E2D\uFF0C\u89E6\u53D1\u964D\u7EA7`), null) : resData.code !== "0000" ? (log("info", `[renren] TV\u8BE6\u60C5\u63A5\u53E3\u8FD4\u56DE\u9519\u8BEF\u7801: ${resData.code}, msg=${msg} (ID=${dramaId})`), null) : !resData.data || !resData.data.episodeList || resData.data.episodeList.length === 0 ? (diagnostics && resData.data && !diagnostics.reason && (diagnostics.reason = getUnavailableReason(resData.data)), resData.data?.dramaInfo?.playStatus?.includes("\u5373\u5C06\u5F00\u64AD") ? (log("info", `[renren] TV\u8BE6\u60C5\u63A5\u53E3\u63D0\u793A'\u5373\u5C06\u5F00\u64AD' (ID=${dramaId})\uFF0C\u89C6\u4E3A\u7A7A\u7ED3\u679C`), resData.data.episodeList || (resData.data.episodeList = []), resData.data) : (log("info", `[renren] TV\u8BE6\u60C5\u63A5\u53E3\u8FD4\u56DE\u6570\u636E\u7F3A\u5931\u5206\u96C6\u5217\u8868 (ID=${dramaId})\uFF0C\u5C1D\u8BD5\u964D\u7EA7`), null)) : (log("info", `[renren] TV\u7AEF\u8BE6\u60C5\u83B7\u53D6\u4E0E\u5206\u96C6\u89E3\u6790\u6210\u529F: ID=${dramaId}, \u5305\u542B\u96C6\u6570=${resData.data.episodeList.length}`), resData.data);
     } catch (error) {
       return log("info", "[renren] getAppDramaDetail error:", error.message), null;
     }
@@ -12339,9 +12375,10 @@ ${path2}?${sortedQuery}`;
    * @param {string} targetHost 目标网关域名 (Mac 或 Win)
    * @param {string} dramaId 剧集ID
    * @param {string} episodeSid 单集ID (可选)
+   * @param {Object} diagnostics 无分集原因收集对象 (可选)
    * @returns {Object} 详情数据对象
    */
-  async getGatewayDramaDetail(targetHost, dramaId, episodeSid = "", signal) {
+  async getGatewayDramaDetail(targetHost, dramaId, episodeSid = "", diagnostics = null, signal) {
     try {
       let timestamp = Date.now(), path2 = "/qwtv/drama/details", queryParams = {
         isAgeLimit: "false",
@@ -12354,7 +12391,7 @@ ${path2}?${sortedQuery}`;
       if (!resp || !resp.data)
         return log("info", `[renren] \u8BE6\u60C5\u63A5\u53E3\u7F51\u7EDC\u65E0\u54CD\u5E94\u6216\u6570\u636E\u4E3A\u7A7A (${targetHost}): ID=${dramaId}`), null;
       let resData = resp.data, msg = resData.msg || resData.message || "";
-      return msg.includes("\u8BE5\u5267\u6682\u4E0D\u53EF\u64AD") ? (log("info", `[renren] \u63A5\u53E3\u63D0\u793A'\u8BE5\u5267\u6682\u4E0D\u53EF\u64AD' (${targetHost}) (ID=${dramaId})\uFF0C\u89C6\u4E3A\u7EF4\u62A4\u4E2D\uFF0C\u89E6\u53D1\u964D\u7EA7`), null) : resData.code !== "0000" ? (log("info", `[renren] \u8BE6\u60C5\u63A5\u53E3\u8FD4\u56DE\u9519\u8BEF\u7801: ${resData.code}, msg=${msg} (${targetHost}) (ID=${dramaId})`), null) : !resData.data || !resData.data.episodeList || resData.data.episodeList.length === 0 ? resData.data?.dramaInfo?.playStatus?.includes("\u5373\u5C06\u5F00\u64AD") ? (log("info", `[renren] \u8BE6\u60C5\u63A5\u53E3\u63D0\u793A'\u5373\u5C06\u5F00\u64AD' (${targetHost}) (ID=${dramaId})\uFF0C\u89C6\u4E3A\u7A7A\u7ED3\u679C`), resData.data.episodeList || (resData.data.episodeList = []), resData.data) : (log("info", `[renren] \u8BE6\u60C5\u63A5\u53E3\u8FD4\u56DE\u6570\u636E\u7F3A\u5931\u5206\u96C6\u5217\u8868 (${targetHost}) (ID=${dramaId})\uFF0C\u5C1D\u8BD5\u964D\u7EA7`), null) : (log("info", `[renren] \u8DE8\u534F\u8BAE\u8BE6\u60C5\u83B7\u53D6\u4E0E\u5206\u96C6\u89E3\u6790\u6210\u529F (${targetHost}): ID=${dramaId}, \u5305\u542B\u96C6\u6570=${resData.data.episodeList.length}`), resData.data);
+      return msg.includes("\u8BE5\u5267\u6682\u4E0D\u53EF\u64AD") ? (log("info", `[renren] \u63A5\u53E3\u63D0\u793A'\u8BE5\u5267\u6682\u4E0D\u53EF\u64AD' (${targetHost}) (ID=${dramaId})\uFF0C\u89C6\u4E3A\u7EF4\u62A4\u4E2D\uFF0C\u89E6\u53D1\u964D\u7EA7`), null) : resData.code !== "0000" ? (log("info", `[renren] \u8BE6\u60C5\u63A5\u53E3\u8FD4\u56DE\u9519\u8BEF\u7801: ${resData.code}, msg=${msg} (${targetHost}) (ID=${dramaId})`), null) : !resData.data || !resData.data.episodeList || resData.data.episodeList.length === 0 ? (diagnostics && resData.data && !diagnostics.reason && (diagnostics.reason = getUnavailableReason(resData.data)), resData.data?.dramaInfo?.playStatus?.includes("\u5373\u5C06\u5F00\u64AD") ? (log("info", `[renren] \u8BE6\u60C5\u63A5\u53E3\u63D0\u793A'\u5373\u5C06\u5F00\u64AD' (${targetHost}) (ID=${dramaId})\uFF0C\u89C6\u4E3A\u7A7A\u7ED3\u679C`), resData.data.episodeList || (resData.data.episodeList = []), resData.data) : (log("info", `[renren] \u8BE6\u60C5\u63A5\u53E3\u8FD4\u56DE\u6570\u636E\u7F3A\u5931\u5206\u96C6\u5217\u8868 (${targetHost}) (ID=${dramaId})\uFF0C\u5C1D\u8BD5\u964D\u7EA7`), null)) : (log("info", `[renren] \u8DE8\u534F\u8BAE\u8BE6\u60C5\u83B7\u53D6\u4E0E\u5206\u96C6\u89E3\u6790\u6210\u529F (${targetHost}): ID=${dramaId}, \u5305\u542B\u96C6\u6570=${resData.data.episodeList.length}`), resData.data);
     } catch (error) {
       return log("info", `[renren] getGatewayDramaDetail error (${targetHost}):`, error.message), null;
     }
@@ -12362,37 +12399,37 @@ ${path2}?${sortedQuery}`;
   /**
    * 详情获取 (网页端降级)
    */
-  async getWebDramaDetailFallback(dramaId, signal) {
+  async getWebDramaDetailFallback(dramaId, diagnostics = null, signal) {
     let url = `https://${this.API_CONFIG.WEB_HOST}/m-station/drama/page`, params = { hsdrOpen: 0, isAgeLimit: 0, dramaId: String(dramaId), hevcOpen: 1 };
     try {
       let resp = await this.renrenRequest("GET", url, params, 3e3, signal);
       if (!resp.data) return null;
       let decoded = autoDecode(resp.data);
-      return decoded && decoded.data && decoded.data.episodeList && decoded.data.episodeList.length > 0 ? (log("info", `[renren] \u7F51\u9875\u7248\u8BE6\u60C5\u83B7\u53D6\u4E0E\u5206\u96C6\u89E3\u6790\u6210\u529F: ID=${dramaId}, \u5305\u542B\u96C6\u6570=${decoded.data.episodeList.length}`), decoded.data) : null;
+      return decoded && decoded.data && decoded.data.episodeList && decoded.data.episodeList.length > 0 ? (log("info", `[renren] \u7F51\u9875\u7248\u8BE6\u60C5\u83B7\u53D6\u4E0E\u5206\u96C6\u89E3\u6790\u6210\u529F: ID=${dramaId}, \u5305\u542B\u96C6\u6570=${decoded.data.episodeList.length}`), decoded.data) : (diagnostics && decoded?.data && !diagnostics.reason && (diagnostics.reason = getUnavailableReason(decoded.data)), null);
     } catch (e) {
       return log("info", `[renren] \u7F51\u9875\u7248\u8BE6\u60C5\u8BF7\u6C42\u5931\u8D25: ${e.message}`), null;
     }
   }
-  async getDetail(id, episodeSid = "") {
-    return globals.deployPlatform && globals.deployPlatform !== "node" ? this._getDetailCloud(id, episodeSid) : this._getDetailLocal(id, episodeSid);
+  async getDetail(id, episodeSid = "", diagnostics = null) {
+    return globals.deployPlatform && globals.deployPlatform !== "node" ? this._getDetailCloud(id, episodeSid, diagnostics) : this._getDetailLocal(id, episodeSid, diagnostics);
   }
   /**
    * 云环境详情：根据搜索阶段连通性跳过已知超时的 tier。
    * 优先级 WEB/TV > MAC/WIN。搜索阶段已验证工作的 tier 优先使用。
    */
-  async _getDetailCloud(id, episodeSid) {
+  async _getDetailCloud(id, episodeSid, diagnostics = null) {
     let did = String(id), sid = String(episodeSid), conn = this._searchConnectivity || {};
     log("info", `[renren] \u8BE6\u60C5\u8BFB\u53D6\u8FDE\u901A\u6027: ${JSON.stringify(conn)}`, !0);
     let isDead = (t) => conn[t] === "timeout", isKnownWorking = (t) => conn[t] !== void 0 && conn[t] !== "unknown" && conn[t] !== "timeout", result;
     if (!isDead("WEB") && !isDead("TV"))
       if (isKnownWorking("TV") && !isKnownWorking("WEB")) {
-        if (log("info", "[renren] \u8BE6\u60C5\u7B56\u7565: TV\u5DF2\u77E5\u8FDE\u901A, WEB\u672A\u77E5, TV\u4F18\u5148", !0), result = await this.getAppDramaDetail(did, sid).catch(() => null), result)
+        if (log("info", "[renren] \u8BE6\u60C5\u7B56\u7565: TV\u5DF2\u77E5\u8FDE\u901A, WEB\u672A\u77E5, TV\u4F18\u5148", !0), result = await this.getAppDramaDetail(did, sid, diagnostics).catch(() => null), result)
           return API_HEALTH.detail = "TV", result;
-        if (conn.WEB !== "timeout" && (result = await this.getWebDramaDetailFallback(did).catch(() => null), result))
+        if (conn.WEB !== "timeout" && (result = await this.getWebDramaDetailFallback(did, diagnostics).catch(() => null), result))
           return API_HEALTH.detail = "WEB", result;
       } else {
         log("info", `[renren] \u8BE6\u60C5\u7B56\u7565: \u6B63\u5E38\u5E76\u884C WEBTV={${!isDead("WEB")}/${isKnownWorking("WEB")}} TV={${!isDead("TV")}/${isKnownWorking("TV")}}`, !0);
-        let cancel = new AbortController(), s = cancel.signal, webP = this.getWebDramaDetailFallback(did, s).then((v) => (v && cancel.abort(), v)), tvP = this.getAppDramaDetail(did, sid, s);
+        let cancel = new AbortController(), s = cancel.signal, webP = this.getWebDramaDetailFallback(did, diagnostics, s).then((v) => (v && cancel.abort(), v)), tvP = this.getAppDramaDetail(did, sid, diagnostics, s);
         try {
           result = await webP;
         } catch {
@@ -12408,21 +12445,21 @@ ${path2}?${sortedQuery}`;
       }
     else if (isDead("WEB")) {
       if (!isDead("TV")) {
-        if (result = await this.getAppDramaDetail(did, sid).catch(() => null), result)
+        if (result = await this.getAppDramaDetail(did, sid, diagnostics).catch(() => null), result)
           return API_HEALTH.detail = "TV", result;
-        if (!isDead("WEB") && (result = await this.getWebDramaDetailFallback(did).catch(() => null), result))
+        if (!isDead("WEB") && (result = await this.getWebDramaDetailFallback(did, diagnostics).catch(() => null), result))
           return API_HEALTH.detail = "WEB", result;
       }
-    } else if (result = await this.getWebDramaDetailFallback(did).catch(() => null), result)
+    } else if (result = await this.getWebDramaDetailFallback(did, diagnostics).catch(() => null), result)
       return API_HEALTH.detail = "WEB", result;
     if (log("info", "[renren] \u7B2C\u4E00\u7EC4\u5E76\u884C\u8BE6\u60C5\u5747\u672A\u8FD4\u56DE\u7ED3\u679C\uFF0C\u7EE7\u7EED\u7B2C\u4E8C\u7EC4"), !isDead("MAC") && !isDead("WIN"))
       if (isKnownWorking("WIN") && !isKnownWorking("MAC")) {
-        if (result = await this.getGatewayDramaDetail(this.API_CONFIG.WIN_HOST, did, sid).catch(() => null), result)
+        if (result = await this.getGatewayDramaDetail(this.API_CONFIG.WIN_HOST, did, sid, diagnostics).catch(() => null), result)
           return API_HEALTH.detail = "WIN", result;
-        if (conn.MAC !== "timeout" && (result = await this.getGatewayDramaDetail(this.API_CONFIG.MAC_HOST, did, sid).catch(() => null), result))
+        if (conn.MAC !== "timeout" && (result = await this.getGatewayDramaDetail(this.API_CONFIG.MAC_HOST, did, sid, diagnostics).catch(() => null), result))
           return API_HEALTH.detail = "MAC", result;
       } else {
-        let cancel = new AbortController(), s = cancel.signal, macP = this.getGatewayDramaDetail(this.API_CONFIG.MAC_HOST, did, sid, s).then((v) => (v && cancel.abort(), v)), winP = this.getGatewayDramaDetail(this.API_CONFIG.WIN_HOST, did, sid, s);
+        let cancel = new AbortController(), s = cancel.signal, macP = this.getGatewayDramaDetail(this.API_CONFIG.MAC_HOST, did, sid, diagnostics, s).then((v) => (v && cancel.abort(), v)), winP = this.getGatewayDramaDetail(this.API_CONFIG.WIN_HOST, did, sid, diagnostics, s);
         try {
           result = await macP;
         } catch {
@@ -12437,20 +12474,20 @@ ${path2}?${sortedQuery}`;
           return API_HEALTH.detail = "WIN", result;
       }
     else if (isDead("MAC")) {
-      if (!isDead("WIN") && (result = await this.getGatewayDramaDetail(this.API_CONFIG.WIN_HOST, did, sid).catch(() => null), result))
+      if (!isDead("WIN") && (result = await this.getGatewayDramaDetail(this.API_CONFIG.WIN_HOST, did, sid, diagnostics).catch(() => null), result))
         return API_HEALTH.detail = "WIN", result;
-    } else if (result = await this.getGatewayDramaDetail(this.API_CONFIG.MAC_HOST, did, sid).catch(() => null), result)
+    } else if (result = await this.getGatewayDramaDetail(this.API_CONFIG.MAC_HOST, did, sid, diagnostics).catch(() => null), result)
       return API_HEALTH.detail = "MAC", result;
     return API_HEALTH.detail = "WEB", null;
   }
-  async _getDetailLocal(id, episodeSid) {
+  async _getDetailLocal(id, episodeSid, diagnostics = null) {
     let detail = null, tiers = ["WEB", "TV", "MAC", "WIN"], currentTierIndex = tiers.indexOf(API_HEALTH.detail);
     currentTierIndex === -1 && (currentTierIndex = 0);
     for (let i = currentTierIndex; i < tiers.length; i++) {
       let tier = tiers[i];
       log("info", `[renren] \u5C1D\u8BD5\u4F7F\u7528 ${tier} \u7AEF\u63A5\u53E3\u83B7\u53D6\u8BE6\u60C5\u5206\u96C6 (ID=${id})`);
       try {
-        if (tier === "TV" ? detail = await this.getAppDramaDetail(String(id), String(episodeSid)) : tier === "MAC" ? detail = await this.getGatewayDramaDetail(this.API_CONFIG.MAC_HOST, String(id), String(episodeSid)) : tier === "WIN" ? detail = await this.getGatewayDramaDetail(this.API_CONFIG.WIN_HOST, String(id), String(episodeSid)) : tier === "WEB" && (detail = await this.getWebDramaDetailFallback(String(id))), detail)
+        if (tier === "TV" ? detail = await this.getAppDramaDetail(String(id), String(episodeSid), diagnostics) : tier === "MAC" ? detail = await this.getGatewayDramaDetail(this.API_CONFIG.MAC_HOST, String(id), String(episodeSid), diagnostics) : tier === "WIN" ? detail = await this.getGatewayDramaDetail(this.API_CONFIG.WIN_HOST, String(id), String(episodeSid), diagnostics) : tier === "WEB" && (detail = await this.getWebDramaDetailFallback(String(id), diagnostics)), detail)
           return API_HEALTH.detail !== tier && (log("info", `[renren] \u8BE6\u60C5\u57DF\u63A5\u53E3\u5065\u5EB7\u72B6\u6001\u66F4\u65B0: ${API_HEALTH.detail} -> ${tier}`), API_HEALTH.detail = tier), detail;
         log("info", `[renren] ${tier} \u8BE6\u60C5\u63A5\u53E3\u5931\u8D25\u6216\u65E0\u6570\u636E\uFF0C\u89E6\u53D1\u964D\u7EA7`);
       } catch (e) {
@@ -12460,9 +12497,11 @@ ${path2}?${sortedQuery}`;
     return log("info", "[renren] \u8BE6\u60C5\u57DF\u6240\u6709\u964D\u7EA7\u63A5\u53E3\u5747\u5931\u8D25\uFF0C\u91CD\u7F6E\u5065\u5EB7\u72B6\u6001\u81F3 WEB \u7AEF"), API_HEALTH.detail = "WEB", null;
   }
   async getEpisodes(id) {
-    let detail = await this.getDetail(id);
-    if (!detail)
-      return log("info", `[renren] \u83B7\u53D6\u5206\u96C6\u5931\u8D25: \u8BE6\u60C5\u5BF9\u8C61\u4E3A\u7A7A ID=${id}`), [];
+    let diagnostics = {}, detail = await this.getDetail(id, "", diagnostics);
+    if (!detail) {
+      let reasonText = diagnostics.reason ? ` \u63A5\u53E3\u8FD4\u56DE\uFF1A\u201C${diagnostics.reason}\u201D` : "";
+      return log("info", `[renren] \u83B7\u53D6\u5206\u96C6\u5931\u8D25: \u8BE6\u60C5\u5BF9\u8C61\u4E3A\u7A7A ID=${id}${reasonText}`), [];
+    }
     if (!detail.episodeList || !Array.isArray(detail.episodeList))
       return log("info", `[renren] \u83B7\u53D6\u5206\u96C6\u5931\u8D25: episodeList \u5B57\u6BB5\u7F3A\u5931\u6216\u975E\u6570\u7EC4 ID=${id}`), [];
     let episodes = [], seriesId = String(id);
@@ -12506,7 +12545,7 @@ ${path2}?${sortedQuery}`;
       seasonFiltered.length > 0 && (filteredAnimes = seasonFiltered, log("info", `[renren] \u7ED3\u679C\u5DF2\u547D\u4E2D\u76EE\u6807\u5B63(\u7B2C${resolvedQuerySeason}\u5B63)\uFF0C\u8DF3\u8FC7\u975E\u76EE\u6807\u5B63\u76F8\u5173\u8BF7\u6C42`));
     }
     let currentTierName = { TV: "TV", MAC: "Mac", WIN: "Win", WEB: "\u7F51\u9875" }[API_HEALTH.search] || "\u672A\u77E5";
-    log("info", `[renren] ${currentTierName}\u7AEF\u641C\u7D22\u63D0\u53D6\u7ED3\u679C\u6570\u91CF: ${sourceAnimes.length} \u6709\u6548\u7ED3\u679C\u6570\u91CF\uFF1A${filteredAnimes.length}`), this.isBatchMode = !0;
+    log("info", `[renren] ${currentTierName}\u7AEF\u641C\u7D22\u63D0\u53D6\u7ED3\u679C\u6570\u91CF: ${sourceAnimes.length} \u8FC7\u6EE4\u65E0\u5173\u7ED3\u679C\u540E\u6570\u91CF\uFF1A${filteredAnimes.length}`), this.isBatchMode = !0;
     try {
       await Promise.all(
         filteredAnimes.map(async (anime) => {
@@ -12697,13 +12736,13 @@ ${path2}?${sortedQuery}`;
 };
 
 // danmu_api/sources/hanjutv.js
-var CATE_MAP = { 1: "\u97E9\u5267", 2: "\u7EFC\u827A", 3: "\u7535\u5F71", 4: "\u65E5\u5267", 5: "\u7F8E\u5267", 6: "\u6CF0\u5267", 7: "\u56FD\u4EA7\u5267" }, MAX_AXIS = 1e8, DANMU_WINDOW_MS = 6e4, HANJUTV_VARIANTS = Object.freeze({
+var CATE_MAP = { 1: "\u97E9\u5267", 2: "\u7EFC\u827A", 3: "\u7535\u5F71", 4: "\u65E5\u5267", 5: "\u7F8E\u5267", 6: "\u6CF0\u5267", 7: "\u56FD\u4EA7\u5267" }, MAX_AXIS = 1e8, DANMU_WINDOW_MS = 6e4, IDENTITY_TTL_MS = 720 * 60 * 1e3, HANJUTV_VARIANTS = Object.freeze({
   HXQ: "hxq",
   TV: "tv",
   MERGED: "merged"
 }), HanjutvSource = class extends BaseSource {
   constructor() {
-    super(), this.appHost = "https://hxqapi.hiyun.tv", this.tvHost = "https://api.xiawen.tv", this.fallbackDanmuHost = "https://hxqapi.zmdcq.com", this.danmuHosts = Array.from(/* @__PURE__ */ new Set([this.appHost, this.fallbackDanmuHost])), this.defaultRefer = "2JGztvGjRVpkxcr0T4ZWG2k+tOlnHmDGUNMwAGSeq548YV2FMbs0h0bXNi6DJ00L", this.danmuUserAgent = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36", this.appUserAgent = "HanjuTV/6.8.2 (Redmi Note 12; Android 14; Scale/2.00)", this._mobileMakeHeaders = null, this._tvMakeHeaders = null, this._mobileWarmupPromise = null, this._mobileWarmedUid = null;
+    super(), this.appHost = "https://hxqapi.hiyun.tv", this.tvHost = "https://api.xiawen.tv", this.fallbackDanmuHost = "https://hxqapi.zmdcq.com", this.danmuHosts = Array.from(/* @__PURE__ */ new Set([this.appHost, this.fallbackDanmuHost])), this.defaultRefer = "2JGztvGjRVpkxcr0T4ZWG2k+tOlnHmDGUNMwAGSeq548YV2FMbs0h0bXNi6DJ00L", this.danmuUserAgent = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36", this.appUserAgent = "HanjuTV/6.8.2 (Redmi Note 12; Android 14; Scale/2.00)", this._mobileMakeHeaders = null, this._tvMakeHeaders = null, this._mobileIdentityCreatedAt = 0, this._tvIdentityCreatedAt = 0, this._mobileWarmupPromise = null, this._mobileWarmedUid = null;
   }
   getDanmuHeaders() {
     return {
@@ -12728,10 +12767,16 @@ var CATE_MAP = { 1: "\u97E9\u5267", 2: "\u7EFC\u827A", 3: "\u7535\u5F71", 4: "\u
    * 构建 TV 端请求头，返回 { headers, uid }
    */
   async buildTvHeaders() {
-    return this._tvMakeHeaders || (this._tvMakeHeaders = await buildLiteHeaders(Date.now())), this._tvMakeHeaders(Date.now());
+    let now = Date.now();
+    return (!this._tvMakeHeaders || now - this._tvIdentityCreatedAt >= IDENTITY_TTL_MS) && (this._tvIdentityCreatedAt = now, this._tvMakeHeaders = buildLiteHeaders(now).catch((error) => {
+      throw this._tvMakeHeaders = null, error;
+    })), (await this._tvMakeHeaders)(Date.now());
   }
   async buildMobileHeaders() {
-    return this._mobileMakeHeaders || (this._mobileMakeHeaders = await buildHanjutvSearchHeaders(Date.now())), this._mobileMakeHeaders(Date.now());
+    let now = Date.now();
+    return (!this._mobileMakeHeaders || now - this._mobileIdentityCreatedAt >= IDENTITY_TTL_MS) && (this._mobileIdentityCreatedAt = now, this._mobileWarmedUid = null, this._mobileMakeHeaders = buildHanjutvSearchHeaders(now).catch((error) => {
+      throw this._mobileMakeHeaders = null, error;
+    })), (await this._mobileMakeHeaders)(Date.now());
   }
   /**
    * 向 TV 端发起 GET 请求并自动解密响应
@@ -13017,7 +13062,7 @@ var CATE_MAP = { 1: "\u97E9\u5267", 2: "\u7EFC\u827A", 3: "\u7535\u5F71", 4: "\u
     }
   }
   async ensureMobileIdentityWarmed(bypassCache = !1) {
-    if (this._mobileWarmedUid) return !0;
+    if (this._mobileWarmedUid && Date.now() - this._mobileIdentityCreatedAt < IDENTITY_TTL_MS) return !0;
     if (this._mobileWarmupPromise) return this._mobileWarmupPromise;
     let warmupPromise = (async () => {
       let headerInfo = await this.buildMobileHeaders();
@@ -13876,6 +13921,20 @@ var TencentSource = class extends BaseSource {
   titleOrAliasMatches(anime, queryTitle, querySeason = null) {
     return titleMatches(anime.title, queryTitle, querySeason) ? !0 : Array.isArray(anime.aliases) && anime.aliases.some((alias) => titleMatches(alias, queryTitle, querySeason));
   }
+  // 搜索结果中用于补充同题材作品的分区：相关影视、与 X 相关、与关键词同名
+  isRelatedBoxTitle(boxTitle, keyword) {
+    let title = normalizeTitleForMatch(String(boxTitle || "").replace(/<[^>]+>/g, ""));
+    if (!title) return !1;
+    let query = normalizeTitleForMatch(keyword);
+    return title.includes(normalizeTitleForMatch("\u76F8\u5173\u5F71\u89C6")) || /^与.*相关$/.test(title) || query.length > 0 && title === query;
+  }
+  // 分区内标题包含关键词的条目才作为候选，避免带入同系列无关条目
+  filterRelatedItems(box, keyword) {
+    let query = normalizeTitleForMatch(keyword);
+    return query ? (Array.isArray(box?.itemList) ? box.itemList : []).filter(
+      (item) => normalizeTitleForMatch(String(item?.videoInfo?.title || "").replace(/<[^>]+>/g, "")).includes(query)
+    ) : [];
+  }
   /**
    * 过滤腾讯视频搜索项
    * @param {Object} item - 搜索项
@@ -13965,15 +14024,17 @@ var TencentSource = class extends BaseSource {
             break;
           }
       }
-      if (itemList.length === 0 && data.data && data.data.normalList && data.data.normalList.itemList && (log("info", "[tencent] MainNeed box \u672A\u627E\u5230\uFF0C\u4F7F\u7528 normalList"), itemList = data.data.normalList.itemList), data.data && data.data.areaBoxList) {
-        for (let box of data.data.areaBoxList)
-          if (box.itemList && box.boxTitle && Array.isArray(box.boxTitle.boxTitles) && box.boxTitle.boxTitles.includes("\u76F8\u5173\u5F71\u89C6")) {
-            let relatedItems = box.itemList.filter(
-              (item) => item.videoInfo && item.videoInfo.title && item.videoInfo.title.includes(keyword)
-            );
-            relatedItems.length > 0 ? (log("info", `[tencent] \u8FFD\u52A0\u300C\u76F8\u5173\u5F71\u89C6\u300Dbox \u4E2D\u5339\u914D "${keyword}" \u7684 ${relatedItems.length} \u4E2A\u9879\u76EE`), itemList = [...itemList, ...relatedItems]) : log("info", `[tencent] \u300C\u76F8\u5173\u5F71\u89C6\u300Dbox \u4E2D\u65E0\u5339\u914D "${keyword}" \u7684\u9879\u76EE`);
-            break;
-          }
+      if (itemList.length === 0 && data.data && data.data.normalList && data.data.normalList.itemList && (log("info", "[tencent] MainNeed box \u672A\u627E\u5230\uFF0C\u4F7F\u7528 normalList"), itemList = data.data.normalList.itemList), data.data && Array.isArray(data.data.areaBoxList)) {
+        let seenIds = new Set(itemList.map((item) => item?.doc?.id).filter(Boolean));
+        for (let box of data.data.areaBoxList) {
+          let boxTitle = (Array.isArray(box?.boxTitle?.boxTitles) ? box.boxTitle.boxTitles : []).map((title) => String(title).replace(/<[^>]+>/g, "").trim()).find((title) => this.isRelatedBoxTitle(title, keyword));
+          if (!boxTitle) continue;
+          let matchedItems = this.filterRelatedItems(box, keyword), relatedItems = matchedItems.filter((item) => {
+            let id = item?.doc?.id;
+            return !id || seenIds.has(id) ? !1 : (seenIds.add(id), !0);
+          });
+          relatedItems.length > 0 ? (log("info", `[tencent] \u8FFD\u52A0\u300C${boxTitle}\u300D\u5206\u533A\u4E2D\u5339\u914D "${keyword}" \u7684 ${relatedItems.length} \u4E2A\u9879\u76EE`), itemList = [...itemList, ...relatedItems]) : matchedItems.length > 0 ? log("info", `[tencent] \u300C${boxTitle}\u300D\u5206\u533A\u4E2D\u5339\u914D "${keyword}" \u7684\u9879\u76EE\u5747\u5DF2\u5B58\u5728\u4E8E\u641C\u7D22\u7ED3\u679C`) : log("info", `[tencent] \u300C${boxTitle}\u300D\u5206\u533A\u4E2D\u65E0\u5339\u914D "${keyword}" \u7684\u9879\u76EE`);
+        }
       }
       if (itemList.length === 0)
         return log("info", "[tencent] \u641C\u7D22\u65E0\u7ED3\u679C"), [];
@@ -18024,9 +18085,9 @@ var SohuSource = class extends BaseSource {
     return comments.map((comment) => {
       try {
         let color = 16777215;
-        if (comment.t && comment.t.c) {
-          let colorValue = comment.t.c;
-          typeof colorValue == "string" && colorValue.startsWith("#") ? color = parseInt(colorValue.substring(1), 16) : color = parseInt(String(colorValue), 16);
+        if (globals.convertColor !== "color" && comment.t?.c != null) {
+          let colorValue = String(comment.t.c).trim();
+          color = /^\d+$/.test(colorValue) ? parseInt(colorValue, 10) : parseInt(colorValue.replace(/^#/, ""), 16);
         }
         let vtime = comment.v || 0, timestamp = Math.floor(parseFloat(comment.created || Date.now() / 1e3)), uid = comment.uid || "", danmuId = comment.i || "", position = 1;
         comment.t && comment.t.p && (position = this.positionMap[comment.t.p] || 1);
@@ -19072,6 +19133,7 @@ var AiyifanAppSigningProvider = class {
     return encodedEntries.join("&") + "&vv=" + computeAiyifanWebSign(query, signingConfig) + "&pub=" + encodeURIComponent(signingConfig.publicKey);
   }
   async signedWebGetJson(api, params, logPrefix, forceRefresh) {
+    logPrefix = logPrefix || "Aiyifan";
     let signingConfig = await this.getSigningConfig(forceRefresh), requestUrl = this.proxyUrlBuilder(api + "?" + this.buildWebSignedQuery(params || {}, signingConfig)), payload, statusCode = 200;
     try {
       let response = await Widget.http.get(requestUrl, {
@@ -19300,7 +19362,7 @@ var AiyifanSource = class extends BaseSource {
   async search(keyword) {
     log("info", `[aiyifan] \u5F00\u59CB\u641C\u7D22: ${keyword}`);
     let yearPromise = this.waitYearMap(
-      this.signingProvider.lookupYears(keyword, "\u5E74\u4EFD"),
+      this.signingProvider.lookupYears(keyword),
       AIYIFAN_WEB_YEAR_MAX_WAIT_MS
     ), searchResult = await this.searchDrama(keyword);
     if (!searchResult)
@@ -19542,7 +19604,11 @@ var CLIENT_CONFIG = {
     "passport-sdk-version": "5051452",
     "sdk-version": "2"
   }
-}, WEB_ORIGIN = "https://hongguoduanju.com";
+}, WEB_ORIGIN = "https://hongguoduanju.com", WEB_BROWSER_HEADERS = Object.freeze({
+  "user-agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36",
+  referer: `${WEB_ORIGIN}/`,
+  "accept-language": "zh-CN,zh;q=0.9"
+});
 function parseWebSearchResults(html) {
   let marker = '"searchList":', start = html.indexOf(marker);
   if (start < 0) return [];
@@ -20107,7 +20173,10 @@ var HongguoSource = class extends BaseSource {
     try {
       let results = [], seen = /* @__PURE__ */ new Set();
       for (let page = 1; page <= 3 && results.length < MAX_SEARCH_ITEMS; page++) {
-        let url = `${WEB_ORIGIN}/api/search/result/?query=${encodeURIComponent(keyword)}&page=${page}`, response = await Widget.http.get(url, { headers: { accept: "application/json" }, timeout: 3e4 }), items = parseWebSearchApi(response.data);
+        let url = `${WEB_ORIGIN}/api/search/result/?query=${encodeURIComponent(keyword)}&page=${page}`, response = await Widget.http.get(url, {
+          headers: { ...WEB_BROWSER_HEADERS, accept: "application/json, text/plain, */*" },
+          timeout: 3e4
+        }), items = parseWebSearchApi(response.data);
         for (let item of items)
           if (!seen.has(item.seriesId) && (seen.add(item.seriesId), results.push(item), results.length >= MAX_SEARCH_ITEMS))
             break;
@@ -20118,7 +20187,13 @@ var HongguoSource = class extends BaseSource {
       log("warn", `[Hongguo] web search unavailable: ${error.message}`);
     }
     try {
-      let response = await Widget.http.get(`${WEB_ORIGIN}/search/${encodeURIComponent(keyword)}`, { headers: { accept: "text/html" }, timeout: 3e4 }), items = parseWebSearchResults(typeof response.data == "string" ? response.data : "").map(normalizeWebSearchItem).filter(Boolean);
+      let response = await Widget.http.get(`${WEB_ORIGIN}/search/${encodeURIComponent(keyword)}`, {
+        headers: {
+          ...WEB_BROWSER_HEADERS,
+          accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
+        },
+        timeout: 3e4
+      }), items = parseWebSearchResults(typeof response.data == "string" ? response.data : "").map(normalizeWebSearchItem).filter(Boolean);
       if (items.length) return items.slice(0, MAX_SEARCH_ITEMS);
     } catch (error) {
       log("warn", `[Hongguo] web search SSR unavailable: ${error.message}`);
@@ -20440,6 +20515,88 @@ var HongguoSource = class extends BaseSource {
 };
 
 // danmu_api/sources/animeko.js
+
+// danmu_api/utils/animeko-util.js
+var MIRROR_PUBLISH_API = "https://bangumi.wiki/api/v1/mirrors", MIRROR_PUBLISH_USER_AGENT = `huangxd-/danmu_api/${globals.version}(https://github.com/huangxd-/danmu_api)`, BUILTIN_MIRROR_API_BASE = "https://api.bangumi.lat", MAX_MIRROR_FALLBACK_HOSTS = 2, MIRROR_HOSTS_CACHE_TTL = 600 * 1e3, mirrorHostsCache = null, currentMirrorBase = BUILTIN_MIRROR_API_BASE, mirrorHostsRequestPromise = null;
+function extractHost(url) {
+  try {
+    return new URL(url).hostname.toLowerCase();
+  } catch {
+    return "";
+  }
+}
+function isValidHostname(host) {
+  if (!host || host.length > 253) return !1;
+  let labels = host.split(".");
+  return labels.length < 2 || !labels.every((label) => /^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$/.test(label)) ? !1 : !/^\d+$/.test(labels[labels.length - 1]);
+}
+function parseMirrorApiHosts(payload) {
+  let mirrors = Array.isArray(payload?.mirrors) ? payload.mirrors : [], candidates = [];
+  for (let mirror of mirrors) {
+    let weight = Number(mirror?.weight) || 0, recommended = mirror?.recommended === !0, services = Array.isArray(mirror?.services) ? mirror.services : [];
+    for (let service of services) {
+      if (service?.id !== "api") continue;
+      let hosts2 = Array.isArray(service.hosts) ? service.hosts : [];
+      for (let host of hosts2) {
+        if (typeof host != "string") continue;
+        let normalized = host.trim().toLowerCase();
+        isValidHostname(normalized) && candidates.push({ host: normalized, weight, recommended });
+      }
+    }
+  }
+  candidates.sort((a, b) => b.weight - a.weight || Number(b.recommended) - Number(a.recommended));
+  let seen = /* @__PURE__ */ new Set(), hosts = [];
+  for (let candidate of candidates)
+    seen.has(candidate.host) || (seen.add(candidate.host), hosts.push(candidate.host));
+  return hosts;
+}
+async function loadMirrorHosts() {
+  let now = Date.now();
+  return mirrorHostsCache && now - mirrorHostsCache.timestamp < MIRROR_HOSTS_CACHE_TTL ? mirrorHostsCache.hosts : mirrorHostsRequestPromise || (mirrorHostsRequestPromise = (async () => {
+    try {
+      let resp = await Widget.http.get(MIRROR_PUBLISH_API, {
+        headers: { "User-Agent": MIRROR_PUBLISH_USER_AGENT },
+        timeout: 5e3
+      }), hosts = parseMirrorApiHosts(resp.data);
+      return mirrorHostsCache = { timestamp: now, hosts }, hosts.length === 0 ? (log("warn", "[animeko] [mirror] \u955C\u50CF\u53D1\u5E03\u9875\u672A\u8FD4\u56DE\u53EF\u7528\u7684 API \u57DF\u540D"), hosts) : (log("info", `[animeko] [mirror] \u955C\u50CF\u53D1\u5E03\u9875\u8FD4\u56DE ${hosts.length} \u4E2A API \u57DF\u540D`), hosts);
+    } catch (error) {
+      return log("warn", `[animeko] [mirror] \u955C\u50CF\u53D1\u5E03\u9875\u8BF7\u6C42\u5931\u8D25: ${error.message}`), [];
+    }
+  })(), mirrorHostsRequestPromise.finally(() => {
+    mirrorHostsRequestPromise = null;
+  }), mirrorHostsRequestPromise);
+}
+function getCurrentMirrorBase() {
+  return currentMirrorBase;
+}
+async function fetchMirrorFallbackHosts(excludeHosts = []) {
+  let excluded = new Set(excludeHosts.map((host) => host.toLowerCase()));
+  return (await loadMirrorHosts()).filter((host) => !excluded.has(host)).slice(0, MAX_MIRROR_FALLBACK_HOSTS);
+}
+async function attemptMirrorBase(base, attempt) {
+  try {
+    let result = await attempt(base);
+    if (result) return result;
+    log("info", `[animeko] [mirror] \u955C\u50CF\u57DF\u540D ${base} \u672A\u8FD4\u56DE\u53EF\u7528\u6570\u636E`);
+  } catch (error) {
+    log("warn", `[animeko] [mirror] \u955C\u50CF\u57DF\u540D ${base} \u8BF7\u6C42\u5931\u8D25: ${error.message}`);
+  }
+  return null;
+}
+async function requestMirror(attempt) {
+  let currentBase = getCurrentMirrorBase(), currentResult = await attemptMirrorBase(currentBase, attempt);
+  if (currentResult)
+    return { base: currentBase, result: currentResult };
+  let fallbackHosts = await fetchMirrorFallbackHosts([extractHost(currentBase)]);
+  for (let host of fallbackHosts) {
+    let fallbackBase = `https://${host}`, result = await attemptMirrorBase(fallbackBase, attempt);
+    if (result)
+      return log("info", `[animeko] [mirror] \u5207\u6362\u81F3\u955C\u50CF\u57DF\u540D ${fallbackBase}`), currentMirrorBase = fallbackBase, { base: fallbackBase, result };
+  }
+  return null;
+}
+
+// danmu_api/sources/animeko.js
 var API_HEALTH2 = {
   danmu: null,
   subject: null
@@ -20484,7 +20641,7 @@ var API_HEALTH2 = {
    * @returns {Array<Object>} 包含节点类型与 URL 的配置数组
    */
   _getSubjectServerPriority() {
-    let officialBase = "https://api.bgm.tv", mirrorBase = "https://api.bangumi.vip", proxyOfficialBase = this._applyProxyForSearch(officialBase), animekoNodes = (/* @__PURE__ */ new Date()).getTimezoneOffset() === -480 ? [
+    let officialBase = "https://api.bgm.tv", mirrorBase = getCurrentMirrorBase(), proxyOfficialBase = this._applyProxyForSearch(officialBase), animekoNodes = (/* @__PURE__ */ new Date()).getTimezoneOffset() === -480 ? [
       { type: "V2", url: "https://api.animeko.org" },
       { type: "V2", url: "https://danmaku-global.myani.org" },
       { type: "V2", url: "https://danmaku-cn.myani.org" },
@@ -20498,10 +20655,10 @@ var API_HEALTH2 = {
     return proxyOfficialBase !== officialBase ? [
       ...animekoNodes,
       { type: "V0", url: proxyOfficialBase },
-      { type: "V0", url: mirrorBase }
+      { type: "V0", url: mirrorBase, mirror: !0 }
     ] : [
       ...animekoNodes,
-      { type: "V0", url: mirrorBase },
+      { type: "V0", url: mirrorBase, mirror: !0 },
       { type: "V0", url: officialBase }
     ];
   }
@@ -20542,6 +20699,30 @@ var API_HEALTH2 = {
     }
   }
   /**
+   * 通过 V0 接口获取条目详情数据（剧集列表与关联条目）
+   * @param {string} serverUrl 节点地址
+   * @param {number} subjectId 条目 ID
+   * @returns {Promise<Object|null>} 归一化为 V2 格式的详情数据，无有效数据时返回 null
+   */
+  async _fetchV0SubjectData(serverUrl, subjectId) {
+    let [episodesData, relationsResp] = await Promise.all([
+      this._fetchV0AllEpisodes(serverUrl, subjectId),
+      Widget.http.get(`${serverUrl}/v0/subjects/${subjectId}/subjects`, { headers: this.headers, timeout: 3e3 }).catch((e) => (log("warn", `[animeko] V0\u5173\u8054\u83B7\u53D6\u5F02\u5E38: ${e.message}`), null))
+    ]);
+    if (!(episodesData && episodesData.length > 0 || relationsResp))
+      return null;
+    let resultData = { id: subjectId };
+    return episodesData && episodesData.length > 0 && (resultData.episodes = episodesData.map((ep) => ({
+      episodeId: ep.id,
+      sort: ep.sort,
+      ep: ep.ep,
+      type: ep.type === 0 ? "MAIN" : ep.type === 1 ? "SP" : String(ep.type),
+      name: ep.name,
+      nameCn: ep.name_cn,
+      airdate: ep.airdate
+    }))), relationsResp && relationsResp.data && Array.isArray(relationsResp.data) && (resultData.relations = relationsResp.data), resultData;
+  }
+  /**
    * 通过多源聚合获取条目详情（含剧集与关联数据，支持智能路由降级）
    * V2 节点: 单次请求聚合返回
    * V0 节点: 采用适配器模式，并发获取子端点数据并组装归一化为 V2 格式，实现底层调用抹平
@@ -20558,7 +20739,7 @@ var API_HEALTH2 = {
     for (let i = 0; i < servers.length; i++) {
       let server = servers[(startIndex + i) % servers.length];
       try {
-        let resultData = null;
+        let resultData = null, resolvedUrl = server.url;
         if (server.type === "V2") {
           log("info", `[animeko] \u8BE6\u60C5\u63A5\u53E3\u8BF7\u6C42 V2 \u8282\u70B9: ${server.url} (${subjectId})`);
           let resp = await Widget.http.get(`${server.url}/v2/subjects/${subjectId}`, {
@@ -20567,24 +20748,14 @@ var API_HEALTH2 = {
             // 限制节点请求超时时间，加速故障节点跳过与轮询降级
           });
           resp && resp.data && resp.data.id && (resultData = resp.data);
-        } else if (server.type === "V0") {
-          log("info", `[animeko] \u8BE6\u60C5\u8865\u5168\u8BF7\u6C42 V0 \u8282\u70B9: ${server.url} (${subjectId})`);
-          let [episodesData, relationsResp] = await Promise.all([
-            this._fetchV0AllEpisodes(server.url, subjectId),
-            Widget.http.get(`${server.url}/v0/subjects/${subjectId}/subjects`, { headers: this.headers, timeout: 3e3 }).catch((e) => (log("warn", `[animeko] V0\u5173\u8054\u83B7\u53D6\u5F02\u5E38: ${e.message}`), null))
-          ]);
-          (episodesData && episodesData.length > 0 || relationsResp) && (resultData = { id: subjectId }, episodesData && episodesData.length > 0 && (resultData.episodes = episodesData.map((ep) => ({
-            episodeId: ep.id,
-            sort: ep.sort,
-            ep: ep.ep,
-            type: ep.type === 0 ? "MAIN" : ep.type === 1 ? "SP" : String(ep.type),
-            name: ep.name,
-            nameCn: ep.name_cn,
-            airdate: ep.airdate
-          }))), relationsResp && relationsResp.data && Array.isArray(relationsResp.data) && (resultData.relations = relationsResp.data));
-        }
+        } else if (server.type === "V0")
+          if (server.mirror) {
+            let mirrorResult = await requestMirror(async (base) => (log("info", `[animeko] \u8BE6\u60C5\u8865\u5168\u8BF7\u6C42\u955C\u50CF\u8282\u70B9: ${base} (${subjectId})`), this._fetchV0SubjectData(base, subjectId)));
+            mirrorResult && (resultData = mirrorResult.result, resolvedUrl = mirrorResult.base);
+          } else
+            log("info", `[animeko] \u8BE6\u60C5\u8865\u5168\u8BF7\u6C42 V0 \u8282\u70B9: ${server.url} (${subjectId})`), resultData = await this._fetchV0SubjectData(server.url, subjectId);
         if (resultData) {
-          if (API_HEALTH2.subject !== server.url && (log("info", `[animeko] \u8BE6\u60C5\u8282\u70B9\u5065\u5EB7\u72B6\u6001\u66F4\u65B0: ${API_HEALTH2.subject} -> ${server.url}`), API_HEALTH2.subject = server.url), SUBJECT_CACHE.set(subjectId, {
+          if (API_HEALTH2.subject !== resolvedUrl && (log("info", `[animeko] \u8BE6\u60C5\u8282\u70B9\u5065\u5EB7\u72B6\u6001\u66F4\u65B0: ${API_HEALTH2.subject} -> ${resolvedUrl}`), API_HEALTH2.subject = resolvedUrl), SUBJECT_CACHE.set(subjectId, {
             data: resultData,
             timestamp: Date.now()
           }), SUBJECT_CACHE.size > SUBJECT_CACHE_MAX_SIZE) {
@@ -20593,7 +20764,7 @@ var API_HEALTH2 = {
           }
           return resultData;
         }
-        log("warn", `[animeko] \u8282\u70B9 ${server.url} \u8FD4\u56DE\u65E0\u6548\u6570\u636E`);
+        server.mirror ? log("warn", "[animeko] \u955C\u50CF\u8282\u70B9\u5168\u90E8\u5019\u9009\u57DF\u540D\u5747\u672A\u8FD4\u56DE\u6709\u6548\u6570\u636E") : log("warn", `[animeko] \u8282\u70B9 ${server.url} \u8FD4\u56DE\u65E0\u6548\u6570\u636E`);
       } catch (error) {
         log("warn", `[animeko] \u8282\u70B9\u8BF7\u6C42\u5931\u8D25: ${server.url} - ${error.message}`);
       }
@@ -20636,12 +20807,12 @@ var API_HEALTH2 = {
       log("info", `[animeko] \u5F00\u59CB\u641C\u7D22 (V0): ${searchKeyword}`);
       let allFilteredResults = [], offset = 0, limit = 20;
       for (; ; ) {
-        let searchPath = `/v0/search/subjects?limit=${limit}&offset=${offset}`, officialUrl = `https://api.bgm.tv${searchPath}`, mirrorUrl = `https://api.bangumi.vip${searchPath}`, proxySearchUrl = this._applyProxyForSearch(officialUrl), endpointQueue = [];
+        let searchPath = `/v0/search/subjects?limit=${limit}&offset=${offset}`, officialUrl = `https://api.bgm.tv${searchPath}`, proxySearchUrl = this._applyProxyForSearch(officialUrl), endpointQueue = [];
         proxySearchUrl !== officialUrl ? endpointQueue = [
           { id: "PROXY_OFFICIAL", url: proxySearchUrl },
-          { id: "MIRROR", url: mirrorUrl }
+          { id: "MIRROR", mirror: !0 }
         ] : endpointQueue = [
-          { id: "MIRROR", url: mirrorUrl },
+          { id: "MIRROR", mirror: !0 },
           { id: "OFFICIAL", url: officialUrl }
         ];
         let payload = {
@@ -20651,7 +20822,22 @@ var API_HEALTH2 = {
             // 2 代表动画类型
           }
         }, resp = null;
-        for (let ep of endpointQueue)
+        for (let ep of endpointQueue) {
+          if (ep.mirror) {
+            let mirrorResult = await requestMirror(async (base) => {
+              let mirrorResp = await Widget.http.post(`${base}${searchPath}`, JSON.stringify(payload), {
+                headers: this.headers,
+                timeout: 5e3
+                // 限制搜索超时时间，确保多节点故障转移的流畅性
+              });
+              return mirrorResp && mirrorResp.data ? mirrorResp : null;
+            });
+            if (mirrorResult) {
+              resp = mirrorResult.result, log("info", `[animeko] \u641C\u7D22\u8282\u70B9 [MIRROR] \u8BF7\u6C42\u6210\u529F (${mirrorResult.base}, offset: ${offset})`);
+              break;
+            }
+            continue;
+          }
           try {
             if (resp = await Widget.http.post(ep.url, JSON.stringify(payload), {
               headers: this.headers,
@@ -20664,6 +20850,7 @@ var API_HEALTH2 = {
           } catch (error) {
             log("warn", `[animeko] \u641C\u7D22\u8282\u70B9 [${ep.id}] \u8BF7\u6C42\u5931\u8D25: ${error.message}`);
           }
+        }
         if (!resp || !resp.data) {
           log("info", `[animeko] \u641C\u7D22\u8BF7\u6C42\u6240\u6709\u8282\u70B9\u5747\u5931\u8D25\u6216\u65E0\u6570\u636E\u8FD4\u56DE (offset: ${offset})`);
           break;
@@ -21189,18 +21376,30 @@ function extractMergedUrls(url) {
 async function resolveMergedDuration(url) {
   if (!url) return 0;
   try {
-    if (!url.includes(MERGE_DELIMITER))
-      return await resolveUrlDuration(url);
+    if (!url.includes(MERGE_DELIMITER)) {
+      let meta = stripLinkOffset(url), sourceDuration = await resolveUrlDuration(meta.cleanUrl);
+      return offsetDuration(sourceDuration, meta.offset, meta.percent);
+    }
     let linkMetas = extractMergedUrls(url).map(stripLinkOffset), durations = await Promise.all(linkMetas.map((meta) => resolveUrlDuration(meta.cleanUrl)));
     return linkMetas.reduce((maxEnd, meta, index) => {
-      let sourceDuration = durations[index];
-      if (!(sourceDuration > 0)) return maxEnd;
-      let end = applyOffset([{ t: sourceDuration }], meta.offset, { usePercent: meta.percent, videoDuration: sourceDuration })[0].t;
+      let end = offsetDuration(durations[index], meta.offset, meta.percent);
       return end > maxEnd ? end : maxEnd;
     }, 0);
   } catch (error) {
     return log("warn", `[system] [duration] \u83B7\u53D6\u65F6\u957F\u5931\u8D25: ${error.message}`), 0;
   }
+}
+function resolveCommentOffsetRule(animeTitle, episodeTitle, commentId, source) {
+  if (!animeTitle || !episodeTitle || !(globals.danmuOffsetRules?.length > 0))
+    return { ctx: null, rule: null, offset: 0 };
+  let { baseTitle, fullTitle, season, episode } = extractAnimeInfo(animeTitle, episodeTitle), ctx = {
+    anime: baseTitle,
+    fullTitle,
+    season: `S${String(season || 1).padStart(2, "0")}`,
+    episode: `E${String(episode || findIndexById(commentId) + 1).padStart(2, "0")}`,
+    source
+  }, rule = resolveOffsetRule(globals.danmuOffsetRules, ctx);
+  return { ctx, rule, offset: rule?.offset || 0 };
 }
 function matchSeason(anime, queryTitle, season) {
   let match = anime.animeTitle.match(/^(.*?)\(\d{4}\)/), originalTitle = match ? match[1].trim() : anime.animeTitle.split("(")[0].trim(), normalizedAnimeTitle = normalizeTitleForMatch(originalTitle), seasonQueryTitle = anime.source === "local" ? queryTitle.replace(/[（(]\s*(?:19|20)\d{2}\s*[）)]/g, "").trim() : queryTitle, normalizedQueryTitle = normalizeTitleForMatch(seasonQueryTitle);
@@ -21236,7 +21435,9 @@ function checkEpisodeSatisfied(animesList, querySeason, queryEpisode, requestAni
         }
       let actualPlatform = [...new Set([identityPlatform, ...epPlatforms].filter(Boolean).flatMap((p) => p.split(/[&＆]/).map((s) => s.trim().toLowerCase())).filter((s) => s))].join("&");
       if (!(tPlat !== "_any_" && getPlatformMatchScore(actualPlatform, tPlat) === 0) && (platformHasData = !0, providedSources.add(anime.source), bData?.success && bData.bangumi?.episodes)) {
-        let validEps = bData.bangumi.episodes.filter((ep) => !globals.episodeTitleFilter.test(ep.episodeTitle)), filtered = filterSameEpisodeTitle(validEps);
+        let validEps = bData.bangumi.episodes.filter((ep) => !globals.episodeTitleFilter.test(ep.episodeTitle)), filtered = filterSameEpisodeTitle(validEps, {
+          preferredPlatform: tPlat === "_any_" ? null : tPlat
+        });
         if (filtered.some((ep) => extractEpisodeNumberFromTitle(ep.episodeTitle) === queryEpisode)) {
           isEpisodeSatisfied = !0;
           break;
@@ -21520,7 +21721,7 @@ async function searchAnimeBody(url, preferAnimeId = null, preferSource = null, d
     for (let anime of curAnimes) {
       let animeTitle = anime.animeTitle || "";
       if (globals.animeTitleFilter && globals.animeTitleFilter.test(animeTitle)) {
-        log("info", `[searchAnime] Anime ${anime.animeId} filtered by name: ${animeTitle}`);
+        log("info", `[system] [searchAnime] Anime ${anime.animeId} filtered by name: ${animeTitle}`);
         continue;
       }
       let animeData = resolveAnimeByIdFromDetailStore(anime?.bangumiId, requestAnimeDetailsMap, anime?.source) || resolveAnimeByIdFromDetailStore(anime?.animeId, requestAnimeDetailsMap, anime?.source) || resolveAnimeById(anime?.bangumiId, requestAnimeDetailsMap, anime?.source) || resolveAnimeById(anime?.animeId, requestAnimeDetailsMap, anime?.source);
@@ -21530,7 +21731,7 @@ async function searchAnimeBody(url, preferAnimeId = null, preferSource = null, d
           episodeTitle: link.title,
           episodeNumber: index + 1
         }));
-        episodesList = episodesList.filter((episode) => !globals.episodeTitleFilter.test(episode.episodeTitle)), log("info", `[searchAnime] Anime ${anime.animeId} filtered episodes: ${episodesList.length}/${animeData.links.length}`), episodesList.length > 0 && validAnimes.push(anime);
+        episodesList = episodesList.filter((episode) => !globals.episodeTitleFilter.test(episode.episodeTitle)), log("info", `[system] [searchAnime] Anime ${anime.animeId} filtered episodes: ${episodesList.length}/${animeData.links.length}`), episodesList.length > 0 && validAnimes.push(anime);
       }
     }
     curAnimes.length = 0, curAnimes.push(...validAnimes);
@@ -21548,11 +21749,24 @@ async function searchAnimeBody(url, preferAnimeId = null, preferSource = null, d
     tmdbSeasonBoundaries
   });
 }
-function filterSameEpisodeTitle(filteredTmpEpisodes) {
-  let filteredEpisodes = filteredTmpEpisodes.filter((episode, index, episodes) => !episodes.slice(0, index).some((prevEpisode) => prevEpisode.episodeTitle === episode.episodeTitle)), seenNumbers = /* @__PURE__ */ new Set();
+function filterSameEpisodeTitle(filteredTmpEpisodes, options = {}) {
+  let { preferredPlatform = null } = options, filteredEpisodes = filteredTmpEpisodes.filter((episode, index, episodes) => !episodes.slice(0, index).some((prevEpisode) => prevEpisode.episodeTitle === episode.episodeTitle)), selectedByNumber = /* @__PURE__ */ new Map();
+  for (let episode of filteredEpisodes) {
+    let num = extractEpisodeNumberFromTitle(episode.episodeTitle);
+    if (num === null) continue;
+    let selected = selectedByNumber.get(num);
+    if (!selected) {
+      selectedByNumber.set(num, episode);
+      continue;
+    }
+    if (preferredPlatform) {
+      let selectedScore = getPlatformMatchScore(extractEpisodeTitle(selected.episodeTitle), preferredPlatform);
+      getPlatformMatchScore(extractEpisodeTitle(episode.episodeTitle), preferredPlatform) > selectedScore && selectedByNumber.set(num, episode);
+    }
+  }
   return filteredEpisodes.filter((ep) => {
     let num = extractEpisodeNumberFromTitle(ep.episodeTitle);
-    return num === null ? !0 : seenNumbers.has(num) ? !1 : (seenNumbers.add(num), !0);
+    return num === null ? !0 : selectedByNumber.get(num) === ep;
   });
 }
 function getPlatformMatchScore(candidatePlatform, targetPlatform) {
@@ -21570,7 +21784,7 @@ function extractPlatformFromTitle(title) {
 }
 function getBangumiDataForMatch(anime, detailStore = null) {
   let detailAnime = resolveAnimeByIdFromDetailStore(anime?.bangumiId, detailStore, anime?.source) || resolveAnimeByIdFromDetailStore(anime?.animeId, detailStore, anime?.source);
-  return detailAnime ? buildBangumiData(detailAnime, anime?.bangumiId || anime?.animeId || "") : (log("warn", `[matchAnime] Missing request detail snapshot for anime ${anime?.animeId ?? anime?.bangumiId}`), null);
+  return detailAnime ? buildBangumiData(detailAnime, anime?.bangumiId || anime?.animeId || "") : (log("warn", `[system] [match] Missing request detail snapshot for anime ${anime?.animeId ?? anime?.bangumiId}`), null);
 }
 function resolveSourceAndRealId(url) {
   let bgmMatch = url.match(/(?:bgm\.tv|bangumi\.tv|bangumi\.lol|chii\.in)\/ep\/(\d+)/);
@@ -21678,7 +21892,7 @@ async function fetchMergedComments(url, animeTitle, commentId) {
   if (cached)
     return log("info", `[merge] \u547D\u4E2D\u7F13\u5B58 [${sourceTag}]\uFF0C\u8FD4\u56DE ${cached.length} \u6761`), cached;
   let stats = {}, taskFactories = partMetas.map((meta) => async () => {
-    let sourceName = meta.logicalSource, sourceLabel = meta.sourceLabel || meta.logicalSource, realId = meta.realId;
+    let sourceName = meta.logicalSource, sourceLabel = meta.sourceLabel || meta.logicalSource, sourceLogName = getLogNameByKey(sourceName), realId = meta.realId;
     if (!sourceName || !realId) return [];
     let pendingKey = `${sourceName}:${realId}`;
     if (PENDING_DANMAKU_REQUESTS.has(pendingKey)) {
@@ -21689,19 +21903,19 @@ async function fetchMergedComments(url, animeTitle, commentId) {
         return [];
       }
     }
-    let fetchTask = sourceLogContext.run(getLogNameByKey(sourceName), async () => {
+    let fetchTask = sourceLogContext.run(sourceLogName, async () => {
       let sourceInstance = getSourceByKey(sourceName);
       if (sourceInstance)
         try {
           let resolvedId = realId;
           sourceName === "bilibili" && String(resolvedId).includes("b23.tv") && (resolvedId = await bilibiliSource2.resolveB23Link(resolvedId));
           let raw = await sourceInstance.getEpisodeDanmu(resolvedId, parts), formatted = sourceInstance.formatComments(raw);
-          if (log("info", `[${sourceLabel}] \u83B7\u53D6\u5F39\u5E55 ${formatted.length} \u6761`), meta.manualOffset && formatted && Array.isArray(formatted))
+          if (log("info", `[${sourceLogName}] \u83B7\u53D6\u5F39\u5E55 ${formatted.length} \u6761`), meta.manualOffset && formatted && Array.isArray(formatted))
             if (meta.manualOffsetPercent) {
               let maxTime = Math.max(...formatted.map((d) => parseFloat(String(d.p).split(",")[0]) || 0), 0);
-              formatted = applyOffset(formatted, meta.manualOffset, { usePercent: !0, videoDuration: maxTime || 1 }), log("info", `[${sourceLabel}] \u5E94\u7528\u767E\u5206\u6BD4\u504F\u79FB ${meta.manualOffset}s (\u65F6\u957F=${maxTime}s)`);
+              formatted = applyOffset(formatted, meta.manualOffset, { usePercent: !0, videoDuration: maxTime || 1 }), log("info", `[${sourceLogName}] \u5E94\u7528\u767E\u5206\u6BD4\u504F\u79FB ${meta.manualOffset}s (\u65F6\u957F=${maxTime}s)`);
             } else
-              formatted = applyOffset(formatted, meta.manualOffset), log("info", `[${sourceLabel}] \u5E94\u7528\u624B\u52A8\u504F\u79FB ${meta.manualOffset}s`);
+              formatted = applyOffset(formatted, meta.manualOffset), log("info", `[${sourceLogName}] \u5E94\u7528\u624B\u52A8\u504F\u79FB ${meta.manualOffset}s`);
           return formatted && Array.isArray(formatted) && formatted.forEach((item) => {
             item._sourceLabel || (item._sourceLabel = sourceLabel);
           }), stats[sourceLabel] = formatted.length, formatted;
@@ -21732,23 +21946,21 @@ async function fetchMergedComments(url, animeTitle, commentId) {
   if (alignSourceTimelines(results, sourceNames, realIds), globals.danmuOffsetRules?.length > 0 && animeTitle && commentId) {
     let [, , episodeTitle] = findAnimeIdByCommentId(commentId);
     if (episodeTitle) {
-      let { baseTitle, season, episode } = extractAnimeInfo(animeTitle, episodeTitle);
+      let { baseTitle, fullTitle, season, episode } = extractAnimeInfo(animeTitle, episodeTitle);
       season || (season = 1), episode || (episode = findIndexById(commentId) + 1);
       let seasonStr = `S${season.toString().padStart(2, "0")}`, episodeStr = `E${episode.toString().padStart(2, "0")}`;
       for (let idx = 0; idx < results.length; idx++) {
-        let list = results[idx], offsetRule = resolveOffsetRule(globals.danmuOffsetRules, {
+        let list = results[idx], sourceName = sourceNames[idx], offsetRule = resolveOffsetRule(globals.danmuOffsetRules, {
           anime: baseTitle,
+          fullTitle,
           season: seasonStr,
           episode: episodeStr,
-          source: sourceNames[idx]
-        }), offset = offsetRule?.offset || 0;
-        if (offset !== 0) {
-          let targetUrl = realIds[idx], videoDuration = offsetRule?.usePercent ? await resolveUrlDuration(targetUrl) : 0, offsetMode = offsetRule?.usePercent ? "%" : "s";
-          log("info", `[merge] \u5E94\u7528\u504F\u79FB ${offset}${offsetMode} -> ${sourceNames[idx]} (${baseTitle}/${seasonStr}/${episodeStr})${offsetRule?.usePercent ? `, duration=${videoDuration}s` : ""}`), results[idx] = applyOffset(list, offset, {
-            usePercent: offsetRule?.usePercent,
-            videoDuration
-          });
-        }
+          source: sourceName
+        }), offset = offsetRule?.offset || 0, videoDuration = offset !== 0 && offsetRule?.usePercent ? await resolveUrlDuration(realIds[idx]) : 0;
+        log("info", `[merge] [offset] [${sourceName}] ${fullTitle || baseTitle} ${offsetRule ? `\u547D\u4E2D\u504F\u79FB\u89C4\u5219: ${offsetRule.raw}` : "\u672A\u547D\u4E2D\u504F\u79FB\u89C4\u5219"}`), offset !== 0 && (results[idx] = applyOffset(list, offset, {
+          usePercent: offsetRule?.usePercent,
+          videoDuration
+        }));
       }
     }
   }
@@ -21788,9 +22000,14 @@ async function getComment(path2, queryFormat, segmentFlag, clientIp, includeDura
   log("info", `[system] [LogVar-API] Fetched comment ID: ${commentId}`);
   let cacheKey = resolveCommentCacheKey(url), cachedComments = getCommentCache(cacheKey);
   if (cachedComments !== null) {
+    let videoDuration = shouldAttachDuration ? await resolveMergedDuration(url) : null;
+    if (shouldAttachDuration) {
+      let [, cachedSource, cachedEpisodeTitle] = findAnimeIdByCommentId(commentId), { rule, offset } = resolveCommentOffsetRule(animeTitle, cachedEpisodeTitle, commentId, cachedSource);
+      videoDuration = offsetDuration(videoDuration, offset, rule?.usePercent === !0);
+    }
     let responseData2 = buildDanmuResponse(
       { count: cachedComments.length, comments: cachedComments },
-      shouldAttachDuration ? await resolveMergedDuration(url) : null
+      videoDuration
     );
     return formatDanmuResponse(responseData2, queryFormat);
   }
@@ -21853,27 +22070,23 @@ async function getComment(path2, queryFormat, segmentFlag, clientIp, includeDura
       lastSearch && lastSearch.title && lastSearch.season && lastSearch.episode && episodeTitle && Date.now() - lastSearch.timestamp < 18e4 && (lastSearchContext = lastSearch, lastSearch.episodeId !== null && lastSearch.episodeId !== void 0 && String(lastSearch.episodeId) === String(commentId) ? log("info", `[system] [match] Skip preference write for automatically returned episode ${commentId}`) : (lastTitle = lastSearch.title, lastSeason = lastSearch.season, offset = `${lastSearch.episode}:${episodeTitle}`, log("info", `[system] [LogVar-API] Calculated episode offset for IP ${clientIp}: Query E${lastSearch.episode}, Selected ${episodeTitle} -> Offset ${offset} (Season ${lastSeason})`)));
     }
   }
-  if (animeTitle && episodeTitle && globals.danmuOffsetRules?.length > 0 && !(url && url.includes(MERGE_DELIMITER))) {
-    let { baseTitle, season, episode } = extractAnimeInfo(animeTitle, episodeTitle);
-    season || (season = 1), episode || (episode = findIndexById(commentId) + 1);
-    let seasonStr = `S${season.toString().padStart(2, "0")}`, episodeStr = `E${episode.toString().padStart(2, "0")}`, offsetRule = resolveOffsetRule(globals.danmuOffsetRules, {
-      anime: baseTitle,
-      season: seasonStr,
-      episode: episodeStr,
-      source
-    }), offset = offsetRule?.offset || 0;
-    if (offset !== 0) {
-      let videoDuration = offsetRule?.usePercent ? await resolveUrlDuration(url) : 0;
-      log("info", `[system] [LogVar-API] Applying danmu offset: ${offset}${offsetRule?.usePercent ? "%" : "s"} for ${baseTitle}/${seasonStr}/${episodeStr}${offsetRule?.usePercent ? `, duration=${videoDuration}s` : ""}`), danmus = applyOffset(danmus, offset, {
-        usePercent: offsetRule?.usePercent,
+  let appliedRuleOffset = 0, appliedRulePercent = !1;
+  if (animeTitle && episodeTitle && !(url && url.includes(MERGE_DELIMITER))) {
+    let { ctx, rule, offset } = resolveCommentOffsetRule(animeTitle, episodeTitle, commentId, source);
+    if (ctx) {
+      let videoDuration = offset !== 0 && rule?.usePercent ? singleUrlOffset === 0 && durationPromise ? await durationPromise : await resolveUrlDuration(cleanUrl) : 0;
+      log("info", `[system] [offset] ${ctx.fullTitle || ctx.anime} ${rule ? `\u547D\u4E2D\u504F\u79FB\u89C4\u5219: ${rule.raw}` : "\u672A\u547D\u4E2D\u504F\u79FB\u89C4\u5219"}`), offset !== 0 && (danmus = applyOffset(danmus, offset, {
+        usePercent: rule?.usePercent,
         videoDuration
-      });
+      }), appliedRuleOffset = offset, appliedRulePercent = rule?.usePercent === !0);
     }
   }
   segmentFlag || (danmus && danmus.comments && (danmus = danmus.comments), Array.isArray(danmus) || (danmus = []), danmus.length > 0 && setCommentCache(cacheKey, danmus));
+  let responseDuration = durationPromise ? await durationPromise : null;
+  responseDuration !== null && (responseDuration = offsetDuration(responseDuration, appliedRuleOffset, appliedRulePercent));
   let responseData = buildDanmuResponse(
     { count: danmus.length, comments: danmus },
-    durationPromise ? await durationPromise : null
+    responseDuration
   );
   return formatDanmuResponse(responseData, queryFormat);
 }
@@ -21981,7 +22194,7 @@ async function getSegmentComment(segment, queryFormat) {
 }
 
 // forward/forward-widget.js
-var wv = "1.21.7";
+var wv = "1.21.8";
 WidgetMetadata = {
   id: "forward.auto.danmu2",
   title: "\u81EA\u52A8\u94FE\u63A5\u5F39\u5E55v2",
@@ -22059,24 +22272,12 @@ WidgetMetadata = {
     },
     {
       name: "vodServers",
-      title: "VOD\u7AD9\u70B9\u914D\u7F6E\uFF0C\u683C\u5F0F\uFF1A\u540D\u79F0@URL,\u540D\u79F0@URL\uFF0C\u9ED8\u8BA4\u91D1\u8749'https://zy.jinchancaiji.com,789@https://www.caiji.cyou,\u542C\u98CE@https://gctf.tfdh.top'",
+      title: "VOD\u7AD9\u70B9\u914D\u7F6E\uFF0C\u9ED8\u8BA4\u7A7A\uFF08\u672A\u914D\u7F6E\u8DF3\u8FC7\uFF09\uFF0C\u683C\u5F0F\uFF1A\u540D\u79F0@URL,\u540D\u79F0@URL\uFF1B\u81EA\u5B9A\u4E49\u6E90@https://example.com\u4EC5\u4E3A\u683C\u5F0F\u793A\u4F8B\uFF0C\u4E0D\u662F\u53EF\u7528\u91C7\u96C6\u670D\u52A1",
       type: "input",
       placeholders: [
         {
-          title: "\u914D\u7F6E1",
-          value: "\u91D1\u8749@https://zy.jinchancaiji.com,789@https://www.caiji.cyou,\u542C\u98CE@https://gctf.tfdh.top"
-        },
-        {
-          title: "\u914D\u7F6E2",
-          value: "\u91D1\u8749@https://zy.jinchancaiji.com"
-        },
-        {
-          title: "\u914D\u7F6E3",
-          value: "\u91D1\u8749@https://zy.jinchancaiji.com,789@https://www.caiji.cyou"
-        },
-        {
-          title: "\u914D\u7F6E4",
-          value: "\u91D1\u8749@https://zy.jinchancaiji.com,\u542C\u98CE@https://gctf.tfdh.top"
+          title: "\u65E0\u7AD9\u70B9\uFF08\u8DF3\u8FC7VOD\uFF09",
+          value: ""
         }
       ]
     },
