@@ -5985,7 +5985,7 @@ var _Envs = class _Envs {
    */
   static load(env = {}) {
     this.env = env;
-    let envVarConfig = {
+    let configuredAiMatchPrompt = this.get("AI_MATCH_PROMPT", this.DEFAULT_AI_MATCH_PROMPT, "string"), envVarConfig = {
       // API配置
       TOKEN: { category: "api", type: "text", description: "API\u8BBF\u95EE\u4EE4\u724C" },
       ADMIN_TOKEN: { category: "api", type: "text", description: "\u7CFB\u7EDF\u7BA1\u7406\u8BBF\u95EE\u4EE4\u724C" },
@@ -6040,6 +6040,7 @@ var _Envs = class _Envs {
 \u6709\u9650\u8303\u56F4\uFF1A\u6C38\u751F S05E02~03 -> \u6C38\u751F S01E58~59
 \u6307\u5B9A\u7ED3\u679C\uFF1A\u6D77\u8D3C\u738B S02E01 -> \u822A\u6D77\u738B(1999)\u3010\u52A8\u6F2B\u3011 S01E62
 \u6307\u5B9A\u5E73\u53F0\uFF1A\u822A\u6D77\u738B S01E01 -> \u822A\u6D77\u738B S01E01 @qiyi` },
+      AUTO_MATCH_MAPPING_TABLE_URL: { category: "match", type: "text", description: "\u8FDC\u7A0B\u5B63\u96C6\u6620\u5C04\u8868\uFF08\u9ED8\u8BA4\u5173\u95ED\uFF0C\u586B\u5199\u540E\u542F\u7528\uFF09\u3002\u672C\u673A AUTO_MATCH_MAPPING_TABLE \u4F18\u5148\uFF1B\u652F\u6301 GitHub \u6587\u4EF6\u9875\u3001Gist\u3001jsDelivr \u548C HTTP/HTTPS TXT \u76F4\u94FE\uFF0C\u5185\u5BB9\u683C\u5F0F\u4E0E\u672C\u673A\u6620\u5C04\u8868\u4E00\u81F4\uFF0C\u6BCF\u884C\u53EF\u5199\u591A\u6761\u89C4\u5219\uFF0C# \u6216 // \u5F00\u5934\u4E3A\u6CE8\u91CA\u3002Node/Docker \u4F1A\u7F13\u5B58\u5230 .cache \u5E76\u5728\u6BCF\u5929\u5317\u4EAC\u65F6\u95F405:30\u540E\u53F0\u66F4\u65B0\uFF1BServerless \u9996\u6B21\u5339\u914D\u4F1A\u540E\u53F0\u4E0B\u8F7D\uFF0C\u4E0D\u963B\u585E\u5F53\u524D\u8BF7\u6C42\uFF0C\u540E\u7EED\u8BF7\u6C42\u751F\u6548\u3002\u7BA1\u7406\u5458\u53EF\u901A\u8FC7 POST /api/auto-match-mapping/refresh \u7ACB\u5373\u5237\u65B0\u5F53\u524D\u5B9E\u4F8B\u3002" },
       TITLE_NOISE_FILTER: { category: "match", type: "text", description: "\u5267\u540D\u6742\u97F3\u6E05\u7406\u89C4\u5219\uFF0C\u6309\u6B63\u5219\u8868\u8FBE\u5F0F\u6E05\u7406\u641C\u7D22\u4E0E\u5339\u914D\u9636\u6BB5\u7684\u5267\u540D\u6742\u97F3\u8BCD\uFF08\u5982`\u767E\u82B1\u6740\uFF08\u771F\u5F69\uFF09`\u2192`\u767E\u82B1\u6740`\uFF09\u3002\n\u9ED8\u8BA4\u503C\uFF1A[\uFF08(\\[\uFF3B](?:\u81FB\u5F69|\u771F\u5F69|\u9AD8\u6E05|\u6807\u6E05|\u8D85\u6E05|\u56FD\u914D|\u4E2D\u914D|\u65E5\u914D|\u7CA4\u8BED|\u539F\u58F0|\u53F0\u914D|\u65E0\u4FEE|\u672A\u5220\u51CF|\u5B8C\u6574\u7248|\u65E5\u8BED\u7248|\u56FD\u8BED\u7248|\u82F1\u8BED\u7248|\u4E2D\u5B57|\u5B57\u5E55|\u52A9\u542C|\u539F\u7248)[\\])\uFF09\uFF3D]\uFF0C\u4E2D\u82F1\u6587\u5706\u65B9\u62EC\u53F7\u5747\u5339\u914D\u3002\n\u8BBE\u4E3A\u7A7A\u503C\u53EF\u7981\u7528" },
       AI_BASE_URL: { category: "match", type: "text", description: "AI\u670D\u52A1\u57FA\u7840URL\uFF0C\u4E0D\u586B\u9ED8\u8BA4\u4E3Ahttps://api.openai.com/v1" },
       AI_MODEL: { category: "match", type: "text", description: "AI\u6A21\u578B\u540D\u79F0\uFF0C\u4E0D\u586B\u9ED8\u8BA4\u4E3Agpt-4o" },
@@ -6060,7 +6061,7 @@ var _Envs = class _Envs {
       DANMU_OUTPUT_FORMAT: { category: "danmu", type: "select", options: ["json", "xml", ...danAnyFormats], description: "\u5F39\u5E55\u8F93\u51FA\u683C\u5F0F\uFF0C\u9ED8\u8BA4json" },
       DANMU_PUSH_URL: { category: "danmu", type: "text", description: "\u5F39\u5E55\u63A8\u9001\u5730\u5740\uFF0C\u793A\u4F8B http://127.0.0.1:9978/action?do=refresh&type=danmaku&path= " },
       LIKE_SWITCH: { category: "danmu", type: "boolean", description: "\u5F39\u5E55\u70B9\u8D5E\u6570\u663E\u793A\u5F00\u5173\uFF0C\u9ED8\u8BA4\u5F00\u542F" },
-      HONGGUO_MERGE_ALL_EPISODES: { category: "danmu", type: "boolean", description: "\u7EA2\u679C\u77ED\u5267\u5408\u5E76\u5168\u96C6\u5F39\u5E55\uFF0C\u9ED8\u8BA4\u5173\u95ED" },
+      HONGGUO_MERGE_ALL_EPISODES: { category: "danmu", type: "boolean", description: "\u7EA2\u679C\u77ED\u5267\u5408\u5E76\u5168\u96C6\u5F39\u5E55\uFF0C\u9ED8\u8BA4\u5173\u95ED\u3002\u542F\u7528\u540E\u4FDD\u7559\u771F\u5B9E\u96C6\u6570\uFF0C\u7BA1\u7406\u9875\u83B7\u53D6\u5168\u96C6\u524D\u4F1A\u786E\u8BA4\u5E76\u4F7F\u7528\u5206\u7247\u8BF7\u6C42\u3002" },
       DANMU_OFFSET: { category: "danmu", type: "text", sources: this.ALLOWED_SOURCES, description: "\u5F39\u5E55\u65F6\u95F4\u504F\u79FB\u914D\u7F6E\uFF0C\u683C\u5F0F\uFF1A\u5267\u540D:\u79D2 \u6216 \u5267\u540D/\u5B63:\u79D2 \u6216 \u5267\u540D/\u5B63/\u96C6:\u79D2\uFF0C\u652F\u6301\u6307\u5B9A\u6765\u6E90\uFF1A\u5267\u540D@\u6765\u6E90:\u79D2 \u6216 \u5267\u540D/\u5B63@\u6765\u6E901&\u6765\u6E902:\u79D2\uFF0C\u591A\u6761\u7528\u9017\u53F7\u5206\u9694\uFF0C\u6B63\u6570\u8868\u793A\u5F39\u5E55\u5EF6\u540E\uFF08\u5411\u53F3\uFF09\uFF0C\u8D1F\u6570\u8868\u793A\u5F39\u5E55\u63D0\u524D\uFF08\u5411\u5DE6\uFF09\u3002\u652F\u6301\u767E\u5206\u6BD4\u6A21\u5F0F\uFF1A\u5728\u8DEF\u5F84\u6216\u6765\u6E90\u672B\u5C3E\u8FFD\u52A0 %\uFF0C\u5982 \u4E1C\u65B9/S03/E02@tencent%:11\uFF0C\u6309\u516C\u5F0F \u539F\u65F6\u95F4 * (\u89C6\u9891\u65F6\u957F + \u504F\u79FB\u79D2\u6570) / \u89C6\u9891\u65F6\u957F \u7F29\u653E\u5168\u90E8\u5F39\u5E55\u65F6\u95F4\u3002\u793A\u4F8B\uFF1Aoverlord/S01:90,re-zero/S02@bilibili:120,re-zero/S02/E03@dandan&bilibili:10,\u4E1C\u65B9/S03/E02@tencent%:11" },
       // 缓存配置
       LOCAL_CACHE_ENABLED: { category: "cache", type: "boolean", description: "\u901A\u7528\u6587\u4EF6\u7F13\u5B58\u5F00\u5173\uFF0C\u9ED8\u8BA4\u5F00\u542F\u4E14\u4ECD\u9700\u5DF2\u6709 .cache \u76EE\u5F55\uFF1B\u5173\u95ED\u540E\u4E0D\u8BFB\u53D6\u6216\u5199\u5165\u901A\u7528\u6587\u4EF6\u7F13\u5B58\uFF0C\u5305\u62EC\u6536\u85CF\u4E0E\u5B9A\u65F6\u8BA1\u5212\uFF1B\u5DF2\u914D\u7F6E Upstash \u65F6\u4ECD\u53EF\u6301\u4E45\u5316\u3002\u4E0D\u5F71\u54CD\u672C\u5730\u5F39\u5E55\u6587\u4EF6\u3001Bangumi Data \u6216 Redis" },
@@ -6201,6 +6202,8 @@ var _Envs = class _Envs {
       // 远程剧名映射表地址（由用户托管维护，自动拉取生效）
       autoMatchMappingTable: this.resolveAutoMatchMappingTable(),
       // 自动匹配标题/季度/集数映射规则
+      autoMatchMappingTableUrl: this.get("AUTO_MATCH_MAPPING_TABLE_URL", "", "string"),
+      // 远程季集映射表地址
       ipBlacklist: this.resolveIpBlacklist(),
       // IP 黑名单（支持正则）
       aiBaseUrl: this.get("AI_BASE_URL", "https://api.openai.com/v1", "string"),
@@ -6209,7 +6212,7 @@ var _Envs = class _Envs {
       // AI模型名称
       aiApiKey: this.get("AI_API_KEY", "", "string", !0),
       // AI服务API密钥
-      aiMatchPrompt: this.get("AI_MATCH_PROMPT", this.DEFAULT_AI_MATCH_PROMPT, "string"),
+      aiMatchPrompt: configuredAiMatchPrompt.trim() ? configuredAiMatchPrompt : this.DEFAULT_AI_MATCH_PROMPT,
       // AI自动匹配提示词模板
       useBangumiData: this.get("USE_BANGUMI_DATA", !1, "boolean"),
       // Bangumi Data 数据辅助开关
@@ -6289,7 +6292,7 @@ var Globals = {
   originalEnvVars: {},
   accessedEnvVars: {},
   // 静态常量
-  VERSION: "1.21.8",
+  VERSION: "1.21.9",
   MAX_LOGS: 1e3,
   // 日志存储，最多保存 1000 行
   MAX_RECORDS: 100,
@@ -8815,6 +8818,243 @@ function formatDanmuResponse(danmuData, queryFormat) {
   let converted = convertDanAny(danmuData, format);
   return converted?.type === "json" ? jsonResponse(converted.data) : converted?.type === "xml" ? xmlResponse(converted.data) : converted?.type === "binary" ? binResponse(converted.data, converted.filename) : jsonResponse(danmuData);
 }
+
+// danmu_api/utils/remote-table-util.js
+var FETCH_TIMEOUT_MS = 5e3, MAX_REMOTE_TEXT_BYTES = 2 * 1024 * 1024, INITIAL_RETRY_BACKOFF_MS = 600 * 1e3, SCHEDULE_RETRY_COUNT = 5, SCHEDULE_RETRY_DELAY_MS = 60 * 1e3, REFRESH_HOUR_SHANGHAI = 5, REFRESH_MINUTE_SHANGHAI = 30, SHANGHAI_UTC_OFFSET_MS = 480 * 60 * 1e3, ONE_DAY_MS = 1440 * 60 * 1e3;
+function normalizeRemoteTableUrl(rawUrl, label = "\u8FDC\u7A0B\u6620\u5C04\u8868") {
+  let url = String(rawUrl || "").trim();
+  if (!url) return "";
+  let blobMatch = url.match(/^https?:\/\/github\.com\/([^/\s]+)\/([^/\s]+)\/blob\/(.+)$/i);
+  blobMatch && (url = `https://raw.githubusercontent.com/${blobMatch[1]}/${blobMatch[2]}/${blobMatch[3]}`);
+  let gistMatch = url.match(/^https?:\/\/gist\.github\.com\/([^/\s]+)\/([^/\s?#]+)\/?$/i);
+  gistMatch && (url = `https://gist.githubusercontent.com/${gistMatch[1]}/${gistMatch[2]}/raw`);
+  let parsed;
+  try {
+    parsed = new URL(url);
+  } catch {
+    throw new Error(`${label} \u5FC5\u987B\u662F\u6709\u6548\u7684 HTTP/HTTPS \u5730\u5740`);
+  }
+  if (parsed.protocol !== "http:" && parsed.protocol !== "https:")
+    throw new Error(`${label} \u4EC5\u652F\u6301 HTTP/HTTPS \u5730\u5740`);
+  return parsed.toString();
+}
+function millisecondsUntilNextShanghaiRefresh(now = /* @__PURE__ */ new Date()) {
+  let nowMs = now.getTime(), shanghaiNow = new Date(nowMs + SHANGHAI_UTC_OFFSET_MS), targetMs = Date.UTC(
+    shanghaiNow.getUTCFullYear(),
+    shanghaiNow.getUTCMonth(),
+    shanghaiNow.getUTCDate(),
+    REFRESH_HOUR_SHANGHAI,
+    REFRESH_MINUTE_SHANGHAI
+  ) - SHANGHAI_UTC_OFFSET_MS;
+  return targetMs <= nowMs && (targetMs += ONE_DAY_MS), targetMs - nowMs;
+}
+function isLongRunningRuntime() {
+  return globals.deployPlatform === "node" || globals.deployPlatform === "huggingface";
+}
+function remoteTextByteLength(text) {
+  return typeof Buffer < "u" && typeof Buffer.byteLength == "function" ? Buffer.byteLength(text, "utf8") : text.length;
+}
+async function replaceCacheFile(fs2, source, target) {
+  try {
+    await fs2.rename(source, target);
+  } catch (error) {
+    if (!["EEXIST", "EPERM"].includes(error?.code)) throw error;
+    await fs2.rm(target, { force: !0 }), await fs2.rename(source, target);
+  }
+}
+function createRemoteTableLoader({
+  name,
+  cacheFileName,
+  urlLabel,
+  getRawUrl,
+  parseText,
+  activate,
+  reset,
+  initialLoadMode = "blocking",
+  loadDiskOnServerless = !1,
+  refreshStaleCache = !1,
+  saveDiskOnServerless = !1
+}) {
+  let state = {
+    configuredUrl: "",
+    diskAttempted: !1,
+    activeCount: 0,
+    nextInitialRetryAt: 0,
+    schedulerTimer: null,
+    fetches: /* @__PURE__ */ new Map()
+  };
+  function remoteLog(level, message) {
+    log(level, `[system] [${name}] ${message}`);
+  }
+  function cancelScheduler() {
+    state.schedulerTimer && clearTimeout(state.schedulerTimer), state.schedulerTimer = null;
+  }
+  function resetForConfiguredUrl(url) {
+    return state.configuredUrl === url ? !1 : (cancelScheduler(), state.configuredUrl = url, state.diskAttempted = !1, state.activeCount = 0, state.nextInitialRetryAt = 0, reset(), !0);
+  }
+  function currentUrl() {
+    return normalizeRemoteTableUrl(getRawUrl(), urlLabel);
+  }
+  async function cachePaths() {
+    if (typeof process > "u" || typeof process.cwd != "function") return null;
+    let { default: path2 } = await import("node:path"), dir = path2.join(process.cwd(), ".cache");
+    return {
+      dir,
+      file: path2.join(dir, cacheFileName)
+    };
+  }
+  async function saveDisk(url, text) {
+    if (!isLongRunningRuntime() && !saveDiskOnServerless) return;
+    let tempFile = "";
+    try {
+      let paths = await cachePaths();
+      if (!paths) return;
+      let { default: fs2 } = await import("node:fs/promises");
+      await fs2.mkdir(paths.dir, { recursive: !0 });
+      let suffix = `${process.pid || "current"}.${Date.now()}.${Math.random().toString(36).slice(2, 8)}.tmp`;
+      tempFile = `${paths.file}.${suffix}`, await fs2.writeFile(tempFile, JSON.stringify({ url, text, fetchedAt: Date.now() }), "utf8"), await replaceCacheFile(fs2, tempFile, paths.file), tempFile = "";
+    } catch (error) {
+      remoteLog("warn", `\u5199\u5165\u78C1\u76D8\u7F13\u5B58\u5931\u8D25\uFF08\u5F53\u524D\u5185\u5B58\u89C4\u5219\u4ECD\u6709\u6548\uFF09: ${error?.message || error}`);
+      try {
+        let { default: fs2 } = await import("node:fs/promises");
+        tempFile && await fs2.unlink(tempFile);
+      } catch {
+      }
+    }
+  }
+  async function loadDisk(url) {
+    if (state.diskAttempted || (state.diskAttempted = !0, !isLongRunningRuntime() && !loadDiskOnServerless)) return !1;
+    try {
+      let paths = await cachePaths();
+      if (!paths) return !1;
+      let { default: fs2 } = await import("node:fs/promises"), cache = JSON.parse(await fs2.readFile(paths.file, "utf8"));
+      if (cache.url !== url || typeof cache.text != "string") return !1;
+      let parsed = parseText(cache.text);
+      return !parsed?.count || state.configuredUrl !== url ? !1 : (activate(url, parsed.value), state.activeCount = parsed.count, remoteLog("info", `\u5DF2\u52A0\u8F7D\u672C\u5730\u7F13\u5B58: ${parsed.count} \u6761\u89C4\u5219`), refreshStaleCache && Number.isFinite(cache.fetchedAt) && Date.now() - cache.fetchedAt > ONE_DAY_MS && startFetch(url, "\u7F13\u5B58\u5DF2\u8D85\u8FC7 24 \u5C0F\u65F6").catch((error) => {
+        remoteLog("warn", `\u7F13\u5B58\u5237\u65B0\u5931\u8D25\uFF0C\u7EE7\u7EED\u4F7F\u7528\u78C1\u76D8\u7F13\u5B58: ${error?.message || error}`);
+      }), !0);
+    } catch {
+      return !1;
+    }
+  }
+  async function fetchRemoteText(url) {
+    let response = await Widget.http.get(url, { timeout: FETCH_TIMEOUT_MS, retries: 0 }), text = typeof response?.data == "string" ? response.data : response?.data == null ? "" : String(response.data);
+    if (!text.trim()) throw new Error("\u8FDC\u7A0B\u6620\u5C04\u8868\u5185\u5BB9\u4E3A\u7A7A");
+    if (remoteTextByteLength(text) > MAX_REMOTE_TEXT_BYTES) throw new Error("\u8FDC\u7A0B\u6620\u5C04\u8868\u8D85\u8FC7 2 MB \u9650\u5236");
+    return text;
+  }
+  function startFetch(url, reason) {
+    let existing = state.fetches.get(url);
+    if (existing) return existing;
+    let task = (async () => {
+      remoteLog("info", `${reason}: ${url}`);
+      let text = await fetchRemoteText(url), parsed = parseText(text);
+      if (!parsed?.count) throw new Error("\u8FDC\u7A0B\u6620\u5C04\u8868\u672A\u89E3\u6790\u5230\u6709\u6548\u89C4\u5219");
+      if (state.configuredUrl !== url) throw new Error("\u914D\u7F6E\u5730\u5740\u5DF2\u53D8\u5316\uFF0C\u5FFD\u7565\u65E7\u4E0B\u8F7D\u7ED3\u679C");
+      return activate(url, parsed.value), state.activeCount = parsed.count, await saveDisk(url, text), remoteLog("info", `\u66F4\u65B0\u6210\u529F: ${parsed.count} \u6761\u89C4\u5219`), parsed.count;
+    })().finally(() => {
+      state.fetches.get(url) === task && state.fetches.delete(url);
+    });
+    return state.fetches.set(url, task), task;
+  }
+  async function refreshWithRetries(url, reason) {
+    for (let attempt = 1; attempt <= SCHEDULE_RETRY_COUNT; attempt++) {
+      if (state.configuredUrl !== url) return !1;
+      try {
+        return await startFetch(url, `${reason}\uFF0C\u5C1D\u8BD5 ${attempt}/${SCHEDULE_RETRY_COUNT}`), !0;
+      } catch (error) {
+        remoteLog("warn", `\u5C1D\u8BD5 ${attempt}/${SCHEDULE_RETRY_COUNT} \u5931\u8D25: ${error?.message || error}`), attempt < SCHEDULE_RETRY_COUNT && await new Promise((resolve) => setTimeout(resolve, SCHEDULE_RETRY_DELAY_MS));
+      }
+    }
+    return remoteLog("error", `\u8FDE\u7EED ${SCHEDULE_RETRY_COUNT} \u6B21\u66F4\u65B0\u5931\u8D25\uFF0C\u7EE7\u7EED\u4F7F\u7528\u65E7\u7F13\u5B58`), !1;
+  }
+  function scheduleRefresh(url) {
+    !isLongRunningRuntime() || !url || state.schedulerTimer || (state.schedulerTimer = setTimeout(async () => {
+      state.schedulerTimer = null, await refreshWithRetries(url, "\u5317\u4EAC\u65F6\u95F4 05:30 \u5B9A\u65F6\u66F4\u65B0"), state.configuredUrl === url && scheduleRefresh(url);
+    }, millisecondsUntilNextShanghaiRefresh()), typeof state.schedulerTimer?.unref == "function" && state.schedulerTimer.unref());
+  }
+  async function refreshNow() {
+    let url;
+    try {
+      url = currentUrl();
+    } catch (error) {
+      return resetForConfiguredUrl(""), { success: !1, count: state.activeCount, errorMessage: error.message, status: 400 };
+    }
+    if (!url)
+      return resetForConfiguredUrl(""), { success: !1, count: 0, errorMessage: `\u672A\u914D\u7F6E ${urlLabel}`, status: 400 };
+    if (resetForConfiguredUrl(url), state.fetches.has(url))
+      return { success: !1, count: state.activeCount, errorMessage: "\u8FDC\u7A0B\u6620\u5C04\u8868\u66F4\u65B0\u4EFB\u52A1\u6B63\u5728\u8FDB\u884C\u4E2D", status: 409 };
+    try {
+      let count = await startFetch(url, "\u7BA1\u7406\u5458\u624B\u52A8\u66F4\u65B0");
+      return scheduleRefresh(url), { success: !0, count, status: 200 };
+    } catch (error) {
+      return remoteLog("error", `\u7BA1\u7406\u5458\u624B\u52A8\u66F4\u65B0\u5931\u8D25: ${error?.message || error}`), {
+        success: !1,
+        count: state.activeCount,
+        errorMessage: error?.message || String(error),
+        status: 502
+      };
+    }
+  }
+  async function ensure({ waitForInitial = initialLoadMode === "blocking" } = {}) {
+    let url;
+    try {
+      url = currentUrl();
+    } catch (error) {
+      resetForConfiguredUrl(""), remoteLog("warn", error.message);
+      return;
+    }
+    if (resetForConfiguredUrl(url), !url) {
+      reset();
+      return;
+    }
+    if (isLongRunningRuntime() ? (await loadDisk(url), scheduleRefresh(url)) : loadDiskOnServerless && await loadDisk(url), state.activeCount > 0 || Date.now() < state.nextInitialRetryAt) return;
+    let task = state.fetches.get(url);
+    task || (task = startFetch(url, "\u9996\u6B21\u521D\u59CB\u5316").catch((error) => (state.nextInitialRetryAt = Date.now() + INITIAL_RETRY_BACKOFF_MS, remoteLog("warn", `\u9996\u6B21\u521D\u59CB\u5316\u5931\u8D25\uFF0C\u5F53\u524D\u8BF7\u6C42\u7EE7\u7EED\u4F7F\u7528\u672C\u673A\u89C4\u5219: ${error?.message || error}`), 0))), waitForInitial ? await task : task.catch(() => {
+    });
+  }
+  function resetForTests() {
+    resetForConfiguredUrl(""), state.activeCount = 0, reset();
+  }
+  return {
+    ensure,
+    refreshNow,
+    resetForTests
+  };
+}
+
+// danmu_api/utils/auto-match-mapping-url-util.js
+var remoteState = {
+  activeUrl: "",
+  rules: [],
+  localRulesRef: null,
+  remoteRulesRef: null,
+  mergedRules: []
+};
+function resetRemoteRules() {
+  remoteState.activeUrl = "", remoteState.rules = [], remoteState.localRulesRef = null, remoteState.remoteRulesRef = null, remoteState.mergedRules = [];
+}
+function parseRemoteAutoMatchMappingRules(text, allowedPlatforms = globals.allowedPlatforms) {
+  let normalized = String(text || "").replace(/\r/g, "").replace(/－>|—>|–>/g, "->").split(`
+`).map((line) => line.trim()).filter((line) => line && !line.startsWith("#") && !line.startsWith("//")).map((line) => line.replace(/\s+(?:#|\/\/).*$/, "").trim()).join(";"), { rules, warnings } = parseAutoMatchMappingRules(normalized, allowedPlatforms);
+  return warnings.forEach((message) => log("warn", `[system] [remote-season-mapping] ${message}`)), rules;
+}
+var seasonMappingLoader = createRemoteTableLoader({
+  name: "remote-season-mapping",
+  cacheFileName: "auto-match-mapping-remote.json",
+  urlLabel: "AUTO_MATCH_MAPPING_TABLE_URL",
+  getRawUrl: () => globals.autoMatchMappingTableUrl,
+  parseText: (text) => {
+    let rules = parseRemoteAutoMatchMappingRules(text);
+    return { value: rules, count: rules.length };
+  },
+  activate: (url, rules) => {
+    remoteState.activeUrl = url, remoteState.rules = rules, remoteState.localRulesRef = null, remoteState.remoteRulesRef = null;
+  },
+  reset: resetRemoteRules,
+  initialLoadMode: "background",
+  refreshStaleCache: !0
+});
 
 // danmu_api/utils/tmdb-util.js
 var TMDB_PENDING = /* @__PURE__ */ new Map();
@@ -19680,7 +19920,7 @@ function parseWebSeriesDetail(html) {
     return null;
   }
 }
-var COMMENT_SOURCE = 601, SERVER_CHANNEL = 1e3, COMMENT_WINDOW_MS = 3e4, COMMENT_COUNT = 90, COMMENT_CONCURRENCY = 3, COMMENT_THROTTLE_MS = 180, COMMENT_THROTTLE_JITTER_MS = 240, MAX_SEARCH_ITEMS = 20, IMAGE_SHRINK = `W3siaW1hZ2VfdHlwZSI6MywiaW1hZ2Vfd2lkdGgiOjkwMCwic2hyaW5rX3R5cGUiOjN9LHsiaW1h
+var COMMENT_SOURCE = 601, SERVER_CHANNEL = 1e3, COMMENT_WINDOW_MS = 3e4, COMMENT_COUNT = 90, COMMENT_CONCURRENCY = 3, COMMENT_WINDOW_CACHE_MAX = 2e3, SERIES_DANMU_CACHE_MAX = 50, COMMENT_THROTTLE_MS = 180, COMMENT_THROTTLE_JITTER_MS = 240, MAX_SEARCH_ITEMS = 20, IMAGE_SHRINK = `W3siaW1hZ2VfdHlwZSI6MywiaW1hZ2Vfd2lkdGgiOjkwMCwic2hyaW5rX3R5cGUiOjN9LHsiaW1h
 Z2VfdHlwZSI6NCwiaW1hZ2Vfd2lkdGgiOjU0LCJzaHJpbmtfdHlwZSI6NH1d
 `, SIGN_KEY = hexToBytes("ac1adaae95a7af94a5114ab3b3a97dd80050aa0a39314c40528caec95256c28c"), ARGUS_HEADER = hexToBytes("3ccc"), ARGUS_PREFIX = hexToBytes("a6e783ee7001100918"), ARGUS_SUFFIX = hexToBytes("567b"), ARGUS_XOR_WORD = hexToBytes("d04ffdff"), LICENSE_ID = 1611921764, METASEC_APP_ID = 3019, SDK_VERSION = 135135744, COUNTER_VALUE = 1388734, SIMON_Z = word64(74278795, 1036602426);
 function concatBytes(...parts) {
@@ -20083,7 +20323,7 @@ function getFragmentNumber(value, name) {
 }
 var HongguoSource = class extends BaseSource {
   constructor() {
-    super(), this.preferredApiHost = CLIENT_CONFIG.apiHosts[0], this.nextRequestAt = 0, this.playerEpisodeResolutions = /* @__PURE__ */ new Map(), this.activeCommentRequests = 0, this.commentRequestWaiters = [], this.lastDanmu = [], this.durationCache = /* @__PURE__ */ new Map(), this.pendingEpisodeDanmu = /* @__PURE__ */ new Map();
+    super(), this.preferredApiHost = CLIENT_CONFIG.apiHosts[0], this.nextRequestAt = 0, this.playerEpisodeResolutions = /* @__PURE__ */ new Map(), this.activeCommentRequests = 0, this.commentRequestWaiters = [], this.lastDanmu = [], this.durationCache = /* @__PURE__ */ new Map(), this.pendingEpisodeDanmu = /* @__PURE__ */ new Map(), this.commentWindowCache = /* @__PURE__ */ new Map(), this.pendingCommentWindows = /* @__PURE__ */ new Map(), this.pendingSeriesDanmu = /* @__PURE__ */ new Map(), this.seriesDanmuCache = /* @__PURE__ */ new Map();
   }
   buildUrl(path2, extraQuery = {}, apiHost = this.preferredApiHost) {
     let query = { ...CLIENT_CONFIG.baseQuery, ...extraQuery, _rticket: String(Date.now()) };
@@ -20246,7 +20486,7 @@ var HongguoSource = class extends BaseSource {
         vid: String(item.vid || ""),
         title: String(item.episode_title || "").trim().slice(0, 30),
         duration: Math.max(0, Number(item.duration) || 0),
-        commentCount: Math.max(0, Number(item.comment_count) || 0),
+        commentCount: item.comment_count == null ? null : Math.max(0, Number(item.comment_count) || 0),
         imageUrl: extractImageUrl(item.episode_cover || item.cover)
       })).filter((item) => item.vid).sort((a, b) => a.index - b.index);
       return episodes.length ? {
@@ -20273,7 +20513,7 @@ var HongguoSource = class extends BaseSource {
               vid: String(vid),
               title: String(value.episode_title || value.title || `\u7B2C${index + 1}\u96C6`).trim().slice(0, 30),
               duration: Math.max(0, Number(value.duration || value.video_duration) || 0),
-              commentCount: Math.max(0, Number(value.comment_count) || 0),
+              commentCount: value.comment_count == null ? null : Math.max(0, Number(value.comment_count) || 0),
               imageUrl: extractImageUrl(value.episode_cover || value.cover)
             } : null;
           }).filter(Boolean),
@@ -20344,9 +20584,9 @@ var HongguoSource = class extends BaseSource {
     let transformed = [], filtered = sourceAnimes.filter((item) => titleMatches(item.name, queryTitle, querySeason));
     for (let anime of filtered) {
       let details = await this.getEpisodes(anime.seriesId), episodes = details.episodes, links = globals.hongguoMergeAllEpisodes && episodes.length ? [{
-        name: "\u5168\u96C6",
+        name: `\u5168\u96C6\uFF08\u5171${episodes.length}\u96C6\uFF09`,
         url: createHongguoSeriesId(anime.seriesId),
-        title: "\u3010hongguo\u3011 \u5168\u96C6"
+        title: `\u3010hongguo\u3011 \u5168\u96C6\uFF08\u5171${episodes.length}\u96C6\uFF09`
       }] : episodes.map((episode) => {
         let episodeTitle = `\u7B2C${episode.index}\u96C6${episode.title ? ` ${episode.title}` : ""}`;
         return {
@@ -20364,7 +20604,7 @@ var HongguoSource = class extends BaseSource {
         typeDescription: "\u77ED\u5267",
         imageUrl: anime.imageUrl || details.imageUrl || "",
         startDate: generateValidStartDate(year),
-        episodeCount: links.length,
+        episodeCount: episodes.length,
         rating: Number(anime.score) || 0,
         isFavorited: !0,
         source: "hongguo"
@@ -20394,16 +20634,30 @@ var HongguoSource = class extends BaseSource {
     };
   }
   async fetchCommentWindow(info, startMs, cursor = "") {
-    let path2 = `/novel/commentapi/comment/list/${encodeURIComponent(info.vid)}/v1/`, payload = await this.request("POST", path2, {
-      body: this.buildCommentBody(info, startMs, cursor),
-      comment: !0
-    }), data = payload.data || {}, listInfo = data.common_list_info || {}, extra = data.extra || {}, nextStart = Number(extra.next_query_danmaku_list_time);
-    return Number.isFinite(nextStart) || (nextStart = startMs + COMMENT_WINDOW_MS), nextStart <= startMs && (nextStart = startMs + COMMENT_WINDOW_MS), {
-      comments: parseDanmuResponse(payload),
-      nextStart,
-      cursor: String(listInfo.cursor || ""),
-      hasMore: !!listInfo.has_more
-    };
+    let cacheKey = `${info.seriesId}:${info.vid}:${Math.max(0, Math.trunc(startMs))}:${String(cursor || "")}`, cached = this.commentWindowCache.get(cacheKey);
+    if (cached)
+      return this.commentWindowCache.delete(cacheKey), this.commentWindowCache.set(cacheKey, cached), cached;
+    let pending = this.pendingCommentWindows.get(cacheKey);
+    if (pending) return pending;
+    let task = (async () => {
+      let path2 = `/novel/commentapi/comment/list/${encodeURIComponent(info.vid)}/v1/`, payload = await this.request("POST", path2, {
+        body: this.buildCommentBody(info, startMs, cursor),
+        comment: !0
+      }), data = payload.data || {}, listInfo = data.common_list_info || {}, extra = data.extra || {}, nextStart = Number(extra.next_query_danmaku_list_time);
+      Number.isFinite(nextStart) || (nextStart = startMs + COMMENT_WINDOW_MS), nextStart <= startMs && (nextStart = startMs + COMMENT_WINDOW_MS);
+      let result = {
+        comments: parseDanmuResponse(payload),
+        nextStart,
+        cursor: String(listInfo.cursor || ""),
+        hasMore: !!listInfo.has_more
+      };
+      for (this.commentWindowCache.set(cacheKey, result); this.commentWindowCache.size > COMMENT_WINDOW_CACHE_MAX; )
+        this.commentWindowCache.delete(this.commentWindowCache.keys().next().value);
+      return result;
+    })().finally(() => {
+      this.pendingCommentWindows.delete(cacheKey);
+    });
+    return this.pendingCommentWindows.set(cacheKey, task), task;
   }
   async getDanmuForEpisode(info) {
     let durationMs = info.duration * 1e3, comments = [], seenMarkers = /* @__PURE__ */ new Set(), startMs = 0, cursor = "", maxRequests = Math.max(1, Math.ceil(durationMs / COMMENT_WINDOW_MS) + 5);
@@ -20418,20 +20672,49 @@ var HongguoSource = class extends BaseSource {
     return comments;
   }
   async getSeriesDanmu(seriesId) {
-    let details = await this.getEpisodes(seriesId), cumulativeMs = 0, episodeTasks = details.episodes.map((episode) => {
-      let task = { episode, offsetMs: cumulativeMs };
-      return cumulativeMs += Math.max(0, Number(episode.duration) || 0) * 1e3, task;
-    }), groupedComments = await mapWithConcurrency(episodeTasks, COMMENT_CONCURRENCY, async ({ episode, offsetMs }) => (await this.getDanmuForEpisode({
-      seriesId: String(seriesId),
-      vid: episode.vid,
-      duration: episode.duration
-    })).map((comment) => ({
-      ...comment,
-      offsetMs: comment.offsetMs + offsetMs
-    }))), comments = [];
-    for (let episodeComments of groupedComments)
-      comments.push(...episodeComments);
-    return dedupeDanmus(comments);
+    let normalizedSeriesId = String(seriesId), cached = this.seriesDanmuCache.get(normalizedSeriesId), cacheTtlMs = Math.max(1, Number(globals.commentCacheMinutes) || 3) * 6e4;
+    if (cached && Date.now() - cached.timestamp <= cacheTtlMs)
+      return this.seriesDanmuCache.delete(normalizedSeriesId), this.seriesDanmuCache.set(normalizedSeriesId, cached), log("info", `[Hongguo] \u4F7F\u7528\u5168\u96C6\u5F39\u5E55\u7F13\u5B58: ${normalizedSeriesId} (${cached.comments.length} \u6761)`), cached.comments;
+    cached && this.seriesDanmuCache.delete(normalizedSeriesId);
+    let pending = this.pendingSeriesDanmu.get(normalizedSeriesId);
+    if (pending)
+      return log("info", `[Hongguo] \u590D\u7528\u8FDB\u884C\u4E2D\u7684\u5168\u96C6\u5F39\u5E55\u8BF7\u6C42: ${normalizedSeriesId}`), pending;
+    let task = (async () => {
+      let details = await this.getEpisodes(normalizedSeriesId), cumulativeMs = 0, episodeTasks = details.episodes.map((episode) => {
+        let episodeTask = { episode, offsetMs: cumulativeMs };
+        return cumulativeMs += Math.max(0, Number(episode.duration) || 0) * 1e3, episodeTask;
+      }), completed = 0, groupedResults = await mapWithConcurrency(episodeTasks, COMMENT_CONCURRENCY, async ({ episode, offsetMs }) => {
+        if (episode.commentCount === 0)
+          return completed++, log("info", `[Hongguo] \u5168\u96C6\u5F39\u5E55\u8FDB\u5EA6 ${completed}/${episodeTasks.length}: \u7B2C${episode.index || completed}\u96C6\u660E\u786E\u65E0\u5F39\u5E55\uFF0C\u5DF2\u8DF3\u8FC7`), { comments: [], error: null, skipped: !0 };
+        try {
+          return {
+            comments: (await this.getDanmuForEpisode({
+              seriesId: normalizedSeriesId,
+              vid: episode.vid,
+              duration: episode.duration
+            })).map((comment) => ({
+              ...comment,
+              offsetMs: comment.offsetMs + offsetMs
+            })),
+            error: null,
+            skipped: !1
+          };
+        } catch (error) {
+          return log("warn", `[Hongguo] \u5168\u96C6\u7B2C${episode.index || "?"}\u96C6\u5F39\u5E55\u6293\u53D6\u5931\u8D25\uFF0C\u7EE7\u7EED\u5176\u4F59\u5267\u96C6: ${error.message}`), { comments: [], error, skipped: !1 };
+        } finally {
+          completed++, (completed === episodeTasks.length || completed % 10 === 0) && log("info", `[Hongguo] \u5168\u96C6\u5F39\u5E55\u8FDB\u5EA6 ${completed}/${episodeTasks.length}`);
+        }
+      }), attempted = groupedResults.filter((result) => !result.skipped), failed = attempted.filter((result) => result.error);
+      if (attempted.length > 0 && failed.length === attempted.length) throw failed[0].error;
+      failed.length > 0 && log("warn", `[Hongguo] \u5168\u96C6\u5F39\u5E55\u90E8\u5206\u5B8C\u6210: ${failed.length}/${attempted.length} \u96C6\u6293\u53D6\u5931\u8D25`);
+      let comments = dedupeDanmus(groupedResults.flatMap((result) => result.comments));
+      for (this.seriesDanmuCache.set(normalizedSeriesId, { comments, timestamp: Date.now() }); this.seriesDanmuCache.size > SERIES_DANMU_CACHE_MAX; )
+        this.seriesDanmuCache.delete(this.seriesDanmuCache.keys().next().value);
+      return comments;
+    })().finally(() => {
+      this.pendingSeriesDanmu.delete(normalizedSeriesId);
+    });
+    return this.pendingSeriesDanmu.set(normalizedSeriesId, task), task;
   }
   async getEpisodeDanmu(id) {
     try {
@@ -20482,15 +20765,18 @@ var HongguoSource = class extends BaseSource {
   async getSeriesDanmuSegments(seriesId) {
     let details = await this.getEpisodes(seriesId), segmentList = [], cumulativeSeconds = 0;
     for (let episode of details.episodes) {
-      let duration = Math.max(0, Number(episode.duration) || 600), episodeId = createHongguoEpisodeId(seriesId, episode.vid, duration);
-      for (let start = 0; start < duration; start += COMMENT_WINDOW_MS / 1e3) {
-        let end = Math.min(start + COMMENT_WINDOW_MS / 1e3, duration);
-        segmentList.push({
-          type: "hongguo",
-          segment_start: cumulativeSeconds + start,
-          segment_end: cumulativeSeconds + end,
-          url: `${episodeId}#segment=${start}&offset=${cumulativeSeconds}`
-        });
+      let duration = Math.max(0, Number(episode.duration) || 600);
+      if (episode.commentCount !== 0) {
+        let episodeId = createHongguoEpisodeId(seriesId, episode.vid, duration);
+        for (let start = 0; start < duration; start += COMMENT_WINDOW_MS / 1e3) {
+          let end = Math.min(start + COMMENT_WINDOW_MS / 1e3, duration);
+          segmentList.push({
+            type: "hongguo",
+            segment_start: cumulativeSeconds + start,
+            segment_end: cumulativeSeconds + end,
+            url: `${episodeId}#segment=${start}&offset=${cumulativeSeconds}`
+          });
+        }
       }
       cumulativeSeconds += duration;
     }
@@ -22016,7 +22302,7 @@ async function getComment(path2, queryFormat, segmentFlag, clientIp, includeDura
   if (singleUrlOffset !== 0 && log("info", `[system] [LogVar-API] \u68C0\u6D4B\u5230\u94FE\u63A5${singleUrlOffsetPercent ? "\u767E\u5206\u6BD4" : ""}\u504F\u79FB: ${singleUrlOffset}s`), url && url.includes(MERGE_DELIMITER))
     danmus = await fetchMergedComments(url, animeTitle, commentId);
   else {
-    let commentUrl = cleanUrl, isHongguoUrl = isHongguoPlayerUrl(commentUrl);
+    let commentUrl = cleanUrl, isHongguoUrl = isHongguoPlayerUrl(commentUrl) || isHongguoSeriesId(commentUrl);
     if (url.includes(".qq.com"))
       danmus = await sourceLogContext.run("tencent", () => tencentSource2.getComments(commentUrl, plat, segmentFlag));
     else if (url.includes(".iqiyi.com"))
@@ -22194,7 +22480,7 @@ async function getSegmentComment(segment, queryFormat) {
 }
 
 // forward/forward-widget.js
-var wv = "1.21.8";
+var wv = "1.21.9";
 WidgetMetadata = {
   id: "forward.auto.danmu2",
   title: "\u81EA\u52A8\u94FE\u63A5\u5F39\u5E55v2",
