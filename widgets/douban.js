@@ -1,4 +1,6 @@
 // 豆瓣片单组件
+const currentYear = new Date().getFullYear();
+
 WidgetMetadata = {
   id: "douban",
   title: "豆瓣我看&豆瓣个性化推荐",
@@ -472,6 +474,8 @@ WidgetMetadata = {
           type: "enumeration",
           enumOptions: [
             { title: "全部年份", value: "" },
+            { title: `本年度（${currentYear}）`, value: "current" },
+            { title: "自定义年份", value: "custom" },
             { title: "2025", value: "2025" },
             { title: "2024", value: "2024" },
             { title: "2023", value: "2023" },
@@ -485,6 +489,21 @@ WidgetMetadata = {
             { title: "70年代", value: "70年代" },
             { title: "60年代", value: "60年代" },
             { title: "更早", value: "更早" },
+          ]
+        },
+        {
+          name: "customYear",
+          title: "自定义年份",
+          type: "input",
+          belongTo: {
+            paramName: "year",
+            value: ["custom"],
+          },
+          description: "请输入四位年份，例如：2026",
+          placeholders: [
+            { title: `${currentYear}`, value: `${currentYear}` },
+            { title: `${currentYear - 1}`, value: `${currentYear - 1}` },
+            { title: `${currentYear - 2}`, value: `${currentYear - 2}` },
           ]
         },
         {
@@ -1180,7 +1199,7 @@ WidgetMetadata = {
       cacheDuration: 3600,
     },
   ],
-  version: "1.0.20",
+  version: "1.0.21",
   requiredVersion: "0.0.1",
   description: "解析豆瓣想看、在看、已看以及根据个人数据生成的个性化推荐【五折码：CHEAP.5;七折码：CHEAP】",
   author: "huangxd",
@@ -1604,11 +1623,25 @@ async function loadRecommendItems(params = {}, type = "movie") {
   return [];
 }
 
+function resolvePreferenceYear(params = {}) {
+  const year = params.year || "";
+  if (year === "current") return String(new Date().getFullYear());
+  if (year === "custom") {
+    const customYear = String(params.customYear || "").trim();
+    if (!/^\d{4}$/.test(customYear)) {
+      throw new Error("自定义年份请输入四位年份，例如：2026");
+    }
+    return customYear;
+  }
+  return year;
+}
+
 // 观影偏好
 async function getPreferenceRecommendations(params = {}) {
     try {
         const rating = params.rating || "0";
         if (!/^\d$/.test(String(rating))) throw new Error("评分必须为 0～9 的整数");
+        const year = resolvePreferenceYear(params);
 
         const selectedCategories = {
             "类型": params.movieGenre || params.tvGenre || params.zyGenre || "",
@@ -1623,7 +1656,7 @@ async function getPreferenceRecommendations(params = {}) {
         if (params.tvModus && params.tvGenre) tags_sub.push(params.tvGenre);
         if (params.tvModus && params.zyGenre) tags_sub.push(params.zyGenre);
         if (params.region) tags_sub.push(params.region);
-        if (params.year) tags_sub.push(params.year);
+        if (year) tags_sub.push(year);
         if (params.platform) tags_sub.push(params.platform);
         if (params.tags) {
           const customTagsArray = params.tags.split(',').filter(tag => tag.trim() !== '');
