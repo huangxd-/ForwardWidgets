@@ -5539,7 +5539,7 @@ var NON_RULE_TITLE_CHARACTERS = (() => {
 function normalizeRuleTitle(value) {
   return String(value || "").normalize("NFKC").replace(NON_RULE_TITLE_CHARACTERS, "").toLowerCase();
 }
-function parseEpisodeSide(value, { allowPlatform = !1 } = {}) {
+function parseEpisodeSide(value, { allowPlatform = !1, allowSeasonZero = !1 } = {}) {
   let text = String(value || "").trim(), platform = "";
   if (allowPlatform) {
     let platformMatch = text.match(/\s+@([a-zA-Z0-9_-]+)\s*$/);
@@ -5548,7 +5548,7 @@ function parseEpisodeSide(value, { allowPlatform = !1 } = {}) {
   let match = text.match(/^(.+?)\s+S(\d+)E(\d+)(?:~E?(\d+))?\s*$/i);
   if (!match) return null;
   let title = match[1].trim(), season = Number(match[2]), startEpisode = Number(match[3]), endEpisode = match[4] === void 0 ? null : Number(match[4]);
-  return !title || season < 1 || startEpisode < 1 || endEpisode !== null && endEpisode < startEpisode ? null : { title, season, startEpisode, endEpisode, platform };
+  return !title || season < (allowSeasonZero ? 0 : 1) || startEpisode < 1 || endEpisode !== null && endEpisode < startEpisode ? null : { title, season, startEpisode, endEpisode, platform };
 }
 function parseTargetTitle(value) {
   let displayTitle = String(value || "").trim(), yearMatch = displayTitle.match(/[（(]((?:19|20)\d{2})[)）]/), typeMatches = [...displayTitle.matchAll(/【([^】]+)】/g)], mediaType = typeMatches.length > 0 ? typeMatches[typeMatches.length - 1][1].trim() : "";
@@ -5569,7 +5569,7 @@ function parseAutoMatchMappingRules(value, allowedPlatforms = []) {
       warnings.push(`\u89C4\u5219 ${index + 1} \u7F3A\u5C11\u552F\u4E00\u7684 -> \u5206\u9694\u7B26: ${text}`);
       continue;
     }
-    let source = parseEpisodeSide(text.slice(0, arrowIndex)), targetSide = parseEpisodeSide(text.slice(arrowIndex + 2), { allowPlatform: !0 });
+    let source = parseEpisodeSide(text.slice(0, arrowIndex), { allowSeasonZero: !0 }), targetSide = parseEpisodeSide(text.slice(arrowIndex + 2), { allowPlatform: !0 });
     if (!source || !targetSide) {
       warnings.push(`\u89C4\u5219 ${index + 1} \u7684\u5B63\u96C6\u683C\u5F0F\u65E0\u6548: ${text}`);
       continue;
@@ -6033,11 +6033,12 @@ var _Envs = class _Envs {
       STRICT_TITLE_MATCH: { category: "match", type: "boolean", description: "\u4E25\u683C\u6807\u9898\u5339\u914D\u6A21\u5F0F" },
       TITLE_TO_CHINESE: { category: "match", type: "boolean", description: "\u5916\u8BED\u6807\u9898\u8F6C\u6362\u4E2D\u6587\u5F00\u5173" },
       ANIME_TITLE_SIMPLIFIED: { category: "match", type: "boolean", description: "\u641C\u7D22\u7684\u5267\u540D\u6807\u9898\u81EA\u52A8\u7E41\u8F6C\u7B80" },
-      TITLE_MAPPING_TABLE: { category: "match", type: "map", description: '\u672C\u673A\u5267\u540D\u6620\u5C04\u8868\uFF0C\u7528\u4E8E\u81EA\u52A8\u5339\u914D\u65F6\u66FF\u6362\u6807\u9898\u8FDB\u884C\u641C\u7D22\u3002\u672C\u673A\u89C4\u5219\u4F18\u5148\u4E8E\u8FDC\u7A0B\u89C4\u5219\u3002\u683C\u5F0F\uFF1A\u539F\u59CB\u6807\u9898->\u6620\u5C04\u6807\u9898;\u539F\u59CB\u6807\u9898->\u6620\u5C04\u6807\u9898;...\uFF0C\u4F8B\u5982\uFF1A"\u5510\u671D\u8BE1\u4E8B\u5F55->\u5510\u671D\u8BE1\u4E8B\u5F55\u4E4B\u897F\u884C;\u56FD\u8272\u82B3\u534E->\u9526\u7EE3\u82B3\u534E"' },
+      TITLE_MAPPING_TABLE: { category: "match", type: "map", description: '\u672C\u673A\u5267\u540D\u6620\u5C04\u8868\uFF0C\u7528\u4E8E\u81EA\u52A8\u5339\u914D\u3001FongMi\u3001\u6536\u85CF\u65F6\u66FF\u6362\u6807\u9898\u8FDB\u884C\u641C\u7D22\u3002\u7CBE\u786E\u6807\u9898\u4F18\u5148\uFF1B\u672A\u547D\u4E2D\u65F6\u4F1A\u5FFD\u7565\u6807\u9898\u5C3E\u90E8\u62EC\u53F7\u5E74\u4EFD\u518D\u5339\u914D\uFF08\u5982\u201C\u53D8\u5F62\u91D1\u521A3\uFF1A\u6708\u9ED1\u4E4B\u65F6(2011)\u201D\u53EF\u547D\u4E2D\u201C\u53D8\u5F62\u91D1\u521A3\uFF1A\u6708\u9ED1\u4E4B\u65F6\u201D\uFF09\u3002\u672C\u673A\u89C4\u5219\u4F18\u5148\u4E8E\u8FDC\u7A0B\u89C4\u5219\u3002\u683C\u5F0F\uFF1A\u539F\u59CB\u6807\u9898->\u6620\u5C04\u6807\u9898;\u539F\u59CB\u6807\u9898->\u6620\u5C04\u6807\u9898;...\uFF0C\u4F8B\u5982\uFF1A"\u5510\u671D\u8BE1\u4E8B\u5F55->\u5510\u671D\u8BE1\u4E8B\u5F55\u4E4B\u897F\u884C;\u56FD\u8272\u82B3\u534E->\u9526\u7EE3\u82B3\u534E"' },
       TITLE_MAPPING_TABLE_URL: { category: "match", type: "text", description: "\u8FDC\u7A0B\u5267\u540D\u6620\u5C04\u8868\uFF08\u9ED8\u8BA4\u5173\u95ED\uFF0C\u586B\u5199\u540E\u542F\u7528\uFF09\u3002\u793A\u4F8B\uFF1Ahttps://raw.githubusercontent.com/xlmc/danmu-mapping/main/Word/2026.txt\u3002\u672C\u673A TITLE_MAPPING_TABLE \u4F18\u5148\uFF1BNode/Docker \u4F1A\u7F13\u5B58\u5230 .cache \u5E76\u5728\u6BCF\u5929\u5317\u4EAC\u65F6\u95F405:30\u540E\u53F0\u66F4\u65B0\uFF1BServerless \u51B7\u542F\u52A8\u540E\u7684\u9996\u6B21\u6807\u9898\u5339\u914D\u4F1A\u540C\u6B65\u4E0B\u8F7D\uFF0C\u6700\u957F\u7EA6\u7B49\u5F855\u79D2\uFF0C\u914D\u7F6E\u672C\u53D8\u91CF\u5373\u8868\u793A\u63A5\u53D7\u8BE5\u5EF6\u8FDF\u3002\u652F\u6301 GitHub \u6587\u4EF6\u9875\u3001Gist\u3001jsDelivr \u548C HTTP/HTTPS TXT \u76F4\u94FE\uFF1B\u5185\u5BB9\u683C\u5F0F\u4E3A\u6BCF\u884C \u539F\u59CB\u6807\u9898->\u6620\u5C04\u6807\u9898\uFF0C# \u6216 // \u5F00\u5934\u4E3A\u6CE8\u91CA" },
       AUTO_MATCH_MAPPING_TABLE: { category: "match", type: "map", description: `\u81EA\u52A8\u5339\u914D\u6620\u5C04\u8868\uFF0C\u4EC5\u4F5C\u7528\u4E8E POST /api/v2/match\u3002\u591A\u4E2A\u89C4\u5219\u4F7F\u7528\u5206\u53F7\u5206\u9694\u3002
 \u5F00\u653E\u6620\u5C04\uFF1A\u6C38\u751F S05E02 -> \u6C38\u751F S01E58
 \u6709\u9650\u8303\u56F4\uFF1A\u6C38\u751F S05E02~03 -> \u6C38\u751F S01E58~59
+\u7279\u522B\u7BC7\uFF1A\u7075\u7B3C S00E01~01 -> \u7075\u7B3C S01E07~07\uFF08\u6E90\u4FA7\u652F\u6301 S00\uFF0C\u76EE\u6807\u4FA7\u987B\u4E3A S01+\uFF09
 \u6307\u5B9A\u7ED3\u679C\uFF1A\u6D77\u8D3C\u738B S02E01 -> \u822A\u6D77\u738B(1999)\u3010\u52A8\u6F2B\u3011 S01E62
 \u6307\u5B9A\u5E73\u53F0\uFF1A\u822A\u6D77\u738B S01E01 -> \u822A\u6D77\u738B S01E01 @qiyi` },
       AUTO_MATCH_MAPPING_TABLE_URL: { category: "match", type: "text", description: "\u8FDC\u7A0B\u5B63\u96C6\u6620\u5C04\u8868\uFF08\u9ED8\u8BA4\u5173\u95ED\uFF0C\u586B\u5199\u540E\u542F\u7528\uFF09\u3002\u672C\u673A AUTO_MATCH_MAPPING_TABLE \u4F18\u5148\uFF1B\u652F\u6301 GitHub \u6587\u4EF6\u9875\u3001Gist\u3001jsDelivr \u548C HTTP/HTTPS TXT \u76F4\u94FE\uFF0C\u5185\u5BB9\u683C\u5F0F\u4E0E\u672C\u673A\u6620\u5C04\u8868\u4E00\u81F4\uFF0C\u6BCF\u884C\u53EF\u5199\u591A\u6761\u89C4\u5219\uFF0C# \u6216 // \u5F00\u5934\u4E3A\u6CE8\u91CA\u3002Node/Docker \u4F1A\u7F13\u5B58\u5230 .cache \u5E76\u5728\u6BCF\u5929\u5317\u4EAC\u65F6\u95F405:30\u540E\u53F0\u66F4\u65B0\uFF1BServerless \u9996\u6B21\u5339\u914D\u4F1A\u540E\u53F0\u4E0B\u8F7D\uFF0C\u4E0D\u963B\u585E\u5F53\u524D\u8BF7\u6C42\uFF0C\u540E\u7EED\u8BF7\u6C42\u751F\u6548\u3002\u7BA1\u7406\u5458\u53EF\u901A\u8FC7 POST /api/auto-match-mapping/refresh \u7ACB\u5373\u5237\u65B0\u5F53\u524D\u5B9E\u4F8B\u3002" },
@@ -6050,7 +6051,7 @@ var _Envs = class _Envs {
 \u672C\u5730\u548CDocker\u90E8\u7F72\u4F7F\u7528\u65F6\u8BF7\u5148\u6302\u8F7D.cache\u76EE\u5F55\u83B7\u5F97\u6700\u4F73\u4F53\u9A8C\uFF0C\u4E91\u90E8\u7F72\u4F7F\u7528\u65F6\u4F1A\u5C06\u6570\u636E\u7F13\u5B58\u81F3\u4E34\u65F6\u5185\u5B58\u4E2D\u5982\u679C\u4F53\u9A8C\u4E0D\u4F73\u8BF7\u5173\u95ED\u3002` },
       // 弹幕配置
       BLOCKED_WORDS: { category: "danmu", type: "text", description: "\u5C4F\u853D\u8BCD\u5217\u8868" },
-      GROUP_MINUTE: { category: "danmu", type: "number", description: "\u5206\u949F\u5185\u5408\u5E76\u53BB\u91CD\uFF080\u8868\u793A\u4E0D\u53BB\u91CD\uFF09\uFF0C\u9ED8\u8BA41", min: 0, max: 30 },
+      GROUP_MINUTE: { category: "danmu", type: "number", description: "\u5206\u949F\u5185\u5408\u5E76\u53BB\u91CD\uFF080 \u8868\u793A\u4E0D\u6309\u5206\u949F\u5408\u5E76\uFF0C\u591A\u6E90\u7EC4\u5408\u4ECD\u6309\u65F6\u70B9\u53BB\u91CD\uFF09\uFF0C\u9ED8\u8BA41", min: 0, max: 30 },
       DANMU_LIMIT: { category: "danmu", type: "number", description: "\u5F39\u5E55\u6570\u91CF\u9650\u5236\uFF0C\u5355\u4F4D\u4E3Ak\uFF0C\u5373\u5343\uFF1A\u9ED8\u8BA4 0\uFF0C\u8868\u793A\u4E0D\u9650\u5236\u5F39\u5E55\u6570", min: 0, max: 100 },
       DANMU_SIMPLIFIED_TRADITIONAL: { category: "danmu", type: "select", options: ["default", "simplified", "traditional"], description: "\u5F39\u5E55\u7B80\u7E41\u4F53\u8F6C\u6362\u8BBE\u7F6E\uFF1Adefault\uFF08\u9ED8\u8BA4\u4E0D\u8F6C\u6362\uFF09\u3001simplified\uFF08\u7E41\u8F6C\u7B80\uFF09\u3001traditional\uFF08\u7B80\u8F6C\u7E41\uFF09" },
       CONVERT_TOP_BOTTOM_TO_SCROLL: { category: "danmu", type: "boolean", description: "\u9876\u90E8/\u5E95\u90E8\u5F39\u5E55\u8F6C\u6362\u4E3A\u6D6E\u52A8\u5F39\u5E55" },
@@ -6137,7 +6138,7 @@ var _Envs = class _Envs {
       blockedWords: this.get("BLOCKED_WORDS", "", "string"),
       // 屏蔽词列表
       groupMinute: Math.min(this.get("GROUP_MINUTE", 1, "number"), 30),
-      // 分钟内合并去重（默认 1，最大值30，0表示不去重）
+      // 分钟内合并去重（默认 1，最大值30，0 表示不按分钟合并，多源仍按时点去重）
       danmuLimit: this.get("DANMU_LIMIT", 0, "number"),
       // 等间隔采样限制弹幕总数，单位为k，即千：默认 0，表示不限制弹幕数，若改为5，弹幕总数在超过5000的情况下会将弹幕数控制在5000
       uiTheme: this.get("UI_THEME", "lavender", "string").toLowerCase(),
@@ -6285,6 +6286,10 @@ __publicField(_Envs, "DEFAULT_AI_MATCH_PROMPT", `\u4F60\u662F\u4E00\u4E2A\u4E13\
 var Envs = _Envs;
 
 // danmu_api/configs/globals.js
+var TRAILING_RELEASE_YEAR_PATTERN = /(?:\s*[（(]\s*(?:19|20)\d{2}\s*[)）]|\s*[\[［]\s*(?:19|20)\d{2}\s*[\]］]|\s*【\s*(?:19|20)\d{2}\s*】)\s*$/;
+function stripTrailingReleaseYear(value) {
+  return String(value || "").replace(TRAILING_RELEASE_YEAR_PATTERN, "").trim();
+}
 var Globals = {
   // 缓存环境变量
   env: {},
@@ -6292,7 +6297,7 @@ var Globals = {
   originalEnvVars: {},
   accessedEnvVars: {},
   // 静态常量
-  VERSION: "1.21.9",
+  VERSION: "1.21.10",
   MAX_LOGS: 1e3,
   // 日志存储，最多保存 1000 行
   MAX_RECORDS: 100,
@@ -6405,8 +6410,13 @@ var Globals = {
     return universalProxy ? `${universalProxy.replace(/\/$/, "")}/${targetUrl}` : forwardProxy ? `http://127.0.0.1:5321/proxy?url=${encodeURIComponent(targetUrl)}` : targetUrl;
   },
   resolveTitleMapping(title) {
-    let key = String(title ?? ""), localMappings = this.envs?.titleMappingTable;
-    return localMappings?.has(key) ? localMappings.get(key) : this.remoteTitleMappingTable.get(key) ?? null;
+    let key = String(title ?? ""), localMappings = this.envs?.titleMappingTable, keys = [key], withoutYear = stripTrailingReleaseYear(key);
+    withoutYear && withoutYear !== key && keys.push(withoutYear);
+    for (let candidate of keys) {
+      if (localMappings?.has(candidate)) return localMappings.get(candidate);
+      if (this.remoteTitleMappingTable?.has(candidate)) return this.remoteTitleMappingTable.get(candidate);
+    }
+    return null;
   },
   /**
    * 获取全局配置快照
@@ -8512,14 +8522,23 @@ async function updateRedisCaches({ keys, force = !1, timeoutMs } = {}) {
 // danmu_api/apis/dandan-api.js
 
 // danmu_api/utils/danmu-util.js
+function buildTimePointKeys(times) {
+  let keys = new Array(times.length), pointIndex = 0, previousMs = null;
+  for (let i = 0; i < times.length; i++) {
+    let ms = Math.round(times[i] * 1e3);
+    (previousMs === null || ms - previousMs > 10) && (pointIndex += 1), previousMs = ms, keys[i] = `point-${pointIndex}`;
+  }
+  return keys;
+}
 function groupDanmusByMinute(filteredDanmus, n, isMultiSource = !1) {
-  if (n === 0 && !isMultiSource)
-    return filteredDanmus.map((danmu) => ({
-      ...danmu,
-      t: danmu.t !== void 0 ? danmu.t : parseFloat(danmu.p.split(",")[0])
-    })).sort((a, b) => a.t - b.t);
-  let groupedByTime = filteredDanmus.reduce((acc, danmu) => {
-    let time = danmu.t !== void 0 ? danmu.t : parseFloat(danmu.p.split(",")[0]), groupKey = n === 0 ? time.toFixed(2) : Math.floor(time / (n * 60));
+  let timedDanmus = filteredDanmus.map((danmu) => ({
+    danmu,
+    time: danmu.t !== void 0 ? danmu.t : parseFloat(danmu.p.split(",")[0])
+  }));
+  if (n === 0 && (timedDanmus.sort((a, b) => a.time - b.time), !isMultiSource))
+    return timedDanmus.map(({ danmu, time }) => ({ ...danmu, t: time }));
+  let timePointKeys = n === 0 ? buildTimePointKeys(timedDanmus.map((entry) => entry.time)) : null, groupedByTime = timedDanmus.reduce((acc, { danmu, time }, index) => {
+    let groupKey = n === 0 ? timePointKeys[index] : Math.floor(time / (n * 60));
     return acc[groupKey] || (acc[groupKey] = []), acc[groupKey].push({ ...danmu, t: time }), acc;
   }, {});
   return Object.keys(groupedByTime).map((key) => {
@@ -21687,6 +21706,29 @@ function resolveCommentOffsetRule(animeTitle, episodeTitle, commentId, source) {
   }, rule = resolveOffsetRule(globals.danmuOffsetRules, ctx);
   return { ctx, rule, offset: rule?.offset || 0 };
 }
+function resolveEpisodeCount(declaredCount, availableCount) {
+  let declared = Number(declaredCount) || 0, available = Number(availableCount) || 0;
+  return available <= 0 ? declared : declared > 0 ? Math.min(declared, available) : available;
+}
+function filterEpisodesByTitle(episodes) {
+  return episodes.filter((episode) => !globals.episodeTitleFilter.test(episode.episodeTitle));
+}
+function applyEpisodeTitleFilter(anime, links) {
+  let episodesList = filterEpisodesByTitle(links.map((link, index) => ({
+    episodeId: link.id,
+    episodeTitle: link.title,
+    episodeNumber: index + 1
+  })));
+  return anime.episodeCount = resolveEpisodeCount(anime.episodeCount, episodesList.length), episodesList;
+}
+function withAvailableEpisodeCount(animes, resolveAnimeDetail) {
+  return globals.enableAnimeEpisodeFilter ? animes.map((anime) => {
+    let animeData = resolveAnimeDetail(anime);
+    if (!animeData || !animeData.links) return anime;
+    let counted = { ...anime };
+    return applyEpisodeTitleFilter(counted, animeData.links), counted;
+  }) : animes;
+}
 function matchSeason(anime, queryTitle, season) {
   let match = anime.animeTitle.match(/^(.*?)\(\d{4}\)/), originalTitle = match ? match[1].trim() : anime.animeTitle.split("(")[0].trim(), normalizedAnimeTitle = normalizeTitleForMatch(originalTitle), seasonQueryTitle = anime.source === "local" ? queryTitle.replace(/[（(]\s*(?:19|20)\d{2}\s*[）)]/g, "").trim() : queryTitle, normalizedQueryTitle = normalizeTitleForMatch(seasonQueryTitle);
   if (normalizedAnimeTitle.includes(normalizedQueryTitle)) {
@@ -21721,7 +21763,7 @@ function checkEpisodeSatisfied(animesList, querySeason, queryEpisode, requestAni
         }
       let actualPlatform = [...new Set([identityPlatform, ...epPlatforms].filter(Boolean).flatMap((p) => p.split(/[&＆]/).map((s) => s.trim().toLowerCase())).filter((s) => s))].join("&");
       if (!(tPlat !== "_any_" && getPlatformMatchScore(actualPlatform, tPlat) === 0) && (platformHasData = !0, providedSources.add(anime.source), bData?.success && bData.bangumi?.episodes)) {
-        let validEps = bData.bangumi.episodes.filter((ep) => !globals.episodeTitleFilter.test(ep.episodeTitle)), filtered = filterSameEpisodeTitle(validEps, {
+        let validEps = filterEpisodesByTitle(bData.bangumi.episodes), filtered = filterSameEpisodeTitle(validEps, {
           preferredPlatform: tPlat === "_any_" ? null : tPlat
         });
         if (filtered.some((ep) => extractEpisodeNumberFromTitle(ep.episodeTitle) === queryEpisode)) {
@@ -21782,6 +21824,9 @@ async function executeSourceHandlers(resultData, queryTitle, targetAnimesList, r
 async function searchAnime(url, preferAnimeId = null, preferSource = null, detailStore = null, targetPlatform = null, forceRefresh = !1) {
   return httpCacheContext.getStore() ? searchAnimeBody(url, preferAnimeId, preferSource, detailStore, targetPlatform, forceRefresh) : runWithHttpCache(() => searchAnimeBody(url, preferAnimeId, preferSource, detailStore, targetPlatform, forceRefresh));
 }
+function resolveAnimeDetailForSearch(anime, requestAnimeDetailsMap) {
+  return resolveAnimeByIdFromDetailStore(anime?.bangumiId, requestAnimeDetailsMap, anime?.source) || resolveAnimeByIdFromDetailStore(anime?.animeId, requestAnimeDetailsMap, anime?.source) || resolveAnimeById(anime?.bangumiId, requestAnimeDetailsMap, anime?.source) || resolveAnimeById(anime?.animeId, requestAnimeDetailsMap, anime?.source);
+}
 async function searchAnimeBody(url, preferAnimeId = null, preferSource = null, detailStore = null, targetPlatform = null, forceRefresh = !1) {
   let queryTitle = url.searchParams.get("keyword");
   globals.titleNoiseFilter && (queryTitle = queryTitle.replace(globals.titleNoiseFilter, "").trim());
@@ -21801,9 +21846,9 @@ async function searchAnimeBody(url, preferAnimeId = null, preferSource = null, d
     let simplifiedTitle = simplized(queryTitle);
     log("info", `[system] [searchAnime] searchAnime converted traditional to simplified: ${queryTitle} -> ${simplifiedTitle}`), queryTitle = simplifiedTitle;
   }
-  let requestAnimeDetailsMap = detailStore instanceof Map ? detailStore : /* @__PURE__ */ new Map(), cacheKey = querySeason !== null ? `${queryTitle}_S${querySeason}` : queryTitle;
+  let requestAnimeDetailsMap = detailStore instanceof Map ? detailStore : /* @__PURE__ */ new Map(), cacheKey = querySeason !== null ? `${queryTitle}_S${querySeason}` : queryTitle, resolveSearchAnimeDetail = (anime) => resolveAnimeDetailForSearch(anime, requestAnimeDetailsMap);
   if (!forceRefresh && resolveFavoriteForSearchKeyword(cacheKey)) {
-    let favoriteResults = getSearchCache(cacheKey, requestAnimeDetailsMap) || [];
+    let favoriteResults = withAvailableEpisodeCount(getSearchCache(cacheKey, requestAnimeDetailsMap) || [], resolveSearchAnimeDetail);
     return jsonResponse({
       errorCode: 0,
       success: !0,
@@ -21823,7 +21868,7 @@ async function searchAnimeBody(url, preferAnimeId = null, preferSource = null, d
         errorCode: 0,
         success: !0,
         errorMessage: "",
-        animes: cachedResults
+        animes: withAvailableEpisodeCount(cachedResults, resolveSearchAnimeDetail)
       });
     {
       let currentS = querySeason + 1, combinedCachedResults = [...cachedResults], cacheMissed = !1;
@@ -21836,7 +21881,7 @@ async function searchAnimeBody(url, preferAnimeId = null, preferSource = null, d
           errorCode: 0,
           success: !0,
           errorMessage: "",
-          animes: combinedCachedResults
+          animes: withAvailableEpisodeCount(combinedCachedResults, resolveSearchAnimeDetail)
         });
       log("info", `[system] [LogVar-API] Episode ${queryEpisode} not satisfied in cache. Proceeding to network search.`);
     }
@@ -22010,14 +22055,10 @@ async function searchAnimeBody(url, preferAnimeId = null, preferSource = null, d
         log("info", `[system] [searchAnime] Anime ${anime.animeId} filtered by name: ${animeTitle}`);
         continue;
       }
-      let animeData = resolveAnimeByIdFromDetailStore(anime?.bangumiId, requestAnimeDetailsMap, anime?.source) || resolveAnimeByIdFromDetailStore(anime?.animeId, requestAnimeDetailsMap, anime?.source) || resolveAnimeById(anime?.bangumiId, requestAnimeDetailsMap, anime?.source) || resolveAnimeById(anime?.animeId, requestAnimeDetailsMap, anime?.source);
+      let animeData = resolveAnimeDetailForSearch(anime, requestAnimeDetailsMap);
       if (animeData && animeData.links) {
-        let episodesList = animeData.links.map((link, index) => ({
-          episodeId: link.id,
-          episodeTitle: link.title,
-          episodeNumber: index + 1
-        }));
-        episodesList = episodesList.filter((episode) => !globals.episodeTitleFilter.test(episode.episodeTitle)), log("info", `[system] [searchAnime] Anime ${anime.animeId} filtered episodes: ${episodesList.length}/${animeData.links.length}`), episodesList.length > 0 && validAnimes.push(anime);
+        let episodesList = applyEpisodeTitleFilter(anime, animeData.links);
+        log("info", `[system] [searchAnime] Anime ${anime.animeId} filtered episodes: ${episodesList.length}/${animeData.links.length}`), episodesList.length > 0 && validAnimes.push(anime);
       }
     }
     curAnimes.length = 0, curAnimes.push(...validAnimes);
@@ -22110,7 +22151,7 @@ function buildBangumiData(anime, idParam = "") {
     });
   }
   if (globals.enableAnimeEpisodeFilter) {
-    if (episodesList = episodesList.filter((episode) => !globals.episodeTitleFilter.test(episode.episodeTitle)), log("info", `[system] [getBangumi] Episode filter enabled. Filtered episodes: ${episodesList.length}/${anime.links.length}`), episodesList.length === 0)
+    if (episodesList = filterEpisodesByTitle(episodesList), log("info", `[system] [getBangumi] Episode filter enabled. Filtered episodes: ${episodesList.length}/${anime.links.length}`), episodesList.length === 0)
       return log("warn", `[system] [getBangumi] No valid episodes after filtering for anime ID ${idParam || anime.bangumiId}`), {
         errorCode: 404,
         success: !1,
@@ -22142,7 +22183,7 @@ function buildBangumiData(anime, idParam = "") {
           id: `season-${anime.animeId}`,
           airDate: anime.startDate,
           name: `Season ${localSeason}`,
-          episodeCount: anime.episodeCount
+          episodeCount: globals.enableAnimeEpisodeFilter ? resolveEpisodeCount(anime.episodeCount, episodesList.length) : anime.episodeCount
         }
       ],
       episodes: episodesList
@@ -22353,7 +22394,7 @@ async function getComment(path2, queryFormat, segmentFlag, clientIp, includeDura
     let lastTitle = null, lastSeason = null, offset = null, lastSearchContext = null;
     if (clientIp && globals.rememberLastSelect) {
       let lastSearch = getLastSearch(clientIp);
-      lastSearch && lastSearch.title && lastSearch.season && lastSearch.episode && episodeTitle && Date.now() - lastSearch.timestamp < 18e4 && (lastSearchContext = lastSearch, lastSearch.episodeId !== null && lastSearch.episodeId !== void 0 && String(lastSearch.episodeId) === String(commentId) ? log("info", `[system] [match] Skip preference write for automatically returned episode ${commentId}`) : (lastTitle = lastSearch.title, lastSeason = lastSearch.season, offset = `${lastSearch.episode}:${episodeTitle}`, log("info", `[system] [LogVar-API] Calculated episode offset for IP ${clientIp}: Query E${lastSearch.episode}, Selected ${episodeTitle} -> Offset ${offset} (Season ${lastSeason})`)));
+      lastSearch && lastSearch.title && lastSearch.season !== null && lastSearch.season !== void 0 && lastSearch.episode && episodeTitle && Date.now() - lastSearch.timestamp < 18e4 && (lastSearchContext = lastSearch, lastSearch.episodeId !== null && lastSearch.episodeId !== void 0 && String(lastSearch.episodeId) === String(commentId) ? log("info", `[system] [match] Skip preference write for automatically returned episode ${commentId}`) : (lastTitle = lastSearch.title, lastSeason = lastSearch.season, offset = `${lastSearch.episode}:${episodeTitle}`, log("info", `[system] [LogVar-API] Calculated episode offset for IP ${clientIp}: Query E${lastSearch.episode}, Selected ${episodeTitle} -> Offset ${offset} (Season ${lastSeason})`)));
     }
   }
   let appliedRuleOffset = 0, appliedRulePercent = !1;
@@ -22480,7 +22521,7 @@ async function getSegmentComment(segment, queryFormat) {
 }
 
 // forward/forward-widget.js
-var wv = "1.21.9";
+var wv = "1.21.10";
 WidgetMetadata = {
   id: "forward.auto.danmu2",
   title: "\u81EA\u52A8\u94FE\u63A5\u5F39\u5E55v2",
