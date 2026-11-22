@@ -4961,6 +4961,197 @@ function convertDanAny() {
   return null;
 }
 
+// danmu_api/utils/pipeline-trace.js
+var SENSITIVE_CONFIG_KEYS = /* @__PURE__ */ new Set();
+var TRACE_CONFIG_ACCESSORS = {};
+function registerTraceConfigAccessors(config) {
+  for (let key of Object.keys(TRACE_CONFIG_ACCESSORS)) delete TRACE_CONFIG_ACCESSORS[key];
+  SENSITIVE_CONFIG_KEYS.clear();
+  for (let [name, meta] of Object.entries(config || {}))
+    !meta || typeof meta.accessor != "string" || (TRACE_CONFIG_ACCESSORS[name] = meta.accessor, meta.sensitive === !0 && SENSITIVE_CONFIG_KEYS.add(meta.accessor));
+}
+var records = [];
+var traceStorage = null;
+function currentTraceContext() {
+  return traceStorage && traceStorage.getStore() || null;
+}
+function formatConfigValue(value) {
+  return value == null ? "\u672A\u8BBE\u7F6E" : typeof value == "boolean" || typeof value == "number" ? String(value) : typeof value == "string" ? value.length > 0 ? value : "\u672A\u8BBE\u7F6E" : value instanceof RegExp ? value.source : Array.isArray(value) ? `${value.length} \u9879` : value instanceof Map ? `${value.size} \u9879` : typeof value == "object" ? `${Object.keys(value).length} \u952E` : String(value);
+}
+function describeConfigValue(key, value) {
+  return SENSITIVE_CONFIG_KEYS.has(key) ? value == null || value === "" ? "\u672A\u8BBE\u7F6E" : "\u5DF2\u8BBE\u7F6E" : formatConfigValue(value);
+}
+function recordConfigAccess(key, value) {
+  let context = currentTraceContext(), trace = context?.trace;
+  trace && (Object.prototype.hasOwnProperty.call(trace.configs, key) || (trace.configs[key] = {
+    value: describeConfigValue(key, value),
+    used: !0,
+    step: context.activeStep
+  }));
+}
+function markConfigVerdict(trace, configName, hit, step) {
+  let accessor = TRACE_CONFIG_ACCESSORS[configName];
+  if (!accessor) return;
+  let entry = trace.configs[accessor] || (trace.configs[accessor] = { used: !0, step });
+  entry.used = !0, entry.step || (entry.step = step), step && !entry.effectStep && (entry.effectStep = step), typeof hit == "boolean" && (entry.hit = hit);
+}
+function sumNumeric(target, source) {
+  if (typeof source == "number" && typeof target == "number") return target + source;
+  if (target && source && typeof target == "object" && typeof source == "object" && !Array.isArray(target)) {
+    let out = { ...target };
+    for (let key of Object.keys(source)) out[key] = sumNumeric(target[key], source[key]);
+    return out;
+  }
+  return source === void 0 ? target : source;
+}
+function recordConfigEffect(config, effect) {
+  let context = currentTraceContext();
+  if (!context) return;
+  let trimmed = { ...effect };
+  if (trimmed.sum) {
+    let existing = context.effects.find((item) => item.config === config && item.sum);
+    if (existing) {
+      for (let key of ["before", "after", "keptCount", "removedCount"])
+        trimmed[key] !== void 0 && (existing[key] = sumNumeric(existing[key], trimmed[key]));
+      Array.isArray(trimmed.kept) && (existing.kept = [...existing.kept || [], ...trimmed.kept].slice(0, 200)), Array.isArray(trimmed.removed) && (existing.removed = [...existing.removed || [], ...trimmed.removed].slice(0, 200)), typeof trimmed.hit == "boolean" && (existing.hit = !!existing.hit || trimmed.hit), markConfigVerdict(context.trace, config, existing.hit, context.activeStep);
+      return;
+    }
+  }
+  for (let [listKey, countKey] of [["kept", "keptCount"], ["removed", "removedCount"]])
+    Array.isArray(trimmed[listKey]) && trimmed[listKey].length > 200 && (trimmed[countKey] = trimmed[listKey].length, trimmed[listKey] = trimmed[listKey].slice(0, 200));
+  markConfigVerdict(context.trace, config, trimmed.hit, context.activeStep), context.effects.push({ config, ...trimmed });
+}
+function mergeTitleGroups(groups) {
+  let nodes = groups.map((group) => ({ ...group, variants: [...group.variants] })), merged = /* @__PURE__ */ new Set();
+  for (let node of nodes) {
+    if (merged.has(node)) continue;
+    let grew = !0, cluster = [node];
+    for (merged.add(node); grew; ) {
+      grew = !1;
+      for (let other of nodes)
+        merged.has(other) || other.source !== node.source || ![other.title, ...other.variants].some((text) => cluster.some((item) => item.title === text || item.variants.includes(text))) || (cluster.push(other), merged.add(other), grew = !0);
+    }
+    let title = cluster.find((item) => item.title)?.title || "", variants = [], matched = !1, reason = "", sources = /* @__PURE__ */ new Set();
+    for (let item of cluster) {
+      for (let text of [item.title, ...item.variants])
+        text && text !== title && !variants.includes(text) && variants.push(text);
+      item.matched && (matched = !0), !reason && item.reason && (reason = item.reason), item.source && sources.add(item.source);
+    }
+    node.cluster = { title, variants, matched, reason, sources: [...sources] };
+  }
+  return nodes.filter((node) => node.cluster).map((node) => node.cluster);
+}
+function composeTitleDecision(bucket) {
+  let clusters = mergeTitleGroups([...bucket.groups.values()]), toItem = (cluster) => {
+    let item = { value: cluster.title };
+    return cluster.variants.length > 0 && (item.aliases = cluster.variants), cluster.reason && (item.reason = cluster.reason), cluster.sources.length > 0 && (item.source = cluster.sources.join("\u3001")), item;
+  }, kept = clusters.filter((cluster) => cluster.matched), removed = clusters.filter((cluster) => !cluster.matched), sourceCounts = /* @__PURE__ */ new Map();
+  for (let group of bucket.groups.values()) {
+    let name = group.source || "\u672A\u6807\u6CE8\u6765\u6E90";
+    sourceCounts.set(name, (sourceCounts.get(name) || 0) + 1);
+  }
+  let sourceBreakdown = [...sourceCounts.entries()].sort((a, b) => b[1] - a[1]).map(([source, count]) => `${source} ${count}`).join("\u3001");
+  return {
+    config: bucket.config,
+    label: bucket.label,
+    kind: "decision",
+    hit: removed.length > 0,
+    // 按源判定次数是独立事实：同一结果可能被多个源分别判定，不等于结果数
+    context: { \u641C\u7D22\u8BCD: bucket.query, \u5224\u5B9A\u89C4\u5219: bucket.mode, \u6309\u6E90\u5224\u5B9A: sourceBreakdown || "\u672A\u6807\u6CE8\u6765\u6E90" },
+    // 口径说明：判定与逐源保留数互不蕴含——季过滤在判定之后剔除候选，季边界收敛与
+    // 预筛判定不登记，因此命中数可少于也可多于逐源保留数
+    summary: `\u5171 ${kept.length + removed.length} \u4E2A\u6807\u9898\u5224\u5B9A\uFF1A\u547D\u4E2D ${kept.length} \u4E2A\u3001\u672A\u547D\u4E2D ${removed.length} \u4E2A\uFF1B\u5224\u5B9A\u6309\u6807\u9898\u9010\u6761\u8BA1\u6570\uFF0C\u540C\u6E90\u591A\u4E2A\u6807\u9898\u53EF\u5F52\u4E3A\u4E00\u6761\u3001\u90E8\u5206\u6E90\u524D\u7F6E\u9884\u7B5B\u4E0D\u767B\u8BB0\uFF0C\u6545\u5224\u5B9A\u6570\u4E0E\u5019\u9009\u6570\u53EF\u80FD\u4E0D\u76F8\u7B49\uFF1B\u6807\u9898\u547D\u4E2D\u4E0D\u4EE3\u8868\u8FDB\u5165\u6700\u7EC8\u7ED3\u679C\u2014\u2014\u6765\u6E90\u8FD8\u4F1A\u6309\u5206\u96C6\u53EF\u7528\u6027\u3001\u5B63\u8FC7\u6EE4\u3001\u6765\u6E90\u81EA\u6709\u89C4\u5219\u7EE7\u7EED\u7B5B\u9009`,
+    keptCount: kept.length,
+    removedCount: removed.length,
+    kept: kept.slice(0, 200).map(toItem),
+    removed: removed.slice(0, 200).map(toItem)
+  };
+}
+function recordTitleDecision({ config = null, label, group, source, query, mode, value, matched, reason }) {
+  let context = currentTraceContext();
+  if (!context) return;
+  let key = config || label, bucket = context.decisions.get(key);
+  bucket || (bucket = { config, label, query: query || "", mode: mode || "", groups: /* @__PURE__ */ new Map() }, context.decisions.set(key, bucket));
+  let title = String(group || value || "").trim();
+  if (!title) return;
+  let groupKey = `${source || ""}\0${title}`, text = String(value ?? ""), entry = bucket.groups.get(groupKey);
+  entry || (entry = { title, variants: [], matched: !1, reason: "", source: source || "" }, bucket.groups.set(groupKey, entry)), text && text !== title && !entry.variants.includes(text) && entry.variants.push(text), matched ? entry.matched = !0 : entry.reason || (entry.reason = reason || "");
+}
+function markStepActive(name) {
+  let context = currentTraceContext();
+  context && (context.activeStep = name || null);
+}
+function childHasDuration(timing) {
+  return timing.endedAt - timing.startedAt > 0;
+}
+function traceStep(name, startedAt, detail) {
+  let context = currentTraceContext(), trace = context?.trace;
+  if (!trace) return;
+  let endedAt = Date.now(), elapsed = Math.max(0, endedAt - startedAt), nestedMs = 0;
+  for (let timing of context.stepTimings)
+    timing.startedAt < startedAt || timing.endedAt > endedAt || timing.claimed || childHasDuration(timing) && (timing.claimed = !0, timing.step.nested = !0, nestedMs += timing.step.totalMs || timing.step.ms || 0);
+  let step = { name, ms: Math.max(0, elapsed - nestedMs) };
+  nestedMs > 0 && (step.totalMs = elapsed), context.stepTimings.push({ startedAt, endedAt, step, claimed: !1 }), detail && typeof detail == "object" && (detail.status !== void 0 && (step.status = detail.status), detail.reason !== void 0 && (step.reason = detail.reason), detail.inputs !== void 0 && (step.inputs = detail.inputs), detail.outputs !== void 0 && (step.outputs = detail.outputs), detail.table !== void 0 && (step.table = detail.table), detail.error !== void 0 && (step.error = detail.error));
+  let decisions = [...context.decisions.values()].map((bucket) => {
+    let change = composeTitleDecision(bucket);
+    return markConfigVerdict(trace, change.config, change.hit, context.activeStep), change;
+  }), changes = [...context.effects.map(({ sum, ...effect }) => effect), ...decisions];
+  changes.length > 0 && (step.changes = changes), context.effects = [], context.decisions = /* @__PURE__ */ new Map(), trace.steps.push(step);
+}
+function peekConfigEffects() {
+  let context = currentTraceContext();
+  return context ? context.effects.map(({ sum, ...effect }) => effect) : [];
+}
+function createPhaseTimer() {
+  let startedAt = Date.now();
+  return function(name, detail) {
+    traceStep(name, startedAt, detail), startedAt = Date.now();
+  };
+}
+var TRACE_CREDENTIAL_PARAMS = /* @__PURE__ */ new Set([
+  "token",
+  "admintoken",
+  "accesstoken",
+  "refreshtoken",
+  "apikey",
+  "key",
+  "secret",
+  "password",
+  "passwd",
+  "auth",
+  "authorization",
+  "sign",
+  "signature",
+  "sig"
+]), TRACE_URL_DELIMITER = "$$$";
+function isTraceCredentialParam(key) {
+  return TRACE_CREDENTIAL_PARAMS.has(key.toLowerCase().replace(/[_-]/g, ""));
+}
+function maskTraceParams(params) {
+  for (let key of [...params.keys()]) {
+    if (isTraceCredentialParam(key)) {
+      params.set(key, "***");
+      continue;
+    }
+    let value = params.get(key);
+    value && /^https?:\/\//i.test(value.trim()) && params.set(key, maskCredentialParams(value));
+  }
+}
+function maskSingleUrlCredentials(text) {
+  let hashIndex = text.indexOf("#"), fragment = hashIndex === -1 ? "" : text.slice(hashIndex), withoutFragment = hashIndex === -1 ? text : text.slice(0, hashIndex), qIndex = withoutFragment.indexOf("?");
+  if (qIndex === -1) return text;
+  let base = withoutFragment.slice(0, qIndex), params = new URLSearchParams(withoutFragment.slice(qIndex + 1));
+  maskTraceParams(params);
+  let query = params.toString();
+  return `${base}${query ? `?${query}` : ""}${fragment}`;
+}
+function maskCredentialParams(targetUrl) {
+  return String(targetUrl ?? "").split(TRACE_URL_DELIMITER).map(maskSingleUrlCredentials).join(TRACE_URL_DELIMITER);
+}
+function getTraceRecords() {
+  return records;
+}
+
 // danmu_api/utils/log-util.js
 function log(level, ...args) {
   let levels = { error: 0, warn: 1, info: 2 }, currentLevelValue = levels[globals.logLevel] !== void 0 ? levels[globals.logLevel] : 1;
@@ -4987,1475 +5178,6 @@ function hideSensitiveInfo(message) {
     }
   return processedMessage;
 }
-
-// node_modules/opencc-js/dist/esm-lib/core.js
-var Trie = class {
-  // 使用 Map 實作 Trie 樹
-  // Trie 的每個節點為一個 Map 物件
-  // key 為 code point，value 為子節點（也是一個 Map）。
-  // 如果 Map 物件有 trie_val 屬性，則該屬性為值字串，代表替換的字詞。
-  constructor() {
-    this.map = /* @__PURE__ */ new Map();
-  }
-  /**
-   * 將一項資料加入字典樹
-   * @param {string} s 要匹配的字串
-   * @param {string} v 若匹配成功，則替換為此字串
-   */
-  addWord(s, v) {
-    let { map } = this;
-    for (let c of s) {
-      let cp = c.codePointAt(0), nextMap = map.get(cp);
-      if (nextMap == null) {
-        let tmp = /* @__PURE__ */ new Map();
-        map.set(cp, tmp), map = tmp;
-      } else
-        map = nextMap;
-    }
-    map.trie_val = v;
-  }
-  /**
-     * 讀取字典資料
-     * @param {DictLike} d 字典
-     */
-  loadDict(d) {
-    if (typeof d == "string") {
-      d = d.split("|");
-      for (let line of d) {
-        let [l, r] = line.split(" ");
-        if (typeof r != "string")
-          throw new TypeError('Invalid dictionary entry: expected string entries to use "source replacement" format.');
-        this.addWord(l, r);
-      }
-    } else
-      for (let arr of d) {
-        if (!Array.isArray(arr) || typeof arr[0] != "string" || typeof arr[1] != "string")
-          throw new TypeError(
-            "Invalid dictionary entry: expected [source, replacement] pairs. If you are passing locale dictionaries to ConverterFactory, spread them, for example: ConverterFactory(...Locale.from.cn, ...Locale.to.hk)."
-          );
-        let [l, r] = arr;
-        this.addWord(l, r);
-      }
-  }
-  /**
-   * 讀取多個字典資料
-   * @param {DictLike[]} arr 字典
-   */
-  loadDictGroup(arr) {
-    arr.slice().reverse().forEach((d) => {
-      this.loadDict(d);
-    });
-  }
-  matchPrefix(s, i) {
-    let n = s.length, t_curr = this.map, k = 0, v;
-    for (let j = i; j < n; ) {
-      let x = s.codePointAt(j);
-      j += x > 65535 ? 2 : 1;
-      let t_next = t_curr.get(x);
-      if (typeof t_next > "u")
-        break;
-      t_curr = t_next;
-      let v_curr = t_curr.trie_val;
-      typeof v_curr < "u" && (k = j, v = v_curr);
-    }
-    return k > 0 ? { end: k, value: v } : null;
-  }
-  segment(s) {
-    let n = s.length, segments = [], orig_i = null;
-    for (let i = 0; i < n; ) {
-      let matched = this.matchPrefix(s, i);
-      matched ? (orig_i !== null && (segments.push(s.slice(orig_i, i)), orig_i = null), segments.push(s.slice(i, matched.end)), i = matched.end) : (orig_i === null && (orig_i = i), i += getUnmatchedLength(s, i));
-    }
-    return orig_i !== null && segments.push(s.slice(orig_i, n)), segments;
-  }
-  /**
-   * 根據字典樹中的資料轉換字串。
-   * @param {string} s 要轉換的字串
-   */
-  convert(s) {
-    let n = s.length, arr = [], orig_i = null;
-    for (let i = 0; i < n; ) {
-      let matched = this.matchPrefix(s, i);
-      matched ? (orig_i !== null && (arr.push(s.slice(orig_i, i)), orig_i = null), arr.push(matched.value), i = matched.end) : (orig_i === null && (orig_i = i), i += getUnmatchedLength(s, i));
-    }
-    return orig_i !== null && arr.push(s.slice(orig_i, n)), arr.join("");
-  }
-};
-function getCodePointLength(s, i) {
-  return s.codePointAt(i) > 65535 ? 2 : 1;
-}
-function getIdeographicDescriptionArity(cp) {
-  return cp >= 12272 && cp <= 12273 ? 2 : cp >= 12274 && cp <= 12275 ? 3 : cp >= 12276 && cp <= 12287 ? 2 : 0;
-}
-function getIdeographicDescriptionSequenceEnd(s, i) {
-  let cp = s.codePointAt(i), arity = getIdeographicDescriptionArity(cp);
-  if (arity === 0)
-    return 0;
-  let end = i + getCodePointLength(s, i);
-  for (let n = 0; n < arity; n += 1) {
-    if (end >= s.length)
-      return 0;
-    end = getIdeographicDescriptionSequenceEnd(s, end) || end + getCodePointLength(s, end);
-  }
-  return end;
-}
-function getUnmatchedLength(s, i) {
-  let idsEnd = getIdeographicDescriptionSequenceEnd(s, i);
-  return idsEnd > i ? idsEnd - i : getCodePointLength(s, i);
-}
-function ConverterFactory(...dictGroups) {
-  let trieArr = normalizeConverterFactoryDictGroups(dictGroups).map((grp) => {
-    let t = new Trie();
-    return t.loadDictGroup(grp), t;
-  });
-  function convert(s) {
-    return trieArr.reduce((res, t) => t.convert(res), s);
-  }
-  return convert;
-}
-function isDictPair(entry) {
-  return Array.isArray(entry) && typeof entry[0] == "string" && typeof entry[1] == "string";
-}
-function isSerializedDict(dict) {
-  return typeof dict == "string" && (dict === "" || dict.includes(" "));
-}
-function isDictLike(dict) {
-  return typeof dict == "string" || Array.isArray(dict) && dict.every(isDictPair);
-}
-function isDictGroup(dictGroup) {
-  return Array.isArray(dictGroup) && dictGroup.every((dict) => isSerializedDict(dict) || Array.isArray(dict) && dict.every(isDictPair));
-}
-function isDictGroupCollection(dictGroups) {
-  return Array.isArray(dictGroups) && dictGroups.every(isDictGroup);
-}
-function normalizeConverterFactoryDictGroups(dictGroups) {
-  return dictGroups.flatMap((dictGroup) => {
-    if (isDictGroupCollection(dictGroup))
-      return dictGroup;
-    if (isDictGroup(dictGroup))
-      return [dictGroup];
-    if (!Array.isArray(dictGroup))
-      throw new TypeError("Invalid ConverterFactory argument: expected a dictionary group or locale dictionary collection.");
-    let groups = [], i = 0;
-    for (; i < dictGroup.length && isDictGroup(dictGroup[i]); )
-      groups.push(dictGroup[i].slice()), i += 1;
-    let appendedDicts = dictGroup.slice(i);
-    return groups.length > 0 && appendedDicts.length > 0 && appendedDicts.every(isDictLike) ? (groups[groups.length - 1].push(...appendedDicts), groups) : [dictGroup];
-  });
-}
-
-// node_modules/opencc-js/dist/esm-lib/dict/STCharacters.js
-var STCharacters_default = "\u3437 \u508C|\u3439 \u3476|\u343D \u5051|\u3447 \u3473|\u3448 \u5032|\u3454 \u346F|\u3469 \u5138|\u34C6 \u{205E3}|\u34E5 \u528F|\u34F0 \u5283|\u3509 \u529A|\u358A \u565A|\u359E \u558E|\u360E \u361A|\u36AF \u3704|\u36C0 \u5AB0|\u36DF \u{217B5}|\u36E0 \u{21883}|\u36E3 \u370F|\u36E4 \u5B4B|\u36FF \u{21839}|\u37C6 \u380F|\u37DC \u{21FB1}|\u37E5 \u5D7E|\u384E \u5E53|\u3918 \u396E|\u393D \u61E4|\u396A \u617A|\u39CF \u6386|\u39D0 \u3A73|\u39D1 \u649D|\u39DF \u64D3|\u39F0 \u64FD|\u3A2B \u3A5C|\u3B4E \u68E1|\u3B4F \u6932|\u3B63 \u{2364E}|\u3B64 \u6A22|\u3B74 \u6A2B|\u3C69 \u6BB0|\u3C6E \u6BA8|\u3CBF \u7007|\u3CD4 \u6FE7|\u3CD5 \u7061|\u3CE0 \u6FBE|\u3CE1 \u6FC4|\u3CE2 \u{23FB7}|\u3CFD \u7030|\u3D0B \u6F5A|\u3D89 \u9E02|\u3DB6 \u71F6|\u3DBD \u7171|\u3E8D \u7371|\u3EC5 \u74AF|\u3ECF \u{24AE9}|\u3ED8 \u{24ABA}|\u4025 \u407B|\u4056 \u779C|\u40B5 \u78BD|\u40C5 \u78FE|\u4149 \u7A0F|\u415F \u7A47|\u416A \u{258A2}|\u41F2 \u7B74|\u4264 \u7C54|\u4336 \u42B7|\u4337 \u7D2C|\u4338 \u7E33|\u4339 \u7D45|\u433A \u42D9|\u433B \u42DA|\u433C \u7D90|\u433D \u7DB5|\u433E \u42FB|\u433F \u42F9|\u4340 \u7E7F|\u4341 \u7E78|\u4360 \u4366|\u43AC \u43B1|\u43DD \u819E|\u447D \u{26A99}|\u44D3 \u85B5|\u44D5 \u85B3|\u44D6 \u85ED|\u44E8 \u7F43|\u45D6 \u87AE|\u461B \u{2775E}|\u461E \u{27717}|\u464A \u{27735}|\u464C \u4661|\u4653 \u896C|\u4723 \u8A22|\u4724 \u9FC1|\u4725 \u{27A59}|\u4727 \u4700|\u4729 \u8B8C|\u4759 \u8C99|\u478C \u{27D73}|\u478D \u477C|\u478E \u{27DA7}|\u4790 \u8CF0|\u47E2 \u8E8E|\u4880 \u{282B0}|\u4881 \u{282B8}|\u4882 \u{282E2}|\u497A \u91FE|\u497D \u93FA|\u497E \u4971|\u497F \u{28BC5}|\u4980 \u{289AB}|\u4981 \u{289DC}|\u4982 \u4947|\u4983 \u942F|\u4985 \u9425|\u4986 \u9481|\u49B6 \u499B|\u49B7 \u499F|\u4A44 \u9766|\u4B6A \u{297AF}|\u4BC3 \u{298D1}|\u4BC4 \u9A27|\u4BC5 \u4BC0|\u4C9D \u4C7D|\u4C9E \u{29D98}|\u4C9F \u9BA3|\u4CA0 \u9C06|\u4CA1 \u9C0C|\u4CA2 \u9C27|\u4CA3 \u4C77|\u4D13 \u9CFE|\u4D14 \u9D41|\u4D15 \u9D37|\u4D16 \u9D84|\u4D17 \u9DAA|\u4D18 \u9DC9|\u4D19 \u9E0A|\u4DAE \u9F91|\u4E07 \u842C|\u4E0E \u8207|\u4E11 \u919C|\u4E13 \u5C08|\u4E1A \u696D|\u4E1B \u53E2|\u4E1C \u6771|\u4E1D \u7D72|\u4E22 \u4E1F|\u4E24 \u5169|\u4E25 \u56B4|\u4E27 \u55AA|\u4E2A \u500B|\u4E30 \u8C50|\u4E34 \u81E8|\u4E3A \u7232|\u4E3D \u9E97|\u4E3E \u8209|\u4E48 \u9EBC|\u4E49 \u7FA9|\u4E4C \u70CF|\u4E50 \u6A02|\u4E54 \u55AC|\u4E60 \u7FD2|\u4E61 \u9109|\u4E66 \u66F8|\u4E70 \u8CB7|\u4E71 \u4E82|\u4E89 \u722D|\u4E8E \u65BC|\u4E8F \u8667|\u4E91 \u96F2|\u4E98 \u4E99|\u4E9A \u4E9E|\u4EA7 \u7522|\u4EA9 \u755D|\u4EB2 \u89AA|\u4EB5 \u893B|\u4EB8 \u56B2|\u4EBF \u5104|\u4EC5 \u50C5|\u4EC6 \u50D5|\u4ECE \u5F9E|\u4ED1 \u4F96|\u4ED3 \u5009|\u4EEA \u5100|\u4EEC \u5011|\u4EF7 \u50F9|\u4F17 \u8846|\u4F18 \u512A|\u4F19 \u5925|\u4F1A \u6703|\u4F1B \u50B4|\u4F1E \u5098|\u4F1F \u5049|\u4F20 \u50B3|\u4F21 \u4FE5|\u4F23 \u4FD4|\u4F24 \u50B7|\u4F25 \u5000|\u4F26 \u502B|\u4F27 \u5096|\u4F2A \u50DE|\u4F2B \u4F47|\u4F53 \u9AD4|\u4F59 \u9918|\u4F63 \u50AD|\u4F65 \u50C9|\u4FA0 \u4FE0|\u4FA3 \u4FB6|\u4FA5 \u50E5|\u4FA6 \u5075|\u4FA7 \u5074|\u4FA8 \u50D1|\u4FA9 \u5108|\u4FAA \u5115|\u4FAC \u5102|\u4FAD \u5118|\u4FE3 \u4FC1|\u4FE6 \u5114|\u4FE8 \u513C|\u4FE9 \u5006|\u4FEA \u5137|\u4FEB \u5008|\u4FED \u5109|\u503A \u50B5|\u503E \u50BE|\u506C \u50AF|\u507B \u50C2|\u507E \u50E8|\u507F \u511F|\u50A4 \u510E|\u50A5 \u513B|\u50A7 \u5110|\u50A8 \u5132|\u50A9 \u513A|\u513F \u5152|\u5151 \u514C|\u5156 \u5157|\u515A \u9EE8|\u5170 \u862D|\u5173 \u95DC|\u5174 \u8208|\u5179 \u8332|\u517B \u990A|\u517D \u7378|\u5181 \u56C5|\u5185 \u5167|\u5188 \u5CA1|\u518C \u518A|\u5199 \u5BEB|\u519B \u8ECD|\u519C \u8FB2|\u51AF \u99AE|\u51B2 \u885D|\u51B3 \u6C7A|\u51B5 \u6CC1|\u51BB \u51CD|\u51C0 \u6DE8|\u51C4 \u60BD|\u51C6 \u6E96|\u51C9 \u6DBC|\u51CF \u6E1B|\u51D1 \u6E4A|\u51DB \u51DC|\u51E0 \u5E7E|\u51E4 \u9CF3|\u51EB \u9CE7|\u51ED \u6191|\u51EF \u51F1|\u51F6 \u5147|\u51FB \u64CA|\u51FF \u947F|\u520D \u82BB|\u5212 \u5283|\u5218 \u5289|\u5219 \u5247|\u521A \u525B|\u521B \u5275|\u5220 \u522A|\u522B \u5225|\u522C \u5257|\u522D \u5244|\u5239 \u524E|\u523D \u528A|\u523E \u34E8|\u523F \u528C|\u5240 \u5274|\u5242 \u5291|\u5250 \u526E|\u5251 \u528D|\u5265 \u525D|\u5267 \u5287|\u529D \u52F8|\u529E \u8FA6|\u52A1 \u52D9|\u52A2 \u52F1|\u52A8 \u52D5|\u52B1 \u52F5|\u52B2 \u52C1|\u52B3 \u52DE|\u52BF \u52E2|\u52CB \u52F3|\u52DA \u52E9|\u5300 \u52FB|\u5326 \u532D|\u532E \u5331|\u533A \u5340|\u533B \u91AB|\u534E \u83EF|\u534F \u5354|\u5355 \u55AE|\u5356 \u8CE3|\u5360 \u4F54|\u5362 \u76E7|\u5364 \u6EF7|\u5367 \u81E5|\u536B \u885B|\u5374 \u537B|\u537A \u5DF9|\u5382 \u5EE0|\u5385 \u5EF3|\u5386 \u6B77|\u5389 \u53B2|\u538B \u58D3|\u538C \u53AD|\u538D \u5399|\u5390 \u9F8E|\u5395 \u5EC1|\u5398 \u91D0|\u53A2 \u5EC2|\u53A3 \u53B4|\u53A6 \u5EC8|\u53A8 \u5EDA|\u53A9 \u5EC4|\u53AE \u5EDD|\u53BF \u7E23|\u53C1 \u53C4|\u53C2 \u53C3|\u53C6 \u9749|\u53C7 \u9746|\u53CC \u96D9|\u53D1 \u767C|\u53D8 \u8B8A|\u53D9 \u6558|\u53E0 \u758A|\u53F0 \u81FA|\u53F6 \u8449|\u53F7 \u865F|\u53F9 \u5606|\u53FD \u5630|\u5401 \u7C72|\u5403 \u55AB|\u540E \u5F8C|\u5413 \u5687|\u5415 \u5442|\u5417 \u55CE|\u5428 \u5678|\u542C \u807D|\u542F \u5553|\u5434 \u5433|\u5450 \u5436|\u5452 \u5638|\u5453 \u56C8|\u5455 \u5614|\u5456 \u56A6|\u5457 \u5504|\u5458 \u54E1|\u5459 \u54BC|\u545B \u55C6|\u545C \u55DA|\u548F \u8A60|\u5499 \u56A8|\u549B \u5680|\u549D \u565D|\u54A4 \u5412|\u54A8 \u8AEE|\u54B8 \u9E79|\u54CD \u97FF|\u54D1 \u555E|\u54D2 \u5660|\u54D3 \u5635|\u54D4 \u55F6|\u54D5 \u5666|\u54D7 \u8B41|\u54D9 \u5672|\u54DC \u568C|\u54DD \u5665|\u54DF \u55B2|\u5507 \u8123|\u551B \u561C|\u551D \u55CA|\u5520 \u562E|\u5521 \u5562|\u5522 \u55E9|\u5524 \u559A|\u5567 \u5616|\u556C \u55C7|\u556D \u56C0|\u556E \u9F67|\u556F \u5613|\u5570 \u56C9|\u5574 \u563D|\u5578 \u562F|\u55B7 \u5674|\u55BD \u560D|\u55BE \u56B3|\u55EB \u56C1|\u55F3 \u566F|\u5618 \u5653|\u5624 \u56B6|\u5631 \u56D1|\u565C \u5695|\u56A3 \u56C2|\u56E2 \u5718|\u56ED \u5712|\u56F1 \u56EA|\u56F4 \u570D|\u56F5 \u5707|\u56FD \u570B|\u56FE \u5716|\u5706 \u5713|\u5723 \u8056|\u5739 \u58D9|\u573A \u5834|\u574F \u58DE|\u5757 \u584A|\u575A \u5805|\u575B \u58C7|\u575C \u58E2|\u575D \u58E9|\u575E \u5862|\u575F \u58B3|\u5760 \u589C|\u5784 \u58DF|\u5785 \u58E0|\u5786 \u58DA|\u5792 \u58D8|\u57A6 \u58BE|\u57A9 \u580A|\u57AB \u588A|\u57AD \u57E1|\u57AF \u58B6|\u57B1 \u58CB|\u57B2 \u584F|\u57B4 \u5816|\u57D8 \u5852|\u57D9 \u58CE|\u57DA \u581D|\u5811 \u5879|\u5815 \u58AE|\u5846 \u58EA|\u5899 \u7246|\u58EE \u58EF|\u58F0 \u8072|\u58F3 \u6BBC|\u58F6 \u58FA|\u58F8 \u58FC|\u5904 \u8655|\u5907 \u5099|\u590D \u5FA9|\u591F \u5920|\u5934 \u982D|\u5938 \u8A87|\u5939 \u593E|\u593A \u596A|\u5941 \u5969|\u5942 \u5950|\u594B \u596E|\u5956 \u734E|\u5965 \u5967|\u5986 \u599D|\u5987 \u5A66|\u5988 \u5ABD|\u59A9 \u5AF5|\u59AA \u5AD7|\u59AB \u5B00|\u59D7 \u59CD|\u59F9 \u597C|\u5A04 \u5A41|\u5A05 \u5A6D|\u5A06 \u5B08|\u5A07 \u5B0C|\u5A08 \u5B4C|\u5A31 \u5A1B|\u5A32 \u5AA7|\u5A34 \u5AFA|\u5A73 \u5AFF|\u5A74 \u5B30|\u5A75 \u5B0B|\u5A76 \u5B38|\u5AAA \u5ABC|\u5AAD \u5B03|\u5AD2 \u5B21|\u5AD4 \u5B2A|\u5AF1 \u5B19|\u5B37 \u5B24|\u5B59 \u5B6B|\u5B66 \u5B78|\u5B6A \u5B7F|\u5B81 \u5BE7|\u5B9D \u5BF6|\u5B9E \u5BE6|\u5BA0 \u5BF5|\u5BA1 \u5BE9|\u5BAA \u61B2|\u5BAB \u5BAE|\u5BBD \u5BEC|\u5BBE \u8CD3|\u5BDD \u5BE2|\u5BF9 \u5C0D|\u5BFB \u5C0B|\u5BFC \u5C0E|\u5BFF \u58FD|\u5C06 \u5C07|\u5C14 \u723E|\u5C18 \u5875|\u5C1D \u5617|\u5C27 \u582F|\u5C34 \u5C37|\u5C38 \u5C4D|\u5C3D \u76E1|\u5C42 \u5C64|\u5C43 \u5C53|\u5C49 \u5C5C|\u5C4A \u5C46|\u5C5E \u5C6C|\u5C61 \u5C62|\u5C66 \u5C68|\u5C7F \u5DBC|\u5C81 \u6B72|\u5C82 \u8C48|\u5C96 \u5D87|\u5C97 \u5D17|\u5C98 \u5CF4|\u5C9A \u5D50|\u5C9B \u5CF6|\u5CA9 \u5DD6|\u5CAD \u5DBA|\u5CB3 \u5DBD|\u5CBD \u5D2C|\u5CBF \u5DCB|\u5CC3 \u5DA8|\u5CC4 \u5DA7|\u5CE1 \u5CFD|\u5CE3 \u5DA2|\u5CE4 \u5DA0|\u5CE5 \u5D22|\u5CE6 \u5DD2|\u5CF0 \u5CEF|\u5D02 \u5D97|\u5D03 \u5D0D|\u5D04 \u5DAE|\u5D2D \u5D84|\u5D58 \u5DB8|\u5D5A \u5D94|\u5D5D \u5D81|\u5DC5 \u5DD4|\u5DE9 \u978F|\u5DEF \u5DF0|\u5E01 \u5E63|\u5E05 \u5E25|\u5E08 \u5E2B|\u5E0F \u5E43|\u5E10 \u5E33|\u5E18 \u7C3E|\u5E1C \u5E5F|\u5E26 \u5E36|\u5E27 \u5E40|\u5E2E \u5E6B|\u5E31 \u5E6C|\u5E3B \u5E58|\u5E3C \u5E57|\u5E42 \u51AA|\u5E72 \u5E79|\u5E76 \u4E26|\u5E7F \u5EE3|\u5E84 \u838A|\u5E86 \u6176|\u5E8A \u7240|\u5E90 \u5EEC|\u5E91 \u5EE1|\u5E93 \u5EAB|\u5E94 \u61C9|\u5E99 \u5EDF|\u5E9E \u9F90|\u5E9F \u5EE2|\u5EBC \u5ECE|\u5EEA \u5EE9|\u5F00 \u958B|\u5F02 \u7570|\u5F03 \u68C4|\u5F11 \u5F12|\u5F20 \u5F35|\u5F25 \u5F4C|\u5F2A \u5F33|\u5F2F \u5F4E|\u5F39 \u5F48|\u5F3A \u5F37|\u5F52 \u6B78|\u5F53 \u7576|\u5F55 \u9304|\u5F5F \u5F60|\u5F66 \u5F65|\u5F68 \u5F72|\u5F7B \u5FB9|\u5F81 \u5FB5|\u5F84 \u5F91|\u5F95 \u5FA0|\u5FC6 \u61B6|\u5FCF \u61FA|\u5FE7 \u6182|\u5FFE \u613E|\u6000 \u61F7|\u6001 \u614B|\u6002 \u616B|\u6003 \u61AE|\u6004 \u616A|\u6005 \u60B5|\u6006 \u6134|\u601C \u6190|\u603B \u7E3D|\u603C \u61DF|\u603F \u61CC|\u604B \u6200|\u6052 \u6046|\u6073 \u61C7|\u6076 \u60E1|\u6078 \u615F|\u6079 \u61E8|\u607A \u6137|\u607B \u60FB|\u607C \u60F1|\u607D \u60F2|\u60A6 \u6085|\u60AB \u6128|\u60AC \u61F8|\u60AD \u6173|\u60AE \u609E|\u60AF \u61AB|\u60CA \u9A5A|\u60E7 \u61FC|\u60E8 \u6158|\u60E9 \u61F2|\u60EB \u618A|\u60EC \u611C|\u60ED \u615A|\u60EE \u619A|\u60EF \u6163|\u6120 \u614D|\u6124 \u61A4|\u6126 \u6192|\u613F \u9858|\u6151 \u61FE|\u616D \u6196|\u61D1 \u61E3|\u61D2 \u61F6|\u61D4 \u61CD|\u6206 \u6207|\u620B \u6214|\u620F \u6232|\u6217 \u6227|\u6218 \u6230|\u622C \u6229|\u622F \u6231|\u6237 \u6236|\u6251 \u64B2|\u6267 \u57F7|\u6269 \u64F4|\u626A \u636B|\u626B \u6383|\u626C \u63DA|\u6270 \u64FE|\u629A \u64AB|\u629B \u62CB|\u629F \u6476|\u62A0 \u6473|\u62A1 \u6384|\u62A2 \u6436|\u62A4 \u8B77|\u62A5 \u5831|\u62C5 \u64D4|\u62DF \u64EC|\u62E2 \u650F|\u62E3 \u63C0|\u62E5 \u64C1|\u62E6 \u6514|\u62E7 \u64F0|\u62E8 \u64A5|\u62E9 \u64C7|\u6302 \u639B|\u631A \u646F|\u631B \u6523|\u631C \u6397|\u631D \u64BE|\u631E \u64BB|\u631F \u633E|\u6320 \u6493|\u6321 \u64CB|\u6322 \u649F|\u6323 \u6399|\u6324 \u64E0|\u6325 \u63EE|\u6326 \u648F|\u635D \u6329|\u635E \u6488|\u635F \u640D|\u6361 \u64BF|\u6362 \u63DB|\u6363 \u6417|\u636E \u64DA|\u63B3 \u64C4|\u63B4 \u6451|\u63B7 \u64F2|\u63B8 \u64A3|\u63BA \u647B|\u63BC \u645C|\u63FD \u652C|\u63FE \u6435|\u63FF \u64B3|\u6400 \u6519|\u6401 \u64F1|\u6402 \u645F|\u6404 \u63EF|\u6405 \u652A|\u643A \u651C|\u6444 \u651D|\u6445 \u6504|\u6446 \u64FA|\u6447 \u6416|\u6448 \u64EF|\u644A \u6524|\u6484 \u6516|\u6491 \u6490|\u64B5 \u6506|\u64B7 \u64F7|\u64B8 \u64FC|\u64BA \u651B|\u64DC \u3A75|\u64DE \u64FB|\u6512 \u6522|\u654C \u6575|\u655A \u6553|\u655B \u6582|\u6569 \u6586|\u6570 \u6578|\u658B \u9F4B|\u6593 \u6595|\u6597 \u9B25|\u65A9 \u65AC|\u65AD \u65B7|\u65E0 \u7121|\u65E7 \u820A|\u65F6 \u6642|\u65F7 \u66E0|\u65F8 \u6698|\u6619 \u66C7|\u6635 \u66B1|\u663C \u665D|\u663D \u66E8|\u663E \u986F|\u664B \u6649|\u6652 \u66EC|\u6653 \u66C9|\u6654 \u66C4|\u6655 \u6688|\u6656 \u6689|\u6682 \u66AB|\u6685 \u{23236}|\u66A7 \u66D6|\u672F \u8853|\u6734 \u6A38|\u673A \u6A5F|\u6740 \u6BBA|\u6742 \u96DC|\u6743 \u6B0A|\u6760 \u69D3|\u6761 \u689D|\u6765 \u4F86|\u6768 \u694A|\u6769 \u69AA|\u6770 \u5091|\u6781 \u6975|\u6784 \u69CB|\u679E \u6A05|\u67A2 \u6A1E|\u67A3 \u68D7|\u67A5 \u6AEA|\u67A7 \u6898|\u67A8 \u68D6|\u67AA \u69CD|\u67AB \u6953|\u67AD \u689F|\u67DC \u6AC3|\u67E0 \u6AB8|\u67FD \u6A89|\u6800 \u6894|\u6805 \u67F5|\u6807 \u6A19|\u6808 \u68E7|\u6809 \u6ADB|\u680A \u6AF3|\u680B \u68DF|\u680C \u6AE8|\u680E \u6ADF|\u680F \u6B04|\u6811 \u6A39|\u6816 \u68F2|\u6837 \u6A23|\u683E \u6B12|\u6860 \u690F|\u6861 \u6A48|\u6862 \u6968|\u6863 \u6A94|\u6864 \u69BF|\u6865 \u6A4B|\u6866 \u6A3A|\u6867 \u6A9C|\u6868 \u69F3|\u6869 \u6A01|\u686A \u6A33|\u68A6 \u5922|\u68BC \u6AAE|\u68BE \u68F6|\u68BF \u69E4|\u68C0 \u6AA2|\u68C1 \u68B2|\u68C2 \u6B1E|\u6901 \u69E8|\u691D \u69FC|\u691F \u6ADD|\u6920 \u69E7|\u6922 \u69F6|\u6924 \u6B0F|\u692B \u6A3F|\u692D \u6A62|\u692E \u69EE|\u697C \u6A13|\u6984 \u6B16|\u6985 \u69B2|\u6987 \u6AEC|\u6988 \u6ADA|\u6989 \u6AF8|\u699D \u6A27|\u69DA \u6A9F|\u69DB \u6ABB|\u69DF \u6AB3|\u69E0 \u6AE7|\u6A2A \u6A6B|\u6A2F \u6AA3|\u6A31 \u6AFB|\u6A65 \u6AEB|\u6A71 \u6AE5|\u6A79 \u6AD3|\u6A7C \u6ADE|\u6AA9 \u6A81|\u6B22 \u6B61|\u6B24 \u6B5F|\u6B27 \u6B50|\u6B7C \u6BB2|\u6B81 \u6B7F|\u6B87 \u6BA4|\u6B8B \u6B98|\u6B92 \u6B9E|\u6B93 \u6BAE|\u6B9A \u6BAB|\u6BA1 \u6BAF|\u6BB4 \u6BC6|\u6BC1 \u6BC0|\u6BC2 \u8F42|\u6BD5 \u7562|\u6BD9 \u6583|\u6BE1 \u6C08|\u6BF5 \u6BFF|\u6BF6 \u{23BF6}|\u6C07 \u6C0C|\u6C14 \u6C23|\u6C22 \u6C2B|\u6C29 \u6C2C|\u6C32 \u6C33|\u6C47 \u532F|\u6C49 \u6F22|\u6C64 \u6E6F|\u6C79 \u6D36|\u6C84 \u6F90|\u6C9F \u6E9D|\u6CA1 \u6C92|\u6CA3 \u7043|\u6CA4 \u6F1A|\u6CA5 \u701D|\u6CA6 \u6DEA|\u6CA7 \u6EC4|\u6CA8 \u6E22|\u6CA9 \u6F59|\u6CAA \u6EEC|\u6CDE \u6FD8|\u6CEA \u6DDA|\u6CF6 \u6FA9|\u6CF7 \u7027|\u6CF8 \u7018|\u6CFA \u6FFC|\u6CFB \u7009|\u6CFC \u6F51|\u6CFD \u6FA4|\u6CFE \u6D87|\u6D01 \u6F54|\u6D12 \u7051|\u6D3C \u7AAA|\u6D43 \u6D79|\u6D45 \u6DFA|\u6D46 \u6F3F|\u6D47 \u6F86|\u6D48 \u6E5E|\u6D49 \u6EAE|\u6D4A \u6FC1|\u6D4B \u6E2C|\u6D4D \u6FAE|\u6D4E \u6FDF|\u6D4F \u700F|\u6D50 \u6EFB|\u6D51 \u6E3E|\u6D52 \u6EF8|\u6D53 \u6FC3|\u6D54 \u6F6F|\u6D55 \u6FDC|\u6D82 \u5857|\u6D8C \u6E67|\u6D9A \u6D97|\u6D9B \u6FE4|\u6D9D \u6F87|\u6D9E \u6DF6|\u6D9F \u6F23|\u6DA0 \u6F7F|\u6DA1 \u6E26|\u6DA2 \u6EB3|\u6DA3 \u6E19|\u6DA4 \u6ECC|\u6DA6 \u6F64|\u6DA7 \u6F97|\u6DA8 \u6F32|\u6DA9 \u6F80|\u6DC0 \u6FB1|\u6E0A \u6DF5|\u6E0C \u6DE5|\u6E0D \u6F2C|\u6E0E \u7006|\u6E10 \u6F38|\u6E11 \u6FA0|\u6E14 \u6F01|\u6E16 \u700B|\u6E17 \u6EF2|\u6E29 \u6EAB|\u6E38 \u904A|\u6E7E \u7063|\u6E7F \u6EBC|\u6E81 \u6FDA|\u6E83 \u6F70|\u6E85 \u6FFA|\u6E86 \u6F35|\u6E87 \u6F0A|\u6ED7 \u6F77|\u6EDA \u6EFE|\u6EDE \u6EEF|\u6EDF \u7069|\u6EE0 \u7044|\u6EE1 \u6EFF|\u6EE2 \u7005|\u6EE4 \u6FFE|\u6EE5 \u6FEB|\u6EE6 \u7064|\u6EE8 \u6FF1|\u6EE9 \u7058|\u6EEA \u6FA6|\u6F46 \u7020|\u6F47 \u701F|\u6F4B \u7032|\u6F4D \u6FF0|\u6F5C \u6F5B|\u6F74 \u7026|\u6F9B \u7002|\u6F9C \u703E|\u6FD1 \u7028|\u6FD2 \u7015|\u704F \u705D|\u706D \u6EC5|\u706F \u71C8|\u7075 \u9748|\u7076 \u7AC8|\u707E \u707D|\u707F \u71E6|\u7080 \u716C|\u7089 \u7210|\u7096 \u71C9|\u709C \u7152|\u709D \u7197|\u70B9 \u9EDE|\u70BC \u7149|\u70BD \u71BE|\u70C1 \u720D|\u70C2 \u721B|\u70C3 \u70F4|\u70DB \u71ED|\u70DF \u7159|\u70E6 \u7169|\u70E7 \u71D2|\u70E8 \u71C1|\u70E9 \u71F4|\u70EB \u71D9|\u70EC \u71FC|\u70ED \u71B1|\u7115 \u7165|\u7116 \u71DC|\u7118 \u71FE|\u7174 \u7185|\u718F \u71FB|\u7231 \u611B|\u7237 \u723A|\u724D \u7258|\u7266 \u729B|\u7275 \u727D|\u727A \u72A7|\u728A \u72A2|\u72B6 \u72C0|\u72B7 \u7377|\u72B8 \u7341|\u72B9 \u7336|\u72C8 \u72FD|\u72DD \u736E|\u72DE \u7370|\u72EC \u7368|\u72ED \u72F9|\u72EE \u7345|\u72EF \u736A|\u72F0 \u7319|\u72F1 \u7344|\u72F2 \u733B|\u7303 \u736B|\u730E \u7375|\u7315 \u737C|\u7321 \u7380|\u732A \u8C6C|\u732B \u8C93|\u732C \u875F|\u732E \u737B|\u736D \u737A|\u7391 \u74A3|\u7399 \u74B5|\u739A \u7452|\u739B \u746A|\u73AE \u744B|\u73AF \u74B0|\u73B0 \u73FE|\u73B1 \u7472|\u73BA \u74BD|\u73D0 \u743A|\u73D1 \u74CF|\u73F0 \u74AB|\u73F2 \u743F|\u740E \u74A1|\u740F \u7489|\u7410 \u7463|\u743C \u74CA|\u7476 \u7464|\u7477 \u74A6|\u7478 \u74B8|\u748E \u74D4|\u74D2 \u74DA|\u74EE \u7515|\u74EF \u750C|\u7535 \u96FB|\u753B \u756B|\u7545 \u66A2|\u7574 \u7587|\u7596 \u7664|\u7597 \u7642|\u759F \u7627|\u75A0 \u7658|\u75A1 \u760D|\u75AC \u7667|\u75AD \u7632|\u75AE \u7621|\u75AF \u760B|\u75B1 \u76B0|\u75B4 \u75FE|\u75C8 \u7670|\u75C9 \u75D9|\u75D2 \u7662|\u75D6 \u7602|\u75E8 \u7646|\u75EA \u7613|\u75EB \u7647|\u75F4 \u7661|\u7605 \u7649|\u7606 \u762E|\u7617 \u761E|\u7618 \u763B|\u762A \u765F|\u762B \u7671|\u763E \u766E|\u763F \u766D|\u765E \u7669|\u7663 \u766C|\u766B \u7672|\u7682 \u7681|\u7691 \u769A|\u76B1 \u76BA|\u76B2 \u76B8|\u76CF \u76DE|\u76D0 \u9E7D|\u76D1 \u76E3|\u76D6 \u84CB|\u76D7 \u76DC|\u76D8 \u76E4|\u770D \u7798|\u7726 \u7725|\u772C \u77D3|\u7741 \u775C|\u7750 \u775E|\u7751 \u77BC|\u7786 \u77B6|\u7792 \u779E|\u77A9 \u77DA|\u77EB \u77EF|\u77F6 \u78EF|\u77FE \u792C|\u77FF \u7926|\u7800 \u78AD|\u7801 \u78BC|\u7816 \u78DA|\u7817 \u7868|\u781A \u786F|\u781C \u78B8|\u783A \u792A|\u783B \u7931|\u783E \u792B|\u7840 \u790E|\u7841 \u785C|\u7855 \u78A9|\u7856 \u7864|\u7857 \u78FD|\u7859 \u78D1|\u785A \u7904|\u786E \u78BA|\u7875 \u78E0|\u788D \u7919|\u789B \u78E7|\u789C \u78E3|\u78B1 \u9E7C|\u793C \u79AE|\u7943 \u79A1|\u794E \u7995|\u7962 \u79B0|\u796F \u798E|\u7977 \u79B1|\u7978 \u798D|\u7980 \u7A1F|\u7984 \u797F|\u7985 \u79AA|\u79BB \u96E2|\u79C3 \u79BF|\u79C6 \u7A08|\u79CD \u7A2E|\u79D8 \u7955|\u79EF \u7A4D|\u79F0 \u7A31|\u79FD \u7A62|\u79FE \u7A60|\u7A06 \u7A6D|\u7A0E \u7A05|\u7A23 \u7A4C|\u7A33 \u7A69|\u7A51 \u7A61|\u7A5E \u7A6D|\u7A77 \u7AAE|\u7A83 \u7ACA|\u7A8D \u7AC5|\u7A8E \u7AB5|\u7A91 \u7AAF|\u7A9C \u7AC4|\u7A9D \u7AA9|\u7AA5 \u7ABA|\u7AA6 \u7AC7|\u7AAD \u7AB6|\u7AD6 \u8C4E|\u7ADE \u7AF6|\u7B03 \u7BE4|\u7B0B \u7B4D|\u7B14 \u7B46|\u7B15 \u7B67|\u7B3A \u7B8B|\u7B3C \u7C60|\u7B3E \u7C69|\u7B51 \u7BC9|\u7B5A \u7BF3|\u7B5B \u7BE9|\u7B5C \u7C39|\u7B5D \u7B8F|\u7B79 \u7C4C|\u7B7C \u7BD4|\u7B7E \u7C64|\u7B7F \u7BE0|\u7B80 \u7C21|\u7B93 \u7C59|\u7BA6 \u7C00|\u7BA7 \u7BCB|\u7BA8 \u7C5C|\u7BA9 \u7C6E|\u7BAA \u7C1E|\u7BAB \u7C2B|\u7BD1 \u7C23|\u7BD3 \u7C0D|\u7BEE \u7C43|\u7BEF \u7C5B|\u7BF1 \u7C6C|\u7C16 \u7C6A|\u7C41 \u7C5F|\u7C74 \u7CF4|\u7C7B \u985E|\u7C7C \u79C8|\u7C9C \u7CF6|\u7C9D \u7CF2|\u7CA4 \u7CB5|\u7CAA \u7CDE|\u7CAE \u7CE7|\u7CBD \u7CC9|\u7CC1 \u7CDD|\u7CC7 \u9931|\u7CCD \u9908|\u7D27 \u7DCA|\u7D77 \u7E36|\u7DFC \u7E15|\u7E06 \u7DEA|\u7E9F \u7CF9|\u7EA0 \u7CFE|\u7EA1 \u7D06|\u7EA2 \u7D05|\u7EA3 \u7D02|\u7EA4 \u7E96|\u7EA5 \u7D07|\u7EA6 \u7D04|\u7EA7 \u7D1A|\u7EA8 \u7D08|\u7EA9 \u7E8A|\u7EAA \u7D00|\u7EAB \u7D09|\u7EAC \u7DEF|\u7EAD \u7D1C|\u7EAE \u7D18|\u7EAF \u7D14|\u7EB0 \u7D15|\u7EB1 \u7D17|\u7EB2 \u7DB1|\u7EB3 \u7D0D|\u7EB4 \u7D1D|\u7EB5 \u7E31|\u7EB6 \u7DB8|\u7EB7 \u7D1B|\u7EB8 \u7D19|\u7EB9 \u7D0B|\u7EBA \u7D21|\u7EBB \u7D35|\u7EBC \u7D16|\u7EBD \u7D10|\u7EBE \u7D13|\u7EBF \u7DDA|\u7EC0 \u7D3A|\u7EC1 \u7D32|\u7EC2 \u7D31|\u7EC3 \u7DF4|\u7EC4 \u7D44|\u7EC5 \u7D33|\u7EC6 \u7D30|\u7EC7 \u7E54|\u7EC8 \u7D42|\u7EC9 \u7E10|\u7ECA \u7D46|\u7ECB \u7D3C|\u7ECC \u7D40|\u7ECD \u7D39|\u7ECE \u7E79|\u7ECF \u7D93|\u7ED0 \u7D3F|\u7ED1 \u7D81|\u7ED2 \u7D68|\u7ED3 \u7D50|\u7ED4 \u7D5D|\u7ED5 \u7E5E|\u7ED6 \u7D70|\u7ED7 \u7D4E|\u7ED8 \u7E6A|\u7ED9 \u7D66|\u7EDA \u7D62|\u7EDB \u7D73|\u7EDC \u7D61|\u7EDD \u7D55|\u7EDE \u7D5E|\u7EDF \u7D71|\u7EE0 \u7D86|\u7EE1 \u7D83|\u7EE2 \u7D79|\u7EE3 \u7E61|\u7EE4 \u7D8C|\u7EE5 \u7D8F|\u7EE6 \u7D5B|\u7EE7 \u7E7C|\u7EE8 \u7D88|\u7EE9 \u7E3E|\u7EEA \u7DD2|\u7EEB \u7DBE|\u7EEC \u7DD3|\u7EED \u7E8C|\u7EEE \u7DBA|\u7EEF \u7DCB|\u7EF0 \u7DBD|\u7EF1 \u979D|\u7EF2 \u7DC4|\u7EF3 \u7E69|\u7EF4 \u7DAD|\u7EF5 \u7DBF|\u7EF6 \u7DAC|\u7EF7 \u7E43|\u7EF8 \u7DA2|\u7EF9 \u7DAF|\u7EFA \u7DB9|\u7EFB \u7DA3|\u7EFC \u7D9C|\u7EFD \u7DBB|\u7EFE \u7DB0|\u7EFF \u7DA0|\u7F00 \u7DB4|\u7F01 \u7DC7|\u7F02 \u7DD9|\u7F03 \u7DD7|\u7F04 \u7DD8|\u7F05 \u7DEC|\u7F06 \u7E9C|\u7F07 \u7DF9|\u7F08 \u7DF2|\u7F09 \u7DDD|\u7F0A \u7E15|\u7F0B \u7E62|\u7F0C \u7DE6|\u7F0D \u7D9E|\u7F0E \u7DDE|\u7F0F \u7DF6|\u7F10 \u7DDA|\u7F11 \u7DF1|\u7F12 \u7E0B|\u7F13 \u7DE9|\u7F14 \u7DE0|\u7F15 \u7E37|\u7F16 \u7DE8|\u7F17 \u7DE1|\u7F18 \u7DE3|\u7F19 \u7E09|\u7F1A \u7E1B|\u7F1B \u7E1F|\u7F1C \u7E1D|\u7F1D \u7E2B|\u7F1E \u7E17|\u7F1F \u7E1E|\u7F20 \u7E8F|\u7F21 \u7E2D|\u7F22 \u7E0A|\u7F23 \u7E11|\u7F24 \u7E7D|\u7F25 \u7E39|\u7F26 \u7E35|\u7F27 \u7E32|\u7F28 \u7E93|\u7F29 \u7E2E|\u7F2A \u7E46|\u7F2B \u7E45|\u7F2C \u7E88|\u7F2D \u7E5A|\u7F2E \u7E55|\u7F2F \u7E52|\u7F30 \u7E6E|\u7F31 \u7E7E|\u7F32 \u7E70|\u7F33 \u7E6F|\u7F34 \u7E73|\u7F35 \u7E98|\u7F42 \u7F4C|\u7F51 \u7DB2|\u7F57 \u7F85|\u7F5A \u7F70|\u7F62 \u7F77|\u7F74 \u7F86|\u7F81 \u7F88|\u7F9F \u7FA5|\u7FA1 \u7FA8|\u7FA4 \u7FA3|\u7FD8 \u7FF9|\u7FD9 \u7FFD|\u7FDA \u7FEC|\u8022 \u802E|\u8027 \u802C|\u8038 \u8073|\u803B \u6065|\u8042 \u8076|\u804B \u807E|\u804C \u8077|\u804D \u8079|\u8054 \u806F|\u8069 \u8075|\u806A \u8070|\u8083 \u8085|\u80A0 \u8178|\u80A4 \u819A|\u80AE \u9AAF|\u80B4 \u991A|\u80BE \u814E|\u80BF \u816B|\u80C0 \u8139|\u80C1 \u8105|\u80C6 \u81BD|\u80DC \u52DD|\u80E7 \u6727|\u80E8 \u8156|\u80EA \u81DA|\u80EB \u811B|\u80F6 \u81A0|\u8109 \u8108|\u810D \u81BE|\u810F \u9AD2|\u8110 \u81CD|\u8111 \u8166|\u8113 \u81BF|\u8114 \u81E0|\u811A \u8173|\u8131 \u812B|\u8136 \u8161|\u8138 \u81C9|\u814A \u81D8|\u814C \u9183|\u8158 \u8195|\u816D \u9F76|\u817B \u81A9|\u817C \u9766|\u817D \u8183|\u817E \u9A30|\u8191 \u81CF|\u81BB \u7FB6|\u81DC \u81E2|\u8206 \u8F3F|\u8223 \u8264|\u8230 \u8266|\u8231 \u8259|\u823B \u826B|\u8270 \u8271|\u8273 \u8C54|\u827A \u85DD|\u8282 \u7BC0|\u8288 \u7F8B|\u8297 \u858C|\u829C \u856A|\u82A6 \u8606|\u82C1 \u84EF|\u82C7 \u8466|\u82C8 \u85F6|\u82CB \u83A7|\u82CC \u8407|\u82CD \u84BC|\u82CE \u82E7|\u82CF \u8607|\u82E7 \u85B4|\u82F9 \u860B|\u8303 \u7BC4|\u830E \u8396|\u830F \u8622|\u8311 \u8526|\u8314 \u584B|\u8315 \u7162|\u8327 \u7E6D|\u8346 \u834A|\u8350 \u85A6|\u8359 \u8598|\u835A \u83A2|\u835B \u8558|\u835C \u84FD|\u835D \u8434|\u835E \u854E|\u835F \u8588|\u8360 \u85BA|\u8361 \u8569|\u8363 \u69AE|\u8364 \u8477|\u8365 \u6ECE|\u8366 \u7296|\u8367 \u7192|\u8368 \u8541|\u8369 \u85CE|\u836A \u84C0|\u836B \u852D|\u836C \u8552|\u836D \u8452|\u836E \u8464|\u836F \u85E5|\u8385 \u849E|\u83B1 \u840A|\u83B2 \u84EE|\u83B3 \u8494|\u83B4 \u8435|\u83B6 \u859F|\u83B7 \u7372|\u83B8 \u8555|\u83B9 \u7469|\u83BA \u9DAF|\u83BC \u84F4|\u841A \u8600|\u841D \u863F|\u8424 \u87A2|\u8425 \u71DF|\u8426 \u7E08|\u8427 \u856D|\u8428 \u85A9|\u8471 \u8525|\u8480 \u8495|\u8487 \u8546|\u8489 \u8562|\u848B \u8523|\u848C \u851E|\u848F \u919F|\u84DD \u85CD|\u84DF \u858A|\u84E0 \u863A|\u84E3 \u8577|\u84E5 \u93A3|\u84E6 \u9A40|\u8502 \u8646|\u8537 \u8594|\u8539 \u861E|\u853A \u85FA|\u853C \u85F9|\u8570 \u8580|\u8572 \u8604|\u8574 \u860A|\u85AE \u85EA|\u85D3 \u861A|\u85F4 \u860A|\u8616 \u6AF1|\u864F \u865C|\u8651 \u616E|\u865A \u865B|\u866B \u87F2|\u866C \u866F|\u866E \u87E3|\u8671 \u8768|\u867D \u96D6|\u867E \u8766|\u867F \u8806|\u8680 \u8755|\u8681 \u87FB|\u8682 \u879E|\u8683 \u8801|\u8695 \u8836|\u869D \u8814|\u86AC \u8706|\u86CA \u8831|\u86CE \u8823|\u86CF \u87F6|\u86EE \u883B|\u86F0 \u87C4|\u86F1 \u86FA|\u86F2 \u87EF|\u86F3 \u8784|\u86F4 \u8810|\u8715 \u86FB|\u8717 \u8778|\u8721 \u881F|\u8747 \u8805|\u8748 \u87C8|\u8749 \u87EC|\u874E \u880D|\u877C \u87BB|\u877E \u8811|\u8780 \u87BF|\u87A8 \u87CE|\u87CF \u8828|\u8845 \u91C1|\u8854 \u929C|\u8865 \u88DC|\u886C \u896F|\u886E \u889E|\u8884 \u8956|\u8885 \u5ACB|\u8886 \u8918|\u889C \u896A|\u88AD \u8972|\u88AF \u894F|\u88C5 \u88DD|\u88C6 \u8960|\u88C8 \u890C|\u88E2 \u8933|\u88E3 \u895D|\u88E4 \u8932|\u88E5 \u8949|\u891B \u8938|\u8934 \u8964|\u8955 \u8974|\u89C1 \u898B|\u89C2 \u89C0|\u89C3 \u898E|\u89C4 \u898F|\u89C5 \u8993|\u89C6 \u8996|\u89C7 \u8998|\u89C8 \u89BD|\u89C9 \u89BA|\u89CA \u89AC|\u89CB \u89A1|\u89CC \u89BF|\u89CD \u89A5|\u89CE \u89A6|\u89CF \u89AF|\u89D0 \u89B2|\u89D1 \u89B7|\u89DE \u89F4|\u89E6 \u89F8|\u89EF \u89F6|\u8A1A \u8ABE|\u8A5F \u8B8B|\u8A89 \u8B7D|\u8A8A \u8B04|\u8BA0 \u8A01|\u8BA1 \u8A08|\u8BA2 \u8A02|\u8BA3 \u8A03|\u8BA4 \u8A8D|\u8BA5 \u8B4F|\u8BA6 \u8A10|\u8BA7 \u8A0C|\u8BA8 \u8A0E|\u8BA9 \u8B93|\u8BAA \u8A15|\u8BAB \u8A16|\u8BAC \u8A17|\u8BAD \u8A13|\u8BAE \u8B70|\u8BAF \u8A0A|\u8BB0 \u8A18|\u8BB1 \u8A12|\u8BB2 \u8B1B|\u8BB3 \u8AF1|\u8BB4 \u8B33|\u8BB5 \u8A4E|\u8BB6 \u8A1D|\u8BB7 \u8A25|\u8BB8 \u8A31|\u8BB9 \u8A1B|\u8BBA \u8AD6|\u8BBB \u8A29|\u8BBC \u8A1F|\u8BBD \u8AF7|\u8BBE \u8A2D|\u8BBF \u8A2A|\u8BC0 \u8A23|\u8BC1 \u8B49|\u8BC2 \u8A41|\u8BC3 \u8A36|\u8BC4 \u8A55|\u8BC5 \u8A5B|\u8BC6 \u8B58|\u8BC7 \u8A57|\u8BC8 \u8A50|\u8BC9 \u8A34|\u8BCA \u8A3A|\u8BCB \u8A46|\u8BCC \u8B05|\u8BCD \u8A5E|\u8BCE \u8A58|\u8BCF \u8A54|\u8BD0 \u8A56|\u8BD1 \u8B6F|\u8BD2 \u8A52|\u8BD3 \u8A86|\u8BD4 \u8A84|\u8BD5 \u8A66|\u8BD6 \u8A7F|\u8BD7 \u8A69|\u8BD8 \u8A70|\u8BD9 \u8A7C|\u8BDA \u8AA0|\u8BDB \u8A85|\u8BDC \u8A75|\u8BDD \u8A71|\u8BDE \u8A95|\u8BDF \u8A6C|\u8BE0 \u8A6E|\u8BE1 \u8A6D|\u8BE2 \u8A62|\u8BE3 \u8A63|\u8BE4 \u8ACD|\u8BE5 \u8A72|\u8BE6 \u8A73|\u8BE7 \u8A6B|\u8BE8 \u8AE2|\u8BE9 \u8A61|\u8BEA \u8B78|\u8BEB \u8AA1|\u8BEC \u8AA3|\u8BED \u8A9E|\u8BEE \u8A9A|\u8BEF \u8AA4|\u8BF0 \u8AA5|\u8BF1 \u8A98|\u8BF2 \u8AA8|\u8BF3 \u8A91|\u8BF4 \u8AAA|\u8BF5 \u8AA6|\u8BF6 \u8A92|\u8BF7 \u8ACB|\u8BF8 \u8AF8|\u8BF9 \u8ACF|\u8BFA \u8AFE|\u8BFB \u8B80|\u8BFC \u8AD1|\u8BFD \u8AB9|\u8BFE \u8AB2|\u8BFF \u8AC9|\u8C00 \u8ADB|\u8C01 \u8AB0|\u8C02 \u8AD7|\u8C03 \u8ABF|\u8C04 \u8AC2|\u8C05 \u8AD2|\u8C06 \u8AC4|\u8C07 \u8AB6|\u8C08 \u8AC7|\u8C09 \u8B85|\u8C0A \u8ABC|\u8C0B \u8B00|\u8C0C \u8AF6|\u8C0D \u8ADC|\u8C0E \u8B0A|\u8C0F \u8AEB|\u8C10 \u8AE7|\u8C11 \u8B14|\u8C12 \u8B01|\u8C13 \u8B02|\u8C14 \u8AE4|\u8C15 \u8AED|\u8C16 \u8AFC|\u8C17 \u8B92|\u8C18 \u8AEE|\u8C19 \u8AF3|\u8C1A \u8AFA|\u8C1B \u8AE6|\u8C1C \u8B0E|\u8C1D \u8ADE|\u8C1E \u8ADD|\u8C1F \u8B28|\u8C20 \u8B9C|\u8C21 \u8B16|\u8C22 \u8B1D|\u8C23 \u8B20|\u8C24 \u8B17|\u8C25 \u8AE1|\u8C26 \u8B19|\u8C27 \u8B10|\u8C28 \u8B39|\u8C29 \u8B3E|\u8C2A \u8B2B|\u8C2B \u8B7E|\u8C2C \u8B2C|\u8C2D \u8B5A|\u8C2E \u8B56|\u8C2F \u8B59|\u8C30 \u8B95|\u8C31 \u8B5C|\u8C32 \u8B4E|\u8C33 \u8B9E|\u8C34 \u8B74|\u8C35 \u8B6B|\u8C36 \u8B96|\u8C6E \u8C76|\u8D1D \u8C9D|\u8D1E \u8C9E|\u8D1F \u8CA0|\u8D20 \u8C9F|\u8D21 \u8CA2|\u8D22 \u8CA1|\u8D23 \u8CAC|\u8D24 \u8CE2|\u8D25 \u6557|\u8D26 \u8CEC|\u8D27 \u8CA8|\u8D28 \u8CEA|\u8D29 \u8CA9|\u8D2A \u8CAA|\u8D2B \u8CA7|\u8D2C \u8CB6|\u8D2D \u8CFC|\u8D2E \u8CAF|\u8D2F \u8CAB|\u8D30 \u8CB3|\u8D31 \u8CE4|\u8D32 \u8CC1|\u8D33 \u8CB0|\u8D34 \u8CBC|\u8D35 \u8CB4|\u8D36 \u8CBA|\u8D37 \u8CB8|\u8D38 \u8CBF|\u8D39 \u8CBB|\u8D3A \u8CC0|\u8D3B \u8CBD|\u8D3C \u8CCA|\u8D3D \u8D04|\u8D3E \u8CC8|\u8D3F \u8CC4|\u8D40 \u8CB2|\u8D41 \u8CC3|\u8D42 \u8CC2|\u8D43 \u8D13|\u8D44 \u8CC7|\u8D45 \u8CC5|\u8D46 \u8D10|\u8D47 \u8CD5|\u8D48 \u8CD1|\u8D49 \u8CDA|\u8D4A \u8CD2|\u8D4B \u8CE6|\u8D4C \u8CED|\u8D4D \u9F4E|\u8D4E \u8D16|\u8D4F \u8CDE|\u8D50 \u8CDC|\u8D51 \u8D14|\u8D52 \u8CD9|\u8D53 \u8CE1|\u8D54 \u8CE0|\u8D55 \u8CE7|\u8D56 \u8CF4|\u8D57 \u8CF5|\u8D58 \u8D05|\u8D59 \u8CFB|\u8D5A \u8CFA|\u8D5B \u8CFD|\u8D5C \u8CFE|\u8D5D \u8D17|\u8D5E \u8D0A|\u8D5F \u8D07|\u8D60 \u8D08|\u8D61 \u8D0D|\u8D62 \u8D0F|\u8D63 \u8D1B|\u8D6A \u8D6C|\u8D75 \u8D99|\u8D76 \u8D95|\u8D8B \u8DA8|\u8DB1 \u8DB2|\u8DB8 \u8E89|\u8DC3 \u8E8D|\u8DC4 \u8E4C|\u8DD6 \u8E60|\u8DDE \u8E92|\u8DF5 \u8E10|\u8DF6 \u8E82|\u8DF7 \u8E7A|\u8DF8 \u8E55|\u8DF9 \u8E9A|\u8DFB \u8E8B|\u8E0C \u8E8A|\u8E2A \u8E64|\u8E2C \u8E93|\u8E2F \u8E91|\u8E51 \u8EA1|\u8E52 \u8E63|\u8E70 \u8E95|\u8E7F \u8EA5|\u8E8F \u8EAA|\u8E9C \u8EA6|\u8EAF \u8EC0|\u8F3C \u8F40|\u8F66 \u8ECA|\u8F67 \u8ECB|\u8F68 \u8ECC|\u8F69 \u8ED2|\u8F6A \u8ED1|\u8F6B \u8ED4|\u8F6C \u8F49|\u8F6D \u8EDB|\u8F6E \u8F2A|\u8F6F \u8EDF|\u8F70 \u8F5F|\u8F71 \u8EF2|\u8F72 \u8EFB|\u8F73 \u8F64|\u8F74 \u8EF8|\u8F75 \u8EF9|\u8F76 \u8EFC|\u8F77 \u8EE4|\u8F78 \u8EEB|\u8F79 \u8F62|\u8F7A \u8EFA|\u8F7B \u8F15|\u8F7C \u8EFE|\u8F7D \u8F09|\u8F7E \u8F0A|\u8F7F \u8F4E|\u8F80 \u8F08|\u8F81 \u8F07|\u8F82 \u8F05|\u8F83 \u8F03|\u8F84 \u8F12|\u8F85 \u8F14|\u8F86 \u8F1B|\u8F87 \u8F26|\u8F88 \u8F29|\u8F89 \u8F1D|\u8F8A \u8F25|\u8F8B \u8F1E|\u8F8C \u8F2C|\u8F8D \u8F1F|\u8F8E \u8F1C|\u8F8F \u8F33|\u8F90 \u8F3B|\u8F91 \u8F2F|\u8F92 \u8F40|\u8F93 \u8F38|\u8F94 \u8F61|\u8F95 \u8F45|\u8F96 \u8F44|\u8F97 \u8F3E|\u8F98 \u8F46|\u8F99 \u8F4D|\u8F9A \u8F54|\u8F9E \u8FAD|\u8F9F \u95E2|\u8FA9 \u8FAF|\u8FAB \u8FAE|\u8FB9 \u908A|\u8FBD \u907C|\u8FBE \u9054|\u8FC1 \u9077|\u8FC7 \u904E|\u8FC8 \u9081|\u8FD0 \u904B|\u8FD8 \u9084|\u8FD9 \u9019|\u8FDB \u9032|\u8FDC \u9060|\u8FDD \u9055|\u8FDE \u9023|\u8FDF \u9072|\u8FE9 \u9087|\u8FF3 \u9015|\u8FF9 \u8DE1|\u9002 \u9069|\u9009 \u9078|\u900A \u905C|\u9012 \u905E|\u9026 \u9090|\u903B \u908F|\u9057 \u907A|\u9065 \u9059|\u9093 \u9127|\u909D \u913A|\u90AC \u9114|\u90AE \u90F5|\u90B9 \u9112|\u90BA \u9134|\u90BB \u9130|\u90C1 \u9B31|\u90CF \u90DF|\u90D0 \u9136|\u90D1 \u912D|\u90D3 \u9106|\u90E6 \u9148|\u90E7 \u9116|\u90F8 \u9132|\u9142 \u9147|\u915D \u919E|\u9166 \u91B1|\u9171 \u91AC|\u917D \u91C5|\u917E \u91C3|\u917F \u91C0|\u9196 \u919E|\u91C7 \u63A1|\u91CA \u91CB|\u91CC \u88CF|\u9274 \u9451|\u92AE \u947E|\u933E \u93E8|\u9485 \u91D2|\u9486 \u91D3|\u9487 \u91D4|\u9488 \u91DD|\u9489 \u91D8|\u948A \u91D7|\u948B \u91D9|\u948C \u91D5|\u948D \u91F7|\u948E \u91FA|\u948F \u91E7|\u9490 \u91E4|\u9491 \u9212|\u9492 \u91E9|\u9493 \u91E3|\u9494 \u9346|\u9495 \u91F9|\u9496 \u935A|\u9497 \u91F5|\u9498 \u9203|\u9499 \u9223|\u949A \u9208|\u949B \u9226|\u949C \u9245|\u949D \u920D|\u949E \u9214|\u949F \u937E|\u94A0 \u9209|\u94A1 \u92C7|\u94A2 \u92FC|\u94A3 \u9211|\u94A4 \u9210|\u94A5 \u9470|\u94A6 \u6B3D|\u94A7 \u921E|\u94A8 \u93A2|\u94A9 \u9264|\u94AA \u9227|\u94AB \u9201|\u94AC \u9225|\u94AD \u9204|\u94AE \u9215|\u94AF \u9200|\u94B0 \u923A|\u94B1 \u9322|\u94B2 \u9266|\u94B3 \u9257|\u94B4 \u9237|\u94B5 \u9262|\u94B6 \u9233|\u94B7 \u9255|\u94B8 \u923D|\u94B9 \u9238|\u94BA \u925E|\u94BB \u947D|\u94BC \u926C|\u94BD \u926D|\u94BE \u9240|\u94BF \u923F|\u94C0 \u923E|\u94C1 \u9435|\u94C2 \u9251|\u94C3 \u9234|\u94C4 \u9460|\u94C5 \u925B|\u94C6 \u925A|\u94C7 \u924B|\u94C8 \u9230|\u94C9 \u9249|\u94CA \u9248|\u94CB \u924D|\u94CC \u922E|\u94CD \u9239|\u94CE \u9438|\u94CF \u9276|\u94D0 \u92AC|\u94D1 \u92A0|\u94D2 \u927A|\u94D3 \u92E9|\u94D4 \u930F|\u94D5 \u92AA|\u94D6 \u92EE|\u94D7 \u92CF|\u94D8 \u92E3|\u94D9 \u9403|\u94DA \u928D|\u94DB \u943A|\u94DC \u9285|\u94DD \u92C1|\u94DE \u92B1|\u94DF \u92A6|\u94E0 \u93A7|\u94E1 \u9358|\u94E2 \u9296|\u94E3 \u9291|\u94E4 \u92CC|\u94E5 \u92A9|\u94E6 \u929B|\u94E7 \u93F5|\u94E8 \u9293|\u94E9 \u93A9|\u94EA \u927F|\u94EB \u929A|\u94EC \u927B|\u94ED \u9298|\u94EE \u931A|\u94EF \u92AB|\u94F0 \u9278|\u94F1 \u92A5|\u94F2 \u93DF|\u94F3 \u9283|\u94F4 \u940B|\u94F5 \u92A8|\u94F6 \u9280|\u94F7 \u92A3|\u94F8 \u9444|\u94F9 \u9412|\u94FA \u92EA|\u94FB \u92D9|\u94FC \u9338|\u94FD \u92F1|\u94FE \u93C8|\u94FF \u93D7|\u9500 \u92B7|\u9501 \u9396|\u9502 \u92F0|\u9503 \u92E5|\u9504 \u92E4|\u9505 \u934B|\u9506 \u92EF|\u9507 \u92E8|\u9508 \u93FD|\u9509 \u92BC|\u950A \u92DD|\u950B \u92D2|\u950C \u92C5|\u950D \u92F6|\u950E \u9426|\u950F \u9427|\u9510 \u92B3|\u9511 \u92BB|\u9512 \u92C3|\u9513 \u92DF|\u9514 \u92E6|\u9515 \u9312|\u9516 \u9306|\u9517 \u937A|\u9518 \u9369|\u9519 \u932F|\u951A \u9328|\u951B \u931B|\u951C \u9321|\u951D \u9340|\u951E \u9301|\u951F \u9315|\u9520 \u9329|\u9521 \u932B|\u9522 \u932E|\u9523 \u947C|\u9524 \u9318|\u9525 \u9310|\u9526 \u9326|\u9527 \u9455|\u9528 \u9341|\u9529 \u9308|\u952A \u9343|\u952B \u9307|\u952C \u931F|\u952D \u9320|\u952E \u9375|\u952F \u92F8|\u9530 \u9333|\u9531 \u9319|\u9532 \u9365|\u9533 \u9348|\u9534 \u9347|\u9535 \u93D8|\u9536 \u9376|\u9537 \u9354|\u9538 \u9364|\u9539 \u936C|\u953A \u937E|\u953B \u935B|\u953C \u93AA|\u953D \u9360|\u953E \u9370|\u953F \u9384|\u9540 \u934D|\u9541 \u9382|\u9542 \u93E4|\u9543 \u93A1|\u9544 \u9428|\u9545 \u9387|\u9546 \u93CC|\u9547 \u93AE|\u9548 \u939B|\u9549 \u9398|\u954A \u9477|\u954B \u9482|\u954C \u942B|\u954D \u93B3|\u954E \u93BF|\u954F \u93A6|\u9550 \u93AC|\u9551 \u938A|\u9552 \u93B0|\u9553 \u93B5|\u9554 \u944C|\u9555 \u9394|\u9556 \u93E2|\u9557 \u93DC|\u9558 \u93DD|\u9559 \u93CD|\u955A \u93F0|\u955B \u93DE|\u955C \u93E1|\u955D \u93D1|\u955E \u93C3|\u955F \u93C7|\u9560 \u93D0|\u9561 \u9414|\u9562 \u9481|\u9563 \u9410|\u9564 \u93F7|\u9565 \u9465|\u9566 \u9413|\u9567 \u946D|\u9568 \u9420|\u9569 \u9479|\u956A \u93F9|\u956B \u9419|\u956C \u944A|\u956D \u9433|\u956E \u9436|\u956F \u9432|\u9570 \u942E|\u9571 \u943F|\u9572 \u9454|\u9573 \u9463|\u9574 \u945E|\u9575 \u9471|\u9576 \u9472|\u957F \u9577|\u95E8 \u9580|\u95E9 \u9582|\u95EA \u9583|\u95EB \u9586|\u95EC \u9588|\u95ED \u9589|\u95EE \u554F|\u95EF \u95D6|\u95F0 \u958F|\u95F1 \u95C8|\u95F2 \u9592|\u95F3 \u958E|\u95F4 \u9593|\u95F5 \u9594|\u95F6 \u958C|\u95F7 \u60B6|\u95F8 \u9598|\u95F9 \u9B27|\u95FA \u95A8|\u95FB \u805E|\u95FC \u95E5|\u95FD \u95A9|\u95FE \u95AD|\u95FF \u95D3|\u9600 \u95A5|\u9601 \u95A3|\u9602 \u95A1|\u9603 \u95AB|\u9604 \u9B2E|\u9605 \u95B1|\u9606 \u95AC|\u9607 \u95CD|\u9608 \u95BE|\u9609 \u95B9|\u960A \u95B6|\u960B \u9B29|\u960C \u95BF|\u960D \u95BD|\u960E \u95BB|\u960F \u95BC|\u9610 \u95E1|\u9611 \u95CC|\u9612 \u95C3|\u9613 \u95E0|\u9614 \u95CA|\u9615 \u95CB|\u9616 \u95D4|\u9617 \u95D0|\u9618 \u95D2|\u9619 \u95D5|\u961A \u95DE|\u961B \u95E4|\u961F \u968A|\u9633 \u967D|\u9634 \u9670|\u9635 \u9663|\u9636 \u968E|\u9645 \u969B|\u9646 \u9678|\u9647 \u96B4|\u9648 \u9673|\u9649 \u9658|\u9655 \u965D|\u9666 \u96AF|\u9667 \u9689|\u9668 \u9695|\u9669 \u96AA|\u968F \u96A8|\u9690 \u96B1|\u96B6 \u96B8|\u96BD \u96CB|\u96BE \u96E3|\u96C7 \u50F1|\u96CF \u96DB|\u96E0 \u8B8E|\u96F3 \u9742|\u96FE \u9727|\u9701 \u973D|\u9709 \u9EF4|\u9721 \u9722|\u972D \u9744|\u9753 \u975A|\u9754 \u975D|\u9759 \u975C|\u9765 \u9768|\u9791 \u97C3|\u9792 \u97BD|\u97AF \u97C9|\u97B2 \u97DD|\u97E6 \u97CB|\u97E7 \u97CC|\u97E8 \u97CD|\u97E9 \u97D3|\u97EA \u97D9|\u97EB \u97DE|\u97EC \u97DC|\u97F5 \u97FB|\u9875 \u9801|\u9876 \u9802|\u9877 \u9803|\u9878 \u9807|\u9879 \u9805|\u987A \u9806|\u987B \u9808|\u987C \u980A|\u987D \u9811|\u987E \u9867|\u987F \u9813|\u9880 \u980E|\u9881 \u9812|\u9882 \u980C|\u9883 \u980F|\u9884 \u9810|\u9885 \u9871|\u9886 \u9818|\u9887 \u9817|\u9888 \u9838|\u9889 \u9821|\u988A \u9830|\u988B \u9832|\u988C \u981C|\u988D \u6F41|\u988E \u71B2|\u988F \u9826|\u9890 \u9824|\u9891 \u983B|\u9892 \u982E|\u9893 \u9839|\u9894 \u9837|\u9895 \u9834|\u9896 \u7A4E|\u9897 \u9846|\u9898 \u984C|\u9899 \u9852|\u989A \u984E|\u989B \u9853|\u989C \u984F|\u989D \u984D|\u989E \u9873|\u989F \u9862|\u98A0 \u985B|\u98A1 \u9859|\u98A2 \u9865|\u98A3 \u7E87|\u98A4 \u986B|\u98A5 \u986C|\u98A6 \u9870|\u98A7 \u9874|\u98CE \u98A8|\u98CF \u98BA|\u98D0 \u98AD|\u98D1 \u98AE|\u98D2 \u98AF|\u98D3 \u98B6|\u98D4 \u98B8|\u98D5 \u98BC|\u98D6 \u98BB|\u98D7 \u98C0|\u98D8 \u98C4|\u98D9 \u98C6|\u98DA \u98C8|\u98DE \u98DB|\u98E8 \u9957|\u990D \u995C|\u9963 \u98E0|\u9964 \u98E3|\u9965 \u98E2|\u9966 \u98E5|\u9967 \u9933|\u9968 \u98E9|\u9969 \u993C|\u996A \u98EA|\u996B \u98EB|\u996C \u98ED|\u996D \u98EF|\u996E \u98F2|\u996F \u991E|\u9970 \u98FE|\u9971 \u98FD|\u9972 \u98FC|\u9973 \u98FF|\u9974 \u98F4|\u9975 \u990C|\u9976 \u9952|\u9977 \u9909|\u9978 \u9904|\u9979 \u990E|\u997A \u9903|\u997B \u990F|\u997C \u9905|\u997D \u9911|\u997E \u9916|\u997F \u9913|\u9980 \u9918|\u9981 \u9912|\u9982 \u9915|\u9983 \u991C|\u9984 \u991B|\u9985 \u9921|\u9986 \u9928|\u9987 \u9937|\u9988 \u994B|\u9989 \u9936|\u998A \u993F|\u998B \u995E|\u998C \u9941|\u998D \u9943|\u998E \u993A|\u998F \u993E|\u9990 \u9948|\u9991 \u9949|\u9992 \u9945|\u9993 \u994A|\u9994 \u994C|\u9995 \u9962|\u9A6C \u99AC|\u9A6D \u99AD|\u9A6E \u99B1|\u9A6F \u99B4|\u9A70 \u99B3|\u9A71 \u9A45|\u9A72 \u99B9|\u9A73 \u99C1|\u9A74 \u9A62|\u9A75 \u99D4|\u9A76 \u99DB|\u9A77 \u99DF|\u9A78 \u99D9|\u9A79 \u99D2|\u9A7A \u9A36|\u9A7B \u99D0|\u9A7C \u99DD|\u9A7D \u99D1|\u9A7E \u99D5|\u9A7F \u9A5B|\u9A80 \u99D8|\u9A81 \u9A4D|\u9A82 \u7F75|\u9A83 \u99F0|\u9A84 \u9A55|\u9A85 \u9A4A|\u9A86 \u99F1|\u9A87 \u99ED|\u9A88 \u99E2|\u9A89 \u9A6B|\u9A8A \u9A6A|\u9A8B \u9A01|\u9A8C \u9A57|\u9A8D \u9A02|\u9A8E \u99F8|\u9A8F \u99FF|\u9A90 \u9A0F|\u9A91 \u9A0E|\u9A92 \u9A0D|\u9A93 \u9A05|\u9A94 \u9A0C|\u9A95 \u9A4C|\u9A96 \u9A42|\u9A97 \u9A19|\u9A98 \u9A2D|\u9A99 \u9A24|\u9A9A \u9A37|\u9A9B \u9A16|\u9A9C \u9A41|\u9A9D \u9A2E|\u9A9E \u9A2B|\u9A9F \u9A38|\u9AA0 \u9A43|\u9AA1 \u9A3E|\u9AA2 \u9A44|\u9AA3 \u9A4F|\u9AA4 \u9A5F|\u9AA5 \u9A65|\u9AA6 \u9A66|\u9AA7 \u9A64|\u9AC5 \u9ACF|\u9ACB \u9AD6|\u9ACC \u9AD5|\u9B13 \u9B22|\u9B36 \u9B39|\u9B47 \u9B58|\u9B49 \u9B4E|\u9C7C \u9B5A|\u9C7D \u9B5B|\u9C7E \u9B62|\u9C7F \u9B77|\u9C80 \u9B68|\u9C81 \u9B6F|\u9C82 \u9B74|\u9C83 \u4C3E|\u9C84 \u9B7A|\u9C85 \u9B81|\u9C86 \u9B83|\u9C87 \u9B8E|\u9C88 \u9C78|\u9C89 \u9B8B|\u9C8A \u9B93|\u9C8B \u9B92|\u9C8C \u9B8A|\u9C8D \u9B91|\u9C8E \u9C5F|\u9C8F \u9B8D|\u9C90 \u9B90|\u9C91 \u9BAD|\u9C92 \u9B9A|\u9C93 \u9BB3|\u9C94 \u9BAA|\u9C95 \u9B9E|\u9C96 \u9BA6|\u9C97 \u9C02|\u9C98 \u9B9C|\u9C99 \u9C60|\u9C9A \u9C6D|\u9C9B \u9BAB|\u9C9C \u9BAE|\u9C9D \u9BBA|\u9C9E \u9BD7|\u9C9F \u9C58|\u9CA0 \u9BC1|\u9CA1 \u9C7A|\u9CA2 \u9C31|\u9CA3 \u9C39|\u9CA4 \u9BC9|\u9CA5 \u9C23|\u9CA6 \u9C37|\u9CA7 \u9BC0|\u9CA8 \u9BCA|\u9CA9 \u9BC7|\u9CAA \u9BB6|\u9CAB \u9BFD|\u9CAC \u9BD2|\u9CAD \u9BD6|\u9CAE \u9BEA|\u9CAF \u9BD5|\u9CB0 \u9BEB|\u9CB1 \u9BE1|\u9CB2 \u9BE4|\u9CB3 \u9BE7|\u9CB4 \u9BDD|\u9CB5 \u9BE2|\u9CB6 \u9BF0|\u9CB7 \u9BDB|\u9CB8 \u9BE8|\u9CB9 \u9C3A|\u9CBA \u9BF4|\u9CBB \u9BD4|\u9CBC \u9C5D|\u9CBD \u9C08|\u9CBE \u9C0F|\u9CBF \u9C68|\u9CC0 \u9BF7|\u9CC1 \u9C2E|\u9CC2 \u9C03|\u9CC3 \u9C13|\u9CC4 \u9C77|\u9CC5 \u9C0D|\u9CC6 \u9C12|\u9CC7 \u9C09|\u9CC8 \u9C01|\u9CC9 \u9C42|\u9CCA \u9BFF|\u9CCB \u9C20|\u9CCC \u9C32|\u9CCD \u9C2D|\u9CCE \u9C28|\u9CCF \u9C25|\u9CD0 \u9C29|\u9CD1 \u9C1F|\u9CD2 \u9C1C|\u9CD3 \u9C33|\u9CD4 \u9C3E|\u9CD5 \u9C48|\u9CD6 \u9C49|\u9CD7 \u9C3B|\u9CD8 \u9C35|\u9CD9 \u9C45|\u9CDA \u4C81|\u9CDB \u9C3C|\u9CDC \u9C56|\u9CDD \u9C54|\u9CDE \u9C57|\u9CDF \u9C52|\u9CE0 \u9C6F|\u9CE1 \u9C64|\u9CE2 \u9C67|\u9CE3 \u9C63|\u9CE4 \u4C98|\u9E1F \u9CE5|\u9E20 \u9CE9|\u9E21 \u96DE|\u9E22 \u9CF6|\u9E23 \u9CF4|\u9E24 \u9CF2|\u9E25 \u9DD7|\u9E26 \u9D09|\u9E27 \u9DAC|\u9E28 \u9D07|\u9E29 \u9D06|\u9E2A \u9D23|\u9E2B \u9D87|\u9E2C \u9E15|\u9E2D \u9D28|\u9E2E \u9D1E|\u9E2F \u9D26|\u9E30 \u9D12|\u9E31 \u9D1F|\u9E32 \u9D1D|\u9E33 \u9D1B|\u9E34 \u9DFD|\u9E35 \u9D15|\u9E36 \u9DE5|\u9E37 \u9DD9|\u9E38 \u9D2F|\u9E39 \u9D30|\u9E3A \u9D42|\u9E3B \u9D34|\u9E3C \u9D43|\u9E3D \u9D3F|\u9E3E \u9E1E|\u9E3F \u9D3B|\u9E40 \u9D50|\u9E41 \u9D53|\u9E42 \u9E1D|\u9E43 \u9D51|\u9E44 \u9D60|\u9E45 \u9D5D|\u9E46 \u9D52|\u9E47 \u9DF3|\u9E48 \u9D5C|\u9E49 \u9D61|\u9E4A \u9D72|\u9E4B \u9D93|\u9E4C \u9D6A|\u9E4D \u9D7E|\u9E4E \u9D6F|\u9E4F \u9D6C|\u9E50 \u9D6E|\u9E51 \u9D89|\u9E52 \u9D8A|\u9E53 \u9D77|\u9E54 \u9DEB|\u9E55 \u9D98|\u9E56 \u9DA1|\u9E57 \u9D9A|\u9E58 \u9DBB|\u9E59 \u9D96|\u9E5A \u9DC0|\u9E5B \u9DA5|\u9E5C \u9DA9|\u9E5D \u9DCA|\u9E5E \u9DC2|\u9E5F \u9DB2|\u9E60 \u9DB9|\u9E61 \u9DBA|\u9E62 \u9DC1|\u9E63 \u9DBC|\u9E64 \u9DB4|\u9E65 \u9DD6|\u9E66 \u9E1A|\u9E67 \u9DD3|\u9E68 \u9DDA|\u9E69 \u9DEF|\u9E6A \u9DE6|\u9E6B \u9DF2|\u9E6C \u9DF8|\u9E6D \u9DFA|\u9E6E \u4D09|\u9E6F \u9E07|\u9E70 \u9DF9|\u9E71 \u9E0C|\u9E72 \u9E0F|\u9E73 \u9E1B|\u9E74 \u9E18|\u9E7E \u9E7A|\u9EA6 \u9EA5|\u9EB8 \u9EA9|\u9EB9 \u9EB4|\u9EBA \u9EAA|\u9EBD \u9EBC|\u9EC4 \u9EC3|\u9EC9 \u9ECC|\u9EE1 \u9EF6|\u9EE9 \u9EF7|\u9EEA \u9EF2|\u9EFE \u9EFD|\u9F0B \u9EFF|\u9F0C \u9F02|\u9F0D \u9F09|\u9F39 \u9F34|\u9F50 \u9F4A|\u9F51 \u9F4F|\u9F7F \u9F52|\u9F80 \u9F54|\u9F81 \u9F55|\u9F82 \u9F57|\u9F83 \u9F5F|\u9F84 \u9F61|\u9F85 \u9F59|\u9F86 \u9F60|\u9F87 \u9F5C|\u9F88 \u9F66|\u9F89 \u9F6C|\u9F8A \u9F6A|\u9F8B \u9F72|\u9F8C \u9F77|\u9F99 \u9F8D|\u9F9A \u9F94|\u9F9B \u9F95|\u9F9F \u9F9C|\u9FCE \u40EE|\u9FCF \u4951|\u9FD2 \u9FD3|\u9FD4 \u93B6|\u{2003E} \u{2005E}|\u{201B2} \u5123|\u{201BF} \u{20325}|\u{201F9} \u4FD3|\u{20242} \u3493|\u{20257} \u{203E2}|\u{202C6} \u512D|\u{206B3} \u{2080E}|\u{206C5} \u527E|\u{206C6} \u{20786}|\u{206FE} \u{2A7D6}|\u{20860} \u52D1|\u{20BB6} \u55F0|\u{20BDF} \u54EF|\u{20BE0} \u5645|\u{20C31} \u3609|\u{20C37} \u56A7|\u{20C5E} \u56C3|\u{20CA5} \u{2114F}|\u{20D1B} \u{210D5}|\u{20D22} \u{21114}|\u{20D78} \u{21123}|\u{20D7E} \u35F2|\u{212C0} \u{214FE}|\u{212D7} \u{2146D}|\u{212E4} \u58D7|\u{21363} \u{21516}|\u{21484} \u58C8|\u{21760} \u3737|\u{2178B} \u3717|\u{217B1} \u3722|\u{2181F} \u5B4E|\u{21967} \u5B7B|\u{21B5C} \u{21B89}|\u{21B6C} \u{21BA3}|\u{21CC3} \u{21CF3}|\u{21CD2} \u{26627}|\u{21DB4} \u5D7C|\u{21E03} \u{21F57}|\u{21E83} \u5D88|\u{21E84} \u5D98|\u{222C8} \u389D|\u{225D3} \u399B|\u{22619} \u{22931}|\u{2261D} \u{228DA}|\u{2261E} \u{228ED}|\u{2264F} \u613B|\u{22650} \u61B9|\u{22651} \u{2283C}|\u{22652} \u61A2|\u{22653} \u61C0|\u{226EF} \u398E|\u{22801} \u61CE|\u{22890} \u{248BB}|\u{229D0} \u6230|\u{22ACA} \u{22DEE}|\u{22ADE} \u{22DAB}|\u{22AEC} \u644B|\u{22B0D} \u64EB|\u{22B26} \u{22E7F}|\u{22B4F} \u64E3|\u{22F7E} \u6585|\u{230C1} \u65B8|\u{23190} \u66E5|\u{23223} \u{232CB}|\u{23368} \u{26888}|\u{2336F} \u816A|\u{23370} \u8125|\u{23391} \u81D7|\u{233E2} \u69EB|\u{23415} \u6871|\u{23424} \u6B0D|\u{23476} \u{23832}|\u{2348C} \u6947|\u{234FF} \u6A6F|\u{2350C} \u6A24|\u{235CA} \u6A20|\u{235CB} \u6B13|\u{235D9} \u3C19|\u{23610} \u3BE4|\u{23613} \u{237BB}|\u{23634} \u6AAD|\u{23637} \u{23755}|\u{2369A} \u6B18|\u{2378E} \u{23829}|\u{23A3C} \u6BA2|\u{23B64} \u{23BF4}|\u{23BE3} \u{23BE9}|\u{23C5D} \u6C2D|\u{23C97} \u6E4B|\u{23C98} \u6F55|\u{23CC6} \u3D57|\u{23DA9} \u6F85|\u{23DAB} \u{23FC9}|\u{23DAD} \u{2ADD3}|\u{23DF7} \u{24176}|\u{23E23} \u6FC6|\u{23EBC} \u7059|\u{23EBD} \u{24063}|\u{23F77} \u7003|\u{241A1} \u7193|\u{241A2} \u3DCD|\u{241C3} \u7204|\u{241C4} \u718C|\u{241ED} \u7216|\u{241F9} \u719A|\u{24236} \u7189|\u{24237} \u3DFF|\u{24280} \u{2448E}|\u{242B0} \u{244E9}|\u{242CF} \u71A1|\u{243BA} \u{244CE}|\u{243BB} \u{24473}|\u{2466F} \u{246EE}|\u{24762} \u{2489F}|\u{24783} \u7369|\u{247A4} \u7381|\u{2480B} \u3E8F|\u{24980} \u74D5|\u{24A7D} \u74DB|\u{24CC4} \u{24CF8}|\u{24D8A} \u7650|\u{24DA7} \u{24E2B}|\u{24ECA} \u3FD7|\u{24F6F} \u3FE7|\u{24F80} \u769F|\u{24FF2} \u9EAC|\u{25062} \u4009|\u{25158} \u{25303}|\u{25174} \u4039|\u{2517F} \u{2529D}|\u{251A7} \u77A4|\u{251E2} \u406A|\u{2539D} \u408E|\u{2541F} \u7912|\u{2542F} \u{25585}|\u{25430} \u{25565}|\u{2543B} \u7899|\u{257A6} \u{257B5}|\u{259C2} \u{25A10}|\u{25A5F} \u7ADA|\u{25A7A} \u{25A82}|\u{25AE3} \u7C45|\u{25B00} \u4259|\u{25B1E} \u7C4B|\u{25B20} \u7BD8|\u{25B49} \u{25D4A}|\u{25B8B} \u{25E20}|\u{25B9C} \u4272|\u{25BBE} \u7BF8|\u{25C54} \u{25D43}|\u{25E65} \u{25F3D}|\u{25E85} \u42AD|\u{25E87} \u{25F56}|\u{26208} \u{25FCA}|\u{26209} \u7DF7|\u{2620B} \u7D87|\u{2620C} \u7D80|\u{2620E} \u7E5F|\u{2620F} \u7DCD|\u{26210} \u7E3A|\u{26211} \u7DF8|\u{26212} \u{26085}|\u{26213} \u42FF|\u{26214} \u7E0E|\u{26215} \u7DF0|\u{26216} \u4308|\u{26217} \u{260C4}|\u{26218} \u430B|\u{26219} \u4330|\u{2621A} \u7E2C|\u{2621B} \u7E53|\u{2621C} \u4316|\u{2621D} \u7E4F|\u{2621E} \u431F|\u{2621F} \u431D|\u{26220} \u4325|\u{26221} \u7E7B|\u{26360} \u437D|\u{266E8} \u6725|\u{2677C} \u81A2|\u{267D7} \u{268CE}|\u{26A29} \u{26ABD}|\u{26C0F} \u84E7|\u{26C34} \u4573|\u{26D9F} \u7207|\u{26DBB} \u{26F9F}|\u{26ED5} \u861F|\u{27250} \u{2755F}|\u{2725E} \u45FF|\u{27325} \u{27388}|\u{273D6} \u8819|\u{273D7} \u8800|\u{2744F} \u883E|\u{274AD} \u{27525}|\u{2772D} \u4671|\u{2775D} \u8970|\u{27767} \u{277C0}|\u{27BAA} \u8A40|\u{27CD5} \u{27CDF}|\u{27E51} \u4788|\u{27E52} \u8CB7|\u{27E53} \u{27D94}|\u{27E54} \u8CEC|\u{27E55} \u477B|\u{27E56} \u8CDF|\u{27E57} \u8D03|\u{27FC8} \u{281C1}|\u{28001} \u8E98|\u{28031} \u{28123}|\u{28074} \u{2814D}|\u{280BA} \u{2820A}|\u{28104} \u{2820C}|\u{2815B} \u4831|\u{2816B} \u{281DE}|\u{2816C} \u8E9D|\u{28257} \u8EC9|\u{28405} \u8ED7|\u{28406} \u{282BB}|\u{28407} \u{283E0}|\u{28408} \u8F04|\u{28409} \u{283AE}|\u{2840A} \u{283E5}|\u{28479} \u48A8|\u{287F3} \u{288DE}|\u{28828} \u{288E7}|\u{28859} \u{288BF}|\u{2887A} \u{288C8}|\u{28930} \u{2893B}|\u{28C3E} \u93B7|\u{28C3F} \u91F3|\u{28C40} \u{2895B}|\u{28C41} \u9220|\u{28C42} \u920B|\u{28C43} \u9232|\u{28C44} \u922F|\u{28C45} \u9241|\u{28C46} \u9FAF|\u{28C47} \u92B6|\u{28C48} \u92C9|\u{28C49} \u9344|\u{28C4A} \u{289F1}|\u{28C4B} \u9302|\u{28C4C} \u93C6|\u{28C4D} \u93AF|\u{28C4E} \u936E|\u{28C4F} \u939D|\u{28C50} \u{28AD2}|\u{28C51} \u9404|\u{28C52} \u93C9|\u{28C53} \u940E|\u{28C54} \u940F|\u{28C55} \u{28B82}|\u{28C56} \u4969|\u{28DFF} \u49B3|\u{28E00} \u{28CD5}|\u{28E01} \u{28CD1}|\u{28E02} \u958D|\u{28E03} \u9590|\u{28E04} \u4998|\u{28E05} \u{28D17}|\u{28E06} \u{28D69}|\u{28E07} \u{28D78}|\u{28E09} \u{28D80}|\u{28E0A} \u{28D8F}|\u{28E0B} \u{28DB2}|\u{28E0C} \u{28DAE}|\u{28E0E} \u{28DF2}|\u{28E18} \u{28F4F}|\u{28E1F} \u49E2|\u{293FC} \u4A8F|\u{293FD} \u{293EA}|\u{293FE} \u{293A2}|\u{293FF} \u4A98|\u{29400} \u4A97|\u{294CB} \u9842|\u{29595} \u{294E3}|\u{29596} \u9843|\u{29597} \u4AF4|\u{29665} \u98B0|\u{29666} \u{295C0}|\u{29667} \u4B1E|\u{29668} \u{29639}|\u{29669} \u{29600}|\u{2966A} \u98B7|\u{2966B} \u98BE|\u{2966C} \u{2963A}|\u{2966D} \u{2961D}|\u{2966E} \u4B18|\u{2966F} \u4B1D|\u{29670} \u{29648}|\u{297FF} \u{2969B}|\u{29800} \u{296A5}|\u{29801} \u{296B5}|\u{29802} \u{296C6}|\u{29803} \u{296E9}|\u{29805} \u{297D0}|\u{29806} \u{29726}|\u{29807} \u4B40|\u{29808} \u4B43|\u{29809} \u{29707}|\u{2980A} \u{29735}|\u{2980B} \u{29754}|\u{2980C} \u9938|\u{2980E} \u{29784}|\u{2980F} \u{297A6}|\u{29820} \u{29834}|\u{29856} \u{29863}|\u{299E6} \u{2987A}|\u{299E8} \u99CE|\u{299E9} \u{2990A}|\u{299EA} \u4BBE|\u{299EB} \u99DA|\u{299EC} \u{298A1}|\u{299ED} \u4B7F|\u{299EE} \u{298BE}|\u{299EF} \u9A4B|\u{299F0} \u4B9D|\u{299F1} \u{29949}|\u{299F2} \u99E7|\u{299F3} \u{298B8}|\u{299F4} \u99E9|\u{299F5} \u{298B4}|\u{299F6} \u{298CF}|\u{299F8} \u{298EB}|\u{299FA} \u99F6|\u{299FB} \u{298F5}|\u{299FC} \u{298FA}|\u{299FF} \u4BA0|\u{29A00} \u9A14|\u{29A01} \u4B9E|\u{29A02} \u9A44|\u{29A03} \u9A1D|\u{29A04} \u9A2A|\u{29A05} \u{29938}|\u{29A06} \u{29919}|\u{29A07} \u4BAB|\u{29A08} \u9A1F|\u{29A09} \u{29932}|\u{29A0A} \u9A1A|\u{29A0B} \u{29944}|\u{29A0C} \u{29951}|\u{29A0D} \u{29947}|\u{29A0E} \u9FAD|\u{29A0F} \u4BB3|\u{29A10} \u{299C6}|\u{29A48} \u4BE4|\u{29B23} \u{29B59}|\u{29B24} \u{29C00}|\u{29B79} \u9B16|\u{29BD2} \u{29BF3}|\u{29C30} \u{29C39}|\u{29C92} \u{29CE4}|\u{29D0C} \u{29D35}|\u{29F79} \u9B65|\u{29F7A} \u{29D69}|\u{29F7B} \u{29D79}|\u{29F7C} \u9BF6|\u{29F7D} \u{29DB1}|\u{29F7E} \u9B9F|\u{29F7F} \u{29DB0}|\u{29F81} \u9BC4|\u{29F82} \u4C96|\u{29F83} \u9BB8|\u{29F84} \u{29DF0}|\u{29F85} \u{29E03}|\u{29F86} \u{29E26}|\u{29F87} \u9BF1|\u{29F88} \u4C59|\u{29F8A} \u4C6C|\u{29F8B} \u4C70|\u{29F8C} \u9C47|\u{29F8E} \u{29F47}|\u{2A242} \u4CB0|\u{2A243} \u9CFC|\u{2A244} \u{29FEA}|\u{2A245} \u{2A026}|\u{2A246} \u9D32|\u{2A248} \u9D1C|\u{2A249} \u{2A048}|\u{2A24A} \u9DE8|\u{2A24B} \u{2A03E}|\u{2A24C} \u{2A056}|\u{2A24D} \u9D5A|\u{2A24E} \u{2A086}|\u{2A24F} \u{2A0CF}|\u{2A250} \u{2A0CD}|\u{2A251} \u9DD4|\u{2A252} \u{2A115}|\u{2A254} \u{2A106}|\u{2A255} \u{2A1F3}|\u{2A388} \u4D2C|\u{2A389} \u9EB2|\u{2A38A} \u9EA8|\u{2A38B} \u4D34|\u{2A38C} \u9EB3|\u{2A445} \u4D73|\u{2A52D} \u{2A535}|\u{2A68F} \u{2A600}|\u{2A690} \u{2A62F}|\u{2A70E} \u{20FD5}|\u{2A79D} \u51D9|\u{2A7CE} \u350B|\u{2A7DD} \u52E3|\u{2A800} \u{27DCE}|\u{2A81F} \u34C4|\u{2A821} \u{20B19}|\u{2A833} \u5513|\u{2A835} \u35AE|\u{2A838} \u569B|\u{2A83A} \u{20F43}|\u{2A83D} \u5679|\u{2A840} \u563A|\u{2A843} \u562A|\u{2A84B} \u565E|\u{2A84F} \u55F9|\u{2A85B} \u35FF|\u{2A85E} \u5633|\u{2A87A} \u{210C4}|\u{2A88C} \u3613|\u{2A890} \u{210E4}|\u{2A892} \u{210A1}|\u{2A895} \u56BD|\u{2A896} \u{2116F}|\u{2A8A0} \u56D2|\u{2A8AE} \u571E|\u{2A8B8} \u58B2|\u{2A8C6} \u57EC|\u{2A8D2} \u581A|\u{2A8FB} \u587F|\u{2A904} \u{214C1}|\u{2A91A} \u58E3|\u{2A960} \u{27E48}|\u{2A96B} \u5B47|\u{2A970} \u5B23|\u{2A97F} \u5B3B|\u{2A9C0} \u5B7E|\u{2A9D8} \u5BE0|\u{2AA0A} \u379E|\u{2AA17} \u5C69|\u{2AA27} \u5D19|\u{2AA29} \u{21E17}|\u{2AA36} \u8F0B|\u{2AA37} \u5DD7|\u{2AA39} \u{21E6C}|\u{2AA47} \u37FA|\u{2AA4E} \u5DCA|\u{2AA58} \u5DD8|\u{2AA5B} \u{21FD6}|\u{2AA77} \u5E5D|\u{2AA78} \u5E69|\u{2AA8F} \u5EEC|\u{2AA91} \u3897|\u{2AA9E} \u5EE7|\u{2AAB4} \u{22370}|\u{2AABC} \u5F43|\u{2AACC} \u5FBF|\u{2AAE1} \u{22929}|\u{2AAF7} \u399E|\u{2AAFA} \u61B8|\u{2AB1A} \u{228D0}|\u{2AB2F} \u{2293F}|\u{2AB5D} \u{22BF7}|\u{2AB62} \u6450|\u{2AB67} \u64DF|\u{2AB6F} \u{22D92}|\u{2AB75} \u639A|\u{2AB7E} \u648A|\u{2AB83} \u3A3B|\u{2AB8B} \u3A4B|\u{2AB96} \u64A7|\u{2ABB3} \u{22EB3}|\u{2ABB6} \u650B|\u{2ABCB} \u3A8E|\u{2AC36} \u66CA|\u{2AC65} \u81B9|\u{2AC77} \u6896|\u{2AC8E} \u6AC5|\u{2AC94} \u6B10|\u{2AC9B} \u6AB5|\u{2ACAE} \u6AE0|\u{2ACCD} \u6B07|\u{2ACD7} \u{2372C}|\u{2AD19} \u6B11|\u{2AD51} \u6BCA|\u{2AD63} \u973C|\u{2AD71} \u6FFF|\u{2AD84} \u6EA1|\u{2AD92} \u{24137}|\u{2ADAE} \u{23F4F}|\u{2ADCD} \u3D7E|\u{2ADFD} \u7052|\u{2AE15} \u7182|\u{2AE29} \u7147|\u{2AE40} \u{24479}|\u{2AE60} \u{244CC}|\u{2AE73} \u7225|\u{2AE79} \u{244BB}|\u{2AEA3} \u{24600}|\u{2AEAA} \u{24706}|\u{2AEAD} \u729E|\u{2AEB7} \u734A|\u{2AEB8} \u{2482E}|\u{2AEBB} \u3E9C|\u{2AEBD} \u730C|\u{2AED0} \u747D|\u{2AEE8} \u74C4|\u{2AEF2} \u747B|\u{2AEFA} \u749D|\u{2AF0B} \u3EF6|\u{2AF34} \u{24B05}|\u{2AF48} \u757C|\u{2AF5D} \u{24CF7}|\u{2AF6A} \u75EE|\u{2AF6D} \u{24DC3}|\u{2AF6E} \u3FD6|\u{2AF74} \u{24E94}|\u{2AF77} \u7631|\u{2AF94} \u76E8|\u{2AFA2} \u774D|\u{2AFA3} \u771D|\u{2AFA6} \u77D1|\u{2AFB8} \u77C9|\u{2AFCA} \u{253DD}|\u{2AFDE} \u{255B2}|\u{2AFEB} \u792E|\u{2AFF5} \u{255C7}|\u{2B00C} \u{25730}|\u{2B013} \u{25710}|\u{2B028} \u4150|\u{2B02C} \u4173|\u{2B02E} \u{258B7}|\u{2B042} \u4189|\u{2B05F} \u7AF1|\u{2B061} \u9D17|\u{2B071} \u{25DBD}|\u{2B072} \u4251|\u{2B073} \u{25BE4}|\u{2B077} \u4276|\u{2B07A} \u{25D3C}|\u{2B083} \u7C22|\u{2B086} \u7C02|\u{2B088} \u426C|\u{2B096} \u{25D28}|\u{2B0BF} \u{25EE6}|\u{2B0D7} \u{293F7}|\u{2B119} \u7CFA|\u{2B11A} \u42BA|\u{2B11B} \u7D1F|\u{2B11C} \u42C3|\u{2B11D} \u{25FAF}|\u{2B11E} \u42D4|\u{2B11F} \u7D41|\u{2B120} \u7D59|\u{2B121} \u7D67|\u{2B122} \u7D65|\u{2B123} \u7E77|\u{2B124} \u7E68|\u{2B125} \u7E9A|\u{2B126} \u{26016}|\u{2B127} \u7D96|\u{2B128} \u7D7A|\u{2B129} \u42E6|\u{2B12A} \u{26147}|\u{2B12B} \u7D9F|\u{2B12C} \u7DE4|\u{2B12D} \u7DEE|\u{2B12E} \u42FC|\u{2B12F} \u{260E9}|\u{2B130} \u7E0D|\u{2B131} \u7E6C|\u{2B132} \u7E38|\u{2B133} \u7E30|\u{2B134} \u7E42|\u{2B135} \u{26148}|\u{2B136} \u7E48|\u{2B137} \u7E76|\u{2B138} \u7E81|\u{2B139} \u7E97|\u{2B145} \u4364|\u{2B157} \u7FB5|\u{2B165} \u{26480}|\u{2B16D} \u4399|\u{2B17C} \u{26516}|\u{2B18F} \u807B|\u{2B19D} \u{267FC}|\u{2B1AB} \u{2685D}|\u{2B1D8} \u{269FA}|\u{2B1DB} \u8263|\u{2B1EA} \u{26C4C}|\u{2B1ED} \u853F|\u{2B1F4} \u84AD|\u{2B1FD} \u857D|\u{2B209} \u8573|\u{2B20E} \u845D|\u{2B21F} \u852F|\u{2B235} \u855D|\u{2B241} \u8586|\u{2B244} \u85F7|\u{2B2AA} \u45C5|\u{2B2AE} \u8826|\u{2B2B8} \u87DC|\u{2B2B9} \u{274AF}|\u{2B2BB} \u87F3|\u{2B2C7} \u87C2|\u{2B2CC} \u87D8|\u{2B2F2} \u4654|\u{2B2F7} \u8957|\u{2B2F9} \u8953|\u{2B2FB} \u8958|\u{2B300} \u8940|\u{2B307} \u8975|\u{2B30B} \u{277AB}|\u{2B328} \u89BC|\u{2B32A} \u899B|\u{2B32B} \u{27874}|\u{2B32C} \u{27884}|\u{2B32D} \u89B9|\u{2B32F} \u46A9|\u{2B350} \u{27B79}|\u{2B359} \u8A11|\u{2B35A} \u8A1E|\u{2B35B} \u8A1C|\u{2B35C} \u8A53|\u{2B35D} \u8AEB|\u{2B35E} \u{2799D}|\u{2B35F} \u{279A7}|\u{2B360} \u46C4|\u{2B361} \u8A51|\u{2B362} \u8B4A|\u{2B363} \u8A77|\u{2B364} \u8B51|\u{2B365} \u8A82|\u{2B366} \u8B68|\u{2B367} \u8ABA|\u{2B368} \u8AAB|\u{2B369} \u8AE3|\u{2B36A} \u8A8B|\u{2B36B} \u46F3|\u{2B36C} \u8AB7|\u{2B36D} \u{27A55}|\u{2B36E} \u8AB3|\u{2B36F} \u8AF4|\u{2B370} \u8AF0|\u{2B371} \u8AEF|\u{2B372} \u8B0F|\u{2B373} \u8AE5|\u{2B374} \u8B31|\u{2B375} \u8B38|\u{2B376} \u{27A7C}|\u{2B377} \u8B09|\u{2B378} \u8B06|\u{2B379} \u8B2F|\u{2B37A} \u{27ADD}|\u{2B37B} \u8B46|\u{2B37C} \u{27B24}|\u{2B37D} \u8B5E|\u{2B37E} \u{27B48}|\u{2B37F} \u8B7E|\u{2B386} \u8C75|\u{2B38C} \u8C97|\u{2B3A6} \u8D1A|\u{2B3A7} \u476D|\u{2B3A8} \u{27E18}|\u{2B3A9} \u8CDD|\u{2B3AA} \u478B|\u{2B3AB} \u8D09|\u{2B3AC} \u8D11|\u{2B3AD} \u4793|\u{2B3B1} \u47D0|\u{2B3B3} \u47C6|\u{2B3B8} \u{27F6F}|\u{2B3BA} \u47C3|\u{2B3C3} \u4806|\u{2B3C6} \u8E73|\u{2B3CB} \u8E7B|\u{2B3CC} \u{28090}|\u{2B3D0} \u8E54|\u{2B3D1} \u{281FD}|\u{2B3D5} \u{281AA}|\u{2B3DE} \u{281F0}|\u{2B3E8} \u{281E4}|\u{2B404} \u8ECF|\u{2B405} \u8ED5|\u{2B406} \u8F63|\u{2B407} \u8EDC|\u{2B408} \u8EF7|\u{2B409} \u8EE8|\u{2B40A} \u8EEC|\u{2B40B} \u{2838C}|\u{2B40C} \u8EFF|\u{2B40D} \u{28308}|\u{2B40E} \u8F22|\u{2B40F} \u8F16|\u{2B410} \u8F17|\u{2B411} \u8F28|\u{2B412} \u8F37|\u{2B413} \u8F2E|\u{2B414} \u{28370}|\u{2B415} \u8F4A|\u{2B416} \u8F47|\u{2B417} \u8F50|\u{2B418} \u8F57|\u{2B419} \u8F60|\u{2B437} \u9071|\u{2B458} \u911F|\u{2B461} \u9133|\u{2B477} \u91B6|\u{2B4E5} \u91DF|\u{2B4E6} \u91E8|\u{2B4E7} \u9207|\u{2B4E8} \u921B|\u{2B4E9} \u93E6|\u{2B4EA} \u9206|\u{2B4EB} \u{2895F}|\u{2B4EC} \u9254|\u{2B4ED} \u9260|\u{2B4EE} \u{28A95}|\u{2B4EF} \u9288|\u{2B4F0} \u928A|\u{2B4F1} \u9408|\u{2B4F2} \u9281|\u{2B4F3} \u{28C0B}|\u{2B4F4} \u927E|\u{2B4F5} \u92E0|\u{2B4F6} \u92D7|\u{2B4F7} \u{2B4A1}|\u{2B4F8} \u933D|\u{2B4F9} \u9324|\u{2B4FA} \u942A|\u{2B4FB} \u931C|\u{2B4FC} \u{28A1B}|\u{2B4FD} \u931D|\u{2B4FE} \u9325|\u{2B4FF} \u{28A22}|\u{2B500} \u934A|\u{2B501} \u943C|\u{2B502} \u9349|\u{2B503} \u{28C32}|\u{2B504} \u9352|\u{2B505} \u938D|\u{2B506} \u496F|\u{2B507} \u939E|\u{2B508} \u9399|\u{2B509} \u{28C03}|\u{2B50A} \u93E5|\u{2B50B} \u4957|\u{2B50C} \u93FE|\u{2B50D} \u9407|\u{2B50E} \u940D|\u{2B50F} \u{28B16}|\u{2B510} \u{28B78}|\u{2B511} \u{28B56}|\u{2B512} \u{28BB3}|\u{2B513} \u{28BDF}|\u{2B514} \u9474|\u{2B515} \u{28C25}|\u{2B516} \u{28CB3}|\u{2B52D} \u958B|\u{2B52E} \u9592|\u{2B52F} \u9597|\u{2B530} \u959E|\u{2B532} \u{28D39}|\u{2B534} \u95B5|\u{2B535} \u49AF|\u{2B536} \u95D1|\u{2B53D} \u{28F33}|\u{2B55A} \u{29028}|\u{2B565} \u9723|\u{2B568} \u{29159}|\u{2B583} \u9767|\u{2B585} \u4A8A|\u{2B587} \u97BE|\u{2B591} \u{29396}|\u{2B592} \u97E0|\u{2B593} \u{293C2}|\u{2B594} \u97DB|\u{2B595} \u97DD|\u{2B596} \u{293E0}|\u{2B5AA} \u{29454}|\u{2B5AB} \u4AB4|\u{2B5AC} \u4ABE|\u{2B5AD} \u{2948E}|\u{2B5AE} \u9857|\u{2B5AF} \u982B|\u{2B5B0} \u4AC2|\u{2B5B1} \u4AC0|\u{2B5B2} \u4ADF|\u{2B5B3} \u9835|\u{2B5B4} \u{29533}|\u{2B5B5} \u{294E5}|\u{2B5B6} \u9845|\u{2B5B7} \u{29511}|\u{2B5B8} \u9858|\u{2B5B9} \u9863|\u{2B5BA} \u4AF6|\u{2B5C7} \u4AFB|\u{2B5C8} \u{295D3}|\u{2B5C9} \u{295F4}|\u{2B5CA} \u4B13|\u{2B5CB} \u98CB|\u{2B5DA} \u{297D7}|\u{2B5DE} \u98E6|\u{2B5DF} \u4B27|\u{2B5E0} \u9926|\u{2B5E1} \u{296A9}|\u{2B5E2} \u98F5|\u{2B5E3} \u98F6|\u{2B5E4} \u{296CC}|\u{2B5E5} \u992B|\u{2B5E6} \u9914|\u{2B5E7} \u9917|\u{2B5E8} \u{296E1}|\u{2B5E9} \u9960|\u{2B5EA} \u9927|\u{2B5EB} \u992C|\u{2B5EC} \u992A|\u{2B5ED} \u9935|\u{2B5EE} \u992D|\u{2B5EF} \u9931|\u{2B5F0} \u4B54|\u{2B5F1} \u4B51|\u{2B5F3} \u{2977D}|\u{2B5F4} \u9958|\u{2B5F5} \u995F|\u{2B61B} \u99AF|\u{2B61C} \u99BC|\u{2B61D} \u99C3|\u{2B61E} \u99DE|\u{2B61F} \u99CA|\u{2B620} \u99E4|\u{2B621} \u99EB|\u{2B623} \u99FB|\u{2B624} \u9A03|\u{2B625} \u9A09|\u{2B626} \u9A0A|\u{2B627} \u9A04|\u{2B628} \u9A20|\u{2B629} \u9A1C|\u{2B62A} \u9A35|\u{2B62B} \u9A34|\u{2B62C} \u9A31|\u{2B62D} \u9A3B|\u{2B62E} \u4BB0|\u{2B62F} \u9A53|\u{2B630} \u9A59|\u{2B631} \u9A68|\u{2B63D} \u9B20|\u{2B642} \u{29BC1}|\u{2B688} \u9C6E|\u{2B689} \u9B5F|\u{2B68A} \u9C11|\u{2B68B} \u9C44|\u{2B68C} \u9B66|\u{2B68D} \u9B75|\u{2B68E} \u{29D81}|\u{2B68F} \u4C41|\u{2B690} \u4C40|\u{2B691} \u9B85|\u{2B692} \u9B84|\u{2B693} \u9BA4|\u{2B694} \u9BB0|\u{2B695} \u9C24|\u{2B696} \u9B86|\u{2B697} \u9BAF|\u{2B698} \u{29EEE}|\u{2B699} \u9BC6|\u{2B69A} \u9BBF|\u{2B69B} \u9BB5|\u{2B69C} \u4C85|\u{2B69D} \u{29E04}|\u{2B69E} \u9BEC|\u{2B69F} \u{29E21}|\u{2B6A0} \u4C67|\u{2B6A1} \u9BDE|\u{2B6A2} \u9C0B|\u{2B6A3} \u9BFE|\u{2B6A4} \u9C26|\u{2B6A5} \u9C15|\u{2B6A6} \u9C2B|\u{2B6A7} \u9C3D|\u{2B6A8} \u{29ED7}|\u{2B6A9} \u{29EEC}|\u{2B6AA} \u9C4A|\u{2B6AB} \u9C62|\u{2B6AC} \u{29F36}|\u{2B6AD} \u9C72|\u{2B6DA} \u9CFD|\u{2B6DB} \u9CF7|\u{2B6DC} \u9D00|\u{2B6DD} \u9D05|\u{2B6DE} \u9D03|\u{2B6DF} \u9E17|\u{2B6E0} \u{29FE4}|\u{2B6E1} \u9D14|\u{2B6E2} \u9E0B|\u{2B6E3} \u9D25|\u{2B6E4} \u9D10|\u{2B6E5} \u9D4A|\u{2B6E6} \u9D2E|\u{2B6E7} \u{2A016}|\u{2B6E8} \u9D67|\u{2B6E9} \u9D33|\u{2B6EA} \u9D3D|\u{2B6EB} \u9DB0|\u{2B6EC} \u4CDC|\u{2B6ED} \u9D5F|\u{2B6EE} \u4CE4|\u{2B6EF} \u9DAD|\u{2B6F0} \u4CE2|\u{2B6F1} \u9D6B|\u{2B6F2} \u9D70|\u{2B6F3} \u9D69|\u{2B6F4} \u9DE4|\u{2B6F5} \u9D8C|\u{2B6F6} \u9D92|\u{2B6F7} \u9DA6|\u{2B6F8} \u9D97|\u{2B6F9} \u{2A0E7}|\u{2B6FA} \u4CE7|\u{2B6FB} \u{2A0D2}|\u{2B6FC} \u4CEB|\u{2B6FD} \u9DC5|\u{2B6FE} \u{2A1B7}|\u{2B700} \u9DD0|\u{2B701} \u9DE9|\u{2B702} \u{2A142}|\u{2B703} \u9DE3|\u{2B704} \u9DF7|\u{2B705} \u4D0B|\u{2B70A} \u{2A278}|\u{2B711} \u9EB7|\u{2B712} \u4D31|\u{2B713} \u{2A32D}|\u{2B714} \u4D3D|\u{2B715} \u{2A360}|\u{2B719} \u4D74|\u{2B71F} \u{2A4F0}|\u{2B728} \u4D95|\u{2B729} \u9F67|\u{2B72A} \u9F69|\u{2B72B} \u{2B726}|\u{2B72C} \u9F70|\u{2B72D} \u9F6D|\u{2B72E} \u9F74|\u{2B72F} \u{2A64F}|\u{2B730} \u9F7E|\u{2B732} \u9F93|\u{2B733} \u4DB2|\u{2B748} \u346E|\u{2B74B} \u{2040A}|\u{2B766} \u36DD|\u{2B767} \u3710|\u{2B768} \u5A88|\u{2B769} \u5B26|\u{2B76A} \u{217EB}|\u{2B76B} \u5A61|\u{2B76C} \u5B07|\u{2B76D} \u5B46|\u{2B76E} \u5B44|\u{2B775} \u5DB9|\u{2B785} \u{26805}|\u{2B797} \u6F63|\u{2B79A} \u6FAC|\u{2B79B} \u3D86|\u{2B79D} \u704D|\u{2B7A0} \u7227|\u{2B7A1} \u7203|\u{2B7A2} \u{246F1}|\u{2B7A3} \u3E7D|\u{2B7A5} \u73FC|\u{2B7A6} \u74BE|\u{2B7A7} \u{24A42}|\u{2B7A8} \u74BC|\u{2B7A9} \u748A|\u{2B7B7} \u{258B6}|\u{2B7C3} \u7D4D|\u{2B7C4} \u7D8B|\u{2B7C5} \u7DA1|\u{2B7C6} \u7DDF|\u{2B7C7} \u{261B2}|\u{2B7D1} \u4585|\u{2B7D5} \u4564|\u{2B7DE} \u8A28|\u{2B7DF} \u8A4A|\u{2B7E0} \u8B42|\u{2B7E1} \u8AB4|\u{2B7E2} \u4716|\u{2B7E4} \u4850|\u{2B7E5} \u4869|\u{2B7E6} \u4875|\u{2B7EB} \u{287BA}|\u{2B7EC} \u{287CA}|\u{2B7F2} \u91DA|\u{2B7F3} \u91F2|\u{2B7F4} \u9216|\u{2B7F5} \u9217|\u{2B7F6} \u928F|\u{2B7F7} \u925D|\u{2B7F8} \u927D|\u{2B7F9} \u9277|\u{2B7FA} \u4924|\u{2B7FB} \u9282|\u{2B7FC} \u943D|\u{2B7FD} \u{289F0}|\u{2B7FE} \u{28A70}|\u{2B7FF} \u9388|\u{2B800} \u4944|\u{2B801} \u9449|\u{2B802} \u959D|\u{2B805} \u97DA|\u{2B806} \u980D|\u{2B807} \u{295B0}|\u{2B808} \u4AFE|\u{2B80A} \u4B84|\u{2B80B} \u9A3C|\u{2B80C} \u{299A0}|\u{2B80F} \u{29D66}|\u{2B810} \u9B7D|\u{2B811} \u4C78|\u{2B812} \u9C46|\u{2B816} \u{29FC5}|\u{2B81C} \u9F6F|\u{2B8B8} \u50E4|\u{2B9C3} \u{23350}|\u{2B9EE} \u{2A2FF}|\u{2BAC7} \u5641|\u{2BB10} \u3614|\u{2BB5F} \u5878|\u{2BB62} \u57E8|\u{2BB7C} \u{2144D}|\u{2BB83} \u58A0|\u{2BC1B} \u5A19|\u{2BD77} \u3823|\u{2BD87} \u5D7D|\u{2BDF7} \u5EDE|\u{2BE29} \u5F44|\u{2C029} \u6690|\u{2C02A} \u665B|\u{2C0A9} \u689C|\u{2C0CA} \u6ACD|\u{2C1D5} \u6FAB|\u{2C1D9} \u6D7F|\u{2C1F9} \u6F0D|\u{2C27C} \u71B0|\u{2C288} \u71D6|\u{2C2A4} \u71C0|\u{2C35B} \u74C5|\u{2C361} \u7497|\u{2C364} \u7495|\u{2C488} \u7910|\u{2C497} \u{255FD}|\u{2C542} \u7BE2|\u{2C613} \u7D03|\u{2C618} \u7D1E|\u{2C621} \u7D6A|\u{2C629} \u7D8E|\u{2C62B} \u7D84|\u{2C62C} \u7DAA|\u{2C62D} \u7D9D|\u{2C62F} \u7DA7|\u{2C642} \u7E2F|\u{2C64A} \u7E86|\u{2C64B} \u7E95|\u{2C72C} \u8504|\u{2C72F} \u44E3|\u{2C79F} \u860B|\u{2C7C1} \u8649|\u{2C7FD} \u8740|\u{2C8D9} \u8A0F|\u{2C8DE} \u8A5D|\u{2C8E1} \u8AD3|\u{2C8F3} \u8A6A|\u{2C907} \u8AF2|\u{2C90A} \u8ADF|\u{2C91D} \u8B53|\u{2CA02} \u8EDD|\u{2CA0E} \u8F36|\u{2CA7D} \u9129|\u{2CAA9} \u91B2|\u{2CB29} \u91F4|\u{2CB2D} \u9300|\u{2CB2E} \u92F9|\u{2CB31} \u91FF|\u{2CB38} \u9265|\u{2CB39} \u926E|\u{2CB3B} \u946A|\u{2CB3F} \u924A|\u{2CB41} \u9267|\u{2CB4A} \u{289C0}|\u{2CB4E} \u92D0|\u{2CB5A} \u931E|\u{2CB5B} \u{28A0F}|\u{2CB64} \u936D|\u{2CB69} \u9393|\u{2CB6C} \u93CF|\u{2CB6D} \u93DA|\u{2CB6F} \u4955|\u{2CB73} \u{28B4E}|\u{2CB76} \u{28B46}|\u{2CB78} \u93FB|\u{2CB7C} \u9429|\u{2CBB1} \u95C9|\u{2CBBF} \u9691|\u{2CBC0} \u96AE|\u{2CBCE} \u96A4|\u{2CC56} \u9814|\u{2CC5F} \u9820|\u{2CCF5} \u99D3|\u{2CCF6} \u99C9|\u{2CCFD} \u99EA|\u{2CCFF} \u99FC|\u{2CD02} \u9A11|\u{2CD03} \u9A1E|\u{2CD0A} \u9A4E|\u{2CD8B} \u9B88|\u{2CD8D} \u9B80|\u{2CD8F} \u9BA0|\u{2CD90} \u9BA1|\u{2CD9F} \u9BFB|\u{2CDA0} \u9C0A|\u{2CDA8} \u9C40|\u{2CDAD} \u9C36|\u{2CDAE} \u9C5A|\u{2CDD5} \u9D4F|\u{2CE18} \u9DA0|\u{2CE1A} \u9E11|\u{2CE23} \u9DB1|\u{2CE26} \u9DDF|\u{2CE2A} \u9DED|\u{2CE2F} \u9DFF|\u{2CE7C} \u9F58|\u{2CE88} \u9F6E|\u{2CE93} \u9F7C|\u{30B38} \u7E50|\u{30C28} \u83D5|\u{30D8E} \u8B45|\u{30EDD} \u{30EDE}|\u{30F84} \u92C2|\u{30FAD} \u9440|\u{3129C} \u{2A23C}";
-
-// node_modules/opencc-js/dist/esm-lib/dict/TSPhrases.js
-var TSPhrases_default = "\u4E00\u574F \u4E00\u576F|\u4E00\u76EE\u77AD\u7136 \u4E00\u76EE\u4E86\u7136|\u4E03\u9015 \u4E03\u8FF3|\u4E0A\u9015 \u4E0A\u8FF3|\u4E0A\u934A \u4E0A\u94FE|\u4E0D\u53EF\u8CB2\u8A08 \u4E0D\u53EF\u8D40\u8A08|\u4E0D\u77AD\u89E3 \u4E0D\u4E86\u89E3|\u4E48\u9EBC \u5E7A\u9EBD|\u4E48\u9EBD \u5E7A\u9EBD|\u4E5D\u9015\u5C71 \u4E5D\u8FF3\u5C71|\u4E7E\u4E7E\u6DE8\u6DE8 \u5E72\u5E72\u51C0\u51C0|\u4E7E\u4E7E\u8106\u8106 \u5E72\u5E72\u8106\u8106|\u4E7E\u4F51\u7E23 \u4E7E\u4F51\u53BF|\u4E7E\u5143 \u4E7E\u5143|\u4E7E\u5366 \u4E7E\u5366|\u4E7E\u5609 \u4E7E\u5609|\u4E7E\u5716 \u4E7E\u56FE|\u4E7E\u5764 \u4E7E\u5764|\u4E7E\u5764\u4E00\u64F2 \u4E7E\u5764\u4E00\u63B7|\u4E7E\u5764\u518D\u9020 \u4E7E\u5764\u518D\u9020|\u4E7E\u5764\u5927\u632A\u79FB \u4E7E\u5764\u5927\u632A\u79FB|\u4E7E\u5B85 \u4E7E\u5B85|\u4E7E\u5B89\u7E23 \u4E7E\u5B89\u53BF|\u4E7E\u5B89\u93AE \u4E7E\u5B89\u9547|\u4E7E\u5DDE \u4E7E\u5DDE|\u4E7E\u65B7 \u4E7E\u65AD|\u4E7E\u65B7\u98DF \u5E72\u65AD\u98DF|\u4E7E\u65E6 \u4E7E\u65E6|\u4E7E\u66DC \u4E7E\u66DC|\u4E7E\u6E05\u5BAE \u4E7E\u6E05\u5BAB|\u4E7E\u76DB\u4E16 \u4E7E\u76DB\u4E16|\u4E7E\u7D05 \u5E72\u7EA2|\u4E7E\u7DB1 \u4E7E\u7EB2|\u4E7E\u7E23 \u4E7E\u53BF|\u4E7E\u8C61 \u4E7E\u8C61|\u4E7E\u9020 \u4E7E\u9020|\u4E7E\u9053 \u4E7E\u9053|\u4E7E\u95E5\u5A46 \u4E7E\u95FC\u5A46|\u4E7E\u9675 \u4E7E\u9675|\u4E7E\u9686 \u4E7E\u9686|\u4E7E\u9686\u5E74\u9593 \u4E7E\u9686\u5E74\u95F4|\u4E7E\u9686\u7687\u5E1D \u4E7E\u9686\u7687\u5E1D|\u4E8C\u5641\u82F1 \u4E8C\u{2BAC7}\u82F1|\u4EC7\u8B8E \u4EC7\u96E0|\u4EE5\u514D\u85C9\u53E3 \u4EE5\u514D\u501F\u53E3|\u4EE5\u529F\u8986\u904E \u4EE5\u529F\u8986\u8FC7|\u4EFB\u7B46\u6C88\u8A69 \u4EFB\u7B14\u6C88\u8BD7|\u4F94\u5FB7\u8986\u8F09 \u4F94\u5FB7\u8986\u8F7D|\u50A2\u4FF1 \u5BB6\u5177|\u50B7\u4EA1\u6795\u85C9 \u4F24\u4EA1\u6795\u85C9|\u5141\u7955 \u5141\u7955|\u516B\u6FDB\u5C71 \u516B\u6FDB\u5C71|\u5176\u9670\u591A\u8490 \u5176\u9634\u591A\u8490|\u51CC\u85C9 \u51CC\u501F|\u51FA\u919C\u72FC\u85C9 \u51FA\u4E11\u72FC\u85C9|\u51FD\u8986 \u51FD\u590D|\u524B\u67B6 \u524B\u67B6|\u524B\u6BD2 \u524B\u6BD2|\u5343\u937E\u7C9F \u5343\u953A\u7C9F|\u5357\u6C3E \u5357\u6C3E|\u5357\u9015 \u5357\u8FF3|\u53CD\u53CD\u8986\u8986 \u53CD\u53CD\u590D\u590D|\u53CD\u8986 \u53CD\u590D|\u53CD\u8986\u601D\u7DAD \u53CD\u590D\u601D\u7EF4|\u53CD\u8986\u601D\u91CF \u53CD\u590D\u601D\u91CF|\u53CD\u8986\u6027 \u53CD\u590D\u6027|\u540D\u8986\u91D1\u750C \u540D\u590D\u91D1\u74EF|\u5433\u7955 \u5434\u7955|\u5433\u80B2\u6607 \u5434\u80B2\u6607|\u54EA\u5412 \u54EA\u5412|\u56DE\u8986 \u56DE\u590D|\u571F\u574F \u571F\u576F|\u574F\u571F \u576F\u571F|\u574F\u5B50 \u576F\u5B50|\u574F\u5E03 \u576F\u5E03|\u574F\u6236 \u576F\u6237|\u58A8\u6C88\u6C88 \u58A8\u6C89\u6C89|\u58FA\u88CF\u4E7E\u5764 \u58F6\u91CC\u4E7E\u5764|\u5927\u76EE\u4E7E\u9023\u51A5\u9593\u6551\u6BCD\u8B8A\u6587 \u5927\u76EE\u4E7E\u8FDE\u51A5\u95F4\u6551\u6BCD\u53D8\u6587|\u5BAB\u5546\u89D2\u5FB5\u7FBD \u5BAB\u5546\u89D2\u5FB5\u7FBD|\u5C04\u8986 \u5C04\u8986|\u5C3C\u4E7E\u5B50 \u5C3C\u4E7E\u5B50|\u5C3C\u4E7E\u9640 \u5C3C\u4E7E\u9640|\u5E74\u91D0 \u5E74\u91D0|\u5E7A\u9EBC \u5E7A\u9EBD|\u5E7A\u9EBC\u5C0F\u4E11 \u5E7A\u9EBD\u5C0F\u4E11|\u5E7A\u9EBC\u5C0F\u919C \u5E7A\u9EBD\u5C0F\u4E11|\u5EB7\u4E7E \u5EB7\u4E7E|\u5F35\u6607 \u5F20\u6607|\u5F35\u6CD5\u4E7E \u5F20\u6CD5\u4E7E|\u5F77\u5F7F \u4EFF\u4F5B|\u5F77\u5FA8 \u5F77\u5FA8|\u5F90\u80E4\u6607 \u5F90\u80E4\u6607|\u5FA9\u7526 \u590D\u82CF|\u5FB5\u5F26 \u5FB5\u5F26|\u5FB5\u7D43 \u5FB5\u5F26|\u5FB5\u7FBD\u6469\u67EF \u5FB5\u7FBD\u6469\u67EF|\u5FB5\u8072 \u5FB5\u58F0|\u5FB5\u8ABF \u5FB5\u8C03|\u5FB5\u97F3 \u5FB5\u97F3|\u60C5\u6709\u7368\u937E \u60C5\u6709\u72EC\u949F|\u60F3\u50CF \u60F3\u50CF|\u610F\u5FD7\u6D88\u6C88 \u610F\u5FD7\u6D88\u6C89|\u6170\u85C9 \u6170\u85C9|\u6170\u85C9\u7740 \u6170\u85C9\u7740|\u6191\u85C9 \u51ED\u501F|\u6191\u85C9\u7740 \u51ED\u501F\u7740|\u61F7\u91D0 \u6000\u91D0|\u6210\u7526 \u6210\u7526|\u6240\u8CBB\u4E0D\u8CB2 \u6240\u8D39\u4E0D\u8D40|\u624B\u934A \u624B\u94FE|\u6253\u574F \u6253\u576F|\u625E\u683C \u625E\u683C|\u626D\u8F49\u4E7E\u5764 \u626D\u8F6C\u4E7E\u5764|\u6279\u8986 \u6279\u590D|\u627E\u85C9\u53E3 \u627E\u501F\u53E3|\u6298\u621F\u6C88\u6C99 \u6298\u621F\u6C89\u6C99|\u6298\u621F\u6C88\u6CB3 \u6298\u621F\u6C89\u6CB3|\u62C9\u574F \u62C9\u576F|\u62C9\u934A \u62C9\u94FE|\u62C9\u934A\u5DE5\u7A0B \u62C9\u94FE\u5DE5\u7A0B|\u62DC\u8986 \u62DC\u590D|\u6328\u524B \u6328\u524B|\u634F\u574F \u634F\u576F|\u64CA\u6C88 \u51FB\u6C89|\u64DA\u77AD\u89E3 \u636E\u4E86\u89E3|\u6587\u9326\u8986\u9631 \u6587\u9526\u8986\u9631|\u65BC\u4E16\u6210 \u65BC\u4E16\u6210|\u65BC\u4E4E \u65BC\u4E4E|\u65BC\u4EF2\u5B8C \u65BC\u4EF2\u5B8C|\u65BC\u502B \u65BC\u4F26|\u65BC\u5176\u4E00 \u65BC\u5176\u4E00|\u65BC\u5247 \u65BC\u5219|\u65BC\u52C7\u660E \u65BC\u52C7\u660E|\u65BC\u547C\u54C0\u54C9 \u65BC\u547C\u54C0\u54C9|\u65BC\u55AE \u65BC\u5355|\u65BC\u5766 \u65BC\u5766|\u65BC\u5D07\u6587 \u65BC\u5D07\u6587|\u65BC\u5FE0\u7965 \u65BC\u5FE0\u7965|\u65BC\u60DF\u4E00 \u65BC\u60DF\u4E00|\u65BC\u6232 \u65BC\u620F|\u65BC\u6556 \u65BC\u6556|\u65BC\u68A8\u83EF \u65BC\u68A8\u534E|\u65BC\u6E05\u8A00 \u65BC\u6E05\u8A00|\u65BC\u6F5B \u65BC\u6F5C|\u65BC\u7433 \u65BC\u7433|\u65BC\u7A46 \u65BC\u7A46|\u65BC\u7AF9\u5C4B \u65BC\u7AF9\u5C4B|\u65BC\u83DF \u65BC\u83DF|\u65BC\u9091 \u65BC\u9091|\u65BC\u9675\u5B50 \u65BC\u9675\u5B50|\u65CB\u4E7E\u8F49\u5764 \u65CB\u4E7E\u8F6C\u5764|\u65CB\u8F49\u4E7E\u5764 \u65CB\u8F6C\u4E7E\u5764|\u65CB\u8F49\u4E7E\u5764\u4E4B\u529B \u65CB\u8F6C\u4E7E\u5764\u4E4B\u529B|\u660E\u77AD \u660E\u4E86|\u660E\u8986 \u660E\u590D|\u660F\u6C88 \u660F\u6C89|\u6625\u8490 \u6625\u8490|\u6625\u91D0 \u6625\u91D0|\u6697\u6C88\u6C88 \u6697\u6C89\u6C89|\u66F8\u4E2D\u81EA\u6709\u5343\u937E\u7C9F \u4E66\u4E2D\u81EA\u6709\u5343\u953A\u7C9F|\u6709\u5E8F \u6709\u5E8F|\u671D\u4E7E\u5915\u60D5 \u671D\u4E7E\u5915\u60D5|\u6728\u5412 \u6728\u5412|\u674E\u4E7E\u5FB7 \u674E\u4E7E\u5FB7|\u674E\u6607 \u674E\u6607|\u674E\u6607\u52F3 \u674E\u6607\u52CB|\u674E\u6FA4\u9245 \u674E\u6CFD\u949C|\u674E\u7955 \u674E\u7955|\u674E\u934A\u798F \u674E\u94FE\u798F|\u674E\u937E\u90C1 \u674E\u953A\u90C1|\u675F\u8129 \u675F\u8129|\u6771\u6C3E \u4E1C\u6C3E|\u6797\u7526 \u6797\u7526|\u6821\u8B8E \u6821\u96E0|\u6881\u6607\u537F \u6881\u6607\u537F|\u6881\u7AE0\u9245 \u6881\u7AE0\u949C|\u694A\u7526\u68E3 \u6768\u7526\u68E3|\u694A\u806F\u965E \u6768\u8054\u965E|\u6A0A\u65BC\u671F \u6A0A\u65BC\u671F|\u6A61\u6900 \u6A61\u6900|\u6B7B\u6C23\u6C88\u6C88 \u6B7B\u6C14\u6C89\u6C89|\u6BB5\u8129 \u6BB5\u8129|\u6BDB\u574F \u6BDB\u576F|\u6C34\u9015 \u6C34\u8FF3|\u6C3E\u52DD\u4E4B \u6C3E\u80DC\u4E4B|\u6C3E\u5357 \u6C3E\u5357|\u6C3E\u570B \u6C3E\u56FD|\u6C3E\u6C34 \u6C3E\u6C34|\u6C88\u4E0B \u6C89\u4E0B|\u6C88\u4E0D\u4F4F\u6C23 \u6C89\u4E0D\u4F4F\u6C14|\u6C88\u4F4F\u6C23 \u6C89\u4F4F\u6C14|\u6C88\u51A4 \u6C89\u51A4|\u6C88\u539A \u6C89\u539A|\u6C88\u541F \u6C89\u541F|\u6C88\u5BC2 \u6C89\u5BC2|\u6C88\u5F97\u4F4F\u6C23 \u6C89\u5F97\u4F4F\u6C14|\u6C88\u601D \u6C89\u601D|\u6C88\u601D\u5F80\u4E8B \u6C89\u601D\u5F80\u4E8B|\u6C88\u60B6 \u6C89\u95F7|\u6C88\u6C92 \u6C89\u6CA1|\u6C88\u6C92\u6210\u672C \u6C89\u6CA1\u6210\u672C|\u6C88\u6D6E \u6C89\u6D6E|\u6C88\u6D78 \u6C89\u6D78|\u6C88\u6D78\u65BC \u6C89\u6D78\u4E8E|\u6C88\u6DEA \u6C89\u6CA6|\u6C88\u6E4E \u6C89\u6E4E|\u6C88\u6E4E\u9152\u8272 \u6C89\u6E4E\u9152\u8272|\u6C88\u6EBA \u6C89\u6EBA|\u6C88\u6EEF \u6C89\u6EDE|\u6C88\u6EEF\u6027 \u6C89\u6EDE\u6027|\u6C88\u6FB1 \u6C89\u6DC0|\u6C88\u6FB1\u51FA\u4F86 \u6C89\u6DC0\u51FA\u6765|\u6C88\u6FB1\u5291 \u6C89\u6DC0\u5242|\u6C88\u6FB1\u6CD5 \u6C89\u6DC0\u6CD5|\u6C88\u6FB1\u7269 \u6C89\u6DC0\u7269|\u6C88\u6FC1 \u6C89\u6D4A|\u6C88\u7538\u7538 \u6C89\u7538\u7538|\u6C88\u75DB \u6C89\u75DB|\u6C88\u75FC \u6C89\u75FC|\u6C88\u75FE \u6C89\u75B4|\u6C88\u7761 \u6C89\u7761|\u6C88\u7761\u4E0D\u9192 \u6C89\u7761\u4E0D\u9192|\u6C88\u7802\u6C60 \u6C89\u7802\u6C60|\u6C88\u7A4D \u6C89\u79EF|\u6C88\u7A4D\u5CA9 \u6C89\u79EF\u5CA9|\u6C88\u7A4D\u77F3 \u6C89\u79EF\u77F3|\u6C88\u7B52 \u6C89\u7B52|\u6C88\u8239 \u6C89\u8239|\u6C88\u843D \u6C89\u843D|\u6C88\u8A69\u4EFB\u7B46 \u6C88\u8BD7\u4EFB\u7B14|\u6C88\u8FF7 \u6C89\u8FF7|\u6C88\u8FF7\u4E0D\u9192 \u6C89\u8FF7\u4E0D\u9192|\u6C88\u9189 \u6C89\u9189|\u6C88\u91CD \u6C89\u91CD|\u6C88\u964D \u6C89\u964D|\u6C88\u9677 \u6C89\u9677|\u6C88\u975C \u6C89\u9759|\u6C88\u975C\u4E0B\u4F86 \u6C89\u9759\u4E0B\u6765|\u6C88\u9999 \u6C89\u9999|\u6C88\u9B31 \u6C89\u90C1|\u6C88\u9B5A\u843D\u96C1 \u6C89\u9C7C\u843D\u96C1|\u6C88\u9ED8 \u6C89\u9ED8|\u6C88\u9ED8\u4E0D\u8A9E \u6C89\u9ED8\u4E0D\u8BED|\u6C88\u9ED8\u5BE1\u8A00 \u6C89\u9ED8\u5BE1\u8A00|\u6C99\u9015 \u6C99\u8FF3|\u6CB3\u9015 \u6CB3\u8FF3|\u6D41\u5FB5 \u6D41\u5FB5|\u6D6A\u8569\u4E7E\u5764 \u6D6A\u8361\u4E7E\u5764|\u6D6E\u6C88 \u6D6E\u6C89|\u6D77\u54E9 \u6D77\u91CC|\u6DF1\u6C88 \u6DF1\u6C89|\u6DF1\u6C88\u4E0D\u9732 \u6DF1\u6C89\u4E0D\u9732|\u6EAB\u6607\u8C6A \u6E29\u6607\u8C6A|\u6ED1\u85C9 \u6ED1\u501F|\u70CF\u6607 \u4E4C\u6607|\u70CF\u6C88\u6C88 \u4E4C\u6C89\u6C89|\u70CF\u9015 \u4E4C\u8FF3|\u7121\u5E8F \u65E0\u5E8F|\u72D0\u85C9\u864E\u5A01 \u72D0\u501F\u864E\u5A01|\u738B\u5F65\u6607 \u738B\u5F66\u6607|\u73CD\u73E0\u9805\u934A \u73CD\u73E0\u9879\u94FE|\u751A\u9245 \u751A\u949C|\u7526\u751F \u82CF\u751F|\u7526\u9192 \u82CF\u9192|\u7533\u6607\u52F3 \u7533\u6607\u52CB|\u7533\u8986 \u7533\u590D|\u7562\u6607 \u6BD5\u6607|\u767C\u8986 \u53D1\u8986|\u76E7\u8C61\u6607 \u5362\u8C61\u6607|\u76EE\u5284 \u76EE\u5284|\u77AD\u54E8 \u77AD\u54E8|\u77AD\u5982 \u4E86\u5982|\u77AD\u5982\u6307\u638C \u4E86\u5982\u6307\u638C|\u77AD\u671B \u77AD\u671B|\u77AD\u7136 \u4E86\u7136|\u77AD\u7136\u65BC\u5FC3 \u4E86\u7136\u4E8E\u5FC3|\u77AD\u82E5\u6307\u638C \u4E86\u82E5\u6307\u638C|\u77AD\u89E3 \u4E86\u89E3|\u77AD\u89E3\u5230 \u4E86\u89E3\u5230|\u7834\u91DC\u6C88\u821F \u7834\u91DC\u6C89\u821F|\u78DA\u574F \u7816\u576F|\u793A\u8986 \u793A\u590D|\u793E\u9015 \u793E\u8FF3|\u7955\u4E15\u7B08 \u7955\u4E15\u7B08|\u7955\u5F6D\u7956 \u7955\u5F6D\u7956|\u7955\u74CA \u7955\u743C|\u795D\u91D0 \u795D\u91D0|\u795E\u7947 \u795E\u7947|\u7A1F\u8986 \u7980\u590D|\u7AFA\u4E7E \u7AFA\u4E7E|\u7B54\u8986 \u7B54\u590D|\u7BE4\u9EBC \u7B03\u9EBD|\u7C21\u55AE\u660E\u77AD \u7B80\u5355\u660E\u4E86|\u7C4C\u756B \u7B79\u5212|\u7D20\u85C9 \u7D20\u501F|\u8001\u614B\u9F8D\u937E \u8001\u6001\u9F99\u949F|\u8033\u6C88 \u8033\u6C89|\u8089\u8129 \u8089\u8129|\u8098\u624B\u934A\u8DB3 \u8098\u624B\u94FE\u8DB3|\u80E4\u7955 \u80E4\u7955|\u8129\u656C \u8129\u656C|\u8129\u70B3 \u8129\u70B3|\u8129\u8121 \u8129\u8121|\u8129\u812F \u8129\u812F|\u8129\u91D1 \u8129\u91D1|\u812B\u574F \u8131\u576F|\u8176\u8129 \u8176\u8129|\u82F1\u54E9 \u82F1\u91CC|\u8305\u8490 \u8305\u8490|\u8335\u85C9 \u8335\u501F|\u842C\u937E \u4E07\u953A|\u843D\u96C1\u6C88\u9B5A \u843D\u96C1\u6C89\u9C7C|\u8490\u4E8E\u7D05 \u8490\u4E8E\u7EA2|\u8490\u65BC\u7D05 \u8490\u4E8E\u7EA2|\u8490\u72E9 \u8490\u72E9|\u8490\u736E \u8490\u72DD|\u8490\u7375 \u8490\u730E|\u8490\u7530 \u8490\u7530|\u8490\u754B \u8490\u754B|\u8490\u82D7 \u8490\u82D7|\u849C\u85B9 \u849C\u85B9|\u8523\u6607 \u848B\u6607|\u8553\u85B9 \u82B8\u85B9|\u8569\u8986 \u8361\u8986|\u856D\u4E7E \u8427\u4E7E|\u85C9\u4EE3 \u501F\u4EE3|\u85C9\u4EE5 \u501F\u4EE5|\u85C9\u52A9 \u501F\u52A9|\u85C9\u52A9\u65BC \u501F\u52A9\u4E8E|\u85C9\u5349 \u501F\u5349|\u85C9\u53E3 \u501F\u53E3|\u85C9\u55BB \u501F\u55BB|\u85C9\u5BC7\u5175 \u501F\u5BC7\u5175|\u85C9\u5BC7\u5175\u9F4E\u76DC\u7CE7 \u501F\u5BC7\u5175\u8D4D\u76D7\u7CAE|\u85C9\u624B \u501F\u624B|\u85C9\u64DA \u501F\u636E|\u85C9\u6545 \u501F\u6545|\u85C9\u6545\u63A8\u8FAD \u501F\u6545\u63A8\u8F9E|\u85C9\u65B9 \u501F\u65B9|\u85C9\u689D \u501F\u6761|\u85C9\u69C1 \u501F\u69C1|\u85C9\u6A5F \u501F\u673A|\u85C9\u6B64 \u501F\u6B64|\u85C9\u6B64\u6A5F\u6703 \u501F\u6B64\u673A\u4F1A|\u85C9\u751A \u501F\u751A|\u85C9\u7531 \u501F\u7531|\u85C9\u7740 \u501F\u7740|\u85C9\u7AEF \u501F\u7AEF|\u85C9\u7AEF\u751F\u4E8B \u501F\u7AEF\u751F\u4E8B|\u85C9\u7BB8\u4EE3\u7C4C \u501F\u7BB8\u4EE3\u7B79|\u85C9\u8349\u6795\u584A \u501F\u8349\u6795\u5757|\u85C9\u85C9 \u85C9\u85C9|\u85C9\u85C9\u65E0\u540D \u85C9\u85C9\u65E0\u540D|\u85C9\u8A5E \u501F\u8BCD|\u85C9\u8B80 \u501F\u8BFB|\u85C9\u8CC7 \u501F\u8D44|\u8879\u5F97 \u53EA\u5F97|\u8879\u898B\u6A39\u6728 \u53EA\u89C1\u6811\u6728|\u8879\u898B\u6A39\u6728\u4E0D\u898B\u68EE\u6797 \u53EA\u89C1\u6811\u6728\u4E0D\u89C1\u68EE\u6797|\u8881\u7955 \u8881\u7955|\u8896\u88CF\u4E7E\u5764 \u8896\u91CC\u4E7E\u5764|\u88B7\u88A2 \u88B7\u88A2|\u88FD\u574F \u5236\u576F|\u8986\u4E0A \u8986\u4E0A|\u8986\u4F4F \u8986\u4F4F|\u8986\u4FE1 \u590D\u4FE1|\u8986\u5192 \u8986\u5192|\u8986\u5448 \u590D\u5448|\u8986\u547D \u590D\u547D|\u8986\u5893 \u590D\u5893|\u8986\u5B97 \u8986\u5B97|\u8986\u5E33 \u590D\u5E10|\u8986\u5E6C \u8986\u5E31|\u8986\u6210 \u8986\u6210|\u8986\u6309 \u590D\u6309|\u8986\u6587 \u590D\u6587|\u8986\u676F \u8986\u676F|\u8986\u6821 \u590D\u6821|\u8986\u74FF \u8986\u74FF|\u8986\u76C2 \u8986\u76C2|\u8986\u76C6 \u8986\u76C6|\u8986\u76C6\u5B50 \u8986\u76C6\u5B50|\u8986\u76E4 \u8986\u76D8|\u8986\u80B2 \u8986\u80B2|\u8986\u8549\u5C0B\u9E7F \u8986\u8549\u5BFB\u9E7F|\u8986\u9006 \u8986\u9006|\u8986\u91A2 \u8986\u91A2|\u8986\u91AC\u74FF \u8986\u9171\u74FF|\u8986\u96FB \u590D\u7535|\u8986\u9732 \u8986\u9732|\u8986\u9E7F\u5C0B\u8549 \u8986\u9E7F\u5BFB\u8549|\u8986\u9E7F\u907A\u8549 \u8986\u9E7F\u9057\u8549|\u8986\u9F0E \u8986\u9F0E|\u898B\u8986 \u89C1\u590D|\u89D2\u5FB5 \u89D2\u5FB5|\u89D2\u5FB5\u7FBD \u89D2\u5FB5\u7FBD|\u8A08\u756B \u8BA1\u5212|\u8A31\u7526\u9B42 \u8BB8\u7526\u9B42|\u8B8A\u5FB5 \u53D8\u5FB5|\u8B8A\u5FB5\u4E4B\u8072 \u53D8\u5FB5\u4E4B\u58F0|\u8B8A\u5FB5\u4E4B\u97F3 \u53D8\u5FB5\u4E4B\u97F3|\u8B8E\u5B9A \u96E0\u5B9A|\u8C3F\u5DE5 \u8C3F\u5DE5|\u8C82\u8986\u984D \u8C82\u8986\u989D|\u8CB7\u81E3\u8986\u6C34 \u4E70\u81E3\u8986\u6C34|\u8D64\u77F3\u9015 \u8D64\u77F3\u8FF3|\u8E05\u9580\u77AD\u6236 \u8E05\u95E8\u4E86\u6237|\u8EAA\u85C9 \u8E8F\u501F|\u8F09\u6C88\u8F09\u6D6E \u8F7D\u6C89\u8F7D\u6D6E|\u8F09\u6D6E\u8F09\u6C88 \u8F7D\u6D6E\u8F7D\u6C89|\u8F9B\u7955 \u8F9B\u7955|\u9006\u91D0 \u9006\u91D0|\u9015\u53E3 \u8FF3\u53E3|\u9015\u806F \u8FF3\u8054|\u9015\u982D \u8FF3\u5934|\u90ED\u5B50\u4E7E \u90ED\u5B50\u4E7E|\u9152\u9022\u77E5\u5DF1\u5343\u937E\u5C11 \u9152\u9022\u77E5\u5DF1\u5343\u953A\u5C11|\u919E\u85C9 \u915D\u501F|\u91CD\u8986 \u91CD\u590D|\u91D1\u5412 \u91D1\u5412|\u91D1\u6607\u739F \u91D1\u6607\u739F|\u91D1\u934A \u91D1\u94FE|\u921E\u8986 \u94A7\u590D|\u9245\u5B50 \u949C\u5B50|\u9245\u842C \u949C\u4E07|\u9245\u9632 \u949C\u9632|\u9278\u934A \u94F0\u94FE|\u9280\u934A \u94F6\u94FE|\u92FC\u574F \u94A2\u576F|\u9322\u937E\u66F8 \u94B1\u953A\u4E66|\u934A\u589C \u94FE\u5760|\u934A\u5B50 \u94FE\u5B50|\u934A\u5F62 \u94FE\u5F62|\u934A\u689D \u94FE\u6761|\u934A\u9318 \u94FE\u9524|\u934A\u9396 \u94FE\u9501|\u935B\u937E \u953B\u953A|\u937E\u7E47 \u953A\u7E47|\u937E\u842C\u6885 \u953A\u4E07\u6885|\u937E\u91CD\u767C \u953A\u91CD\u53D1|\u937E\u935B \u953A\u953B|\u937E\u9997 \u953A\u9997|\u9396\u934A \u9501\u94FE|\u9435\u934A \u94C1\u94FE|\u947D\u77F3\u9805\u934A \u94BB\u77F3\u9879\u94FE|\u947F\u574F \u51FF\u576F|\u95BB\u9DB4\u6607 \u960E\u9E64\u6607|\u9670\u6C88 \u9634\u6C89|\u9670\u6C88\u6C88 \u9634\u6C89\u6C89|\u9670\u9670\u6C88\u6C88 \u9634\u9634\u6C89\u6C89|\u9673\u5FD7\u6607 \u9648\u5FD7\u6607|\u9673\u6607 \u9648\u6607|\u9673\u7526 \u9648\u7526|\u9676\u574F \u9676\u576F|\u96C1\u6773\u9B5A\u6C88 \u96C1\u6773\u9C7C\u6C89|\u96D6\u8986\u80FD\u5FA9 \u867D\u8986\u80FD\u590D|\u96FB\u8986 \u7535\u590D|\u9732\u8986 \u9732\u8986|\u97D3\u6607\u5EF6 \u97E9\u6607\u5EF6|\u97D3\u7526 \u97E9\u7526|\u9805\u934A \u9879\u94FE|\u9817\u8986 \u9887\u8986|\u9838\u934A \u9888\u94FE|\u985B\u4E7E\u5012\u5764 \u98A0\u4E7E\u5012\u5764|\u985B\u5012\u4E7E\u5764 \u98A0\u5012\u4E7E\u5764|\u9867\u85C9 \u987E\u501F|\u99AE\u7526 \u51AF\u7526|\u9B4F\u5FB5 \u9B4F\u5FB5|\u9B5A\u6C88\u96C1\u6773 \u9C7C\u6C89\u96C1\u6773|\u9EAA\u574F\u5152 \u9762\u576F\u513F|\u9EBC\u4E9B\u65CF \u9EBD\u4E9B\u65CF|\u9EC3\u7526 \u9EC4\u7526|\u9EC3\u937E\u516C \u9EC4\u953A\u516C|\u9ED1\u6C88\u6C88 \u9ED1\u6C89\u6C89|\u9F8D\u937E \u9F99\u949F|\u9F94\u6607 \u9F9A\u6607";
-
-// node_modules/opencc-js/dist/esm-lib/dict/TSCharacters.js
-var TSCharacters_default = "\u346F \u3454|\u3473 \u3447|\u3476 \u3439|\u34E8 \u523E|\u35F2 \u{20D7E}|\u361A \u360E|\u3704 \u36AF|\u370F \u36E3|\u3722 \u{217B1}|\u380F \u37C6|\u3823 \u{2BD77}|\u396E \u3918|\u3A5C \u3A2B|\u3A73 \u39D0|\u3A75 \u64DC|\u3E8F \u{2480B}|\u406A \u{251E2}|\u407B \u4025|\u40EE \u9FCE|\u42B7 \u4336|\u42D9 \u433A|\u42DA \u433B|\u42F9 \u433F|\u42FB \u433E|\u4366 \u4360|\u43B1 \u43AC|\u44E3 \u{2C72F}|\u4661 \u464C|\u4700 \u4727|\u477C \u478D|\u4875 \u{2B7E6}|\u4947 \u4982|\u4951 \u9FCF|\u4955 \u{2CB6F}|\u4971 \u497E|\u499B \u49B6|\u499F \u49B7|\u49E2 \u{28E1F}|\u4B84 \u{2B80A}|\u4BC0 \u4BC5|\u4C3E \u9C83|\u4C77 \u4CA3|\u4C7D \u4C9D|\u4C81 \u9CDA|\u4C98 \u9CE4|\u4D09 \u9E6E|\u4E1F \u4E22|\u4E26 \u5E76|\u4E7E \u5E72|\u4E82 \u4E71|\u4E99 \u4E98|\u4E9E \u4E9A|\u4F47 \u4F2B|\u4F48 \u5E03|\u4F54 \u5360|\u4F75 \u5E76|\u4F86 \u6765|\u4F96 \u4ED1|\u4FB6 \u4FA3|\u4FB7 \u5C40|\u4FC1 \u4FE3|\u4FC2 \u7CFB|\u4FD4 \u4F23|\u4FE0 \u4FA0|\u4FE5 \u4F21|\u4FEC \u79C1|\u5000 \u4F25|\u5006 \u4FE9|\u5008 \u4FEB|\u5009 \u4ED3|\u500B \u4E2A|\u5011 \u4EEC|\u5016 \u5E78|\u502B \u4F26|\u5032 \u3448|\u5049 \u4F1F|\u5051 \u343D|\u5074 \u4FA7|\u5075 \u4FA6|\u507D \u4F2A|\u508C \u3437|\u5091 \u6770|\u5096 \u4F27|\u5098 \u4F1E|\u5099 \u5907|\u50A2 \u5BB6|\u50AD \u4F63|\u50AF \u506C|\u50B3 \u4F20|\u50B4 \u4F1B|\u50B5 \u503A|\u50B7 \u4F24|\u50BE \u503E|\u50C2 \u507B|\u50C5 \u4EC5|\u50C9 \u4F65|\u50D1 \u4FA8|\u50D5 \u4EC6|\u50DE \u4F2A|\u50E4 \u{2B8B8}|\u50E5 \u4FA5|\u50E8 \u507E|\u50F1 \u96C7|\u50F9 \u4EF7|\u5100 \u4EEA|\u5101 \u4FCA|\u5102 \u4FAC|\u5104 \u4EBF|\u5108 \u4FA9|\u5109 \u4FED|\u510E \u50A4|\u5110 \u50A7|\u5114 \u4FE6|\u5115 \u4FAA|\u5118 \u5C3D|\u511F \u507F|\u512A \u4F18|\u5132 \u50A8|\u5137 \u4FEA|\u5138 \u3469|\u513A \u50A9|\u513B \u50A5|\u513C \u4FE8|\u5147 \u51F6|\u514C \u5151|\u5152 \u513F|\u5157 \u5156|\u5167 \u5185|\u5169 \u4E24|\u518A \u518C|\u5191 \u80C4|\u51AA \u5E42|\u51C8 \u51C0|\u51CD \u51BB|\u51DC \u51DB|\u51F1 \u51EF|\u5225 \u522B|\u522A \u5220|\u5244 \u522D|\u5247 \u5219|\u524B \u514B|\u524E \u5239|\u5257 \u522C|\u525B \u521A|\u525D \u5265|\u526E \u5250|\u5274 \u5240|\u5275 \u521B|\u5277 \u94F2|\u5283 \u5212|\u5284 \u672D|\u5287 \u5267|\u5289 \u5218|\u528A \u523D|\u528C \u523F|\u528D \u5251|\u528F \u34E5|\u5291 \u5242|\u529A \u3509|\u52C1 \u52B2|\u52D5 \u52A8|\u52D9 \u52A1|\u52DB \u52CB|\u52DD \u80DC|\u52DE \u52B3|\u52E2 \u52BF|\u52E3 \u{2A7DD}|\u52E9 \u52DA|\u52F1 \u52A2|\u52F3 \u52CB|\u52F5 \u52B1|\u52F8 \u529D|\u52FB \u5300|\u532D \u5326|\u532F \u6C47|\u5331 \u532E|\u5340 \u533A|\u5354 \u534F|\u5379 \u6064|\u537B \u5374|\u537D \u5373|\u5399 \u538D|\u53A0 \u5395|\u53A4 \u5386|\u53AD \u538C|\u53B2 \u5389|\u53B4 \u53A3|\u53C3 \u53C2|\u53C4 \u53C1|\u53E2 \u4E1B|\u5412 \u54A4|\u5433 \u5434|\u5436 \u5450|\u5442 \u5415|\u54BC \u5459|\u54E1 \u5458|\u5504 \u5457|\u5538 \u5FF5|\u554F \u95EE|\u5553 \u542F|\u555E \u54D1|\u555F \u542F|\u5562 \u5521|\u558E \u359E|\u559A \u5524|\u55AA \u4E27|\u55AB \u5403|\u55AC \u4E54|\u55AE \u5355|\u55B2 \u54DF|\u55C6 \u545B|\u55C7 \u556C|\u55CA \u551D|\u55CE \u5417|\u55DA \u545C|\u55E9 \u5522|\u55F0 \u{20BB6}|\u55F6 \u54D4|\u5606 \u53F9|\u560D \u55BD|\u5613 \u556F|\u5614 \u5455|\u5616 \u5567|\u5617 \u5C1D|\u561C \u551B|\u5629 \u54D7|\u562E \u5520|\u562F \u5578|\u5630 \u53FD|\u5635 \u54D3|\u5638 \u5452|\u563D \u5574|\u5641 \u6076|\u5653 \u5618|\u565A \u358A|\u565D \u549D|\u5660 \u54D2|\u5665 \u54DD|\u5666 \u54D5|\u566F \u55F3|\u5672 \u54D9|\u5674 \u55B7|\u5678 \u5428|\u5679 \u5F53|\u5680 \u549B|\u5687 \u5413|\u568C \u54DC|\u5690 \u5C1D|\u5695 \u565C|\u5699 \u556E|\u56A5 \u54BD|\u56A6 \u5456|\u56A7 \u{20C37}|\u56A8 \u5499|\u56AE \u5411|\u56B2 \u4EB8|\u56B3 \u55BE|\u56B4 \u4E25|\u56B6 \u5624|\u56C0 \u556D|\u56C1 \u55EB|\u56C2 \u56A3|\u56C5 \u5181|\u56C8 \u5453|\u56C9 \u5570|\u56CC \u82CF|\u56D1 \u5631|\u56EA \u56F1|\u5707 \u56F5|\u570B \u56FD|\u570D \u56F4|\u5712 \u56ED|\u5713 \u5706|\u5716 \u56FE|\u5718 \u56E2|\u57BB \u575D|\u57E1 \u57AD|\u57E8 \u{2BB62}|\u57F0 \u91C7|\u57F7 \u6267|\u5805 \u575A|\u580A \u57A9|\u5816 \u57B4|\u581D \u57DA|\u582F \u5C27|\u5831 \u62A5|\u5834 \u573A|\u584A \u5757|\u584B \u8314|\u584F \u57B2|\u5852 \u57D8|\u5857 \u6D82|\u585A \u51A2|\u5862 \u575E|\u5864 \u57D9|\u5875 \u5C18|\u5878 \u{2BB5F}|\u5879 \u5811|\u587F \u{2A8FB}|\u588A \u57AB|\u589C \u5760|\u58A0 \u{2BB83}|\u58AE \u5815|\u58B0 \u575B|\u58B3 \u575F|\u58B6 \u57AF|\u58BB \u5899|\u58BE \u57A6|\u58C7 \u575B|\u58CB \u57B1|\u58CE \u57D9|\u58D3 \u538B|\u58D7 \u{212E4}|\u58D8 \u5792|\u58D9 \u5739|\u58DA \u5786|\u58DC \u575B|\u58DE \u574F|\u58DF \u5784|\u58E0 \u5785|\u58E2 \u575C|\u58E9 \u575D|\u58EA \u5846|\u58EF \u58EE|\u58FA \u58F6|\u58FC \u58F8|\u58FD \u5BFF|\u5920 \u591F|\u5922 \u68A6|\u5925 \u4F19|\u593E \u5939|\u5950 \u5942|\u5967 \u5965|\u5969 \u5941|\u596A \u593A|\u596C \u5956|\u596E \u594B|\u597C \u59F9|\u599D \u5986|\u59CD \u59D7|\u59E6 \u5978|\u5A19 \u{2BC1B}|\u5A1B \u5A31|\u5A41 \u5A04|\u5A66 \u5987|\u5A6D \u5A05|\u5AA7 \u5A32|\u5AAF \u59AB|\u5AB0 \u36C0|\u5ABC \u5AAA|\u5ABD \u5988|\u5ACB \u8885|\u5AD7 \u59AA|\u5AF5 \u59A9|\u5AFA \u5A34|\u5AFB \u5A34|\u5AFF \u5A73|\u5B00 \u59AB|\u5B03 \u5AAD|\u5B08 \u5A06|\u5B0B \u5A75|\u5B0C \u5A07|\u5B19 \u5AF1|\u5B21 \u5AD2|\u5B24 \u5B37|\u5B2A \u5AD4|\u5B30 \u5A74|\u5B38 \u5A76|\u5B43 \u5A18|\u5B4B \u36E4|\u5B4C \u5A08|\u5B6B \u5B59|\u5B78 \u5B66|\u5B7B \u{21967}|\u5B7F \u5B6A|\u5BAE \u5BAB|\u5BC0 \u91C7|\u5BE2 \u5BDD|\u5BE6 \u5B9E|\u5BE7 \u5B81|\u5BE9 \u5BA1|\u5BEB \u5199|\u5BEC \u5BBD|\u5BF5 \u5BA0|\u5BF6 \u5B9D|\u5C07 \u5C06|\u5C08 \u4E13|\u5C0B \u5BFB|\u5C0D \u5BF9|\u5C0E \u5BFC|\u5C37 \u5C34|\u5C46 \u5C4A|\u5C4D \u5C38|\u5C53 \u5C43|\u5C5C \u5C49|\u5C62 \u5C61|\u5C64 \u5C42|\u5C68 \u5C66|\u5C6C \u5C5E|\u5CA1 \u5188|\u5CEF \u5CF0|\u5CF4 \u5C98|\u5CF6 \u5C9B|\u5CFD \u5CE1|\u5D0D \u5D03|\u5D11 \u6606|\u5D17 \u5C97|\u5D19 \u4ED1|\u5D22 \u5CE5|\u5D2C \u5CBD|\u5D50 \u5C9A|\u5D57 \u5C81|\u5D7D \u{2BD87}|\u5D7E \u37E5|\u5D81 \u5D5D|\u5D84 \u5D2D|\u5D87 \u5C96|\u5D94 \u5D5A|\u5D97 \u5D02|\u5DA0 \u5CE4|\u5DA2 \u5CE3|\u5DA7 \u5CC4|\u5DA8 \u5CC3|\u5DAE \u5D04|\u5DB8 \u5D58|\u5DBA \u5CAD|\u5DBC \u5C7F|\u5DBD \u5CB3|\u5DCB \u5CBF|\u5DD2 \u5CE6|\u5DD4 \u5DC5|\u5DD6 \u5CA9|\u5DD8 \u{2AA58}|\u5DF0 \u5DEF|\u5DF9 \u537A|\u5E25 \u5E05|\u5E2B \u5E08|\u5E33 \u5E10|\u5E36 \u5E26|\u5E40 \u5E27|\u5E43 \u5E0F|\u5E53 \u384E|\u5E57 \u5E3C|\u5E58 \u5E3B|\u5E5F \u5E1C|\u5E63 \u5E01|\u5E6B \u5E2E|\u5E6C \u5E31|\u5E77 \u5E76|\u5E79 \u5E72|\u5E7E \u51E0|\u5EAB \u5E93|\u5EC1 \u5395|\u5EC2 \u53A2|\u5EC4 \u53A9|\u5EC8 \u53A6|\u5ECE \u5EBC|\u5ED5 \u836B|\u5EDA \u53A8|\u5EDD \u53AE|\u5EDE \u{2BDF7}|\u5EDF \u5E99|\u5EE0 \u5382|\u5EE1 \u5E91|\u5EE2 \u5E9F|\u5EE3 \u5E7F|\u5EE9 \u5EEA|\u5EEC \u5E90|\u5EF3 \u5385|\u5F12 \u5F11|\u5F14 \u540A|\u5F33 \u5F2A|\u5F35 \u5F20|\u5F37 \u5F3A|\u5F44 \u{2BE29}|\u5F46 \u522B|\u5F48 \u5F39|\u5F4C \u5F25|\u5F4E \u5F2F|\u5F54 \u5F55|\u5F59 \u6C47|\u5F60 \u5F5F|\u5F65 \u5F66|\u5F6B \u96D5|\u5F72 \u5F68|\u5F7F \u4F5B|\u5F8C \u540E|\u5F91 \u5F84|\u5F9E \u4ECE|\u5FA0 \u5F95|\u5FA9 \u590D|\u5FB5 \u5F81|\u5FB9 \u5F7B|\u6046 \u6052|\u6065 \u803B|\u6085 \u60A6|\u609E \u60AE|\u60B5 \u6005|\u60B6 \u95F7|\u60BD \u51C4|\u60E1 \u6076|\u60F1 \u607C|\u60F2 \u607D|\u60FB \u607B|\u611B \u7231|\u611C \u60EC|\u6128 \u60AB|\u6134 \u6006|\u6137 \u607A|\u613E \u5FFE|\u6144 \u6817|\u614B \u6001|\u614D \u6120|\u6158 \u60E8|\u615A \u60ED|\u615F \u6078|\u6163 \u60EF|\u6164 \u60AB|\u616A \u6004|\u616B \u6002|\u616E \u8651|\u6173 \u60AD|\u6176 \u5E86|\u617A \u396A|\u617C \u621A|\u617E \u6B32|\u6182 \u5FE7|\u618A \u60EB|\u6190 \u601C|\u6191 \u51ED|\u6192 \u6126|\u6196 \u616D|\u619A \u60EE|\u61A4 \u6124|\u61AB \u60AF|\u61AE \u6003|\u61B2 \u5BAA|\u61B6 \u5FC6|\u61C7 \u6073|\u61C9 \u5E94|\u61CC \u603F|\u61CD \u61D4|\u61DE \u8499|\u61DF \u603C|\u61E3 \u61D1|\u61E4 \u393D|\u61E8 \u6079|\u61F2 \u60E9|\u61F6 \u61D2|\u61F7 \u6000|\u61F8 \u60AC|\u61FA \u5FCF|\u61FC \u60E7|\u61FE \u6151|\u6200 \u604B|\u6207 \u6206|\u6214 \u620B|\u6227 \u6217|\u6229 \u622C|\u6230 \u6218|\u6231 \u622F|\u6232 \u620F|\u6236 \u6237|\u625E \u634D|\u62CB \u629B|\u62DA \u62FC|\u6329 \u635D|\u6331 \u6332|\u633E \u631F|\u6368 \u820D|\u636B \u626A|\u6371 \u6328|\u6372 \u5377|\u6383 \u626B|\u6384 \u62A1|\u6386 \u39CF|\u6397 \u631C|\u6399 \u6323|\u639B \u6302|\u63A1 \u91C7|\u63C0 \u62E3|\u63DA \u626C|\u63DB \u6362|\u63EE \u6325|\u63EF \u6404|\u640D \u635F|\u6416 \u6447|\u6417 \u6363|\u6427 \u6247|\u6435 \u63FE|\u6436 \u62A2|\u6451 \u63B4|\u645C \u63BC|\u645F \u6402|\u646F \u631A|\u6473 \u62A0|\u6476 \u629F|\u647A \u6298|\u647B \u63BA|\u6488 \u635E|\u648F \u6326|\u6490 \u6491|\u6493 \u6320|\u649D \u39D1|\u649F \u6322|\u64A3 \u63B8|\u64A5 \u62E8|\u64AB \u629A|\u64B2 \u6251|\u64B3 \u63FF|\u64BB \u631E|\u64BE \u631D|\u64BF \u6361|\u64C1 \u62E5|\u64C4 \u63B3|\u64C7 \u62E9|\u64CA \u51FB|\u64CB \u6321|\u64D3 \u39DF|\u64D4 \u62C5|\u64DA \u636E|\u64E0 \u6324|\u64E1 \u62AC|\u64E3 \u6363|\u64EC \u62DF|\u64EF \u6448|\u64F0 \u62E7|\u64F1 \u6401|\u64F2 \u63B7|\u64F4 \u6269|\u64F7 \u64B7|\u64FA \u6446|\u64FB \u64DE|\u64FC \u64B8|\u64FD \u39F0|\u64FE \u6270|\u6504 \u6445|\u6506 \u64B5|\u650F \u62E2|\u6514 \u62E6|\u6516 \u6484|\u6519 \u6400|\u651B \u64BA|\u651C \u643A|\u651D \u6444|\u6522 \u6512|\u6523 \u631B|\u6524 \u644A|\u652A \u6405|\u652C \u63FD|\u654E \u6559|\u6553 \u655A|\u6557 \u8D25|\u6558 \u53D9|\u6575 \u654C|\u6578 \u6570|\u6582 \u655B|\u6583 \u6BD9|\u6586 \u6569|\u6595 \u6593|\u65AC \u65A9|\u65B7 \u65AD|\u65BC \u4E8E|\u65C2 \u65D7|\u65E3 \u65E2|\u6607 \u5347|\u6642 \u65F6|\u6649 \u664B|\u665B \u{2C02A}|\u665D \u663C|\u6688 \u6655|\u6689 \u6656|\u6690 \u{2C029}|\u6698 \u65F8|\u66A2 \u7545|\u66AB \u6682|\u66C4 \u6654|\u66C6 \u5386|\u66C7 \u6619|\u66C9 \u6653|\u66CF \u5411|\u66D6 \u66A7|\u66E0 \u65F7|\u66E5 \u{23190}|\u66E8 \u663D|\u66EC \u6652|\u66F8 \u4E66|\u6703 \u4F1A|\u6725 \u{266E8}|\u6727 \u80E7|\u672E \u672F|\u6771 \u4E1C|\u67B4 \u62D0|\u67F5 \u6805|\u67FA \u62D0|\u67FB \u67E5|\u6871 \u{23415}|\u687F \u6746|\u6894 \u6800|\u6898 \u67A7|\u689C \u{2C0A9}|\u689D \u6761|\u689F \u67AD|\u68B2 \u68C1|\u68C4 \u5F03|\u68CA \u68CB|\u68D6 \u67A8|\u68D7 \u67A3|\u68DF \u680B|\u68E1 \u3B4E|\u68E7 \u6808|\u68F2 \u6816|\u68F6 \u68BE|\u690F \u6860|\u6932 \u3B4F|\u694A \u6768|\u6953 \u67AB|\u6968 \u6862|\u696D \u4E1A|\u6975 \u6781|\u6998 \u77E9|\u69A6 \u5E72|\u69AA \u6769|\u69AE \u8363|\u69B2 \u6985|\u69BF \u6864|\u69CB \u6784|\u69CD \u67AA|\u69D3 \u6760|\u69E4 \u68BF|\u69E7 \u6920|\u69E8 \u6901|\u69EE \u692E|\u69F3 \u6868|\u69F6 \u6922|\u69FC \u691D|\u6A01 \u6869|\u6A02 \u4E50|\u6A05 \u679E|\u6A11 \u6881|\u6A13 \u697C|\u6A19 \u6807|\u6A1E \u67A2|\u6A22 \u3B64|\u6A23 \u6837|\u6A27 \u699D|\u6A2B \u3B74|\u6A33 \u686A|\u6A38 \u6734|\u6A39 \u6811|\u6A3A \u6866|\u6A3F \u692B|\u6A48 \u6861|\u6A4B \u6865|\u6A5F \u673A|\u6A62 \u692D|\u6A6B \u6A2A|\u6A6F \u{234FF}|\u6A81 \u6AA9|\u6A89 \u67FD|\u6A94 \u6863|\u6A9C \u6867|\u6A9F \u69DA|\u6AA2 \u68C0|\u6AA3 \u6A2F|\u6AAE \u68BC|\u6AAF \u53F0|\u6AB3 \u69DF|\u6AB8 \u67E0|\u6ABB \u69DB|\u6AC3 \u67DC|\u6ACD \u{2C0CA}|\u6AD3 \u6A79|\u6ADA \u6988|\u6ADB \u6809|\u6ADD \u691F|\u6ADE \u6A7C|\u6ADF \u680E|\u6AE5 \u6A71|\u6AE7 \u69E0|\u6AE8 \u680C|\u6AEA \u67A5|\u6AEB \u6A65|\u6AEC \u6987|\u6AF1 \u8616|\u6AF3 \u680A|\u6AF8 \u6989|\u6AFB \u6A31|\u6B04 \u680F|\u6B05 \u6989|\u6B0A \u6743|\u6B0F \u6924|\u6B12 \u683E|\u6B13 \u{235CB}|\u6B16 \u6984|\u6B1E \u68C2|\u6B3D \u94A6|\u6B4E \u53F9|\u6B50 \u6B27|\u6B5F \u6B24|\u6B61 \u6B22|\u6B72 \u5C81|\u6B77 \u5386|\u6B78 \u5F52|\u6B7F \u6B81|\u6B98 \u6B8B|\u6B9E \u6B92|\u6BA4 \u6B87|\u6BA8 \u3C6E|\u6BAB \u6B9A|\u6BAD \u50F5|\u6BAE \u6B93|\u6BAF \u6BA1|\u6BB0 \u3C69|\u6BB2 \u6B7C|\u6BBA \u6740|\u6BBB \u58F3|\u6BBC \u58F3|\u6BC0 \u6BC1|\u6BC6 \u6BB4|\u6BFF \u6BF5|\u6C02 \u7266|\u6C08 \u6BE1|\u6C0C \u6C07|\u6C23 \u6C14|\u6C2B \u6C22|\u6C2C \u6C29|\u6C33 \u6C32|\u6C3E \u6CDB|\u6C4E \u6CDB|\u6C59 \u6C61|\u6C7A \u51B3|\u6C92 \u6CA1|\u6C96 \u51B2|\u6CC1 \u51B5|\u6CDD \u6EAF|\u6D29 \u6CC4|\u6D36 \u6C79|\u6D79 \u6D43|\u6D7F \u{2C1D9}|\u6D87 \u6CFE|\u6D97 \u6D9A|\u6DBC \u51C9|\u6DD2 \u51C4|\u6DDA \u6CEA|\u6DE5 \u6E0C|\u6DE8 \u51C0|\u6DE9 \u51CC|\u6DEA \u6CA6|\u6DF5 \u6E0A|\u6DF6 \u6D9E|\u6DFA \u6D45|\u6E19 \u6DA3|\u6E1B \u51CF|\u6E22 \u6CA8|\u6E26 \u6DA1|\u6E2C \u6D4B|\u6E3E \u6D51|\u6E4A \u51D1|\u6E4B \u{23C97}|\u6E5E \u6D48|\u6E67 \u6D8C|\u6E6F \u6C64|\u6E88 \u6CA9|\u6E96 \u51C6|\u6E9D \u6C9F|\u6EAB \u6E29|\u6EAE \u6D49|\u6EB3 \u6DA2|\u6EBC \u6E7F|\u6EC4 \u6CA7|\u6EC5 \u706D|\u6ECC \u6DA4|\u6ECE \u8365|\u6ED9 \u6C47|\u6EEC \u6CAA|\u6EEF \u6EDE|\u6EF2 \u6E17|\u6EF7 \u5364|\u6EF8 \u6D52|\u6EFB \u6D50|\u6EFE \u6EDA|\u6EFF \u6EE1|\u6F01 \u6E14|\u6F0A \u6E87|\u6F0D \u{2C1F9}|\u6F1A \u6CA4|\u6F22 \u6C49|\u6F23 \u6D9F|\u6F2C \u6E0D|\u6F32 \u6DA8|\u6F35 \u6E86|\u6F38 \u6E10|\u6F3F \u6D46|\u6F41 \u988D|\u6F51 \u6CFC|\u6F54 \u6D01|\u6F55 \u{23C98}|\u6F59 \u6CA9|\u6F5A \u3D0B|\u6F5B \u6F5C|\u6F64 \u6DA6|\u6F6F \u6D54|\u6F70 \u6E83|\u6F77 \u6ED7|\u6F7F \u6DA0|\u6F80 \u6DA9|\u6F86 \u6D47|\u6F87 \u6D9D|\u6F90 \u6C84|\u6F97 \u6DA7|\u6FA0 \u6E11|\u6FA4 \u6CFD|\u6FA6 \u6EEA|\u6FA9 \u6CF6|\u6FAB \u{2C1D5}|\u6FAE \u6D4D|\u6FB1 \u6DC0|\u6FBE \u3CE0|\u6FC1 \u6D4A|\u6FC3 \u6D53|\u6FC4 \u3CE1|\u6FC6 \u{23E23}|\u6FD5 \u6E7F|\u6FD8 \u6CDE|\u6FDA \u6E81|\u6FDB \u8499|\u6FDC \u6D55|\u6FDF \u6D4E|\u6FE4 \u6D9B|\u6FE7 \u3CD4|\u6FEB \u6EE5|\u6FF0 \u6F4D|\u6FF1 \u6EE8|\u6FFA \u6E85|\u6FFC \u6CFA|\u6FFE \u6EE4|\u7002 \u6F9B|\u7005 \u6EE2|\u7006 \u6E0E|\u7007 \u3CBF|\u7009 \u6CFB|\u700B \u6C88|\u700F \u6D4F|\u7015 \u6FD2|\u7018 \u6CF8|\u701D \u6CA5|\u701F \u6F47|\u7020 \u6F46|\u7026 \u6F74|\u7027 \u6CF7|\u7028 \u6FD1|\u7030 \u5F25|\u7032 \u6F4B|\u703E \u6F9C|\u7043 \u6CA3|\u7044 \u6EE0|\u7051 \u6D12|\u7052 \u{2ADFD}|\u7055 \u6F13|\u7058 \u6EE9|\u7059 \u{23EBC}|\u705D \u704F|\u7061 \u3CD5|\u7063 \u6E7E|\u7064 \u6EE6|\u7067 \u6EDF|\u7069 \u6EDF|\u707D \u707E|\u70BA \u4E3A|\u70CF \u4E4C|\u70F4 \u70C3|\u7121 \u65E0|\u7149 \u70BC|\u7152 \u709C|\u7159 \u70DF|\u7162 \u8315|\u7165 \u7115|\u7169 \u70E6|\u716C \u7080|\u7171 \u3DBD|\u7185 \u7174|\u7192 \u8367|\u7197 \u709D|\u71B0 \u{2C27C}|\u71B1 \u70ED|\u71B2 \u988E|\u71BE \u70BD|\u71C0 \u{2C2A4}|\u71C1 \u70E8|\u71C8 \u706F|\u71C9 \u7096|\u71D2 \u70E7|\u71D6 \u{2C288}|\u71D9 \u70EB|\u71DC \u7116|\u71DF \u8425|\u71E6 \u707F|\u71EC \u6BC1|\u71ED \u70DB|\u71F4 \u70E9|\u71F6 \u3DB6|\u71FB \u718F|\u71FC \u70EC|\u71FE \u7118|\u720D \u70C1|\u7210 \u7089|\u721B \u70C2|\u722D \u4E89|\u7232 \u4E3A|\u723A \u7237|\u723E \u5C14|\u7240 \u5E8A|\u7246 \u5899|\u7258 \u724D|\u7274 \u62B5|\u727D \u7275|\u7296 \u8366|\u729B \u7266|\u72A2 \u728A|\u72A7 \u727A|\u72C0 \u72B6|\u72F9 \u72ED|\u72FD \u72C8|\u7319 \u72F0|\u7336 \u72B9|\u733B \u72F2|\u7341 \u72B8|\u7343 \u5446|\u7344 \u72F1|\u7345 \u72EE|\u734E \u5956|\u7368 \u72EC|\u736A \u72EF|\u736B \u7303|\u736E \u72DD|\u7370 \u72DE|\u7371 \u3E8D|\u7372 \u83B7|\u7375 \u730E|\u7377 \u72B7|\u7378 \u517D|\u737A \u736D|\u737B \u732E|\u737C \u7315|\u7380 \u7321|\u73FE \u73B0|\u7431 \u96D5|\u743A \u73D0|\u743F \u73F2|\u744B \u73AE|\u7452 \u739A|\u7463 \u7410|\u7464 \u7476|\u7469 \u83B9|\u746A \u739B|\u7472 \u73B1|\u7489 \u740F|\u748A \u{2B7A9}|\u7495 \u{2C364}|\u7497 \u{2C361}|\u74A1 \u740E|\u74A3 \u7391|\u74A6 \u7477|\u74AB \u73F0|\u74AF \u3EC5|\u74B0 \u73AF|\u74B5 \u7399|\u74B8 \u7478|\u74BD \u73BA|\u74BF \u7487|\u74C5 \u{2C35B}|\u74CA \u743C|\u74CF \u73D1|\u74D4 \u748E|\u74DA \u74D2|\u74DB \u{24A7D}|\u750C \u74EF|\u7515 \u74EE|\u7522 \u4EA7|\u7523 \u4EA7|\u755D \u4EA9|\u7562 \u6BD5|\u756B \u753B|\u7570 \u5F02|\u7575 \u753B|\u7576 \u5F53|\u7587 \u7574|\u758A \u53E0|\u75D9 \u75C9|\u75E0 \u9178|\u75FE \u75B4|\u7602 \u75D6|\u760B \u75AF|\u760D \u75A1|\u7613 \u75EA|\u761E \u7617|\u7621 \u75AE|\u7627 \u759F|\u762E \u7606|\u7632 \u75AD|\u763A \u7618|\u763B \u7618|\u7642 \u7597|\u7646 \u75E8|\u7647 \u75EB|\u7649 \u7605|\u7652 \u6108|\u7658 \u75A0|\u765F \u762A|\u7661 \u75F4|\u7662 \u75D2|\u7664 \u7596|\u7665 \u75C7|\u7667 \u75AC|\u7669 \u765E|\u766C \u7663|\u766D \u763F|\u766E \u763E|\u7670 \u75C8|\u7671 \u762B|\u7672 \u766B|\u767C \u53D1|\u7681 \u7682|\u769A \u7691|\u76B0 \u75B1|\u76B8 \u76B2|\u76BA \u76B1|\u76C3 \u676F|\u76DC \u76D7|\u76DE \u76CF|\u76E1 \u5C3D|\u76E3 \u76D1|\u76E4 \u76D8|\u76E7 \u5362|\u76EA \u8361|\u771E \u771F|\u7725 \u7726|\u773E \u4F17|\u774D \u{2AFA2}|\u774F \u56F0|\u775C \u7741|\u775E \u7750|\u7798 \u770D|\u779C \u4056|\u779E \u7792|\u77B6 \u7786|\u77BC \u7751|\u77C7 \u8499|\u77D3 \u772C|\u77DA \u77A9|\u77EF \u77EB|\u7843 \u6731|\u785C \u7841|\u7864 \u7856|\u7868 \u7817|\u786F \u781A|\u7895 \u57FC|\u78A9 \u7855|\u78AD \u7800|\u78B8 \u781C|\u78BA \u786E|\u78BC \u7801|\u78BD \u40B5|\u78D1 \u7859|\u78DA \u7816|\u78E0 \u7875|\u78E3 \u789C|\u78E7 \u789B|\u78EF \u77F6|\u78FD \u7857|\u78FE \u40C5|\u7904 \u785A|\u790E \u7840|\u7910 \u{2C488}|\u7919 \u788D|\u7926 \u77FF|\u792A \u783A|\u792B \u783E|\u792C \u77FE|\u7931 \u783B|\u7955 \u79D8|\u797F \u7984|\u798D \u7978|\u798E \u796F|\u7995 \u794E|\u79A1 \u7943|\u79A6 \u5FA1|\u79AA \u7985|\u79AE \u793C|\u79B0 \u7962|\u79B1 \u7977|\u79BF \u79C3|\u79C8 \u7C7C|\u7A05 \u7A0E|\u7A08 \u79C6|\u7A0F \u4149|\u7A1C \u68F1|\u7A1F \u7980|\u7A2E \u79CD|\u7A31 \u79F0|\u7A40 \u8C37|\u7A47 \u415F|\u7A4C \u7A23|\u7A4D \u79EF|\u7A4E \u9896|\u7A60 \u79FE|\u7A61 \u7A51|\u7A62 \u79FD|\u7A69 \u7A33|\u7A6B \u83B7|\u7A6D \u7A5E|\u7AA9 \u7A9D|\u7AAA \u6D3C|\u7AAE \u7A77|\u7AAF \u7A91|\u7AB5 \u7A8E|\u7AB6 \u7AAD|\u7ABA \u7AA5|\u7AC4 \u7A9C|\u7AC5 \u7A8D|\u7AC7 \u7AA6|\u7AC8 \u7076|\u7ACA \u7A83|\u7AEA \u7AD6|\u7AF6 \u7ADE|\u7B46 \u7B14|\u7B4D \u7B0B|\u7B67 \u7B15|\u7B74 \u41F2|\u7B87 \u4E2A|\u7B8B \u7B3A|\u7B8F \u7B5D|\u7B9A \u672D|\u7BC0 \u8282|\u7BC4 \u8303|\u7BC9 \u7B51|\u7BCB \u7BA7|\u7BD4 \u7B7C|\u7BE0 \u7B7F|\u7BE2 \u{2C542}|\u7BE4 \u7B03|\u7BE9 \u7B5B|\u7BF3 \u7B5A|\u7BF8 \u{25BBE}|\u7C00 \u7BA6|\u7C0D \u7BD3|\u7C11 \u84D1|\u7C1E \u7BAA|\u7C21 \u7B80|\u7C23 \u7BD1|\u7C2B \u7BAB|\u7C39 \u7B5C|\u7C3D \u7B7E|\u7C3E \u5E18|\u7C43 \u7BEE|\u7C45 \u{25AE3}|\u7C4C \u7B79|\u7C54 \u4264|\u7C59 \u7B93|\u7C5B \u7BEF|\u7C5C \u7BA8|\u7C5F \u7C41|\u7C60 \u7B3C|\u7C64 \u7B7E|\u7C69 \u7B3E|\u7C6A \u7C16|\u7C6C \u7BF1|\u7C6E \u7BA9|\u7C72 \u5401|\u7CB5 \u7CA4|\u7CC9 \u7CBD|\u7CDD \u7CC1|\u7CDE \u7CAA|\u7CE7 \u7CAE|\u7CF0 \u56E2|\u7CF2 \u7C9D|\u7CF4 \u7C74|\u7CF6 \u7C9C|\u7CF9 \u7E9F|\u7CFE \u7EA0|\u7D00 \u7EAA|\u7D02 \u7EA3|\u7D03 \u{2C613}|\u7D04 \u7EA6|\u7D05 \u7EA2|\u7D06 \u7EA1|\u7D07 \u7EA5|\u7D08 \u7EA8|\u7D09 \u7EAB|\u7D0B \u7EB9|\u7D0D \u7EB3|\u7D10 \u7EBD|\u7D13 \u7EBE|\u7D14 \u7EAF|\u7D15 \u7EB0|\u7D16 \u7EBC|\u7D17 \u7EB1|\u7D18 \u7EAE|\u7D19 \u7EB8|\u7D1A \u7EA7|\u7D1B \u7EB7|\u7D1C \u7EAD|\u7D1D \u7EB4|\u7D1E \u{2C618}|\u7D21 \u7EBA|\u7D2C \u4337|\u7D2E \u624E|\u7D30 \u7EC6|\u7D31 \u7EC2|\u7D32 \u7EC1|\u7D33 \u7EC5|\u7D35 \u7EBB|\u7D39 \u7ECD|\u7D3A \u7EC0|\u7D3C \u7ECB|\u7D3F \u7ED0|\u7D40 \u7ECC|\u7D42 \u7EC8|\u7D43 \u5F26|\u7D44 \u7EC4|\u7D45 \u4339|\u7D46 \u7ECA|\u7D4E \u7ED7|\u7D50 \u7ED3|\u7D55 \u7EDD|\u7D5B \u7EE6|\u7D5D \u7ED4|\u7D5E \u7EDE|\u7D61 \u7EDC|\u7D62 \u7EDA|\u7D66 \u7ED9|\u7D68 \u7ED2|\u7D6A \u{2C621}|\u7D70 \u7ED6|\u7D71 \u7EDF|\u7D72 \u4E1D|\u7D73 \u7EDB|\u7D76 \u7EDD|\u7D79 \u7EE2|\u7D7A \u{2B128}|\u7D81 \u7ED1|\u7D83 \u7EE1|\u7D84 \u{2C62B}|\u7D86 \u7EE0|\u7D88 \u7EE8|\u7D89 \u7EE3|\u7D8C \u7EE4|\u7D8E \u{2C629}|\u7D8F \u7EE5|\u7D90 \u433C|\u7D91 \u6346|\u7D93 \u7ECF|\u7D96 \u{2B127}|\u7D9C \u7EFC|\u7D9D \u{2C62D}|\u7D9E \u7F0D|\u7DA0 \u7EFF|\u7DA1 \u{2B7C5}|\u7DA2 \u7EF8|\u7DA3 \u7EFB|\u7DA7 \u{2C62F}|\u7DAA \u{2C62C}|\u7DAB \u7EBF|\u7DAC \u7EF6|\u7DAD \u7EF4|\u7DAF \u7EF9|\u7DB0 \u7EFE|\u7DB1 \u7EB2|\u7DB2 \u7F51|\u7DB3 \u7EF7|\u7DB4 \u7F00|\u7DB5 \u5F69|\u7DB8 \u7EB6|\u7DB9 \u7EFA|\u7DBA \u7EEE|\u7DBB \u7EFD|\u7DBD \u7EF0|\u7DBE \u7EEB|\u7DBF \u7EF5|\u7DC4 \u7EF2|\u7DC7 \u7F01|\u7DCA \u7D27|\u7DCB \u7EEF|\u7DD1 \u7EFF|\u7DD2 \u7EEA|\u7DD3 \u7EEC|\u7DD4 \u7EF1|\u7DD7 \u7F03|\u7DD8 \u7F04|\u7DD9 \u7F02|\u7DDA \u7EBF|\u7DDD \u7F09|\u7DDE \u7F0E|\u7DE0 \u7F14|\u7DE1 \u7F17|\u7DE3 \u7F18|\u7DE6 \u7F0C|\u7DE8 \u7F16|\u7DE9 \u7F13|\u7DEC \u7F05|\u7DEF \u7EAC|\u7DF1 \u7F11|\u7DF2 \u7F08|\u7DF4 \u7EC3|\u7DF6 \u7F0F|\u7DF9 \u7F07|\u7DFB \u81F4|\u7DFC \u7F0A|\u7E08 \u8426|\u7E09 \u7F19|\u7E0A \u7F22|\u7E0B \u7F12|\u7E10 \u7EC9|\u7E11 \u7F23|\u7E15 \u7F0A|\u7E17 \u7F1E|\u7E1B \u7F1A|\u7E1D \u7F1C|\u7E1E \u7F1F|\u7E1F \u7F1B|\u7E23 \u53BF|\u7E27 \u7EE6|\u7E2B \u7F1D|\u7E2D \u7F21|\u7E2E \u7F29|\u7E2F \u{2C642}|\u7E31 \u7EB5|\u7E32 \u7F27|\u7E33 \u4338|\u7E34 \u7EA4|\u7E35 \u7F26|\u7E36 \u7D77|\u7E37 \u7F15|\u7E39 \u7F25|\u7E3D \u603B|\u7E3E \u7EE9|\u7E43 \u7EF7|\u7E45 \u7F2B|\u7E46 \u7F2A|\u7E52 \u7F2F|\u7E54 \u7EC7|\u7E55 \u7F2E|\u7E5A \u7F2D|\u7E5E \u7ED5|\u7E61 \u7EE3|\u7E62 \u7F0B|\u7E69 \u7EF3|\u7E6A \u7ED8|\u7E6B \u7CFB|\u7E6D \u8327|\u7E6E \u7F30|\u7E6F \u7F33|\u7E70 \u7F32|\u7E73 \u7F34|\u7E76 \u{2B137}|\u7E78 \u4341|\u7E79 \u7ECE|\u7E7B \u{26221}|\u7E7C \u7EE7|\u7E7D \u7F24|\u7E7E \u7F31|\u7E7F \u4340|\u7E81 \u{2B138}|\u7E86 \u{2C64A}|\u7E87 \u98A3|\u7E88 \u7F2C|\u7E8A \u7EA9|\u7E8C \u7EED|\u7E8D \u7D2F|\u7E8F \u7F20|\u7E93 \u7F28|\u7E94 \u624D|\u7E95 \u{2C64B}|\u7E96 \u7EA4|\u7E98 \u7F35|\u7E9C \u7F06|\u7F3D \u94B5|\u7F43 \u44E8|\u7F48 \u575B|\u7F4C \u7F42|\u7F4E \u575B|\u7F70 \u7F5A|\u7F75 \u9A82|\u7F77 \u7F62|\u7F85 \u7F57|\u7F86 \u7F74|\u7F88 \u7F81|\u7F8B \u8288|\u7FA3 \u7FA4|\u7FA5 \u7F9F|\u7FA8 \u7FA1|\u7FA9 \u4E49|\u7FB6 \u81BB|\u7FD2 \u4E60|\u7FEB \u73A9|\u7FEC \u7FDA|\u7FF9 \u7FD8|\u7FFD \u7FD9|\u802C \u8027|\u802E \u8022|\u8056 \u5723|\u805E \u95FB|\u806F \u8054|\u8070 \u806A|\u8072 \u58F0|\u8073 \u8038|\u8075 \u8069|\u8076 \u8042|\u8077 \u804C|\u8079 \u804D|\u807D \u542C|\u807E \u804B|\u8085 \u8083|\u8105 \u80C1|\u8108 \u8109|\u811B \u80EB|\u8123 \u5507|\u8129 \u4FEE|\u812B \u8131|\u8139 \u80C0|\u814E \u80BE|\u8156 \u80E8|\u8161 \u8136|\u8166 \u8111|\u816B \u80BF|\u8173 \u811A|\u8178 \u80A0|\u8183 \u817D|\u8195 \u8158|\u819A \u80A4|\u819E \u43DD|\u81A0 \u80F6|\u81A2 \u{2677C}|\u81A9 \u817B|\u81BD \u80C6|\u81BE \u810D|\u81BF \u8113|\u81C9 \u8138|\u81CD \u8110|\u81CF \u8191|\u81D8 \u814A|\u81DA \u80EA|\u81DF \u810F|\u81E0 \u8114|\u81E2 \u81DC|\u81E5 \u5367|\u81E8 \u4E34|\u81FA \u53F0|\u8207 \u4E0E|\u8208 \u5174|\u8209 \u4E3E|\u820A \u65E7|\u8216 \u94FA|\u8218 \u9986|\u8259 \u8231|\u8264 \u8223|\u8266 \u8230|\u826B \u823B|\u8271 \u8270|\u8277 \u8273|\u82BB \u520D|\u82E7 \u82CE|\u8332 \u5179|\u834A \u8346|\u838A \u5E84|\u8396 \u830E|\u83A2 \u835A|\u83A7 \u82CB|\u83EF \u534E|\u83F4 \u5EB5|\u83F8 \u70DF|\u8407 \u82CC|\u840A \u83B1|\u842C \u4E07|\u8434 \u835D|\u8435 \u83B4|\u8449 \u53F6|\u8452 \u836D|\u8464 \u836E|\u8466 \u82C7|\u846F \u836F|\u8477 \u8364|\u848D \u{2B1ED}|\u8490 \u641C|\u8493 \u83BC|\u8494 \u83B3|\u8495 \u8480|\u849E \u8385|\u84BC \u82CD|\u84C0 \u836A|\u84C6 \u5E2D|\u84CB \u76D6|\u84EE \u83B2|\u84EF \u82C1|\u84F4 \u83BC|\u84FD \u835C|\u8504 \u{2C72C}|\u8514 \u535C|\u8518 \u53C2|\u851E \u848C|\u8523 \u848B|\u8525 \u8471|\u8526 \u8311|\u852D \u836B|\u852F \u{2B21F}|\u853F \u{2B1ED}|\u8541 \u8368|\u8546 \u8487|\u854E \u835E|\u8552 \u836C|\u8553 \u82B8|\u8555 \u83B8|\u8558 \u835B|\u8562 \u8489|\u8569 \u8361|\u856A \u829C|\u856D \u8427|\u8577 \u84E3|\u8580 \u8570|\u8588 \u835F|\u858A \u84DF|\u858C \u8297|\u8591 \u59DC|\u8594 \u8537|\u8598 \u8359|\u859F \u83B6|\u85A6 \u8350|\u85A9 \u8428|\u85B3 \u44D5|\u85B4 \u82E7|\u85B5 \u44D3|\u85B9 \u82D4|\u85BA \u8360|\u85CD \u84DD|\u85CE \u8369|\u85DD \u827A|\u85E5 \u836F|\u85EA \u85AE|\u85ED \u44D6|\u85F4 \u8574|\u85F6 \u82C8|\u85F9 \u853C|\u85FA \u853A|\u8600 \u841A|\u8604 \u8572|\u8606 \u82A6|\u8607 \u82CF|\u860A \u8574|\u860B \u82F9|\u861A \u85D3|\u861E \u8539|\u861F \u{26ED5}|\u8622 \u830F|\u862D \u5170|\u863A \u84E0|\u863F \u841D|\u8646 \u8502|\u8649 \u{2C7C1}|\u8655 \u5904|\u865B \u865A|\u865C \u864F|\u865F \u53F7|\u8667 \u4E8F|\u866F \u866C|\u86FA \u86F1|\u86FB \u8715|\u8706 \u86AC|\u8740 \u{2C7FD}|\u8755 \u8680|\u875F \u732C|\u8766 \u867E|\u8768 \u8671|\u8778 \u8717|\u8784 \u86F3|\u879E \u8682|\u87A2 \u8424|\u87AE \u45D6|\u87BB \u877C|\u87BF \u8780|\u87C4 \u86F0|\u87C8 \u8748|\u87CE \u87A8|\u87E3 \u866E|\u87EC \u8749|\u87EF \u86F2|\u87F2 \u866B|\u87F3 \u{2B2BB}|\u87F6 \u86CF|\u87FB \u8681|\u8801 \u8683|\u8805 \u8747|\u8806 \u867F|\u880D \u874E|\u8810 \u86F4|\u8811 \u877E|\u8814 \u869D|\u881F \u8721|\u8823 \u86CE|\u8828 \u87CF|\u8831 \u86CA|\u8836 \u8695|\u883B \u86EE|\u8846 \u4F17|\u884A \u8511|\u8853 \u672F|\u8855 \u540C|\u885A \u80E1|\u885B \u536B|\u885D \u51B2|\u889E \u886E|\u88B7 \u5939|\u88CA \u8885|\u88CF \u91CC|\u88DC \u8865|\u88DD \u88C5|\u88E1 \u91CC|\u88FD \u5236|\u8907 \u590D|\u890C \u88C8|\u8918 \u8886|\u8932 \u88E4|\u8933 \u88E2|\u8938 \u891B|\u893B \u4EB5|\u8940 \u{2B300}|\u8947 \u88E5|\u8949 \u88E5|\u894F \u88AF|\u8956 \u8884|\u895D \u88E3|\u8960 \u88C6|\u8964 \u8934|\u896A \u889C|\u896C \u6446|\u896F \u886C|\u8972 \u88AD|\u8974 \u8955|\u8988 \u6838|\u898B \u89C1|\u898E \u89C3|\u898F \u89C4|\u8993 \u89C5|\u8996 \u89C6|\u8998 \u89C7|\u89A1 \u89CB|\u89A5 \u89CD|\u89A6 \u89CE|\u89AA \u4EB2|\u89AC \u89CA|\u89AF \u89CF|\u89B2 \u89D0|\u89B7 \u89D1|\u89BA \u89C9|\u89BD \u89C8|\u89BF \u89CC|\u89C0 \u89C2|\u89F4 \u89DE|\u89F6 \u89EF|\u89F8 \u89E6|\u8A01 \u8BA0|\u8A02 \u8BA2|\u8A03 \u8BA3|\u8A08 \u8BA1|\u8A0A \u8BAF|\u8A0C \u8BA7|\u8A0E \u8BA8|\u8A0F \u{2C8D9}|\u8A10 \u8BA6|\u8A12 \u8BB1|\u8A13 \u8BAD|\u8A15 \u8BAA|\u8A16 \u8BAB|\u8A17 \u6258|\u8A18 \u8BB0|\u8A1B \u8BB9|\u8A1D \u8BB6|\u8A1F \u8BBC|\u8A22 \u4723|\u8A23 \u8BC0|\u8A25 \u8BB7|\u8A29 \u8BBB|\u8A2A \u8BBF|\u8A2D \u8BBE|\u8A31 \u8BB8|\u8A34 \u8BC9|\u8A36 \u8BC3|\u8A3A \u8BCA|\u8A3B \u6CE8|\u8A3C \u8BC1|\u8A40 \u{27BAA}|\u8A41 \u8BC2|\u8A46 \u8BCB|\u8A4E \u8BB5|\u8A50 \u8BC8|\u8A52 \u8BD2|\u8A54 \u8BCF|\u8A55 \u8BC4|\u8A56 \u8BD0|\u8A57 \u8BC7|\u8A58 \u8BCE|\u8A5B \u8BC5|\u8A5D \u{2C8DE}|\u8A5E \u8BCD|\u8A60 \u548F|\u8A61 \u8BE9|\u8A62 \u8BE2|\u8A63 \u8BE3|\u8A66 \u8BD5|\u8A69 \u8BD7|\u8A6A \u{2C8F3}|\u8A6B \u8BE7|\u8A6C \u8BDF|\u8A6D \u8BE1|\u8A6E \u8BE0|\u8A70 \u8BD8|\u8A71 \u8BDD|\u8A72 \u8BE5|\u8A73 \u8BE6|\u8A75 \u8BDC|\u8A77 \u{2B363}|\u8A7C \u8BD9|\u8A7F \u8BD6|\u8A84 \u8BD4|\u8A85 \u8BDB|\u8A86 \u8BD3|\u8A87 \u5938|\u8A8C \u5FD7|\u8A8D \u8BA4|\u8A91 \u8BF3|\u8A92 \u8BF6|\u8A95 \u8BDE|\u8A98 \u8BF1|\u8A9A \u8BEE|\u8A9E \u8BED|\u8AA0 \u8BDA|\u8AA1 \u8BEB|\u8AA3 \u8BEC|\u8AA4 \u8BEF|\u8AA5 \u8BF0|\u8AA6 \u8BF5|\u8AA8 \u8BF2|\u8AAA \u8BF4|\u8AAC \u8BF4|\u8AB0 \u8C01|\u8AB2 \u8BFE|\u8AB6 \u8C07|\u8AB9 \u8BFD|\u8ABC \u8C0A|\u8ABE \u8A1A|\u8ABF \u8C03|\u8AC2 \u8C04|\u8AC4 \u8C06|\u8AC7 \u8C08|\u8AC9 \u8BFF|\u8ACB \u8BF7|\u8ACD \u8BE4|\u8ACF \u8BF9|\u8AD1 \u8BFC|\u8AD2 \u8C05|\u8AD3 \u{2C8E1}|\u8AD6 \u8BBA|\u8AD7 \u8C02|\u8ADB \u8C00|\u8ADC \u8C0D|\u8ADD \u8C1E|\u8ADE \u8C1D|\u8ADF \u{2C90A}|\u8AE1 \u8C25|\u8AE2 \u8BE8|\u8AE4 \u8C14|\u8AE6 \u8C1B|\u8AE7 \u8C10|\u8AEB \u8C0F|\u8AED \u8C15|\u8AEE \u54A8|\u8AF1 \u8BB3|\u8AF2 \u{2C907}|\u8AF3 \u8C19|\u8AF4 \u{2B36F}|\u8AF6 \u8C0C|\u8AF7 \u8BBD|\u8AF8 \u8BF8|\u8AFA \u8C1A|\u8AFC \u8C16|\u8AFE \u8BFA|\u8B00 \u8C0B|\u8B01 \u8C12|\u8B02 \u8C13|\u8B04 \u8A8A|\u8B05 \u8BCC|\u8B0A \u8C0E|\u8B0E \u8C1C|\u8B0F \u{2B372}|\u8B10 \u8C27|\u8B14 \u8C11|\u8B16 \u8C21|\u8B17 \u8C24|\u8B19 \u8C26|\u8B1A \u8C25|\u8B1B \u8BB2|\u8B1D \u8C22|\u8B20 \u8C23|\u8B21 \u8C23|\u8B28 \u8C1F|\u8B2B \u8C2A|\u8B2C \u8C2C|\u8B2D \u8C2B|\u8B33 \u8BB4|\u8B39 \u8C28|\u8B3E \u8C29|\u8B41 \u54D7|\u8B49 \u8BC1|\u8B4E \u8C32|\u8B4F \u8BA5|\u8B53 \u{2C91D}|\u8B56 \u8C2E|\u8B58 \u8BC6|\u8B59 \u8C2F|\u8B5A \u8C2D|\u8B5C \u8C31|\u8B5E \u{2B37D}|\u8B5F \u566A|\u8B6B \u8C35|\u8B6D \u6BC1|\u8B6F \u8BD1|\u8B70 \u8BAE|\u8B74 \u8C34|\u8B77 \u62A4|\u8B78 \u8BEA|\u8B7D \u8A89|\u8B7E \u8C2B|\u8B80 \u8BFB|\u8B85 \u8C09|\u8B8A \u53D8|\u8B8B \u8A5F|\u8B8C \u4729|\u8B8E \u96E0|\u8B92 \u8C17|\u8B93 \u8BA9|\u8B95 \u8C30|\u8B96 \u8C36|\u8B9A \u8D5E|\u8B9C \u8C20|\u8B9E \u8C33|\u8C3F \u6EAA|\u8C48 \u5C82|\u8C4E \u7AD6|\u8C50 \u4E30|\u8C54 \u8273|\u8C6C \u732A|\u8C76 \u8C6E|\u8C8D \u72F8|\u8C93 \u732B|\u8C99 \u4759|\u8C9D \u8D1D|\u8C9E \u8D1E|\u8C9F \u8D20|\u8CA0 \u8D1F|\u8CA1 \u8D22|\u8CA2 \u8D21|\u8CA7 \u8D2B|\u8CA8 \u8D27|\u8CA9 \u8D29|\u8CAA \u8D2A|\u8CAB \u8D2F|\u8CAC \u8D23|\u8CAF \u8D2E|\u8CB0 \u8D33|\u8CB2 \u8D40|\u8CB3 \u8D30|\u8CB4 \u8D35|\u8CB6 \u8D2C|\u8CB7 \u4E70|\u8CB8 \u8D37|\u8CBA \u8D36|\u8CBB \u8D39|\u8CBC \u8D34|\u8CBD \u8D3B|\u8CBF \u8D38|\u8CC0 \u8D3A|\u8CC1 \u8D32|\u8CC2 \u8D42|\u8CC3 \u8D41|\u8CC4 \u8D3F|\u8CC5 \u8D45|\u8CC7 \u8D44|\u8CC8 \u8D3E|\u8CCA \u8D3C|\u8CD1 \u8D48|\u8CD2 \u8D4A|\u8CD3 \u5BBE|\u8CD5 \u8D47|\u8CD9 \u8D52|\u8CDA \u8D49|\u8CDC \u8D50|\u8CDE \u8D4F|\u8CE0 \u8D54|\u8CE1 \u8D53|\u8CE2 \u8D24|\u8CE3 \u5356|\u8CE4 \u8D31|\u8CE6 \u8D4B|\u8CE7 \u8D55|\u8CEA \u8D28|\u8CEB \u8D4D|\u8CEC \u8D26|\u8CED \u8D4C|\u8CF0 \u4790|\u8CF4 \u8D56|\u8CF5 \u8D57|\u8CFA \u8D5A|\u8CFB \u8D59|\u8CFC \u8D2D|\u8CFD \u8D5B|\u8CFE \u8D5C|\u8D04 \u8D3D|\u8D05 \u8D58|\u8D07 \u8D5F|\u8D08 \u8D60|\u8D0A \u8D5E|\u8D0B \u8D5D|\u8D0D \u8D61|\u8D0F \u8D62|\u8D10 \u8D46|\u8D13 \u8D43|\u8D14 \u8D51|\u8D16 \u8D4E|\u8D17 \u8D5D|\u8D1B \u8D63|\u8D1C \u8D43|\u8D6C \u8D6A|\u8D95 \u8D76|\u8D99 \u8D75|\u8DA8 \u8D8B|\u8DB2 \u8DB1|\u8DE1 \u8FF9|\u8E10 \u8DF5|\u8E30 \u903E|\u8E34 \u8E0A|\u8E4C \u8DC4|\u8E55 \u8DF8|\u8E5F \u8FF9|\u8E60 \u8DD6|\u8E63 \u8E52|\u8E64 \u8E2A|\u8E7A \u8DF7|\u8E82 \u8DF6|\u8E89 \u8DB8|\u8E8A \u8E0C|\u8E8B \u8DFB|\u8E8D \u8DC3|\u8E8E \u47E2|\u8E91 \u8E2F|\u8E92 \u8DDE|\u8E93 \u8E2C|\u8E95 \u8E70|\u8E9A \u8DF9|\u8EA1 \u8E51|\u8EA5 \u8E7F|\u8EA6 \u8E9C|\u8EAA \u8E8F|\u8EC0 \u8EAF|\u8ECA \u8F66|\u8ECB \u8F67|\u8ECC \u8F68|\u8ECD \u519B|\u8ECF \u{2B404}|\u8ED1 \u8F6A|\u8ED2 \u8F69|\u8ED4 \u8F6B|\u8EDB \u8F6D|\u8EDD \u{2CA02}|\u8EDF \u8F6F|\u8EE4 \u8F77|\u8EEB \u8F78|\u8EF2 \u8F71|\u8EF8 \u8F74|\u8EF9 \u8F75|\u8EFA \u8F7A|\u8EFB \u8F72|\u8EFC \u8F76|\u8EFE \u8F7C|\u8F03 \u8F83|\u8F04 \u{28408}|\u8F05 \u8F82|\u8F07 \u8F81|\u8F08 \u8F80|\u8F09 \u8F7D|\u8F0A \u8F7E|\u8F0B \u{2AA36}|\u8F12 \u8F84|\u8F13 \u633D|\u8F14 \u8F85|\u8F15 \u8F7B|\u8F17 \u{2B410}|\u8F1B \u8F86|\u8F1C \u8F8E|\u8F1D \u8F89|\u8F1E \u8F8B|\u8F1F \u8F8D|\u8F25 \u8F8A|\u8F26 \u8F87|\u8F29 \u8F88|\u8F2A \u8F6E|\u8F2C \u8F8C|\u8F2E \u{2B413}|\u8F2F \u8F91|\u8F33 \u8F8F|\u8F36 \u{2CA0E}|\u8F38 \u8F93|\u8F3B \u8F90|\u8F3C \u8F92|\u8F3E \u8F97|\u8F3F \u8206|\u8F40 \u8F92|\u8F42 \u6BC2|\u8F44 \u8F96|\u8F45 \u8F95|\u8F46 \u8F98|\u8F49 \u8F6C|\u8F4D \u8F99|\u8F4E \u8F7F|\u8F54 \u8F9A|\u8F5F \u8F70|\u8F61 \u8F94|\u8F62 \u8F79|\u8F64 \u8F73|\u8FA6 \u529E|\u8FAD \u8F9E|\u8FAE \u8FAB|\u8FAF \u8FA9|\u8FB2 \u519C|\u8FF4 \u56DE|\u9015 \u5F84|\u9019 \u8FD9|\u9023 \u8FDE|\u9031 \u5468|\u9032 \u8FDB|\u904A \u6E38|\u904B \u8FD0|\u904E \u8FC7|\u9054 \u8FBE|\u9055 \u8FDD|\u9059 \u9065|\u905C \u900A|\u905E \u9012|\u9060 \u8FDC|\u9061 \u6EAF|\u9069 \u9002|\u9072 \u8FDF|\u9076 \u7ED5|\u9077 \u8FC1|\u9078 \u9009|\u907A \u9057|\u907C \u8FBD|\u9081 \u8FC8|\u9084 \u8FD8|\u9087 \u8FE9|\u908A \u8FB9|\u908F \u903B|\u9090 \u9026|\u90DF \u90CF|\u90F5 \u90AE|\u9106 \u90D3|\u9109 \u4E61|\u9112 \u90B9|\u9114 \u90AC|\u9116 \u90E7|\u9127 \u9093|\u9129 \u{2CA7D}|\u912D \u90D1|\u9130 \u90BB|\u9132 \u90F8|\u9133 \u{2B461}|\u9134 \u90BA|\u9136 \u90D0|\u913A \u909D|\u9147 \u9142|\u9148 \u90E6|\u9183 \u814C|\u9196 \u915D|\u919C \u4E11|\u919E \u915D|\u919F \u848F|\u91A3 \u7CD6|\u91AB \u533B|\u91AC \u9171|\u91B1 \u9166|\u91B2 \u{2CAA9}|\u91C0 \u917F|\u91C1 \u8845|\u91C3 \u917E|\u91C5 \u917D|\u91CB \u91CA|\u91D0 \u5398|\u91D2 \u9485|\u91D3 \u9486|\u91D4 \u9487|\u91D5 \u948C|\u91D7 \u948A|\u91D8 \u9489|\u91D9 \u948B|\u91DD \u9488|\u91E3 \u9493|\u91E4 \u9490|\u91E6 \u6263|\u91E7 \u948F|\u91E9 \u9492|\u91F4 \u{2CB29}|\u91F5 \u9497|\u91F7 \u948D|\u91F9 \u9495|\u91FA \u948E|\u91FE \u497A|\u91FF \u{2CB31}|\u9200 \u94AF|\u9201 \u94AB|\u9203 \u9498|\u9204 \u94AD|\u9205 \u94A5|\u9207 \u{2B4E7}|\u9208 \u949A|\u9209 \u94A0|\u920D \u949D|\u920E \u94A9|\u9210 \u94A4|\u9211 \u94A3|\u9212 \u9491|\u9214 \u949E|\u9215 \u94AE|\u921E \u94A7|\u9221 \u949F|\u9223 \u9499|\u9225 \u94AC|\u9226 \u949B|\u9227 \u94AA|\u922E \u94CC|\u9230 \u94C8|\u9233 \u94B6|\u9234 \u94C3|\u9237 \u94B4|\u9238 \u94B9|\u9239 \u94CD|\u923A \u94B0|\u923D \u94B8|\u923E \u94C0|\u923F \u94BF|\u9240 \u94BE|\u9245 \u5DE8|\u9246 \u94BB|\u9248 \u94CA|\u9249 \u94C9|\u924A \u{2CB3F}|\u924B \u94C7|\u924D \u94CB|\u9251 \u94C2|\u9255 \u94B7|\u9257 \u94B3|\u925A \u94C6|\u925B \u94C5|\u925D \u{2B7F7}|\u925E \u94BA|\u9262 \u94B5|\u9264 \u94A9|\u9265 \u{2CB38}|\u9266 \u94B2|\u9267 \u{2CB41}|\u926C \u94BC|\u926D \u94BD|\u926E \u{2CB39}|\u9273 \u952B|\u9276 \u94CF|\u9277 \u{2B7F9}|\u9278 \u94F0|\u927A \u94D2|\u927B \u94EC|\u927F \u94EA|\u9280 \u94F6|\u9283 \u94F3|\u9285 \u94DC|\u9288 \u{2B4EF}|\u928D \u94DA|\u9291 \u94E3|\u9293 \u94E8|\u9296 \u94E2|\u9298 \u94ED|\u929A \u94EB|\u929B \u94E6|\u929C \u8854|\u92A0 \u94D1|\u92A3 \u94F7|\u92A5 \u94F1|\u92A6 \u94DF|\u92A8 \u94F5|\u92A9 \u94E5|\u92AA \u94D5|\u92AB \u94EF|\u92AC \u94D0|\u92B1 \u94DE|\u92B3 \u9510|\u92B6 \u{28C47}|\u92B7 \u9500|\u92B9 \u9508|\u92BB \u9511|\u92BC \u9509|\u92C1 \u94DD|\u92C3 \u9512|\u92C5 \u950C|\u92C7 \u94A1|\u92CC \u94E4|\u92CF \u94D7|\u92D0 \u{2CB4E}|\u92D2 \u950B|\u92D7 \u{2B4F6}|\u92D9 \u94FB|\u92DD \u950A|\u92DF \u9513|\u92E3 \u94D8|\u92E4 \u9504|\u92E5 \u9503|\u92E6 \u9514|\u92E8 \u9507|\u92E9 \u94D3|\u92EA \u94FA|\u92ED \u9510|\u92EE \u94D6|\u92EF \u9506|\u92F0 \u9502|\u92F1 \u94FD|\u92F6 \u950D|\u92F8 \u952F|\u92F9 \u{2CB2E}|\u92FC \u94A2|\u9300 \u{2CB2D}|\u9301 \u951E|\u9304 \u5F55|\u9306 \u9516|\u9307 \u952B|\u9308 \u9529|\u930F \u94D4|\u9310 \u9525|\u9312 \u9515|\u9315 \u951F|\u9318 \u9524|\u9319 \u9531|\u931A \u94EE|\u931B \u951B|\u931E \u{2CB5A}|\u931F \u952C|\u9320 \u952D|\u9321 \u951C|\u9322 \u94B1|\u9324 \u{2B4F9}|\u9326 \u9526|\u9328 \u951A|\u9329 \u9520|\u932B \u9521|\u932E \u9522|\u932F \u9519|\u9332 \u5F55|\u9333 \u9530|\u9336 \u8868|\u9338 \u94FC|\u933C \u954E|\u9340 \u951D|\u9341 \u9528|\u9343 \u952A|\u9345 \u94AB|\u9346 \u9494|\u9347 \u9534|\u9348 \u9533|\u934A \u70BC|\u934B \u9505|\u934D \u9540|\u9354 \u9537|\u9358 \u94E1|\u935A \u9496|\u935B \u953B|\u9360 \u953D|\u9364 \u9538|\u9365 \u9532|\u9369 \u9518|\u936C \u9539|\u936D \u{2CB64}|\u9370 \u953E|\u9375 \u952E|\u9376 \u9536|\u937A \u9517|\u937C \u9488|\u937E \u949F|\u9382 \u9541|\u9384 \u953F|\u9387 \u9545|\u938A \u9551|\u938C \u9570|\u9393 \u{2CB69}|\u9394 \u9555|\u9396 \u9501|\u9398 \u9549|\u939A \u9524|\u939B \u9548|\u939D \u{28C4F}|\u93A1 \u9543|\u93A2 \u94A8|\u93A3 \u84E5|\u93A6 \u954F|\u93A7 \u94E0|\u93A9 \u94E9|\u93AA \u953C|\u93AC \u9550|\u93AD \u9547|\u93AE \u9547|\u93B0 \u9552|\u93B2 \u954B|\u93B3 \u954D|\u93B5 \u9553|\u93B6 \u9FD4|\u93B8 \u954C|\u93BF \u954E|\u93C3 \u955E|\u93C7 \u65CB|\u93C8 \u94FE|\u93CC \u9546|\u93CD \u9559|\u93CF \u{2CB6C}|\u93D0 \u9560|\u93D1 \u955D|\u93D7 \u94FF|\u93D8 \u9535|\u93DC \u9557|\u93DD \u9558|\u93DE \u955B|\u93DF \u94F2|\u93E1 \u955C|\u93E2 \u9556|\u93E4 \u9542|\u93E8 \u933E|\u93F0 \u955A|\u93F5 \u94E7|\u93F7 \u9564|\u93F9 \u956A|\u93FA \u497D|\u93FB \u{2CB78}|\u93FD \u9508|\u9403 \u94D9|\u9404 \u{28C51}|\u9407 \u{2B50D}|\u940B \u94F4|\u940D \u{2B50E}|\u940F \u{28C54}|\u9410 \u9563|\u9412 \u94F9|\u9413 \u9566|\u9414 \u9561|\u9418 \u949F|\u9419 \u956B|\u941D \u9562|\u9420 \u9568|\u9425 \u4985|\u9426 \u950E|\u9427 \u950F|\u9428 \u9544|\u9429 \u{2CB7C}|\u942B \u954C|\u942E \u9570|\u942F \u4983|\u9432 \u956F|\u9433 \u956D|\u9435 \u94C1|\u9436 \u956E|\u9438 \u94CE|\u943A \u94DB|\u943D \u{2B7FC}|\u943F \u9571|\u9444 \u94F8|\u944A \u956C|\u944C \u9554|\u9451 \u9274|\u9452 \u9274|\u9454 \u9572|\u9455 \u9527|\u945E \u9574|\u9460 \u94C4|\u9463 \u9573|\u9465 \u9565|\u946A \u{2CB3B}|\u946D \u9567|\u9470 \u94A5|\u9471 \u9575|\u9472 \u9576|\u9477 \u954A|\u9479 \u9569|\u947C \u9523|\u947D \u94BB|\u947E \u92AE|\u947F \u51FF|\u9481 \u9562|\u9482 \u954B|\u9577 \u957F|\u9580 \u95E8|\u9582 \u95E9|\u9583 \u95EA|\u9586 \u95EB|\u9588 \u95EC|\u9589 \u95ED|\u958B \u5F00|\u958C \u95F6|\u958E \u95F3|\u958F \u95F0|\u9591 \u95F2|\u9592 \u95F2|\u9593 \u95F4|\u9594 \u95F5|\u9598 \u95F8|\u95A1 \u9602|\u95A3 \u9601|\u95A4 \u5408|\u95A5 \u9600|\u95A8 \u95FA|\u95A9 \u95FD|\u95AB \u9603|\u95AC \u9606|\u95AD \u95FE|\u95B1 \u9605|\u95B2 \u9605|\u95B6 \u960A|\u95B9 \u9609|\u95BB \u960E|\u95BC \u960F|\u95BD \u960D|\u95BE \u9608|\u95BF \u960C|\u95C3 \u9612|\u95C6 \u677F|\u95C7 \u6697|\u95C8 \u95F1|\u95C9 \u{2CBB1}|\u95CA \u9614|\u95CB \u9615|\u95CC \u9611|\u95CD \u9607|\u95D0 \u9617|\u95D1 \u{2B536}|\u95D2 \u9618|\u95D3 \u95FF|\u95D4 \u9616|\u95D5 \u9619|\u95D6 \u95EF|\u95DC \u5173|\u95DE \u961A|\u95E0 \u9613|\u95E1 \u9610|\u95E2 \u8F9F|\u95E4 \u961B|\u95E5 \u95FC|\u9658 \u9649|\u965D \u9655|\u965E \u5347|\u9663 \u9635|\u9670 \u9634|\u9673 \u9648|\u9678 \u9646|\u967D \u9633|\u9689 \u9667|\u968A \u961F|\u968E \u9636|\u9691 \u{2CBBF}|\u9695 \u9668|\u969B \u9645|\u96A4 \u{2CBCE}|\u96A8 \u968F|\u96AA \u9669|\u96AE \u{2CBC0}|\u96AF \u9666|\u96B1 \u9690|\u96B4 \u9647|\u96B8 \u96B6|\u96BB \u53EA|\u96CB \u96BD|\u96D6 \u867D|\u96D9 \u53CC|\u96DB \u96CF|\u96DC \u6742|\u96DE \u9E21|\u96E2 \u79BB|\u96E3 \u96BE|\u96F2 \u4E91|\u96FB \u7535|\u9711 \u6CBE|\u9722 \u9721|\u9727 \u96FE|\u973D \u9701|\u9742 \u96F3|\u9744 \u972D|\u9746 \u53C7|\u9748 \u7075|\u9749 \u53C6|\u975A \u9753|\u975C \u9759|\u975D \u9754|\u9766 \u817C|\u9768 \u9765|\u978F \u5DE9|\u979D \u7EF1|\u97A6 \u79CB|\u97BD \u9792|\u97C1 \u7F30|\u97C3 \u9791|\u97C6 \u5343|\u97C9 \u97AF|\u97CB \u97E6|\u97CC \u97E7|\u97CD \u97E8|\u97D3 \u97E9|\u97D9 \u97EA|\u97DC \u97EC|\u97DD \u97B2|\u97DE \u97EB|\u97FB \u97F5|\u97FF \u54CD|\u9801 \u9875|\u9802 \u9876|\u9803 \u9877|\u9805 \u9879|\u9806 \u987A|\u9807 \u9878|\u9808 \u987B|\u980A \u987C|\u980C \u9882|\u980D \u{2B806}|\u980E \u9880|\u980F \u9883|\u9810 \u9884|\u9811 \u987D|\u9812 \u9881|\u9813 \u987F|\u9814 \u{2CC56}|\u9817 \u9887|\u9818 \u9886|\u981C \u988C|\u9820 \u{2CC5F}|\u9821 \u9889|\u9824 \u9890|\u9826 \u988F|\u982B \u{2B5AF}|\u982D \u5934|\u982E \u9892|\u9830 \u988A|\u9832 \u988B|\u9834 \u9895|\u9835 \u{2B5B3}|\u9837 \u9894|\u9838 \u9888|\u9839 \u9893|\u983B \u9891|\u983D \u9893|\u9846 \u9897|\u984C \u9898|\u984D \u989D|\u984E \u989A|\u984F \u989C|\u9852 \u9899|\u9853 \u989B|\u9854 \u989C|\u9857 \u{2B5AE}|\u9858 \u613F|\u9859 \u98A1|\u985B \u98A0|\u985E \u7C7B|\u9862 \u989F|\u9865 \u98A2|\u9867 \u987E|\u986B \u98A4|\u986C \u98A5|\u986F \u663E|\u9870 \u98A6|\u9871 \u9885|\u9873 \u989E|\u9874 \u98A7|\u98A8 \u98CE|\u98AD \u98D0|\u98AE \u98D1|\u98AF \u98D2|\u98B1 \u53F0|\u98B3 \u522E|\u98B6 \u98D3|\u98B8 \u98D4|\u98BA \u98CF|\u98BB \u98D6|\u98BC \u98D5|\u98C0 \u98D7|\u98C4 \u98D8|\u98C6 \u98D9|\u98C8 \u98DA|\u98DB \u98DE|\u98E0 \u9963|\u98E2 \u9965|\u98E3 \u9964|\u98E5 \u9966|\u98E9 \u9968|\u98EA \u996A|\u98EB \u996B|\u98ED \u996C|\u98EF \u996D|\u98F1 \u98E7|\u98F2 \u996E|\u98F4 \u9974|\u98FC \u9972|\u98FD \u9971|\u98FE \u9970|\u98FF \u9973|\u9903 \u997A|\u9904 \u9978|\u9905 \u997C|\u9908 \u7CCD|\u9909 \u9977|\u990A \u517B|\u990C \u9975|\u990E \u9979|\u990F \u997B|\u9911 \u997D|\u9912 \u9981|\u9913 \u997F|\u9915 \u9982|\u9916 \u997E|\u9917 \u{2B5E7}|\u9918 \u4F59|\u991A \u80B4|\u991B \u9984|\u991C \u9983|\u991E \u996F|\u9921 \u9985|\u9928 \u9986|\u992C \u7CCA|\u9931 \u7CC7|\u9933 \u9967|\u9935 \u5582|\u9936 \u9989|\u9937 \u9987|\u9938 \u{2980C}|\u993A \u998E|\u993C \u9969|\u993E \u998F|\u993F \u998A|\u9941 \u998C|\u9943 \u998D|\u9945 \u9992|\u9948 \u9990|\u9949 \u9991|\u994A \u9993|\u994B \u9988|\u994C \u9994|\u9951 \u9965|\u9952 \u9976|\u9957 \u98E8|\u9958 \u{2B5F4}|\u995C \u990D|\u995E \u998B|\u9962 \u9995|\u99AC \u9A6C|\u99AD \u9A6D|\u99AE \u51AF|\u99B1 \u9A6E|\u99B3 \u9A70|\u99B4 \u9A6F|\u99B9 \u9A72|\u99BC \u{2B61C}|\u99C1 \u9A73|\u99C3 \u{2B61D}|\u99C9 \u{2CCF6}|\u99D0 \u9A7B|\u99D1 \u9A7D|\u99D2 \u9A79|\u99D3 \u{2CCF5}|\u99D4 \u9A75|\u99D5 \u9A7E|\u99D8 \u9A80|\u99D9 \u9A78|\u99DB \u9A76|\u99DD \u9A7C|\u99DF \u9A77|\u99E1 \u9A82|\u99E2 \u9A88|\u99EA \u{2CCFD}|\u99ED \u9A87|\u99F0 \u9A83|\u99F1 \u9A86|\u99F8 \u9A8E|\u99FC \u{2CCFF}|\u99FF \u9A8F|\u9A01 \u9A8B|\u9A02 \u9A8D|\u9A04 \u{2B627}|\u9A05 \u9A93|\u9A0A \u{2B626}|\u9A0C \u9A94|\u9A0D \u9A92|\u9A0E \u9A91|\u9A0F \u9A90|\u9A11 \u{2CD02}|\u9A16 \u9A9B|\u9A19 \u9A97|\u9A1E \u{2CD03}|\u9A20 \u{2B628}|\u9A24 \u9A99|\u9A27 \u4BC4|\u9A2B \u9A9E|\u9A2D \u9A98|\u9A2E \u9A9D|\u9A30 \u817E|\u9A31 \u{2B62C}|\u9A35 \u{2B62A}|\u9A36 \u9A7A|\u9A37 \u9A9A|\u9A38 \u9A9F|\u9A3E \u9AA1|\u9A40 \u84E6|\u9A41 \u9A9C|\u9A42 \u9A96|\u9A43 \u9AA0|\u9A44 \u9AA2|\u9A45 \u9A71|\u9A4A \u9A85|\u9A4C \u9A95|\u9A4D \u9A81|\u9A4E \u{2CD0A}|\u9A4F \u9AA3|\u9A55 \u9A84|\u9A57 \u9A8C|\u9A5A \u60CA|\u9A5B \u9A7F|\u9A5F \u9AA4|\u9A62 \u9A74|\u9A64 \u9AA7|\u9A65 \u9AA5|\u9A66 \u9AA6|\u9A6A \u9A8A|\u9A6B \u9A89|\u9AAF \u80AE|\u9ACF \u9AC5|\u9AD2 \u810F|\u9AD4 \u4F53|\u9AD5 \u9ACC|\u9AD6 \u9ACB|\u9AEE \u53D1|\u9B06 \u677E|\u9B0D \u80E1|\u9B1A \u987B|\u9B22 \u9B13|\u9B25 \u6597|\u9B27 \u95F9|\u9B28 \u54C4|\u9B29 \u960B|\u9B2E \u9604|\u9B31 \u90C1|\u9B39 \u9B36|\u9B4E \u9B49|\u9B58 \u9B47|\u9B5A \u9C7C|\u9B5B \u9C7D|\u9B5F \u{2B689}|\u9B62 \u9C7E|\u9B68 \u9C80|\u9B6F \u9C81|\u9B74 \u9C82|\u9B77 \u9C7F|\u9B7A \u9C84|\u9B80 \u{2CD8D}|\u9B81 \u9C85|\u9B83 \u9C86|\u9B86 \u{2B696}|\u9B88 \u{2CD8B}|\u9B8A \u9C8C|\u9B8B \u9C89|\u9B8D \u9C8F|\u9B8E \u9C87|\u9B90 \u9C90|\u9B91 \u9C8D|\u9B92 \u9C8B|\u9B93 \u9C8A|\u9B9A \u9C92|\u9B9C \u9C98|\u9B9D \u9C9E|\u9B9E \u9C95|\u9B9F \u{29F7E}|\u9BA0 \u{2CD8F}|\u9BA1 \u{2CD90}|\u9BA3 \u4C9F|\u9BA6 \u9C96|\u9BAA \u9C94|\u9BAB \u9C9B|\u9BAD \u9C91|\u9BAE \u9C9C|\u9BB3 \u9C93|\u9BB6 \u9CAA|\u9BB8 \u{29F83}|\u9BBA \u9C9D|\u9BC0 \u9CA7|\u9BC1 \u9CA0|\u9BC7 \u9CA9|\u9BC9 \u9CA4|\u9BCA \u9CA8|\u9BD2 \u9CAC|\u9BD4 \u9CBB|\u9BD5 \u9CAF|\u9BD6 \u9CAD|\u9BD7 \u9C9E|\u9BDB \u9CB7|\u9BDD \u9CB4|\u9BE1 \u9CB1|\u9BE2 \u9CB5|\u9BE4 \u9CB2|\u9BE7 \u9CB3|\u9BE8 \u9CB8|\u9BEA \u9CAE|\u9BEB \u9CB0|\u9BF0 \u9CB6|\u9BF4 \u9CBA|\u9BF7 \u9CC0|\u9BFB \u{2CD9F}|\u9BFD \u9CAB|\u9BFF \u9CCA|\u9C01 \u9CC8|\u9C02 \u9C97|\u9C03 \u9CC2|\u9C06 \u4CA0|\u9C08 \u9CBD|\u9C09 \u9CC7|\u9C0A \u{2CDA0}|\u9C0C \u4CA1|\u9C0D \u9CC5|\u9C0F \u9CBE|\u9C10 \u9CC4|\u9C12 \u9CC6|\u9C13 \u9CC3|\u9C1B \u9CC1|\u9C1C \u9CD2|\u9C1F \u9CD1|\u9C20 \u9CCB|\u9C23 \u9CA5|\u9C24 \u{2B695}|\u9C25 \u9CCF|\u9C27 \u4CA2|\u9C28 \u9CCE|\u9C29 \u9CD0|\u9C2D \u9CCD|\u9C2E \u9CC1|\u9C31 \u9CA2|\u9C32 \u9CCC|\u9C33 \u9CD3|\u9C35 \u9CD8|\u9C36 \u{2CDAD}|\u9C37 \u9CA6|\u9C39 \u9CA3|\u9C3A \u9CB9|\u9C3B \u9CD7|\u9C3C \u9CDB|\u9C3E \u9CD4|\u9C40 \u{2CDA8}|\u9C42 \u9CC9|\u9C45 \u9CD9|\u9C47 \u{29F8C}|\u9C48 \u9CD5|\u9C49 \u9CD6|\u9C52 \u9CDF|\u9C54 \u9CDD|\u9C56 \u9CDC|\u9C57 \u9CDE|\u9C58 \u9C9F|\u9C5A \u{2CDAE}|\u9C5D \u9CBC|\u9C5F \u9C8E|\u9C60 \u9C99|\u9C63 \u9CE3|\u9C64 \u9CE1|\u9C67 \u9CE2|\u9C68 \u9CBF|\u9C6D \u9C9A|\u9C6F \u9CE0|\u9C72 \u{2B6AD}|\u9C77 \u9CC4|\u9C78 \u9C88|\u9C7A \u9CA1|\u9CE5 \u9E1F|\u9CE7 \u51EB|\u9CE9 \u9E20|\u9CEC \u51EB|\u9CF2 \u9E24|\u9CF3 \u51E4|\u9CF4 \u9E23|\u9CF6 \u9E22|\u9CFE \u4D13|\u9D06 \u9E29|\u9D07 \u9E28|\u9D09 \u9E26|\u9D12 \u9E30|\u9D15 \u9E35|\u9D1B \u9E33|\u9D1D \u9E32|\u9D1E \u9E2E|\u9D1F \u9E31|\u9D23 \u9E2A|\u9D26 \u9E2F|\u9D28 \u9E2D|\u9D2F \u9E38|\u9D30 \u9E39|\u9D34 \u9E3B|\u9D37 \u4D15|\u9D3B \u9E3F|\u9D3F \u9E3D|\u9D41 \u4D14|\u9D42 \u9E3A|\u9D43 \u9E3C|\u9D4F \u{2CDD5}|\u9D50 \u9E40|\u9D51 \u9E43|\u9D52 \u9E46|\u9D53 \u9E41|\u9D5C \u9E48|\u9D5D \u9E45|\u9D5F \u{2B6ED}|\u9D60 \u9E44|\u9D61 \u9E49|\u9D6A \u9E4C|\u9D6C \u9E4F|\u9D6E \u9E50|\u9D6F \u9E4E|\u9D70 \u96D5|\u9D72 \u9E4A|\u9D77 \u9E53|\u9D7E \u9E4D|\u9D84 \u4D16|\u9D87 \u9E2B|\u9D89 \u9E51|\u9D8A \u9E52|\u9D93 \u9E4B|\u9D96 \u9E59|\u9D98 \u9E55|\u9D9A \u9E57|\u9DA0 \u{2CE18}|\u9DA1 \u9E56|\u9DA5 \u9E5B|\u9DA9 \u9E5C|\u9DAA \u4D17|\u9DAC \u9E27|\u9DAF \u83BA|\u9DB1 \u{2CE23}|\u9DB2 \u9E5F|\u9DB4 \u9E64|\u9DB9 \u9E60|\u9DBA \u9E61|\u9DBB \u9E58|\u9DBC \u9E63|\u9DBF \u9E5A|\u9DC0 \u9E5A|\u9DC1 \u9E62|\u9DC2 \u9E5E|\u9DC4 \u9E21|\u9DC9 \u4D18|\u9DCA \u9E5D|\u9DD3 \u9E67|\u9DD6 \u9E65|\u9DD7 \u9E25|\u9DD9 \u9E37|\u9DDA \u9E68|\u9DDF \u{2CE26}|\u9DE5 \u9E36|\u9DE6 \u9E6A|\u9DEB \u9E54|\u9DED \u{2CE2A}|\u9DEF \u9E69|\u9DF2 \u9E6B|\u9DF3 \u9E47|\u9DF4 \u9E47|\u9DF8 \u9E6C|\u9DF9 \u9E70|\u9DFA \u9E6D|\u9DFD \u9E34|\u9E02 \u3D89|\u9E07 \u9E6F|\u9E0A \u4D19|\u9E0C \u9E71|\u9E0F \u9E72|\u9E11 \u{2CE1A}|\u9E15 \u9E2C|\u9E18 \u9E74|\u9E1A \u9E66|\u9E1B \u9E73|\u9E1D \u9E42|\u9E1E \u9E3E|\u9E75 \u5364|\u9E79 \u54B8|\u9E7A \u9E7E|\u9E7C \u78B1|\u9E7D \u76D0|\u9E97 \u4E3D|\u9EA5 \u9EA6|\u9EA9 \u9EB8|\u9EAA \u9762|\u9EAB \u9762|\u9EAC \u{24FF2}|\u9EAF \u66F2|\u9EB3 \u{2A38C}|\u9EB4 \u66F2|\u9EB5 \u9762|\u9EBC \u4E48|\u9EBD \u4E48|\u9EC3 \u9EC4|\u9ECC \u9EC9|\u9EDE \u70B9|\u9EE8 \u515A|\u9EF2 \u9EEA|\u9EF4 \u9709|\u9EF6 \u9EE1|\u9EF7 \u9EE9|\u9EFD \u9EFE|\u9EFF \u9F0B|\u9F02 \u9F0C|\u9F09 \u9F0D|\u9F15 \u51AC|\u9F34 \u9F39|\u9F4A \u9F50|\u9F4B \u658B|\u9F4E \u8D4D|\u9F4F \u9F51|\u9F52 \u9F7F|\u9F54 \u9F80|\u9F55 \u9F81|\u9F57 \u9F82|\u9F58 \u{2CE7C}|\u9F59 \u9F85|\u9F5C \u9F87|\u9F5F \u9F83|\u9F60 \u9F86|\u9F61 \u9F84|\u9F63 \u51FA|\u9F66 \u9F88|\u9F67 \u556E|\u9F6A \u9F8A|\u9F6C \u9F89|\u9F6E \u{2CE88}|\u9F6F \u{2B81C}|\u9F72 \u9F8B|\u9F76 \u816D|\u9F77 \u9F8C|\u9F7C \u{2CE93}|\u9F8D \u9F99|\u9F8E \u5390|\u9F90 \u5E9E|\u9F91 \u4DAE|\u9F94 \u9F9A|\u9F95 \u9F9B|\u9F9C \u9F9F|\u9FC1 \u4724|\u9FD3 \u9FD2|\u{2005E} \u{2003E}|\u{20325} \u{20325}|\u{203E2} \u{203E2}|\u{2040A} \u{2040A}|\u{205E3} \u34C6|\u{20786} \u{20786}|\u{2080E} \u{2080E}|\u{20B19} \u{20B19}|\u{20F24} \u{20F24}|\u{20F43} \u{20F43}|\u{20FD5} \u{20FD5}|\u{210A1} \u{210A1}|\u{210C4} \u{210C4}|\u{210D5} \u{20D1B}|\u{210E4} \u{210E4}|\u{21114} \u{21114}|\u{21123} \u{21123}|\u{2114F} \u{20CA5}|\u{2116F} \u{2116F}|\u{2144D} \u{2BB7C}|\u{2146D} \u{212D7}|\u{214C1} \u{214C1}|\u{214FE} \u{212C0}|\u{21516} \u{21363}|\u{217B5} \u36DF|\u{217EB} \u{217EB}|\u{21839} \u36FF|\u{21883} \u36E0|\u{21B89} \u{21B5C}|\u{21BA3} \u{21B6C}|\u{21CF3} \u{21CC3}|\u{21E17} \u{21E17}|\u{21E6C} \u{21E6C}|\u{21ED5} \u5C81|\u{21F57} \u{21F57}|\u{21FB1} \u37DC|\u{21FD6} \u{21FD6}|\u{22370} \u{22370}|\u{2283C} \u{2283C}|\u{228D0} \u{228D0}|\u{228DA} \u{2261D}|\u{228ED} \u{228ED}|\u{22929} \u{22929}|\u{22931} \u{22931}|\u{2293F} \u{2293F}|\u{22BF7} \u{22BF7}|\u{22D92} \u{22D92}|\u{22DAB} \u{22ADE}|\u{22DEE} \u{22DEE}|\u{22E7F} \u{22B26}|\u{22EB3} \u{22EB3}|\u{23236} \u6685|\u{232CB} \u{232CB}|\u{23350} \u{23350}|\u{2364E} \u3B63|\u{2372C} \u{2372C}|\u{23755} \u{23755}|\u{237BB} \u{23613}|\u{23829} \u{2378E}|\u{23832} \u{23476}|\u{23BE9} \u{23BE9}|\u{23BF4} \u{23BF4}|\u{23BF6} \u6BF6|\u{23F4F} \u{23F4F}|\u{23FB7} \u3CE2|\u{23FC9} \u{23FC9}|\u{24063} \u{23EBD}|\u{24137} \u{24137}|\u{24176} \u{23DF7}|\u{24473} \u{24473}|\u{24479} \u{24479}|\u{2448E} \u{2448E}|\u{244BB} \u{244BB}|\u{244CC} \u{244CC}|\u{244CE} \u{244CE}|\u{244E9} \u{242B0}|\u{24600} \u{24600}|\u{246EE} \u{246EE}|\u{246F1} \u{246F1}|\u{24706} \u{24706}|\u{2482E} \u{2482E}|\u{2489F} \u{2489F}|\u{248BB} \u{248BB}|\u{24A42} \u{24A42}|\u{24ABA} \u3ED8|\u{24AE9} \u3ECF|\u{24B05} \u{24B05}|\u{24CF7} \u{24CF7}|\u{24CF8} \u{24CC4}|\u{24DC3} \u{24DC3}|\u{24E2B} \u{24E2B}|\u{24E94} \u{24E94}|\u{2529D} \u{2517F}|\u{25303} \u{25158}|\u{253DD} \u{253DD}|\u{25565} \u{25430}|\u{25585} \u{2542F}|\u{255B2} \u{255B2}|\u{255C7} \u{255C7}|\u{255FD} \u{2C497}|\u{25710} \u{25710}|\u{25730} \u{25730}|\u{257B5} \u{257B5}|\u{258A2} \u416A|\u{258B6} \u{258B6}|\u{258B7} \u{258B7}|\u{25A10} \u{25A10}|\u{25A82} \u{25A82}|\u{25BE4} \u{25BE4}|\u{25D28} \u{25D28}|\u{25D3C} \u{25D3C}|\u{25D43} \u{25D43}|\u{25D4A} \u{25D4A}|\u{25DBD} \u{25DBD}|\u{25E20} \u{25B8B}|\u{25EE6} \u{25EE6}|\u{25F3D} \u{25E65}|\u{25F56} \u{25F56}|\u{25FAF} \u{25FAF}|\u{25FCA} \u{25FCA}|\u{26016} \u{26016}|\u{26085} \u{26085}|\u{260C4} \u{260C4}|\u{260E9} \u{260E9}|\u{26147} \u{26147}|\u{26148} \u{26148}|\u{261B2} \u{261B2}|\u{26480} \u{26480}|\u{26516} \u{26516}|\u{26627} \u{21CD2}|\u{267FC} \u{267FC}|\u{26805} \u{26805}|\u{2685D} \u{2685D}|\u{26888} \u{26888}|\u{268CE} \u{267D7}|\u{269FA} \u{269FA}|\u{26A99} \u447D|\u{26ABD} \u{26ABD}|\u{26C4C} \u{26C4C}|\u{26F9F} \u{26F9F}|\u{27388} \u{27388}|\u{274AF} \u{274AF}|\u{27525} \u{27525}|\u{2755F} \u{2755F}|\u{27717} \u461E|\u{27735} \u464A|\u{2775E} \u461B|\u{277AB} \u{277AB}|\u{277C0} \u{27767}|\u{27874} \u{27874}|\u{27884} \u{27884}|\u{2799D} \u{2799D}|\u{279A7} \u{279A7}|\u{27A55} \u{27A55}|\u{27A59} \u4725|\u{27A7C} \u{27A7C}|\u{27ADD} \u{27ADD}|\u{27B24} \u{27B24}|\u{27B48} \u{27B48}|\u{27B79} \u{27B79}|\u{27CDF} \u{27CDF}|\u{27D73} \u478C|\u{27D94} \u{27D94}|\u{27DA7} \u478E|\u{27DCE} \u{27DCE}|\u{27E18} \u{27E18}|\u{27E48} \u{27E48}|\u{27F6F} \u{27F6F}|\u{28090} \u{28090}|\u{28123} \u{28123}|\u{2814D} \u{2814D}|\u{281AA} \u{281AA}|\u{281C1} \u{281C1}|\u{281DE} \u{281DE}|\u{281E4} \u{281E4}|\u{281F0} \u{281F0}|\u{281FD} \u{281FD}|\u{2820A} \u{2820A}|\u{2820C} \u{2820C}|\u{282B0} \u4880|\u{282B8} \u4881|\u{282BB} \u{282BB}|\u{282E2} \u4882|\u{28308} \u{28308}|\u{28370} \u{28370}|\u{2838C} \u{2838C}|\u{283AE} \u{283AE}|\u{283E0} \u{283E0}|\u{283E5} \u{283E5}|\u{287BA} \u{287BA}|\u{287CA} \u{287CA}|\u{288BF} \u{288BF}|\u{288C8} \u{288C8}|\u{288DE} \u{288DE}|\u{288E7} \u{288E7}|\u{2893B} \u{28930}|\u{2895B} \u{2895B}|\u{2895F} \u{2895F}|\u{289AB} \u4980|\u{289C0} \u{2CB4A}|\u{289DC} \u4981|\u{289F0} \u{289F0}|\u{289F1} \u{289F1}|\u{28A0F} \u{2CB5B}|\u{28A1B} \u{28A1B}|\u{28A22} \u{28A22}|\u{28A70} \u{28A70}|\u{28A95} \u{28A95}|\u{28AD2} \u{28AD2}|\u{28B16} \u{28B16}|\u{28B46} \u{2CB76}|\u{28B4E} \u{2CB73}|\u{28B56} \u{28B56}|\u{28B78} \u{28B78}|\u{28B82} \u{28B82}|\u{28BB3} \u{28BB3}|\u{28BC5} \u497F|\u{28BDF} \u{28BDF}|\u{28C03} \u{28C03}|\u{28C0B} \u{28C0B}|\u{28C25} \u{28C25}|\u{28C32} \u{28C32}|\u{28CB3} \u{28CB3}|\u{28CD1} \u{28CD1}|\u{28CD5} \u{28CD5}|\u{28D17} \u{28D17}|\u{28D39} \u{28D39}|\u{28D69} \u{28D69}|\u{28D78} \u{28D78}|\u{28D80} \u{28D80}|\u{28D8F} \u{28D8F}|\u{28DAE} \u{28DAE}|\u{28DB2} \u{28DB2}|\u{28DF2} \u{28DF2}|\u{28F33} \u{28F33}|\u{28F4F} \u{28F4F}|\u{29028} \u{29028}|\u{29159} \u{29159}|\u{29396} \u{29396}|\u{293A2} \u{293A2}|\u{293C2} \u{293C2}|\u{293E0} \u{293E0}|\u{293EA} \u{293EA}|\u{293F7} \u{293F7}|\u{29454} \u{29454}|\u{2948E} \u{2948E}|\u{294E3} \u{294E3}|\u{294E5} \u{294E5}|\u{29511} \u{29511}|\u{29533} \u{29533}|\u{295B0} \u{295B0}|\u{295C0} \u{295C0}|\u{295D3} \u{295D3}|\u{295F4} \u{295F4}|\u{29600} \u{29600}|\u{2961D} \u{2961D}|\u{29639} \u{29639}|\u{2963A} \u{2963A}|\u{29648} \u{29648}|\u{2969B} \u{2969B}|\u{296A5} \u{296A5}|\u{296A9} \u{296A9}|\u{296B5} \u{296B5}|\u{296C6} \u{296C6}|\u{296CC} \u{296CC}|\u{296E1} \u{296E1}|\u{296E9} \u{296E9}|\u{29707} \u{29707}|\u{29726} \u{29726}|\u{29735} \u{29735}|\u{29754} \u{29754}|\u{2977D} \u{2977D}|\u{29784} \u{29784}|\u{297A6} \u{297A6}|\u{297AF} \u4B6A|\u{297D0} \u{297D0}|\u{297D7} \u{297D7}|\u{29834} \u{29820}|\u{29863} \u{29863}|\u{2987A} \u{2987A}|\u{298A1} \u{298A1}|\u{298B4} \u{298B4}|\u{298B8} \u{298B8}|\u{298BE} \u{298BE}|\u{298CF} \u{298CF}|\u{298D1} \u4BC3|\u{298EB} \u{298EB}|\u{298F5} \u{298F5}|\u{298FA} \u{298FA}|\u{2990A} \u{2990A}|\u{29919} \u{29919}|\u{29932} \u{29932}|\u{29938} \u{29938}|\u{29944} \u{29944}|\u{29947} \u{29947}|\u{29949} \u{29949}|\u{29951} \u{29951}|\u{299A0} \u{299A0}|\u{299C6} \u{299C6}|\u{29B59} \u{29B59}|\u{29BC1} \u{29BC1}|\u{29BF3} \u{29BF3}|\u{29C00} \u{29C00}|\u{29C39} \u{29C39}|\u{29CE4} \u{29CE4}|\u{29D35} \u{29D35}|\u{29D66} \u{29D66}|\u{29D69} \u{29D69}|\u{29D79} \u{29D79}|\u{29D81} \u{29D81}|\u{29D98} \u4C9E|\u{29DB0} \u{29DB0}|\u{29DB1} \u{29DB1}|\u{29DF0} \u{29DF0}|\u{29E03} \u{29E03}|\u{29E04} \u{29E04}|\u{29E21} \u{29E21}|\u{29E26} \u{29E26}|\u{29ED7} \u{29ED7}|\u{29EEC} \u{29EEC}|\u{29EEE} \u{29EEE}|\u{29F36} \u{29F36}|\u{29F47} \u{29F47}|\u{29FC5} \u{29FC5}|\u{29FE4} \u{29FE4}|\u{29FEA} \u{29FEA}|\u{2A016} \u{2A016}|\u{2A026} \u{2A026}|\u{2A03E} \u{2A03E}|\u{2A048} \u{2A048}|\u{2A056} \u{2A056}|\u{2A086} \u{2A086}|\u{2A0CD} \u{2A0CD}|\u{2A0CF} \u{2A0CF}|\u{2A0D2} \u{2A0D2}|\u{2A0E7} \u{2A0E7}|\u{2A106} \u{2A106}|\u{2A115} \u{2A115}|\u{2A142} \u{2A142}|\u{2A1B7} \u{2A1B7}|\u{2A1F3} \u{2A1F3}|\u{2A23C} \u{2A23C}|\u{2A278} \u{2A278}|\u{2A2FF} \u{2A2FF}|\u{2A32D} \u{2A32D}|\u{2A360} \u{2A360}|\u{2A4F0} \u{2A4F0}|\u{2A535} \u{2A535}|\u{2A600} \u{2A600}|\u{2A62F} \u{2A62F}|\u{2A64F} \u{2A64F}|\u{2A7D6} \u{2A7D6}|\u{2ADD3} \u{2ADD3}|\u{2B4A1} \u{2B4A1}|\u{2B726} \u{2B726}|\u{30EDE} \u{30EDD}";
-
-// node_modules/opencc-js/dist/esm-lib/to/cn.js
-var cn_default = [[TSPhrases_default, TSCharacters_default]];
-
-// node_modules/opencc-js/dist/esm-lib/dict/TWVariantsPhrases.js
-var TWVariantsPhrases_default = "\u55AB\u8336\u5C0F\u8216 \u55AB\u8336\u5C0F\u8216|\u5F35\u68DF\u6A11 \u5F35\u68DF\u6A11|\u6797\u570B\u6A11 \u6797\u570B\u6A11|\u6797\u6770\u6A11 \u6797\u6770\u6A11|\u694A\u58EB\u6A11 \u694A\u58EB\u6A11|\u725B\u9A65\u540C\u4E00\u7681 \u725B\u9A65\u540C\u4E00\u7681|\u725B\u9A65\u540C\u7681 \u725B\u9A65\u540C\u7681|\u7D14\u55AB\u8336 \u7D14\u55AB\u8336|\u7F85\u8208\u6A11 \u7F85\u8208\u6A11|\u8449\u6B65\u6A11 \u8449\u6B65\u6A11|\u8523\u570B\u6A11 \u8523\u570B\u6A11|\u9EC3\u6771\u6A11 \u9EC3\u6771\u6A11";
-
-// node_modules/opencc-js/dist/esm-lib/dict/TWVariants.js
-var TWVariants_default = "\u50DE \u507D|\u5553 \u555F|\u55AB \u5403|\u5AFA \u5AFB|\u5B00 \u5AAF|\u5CEF \u5CF0|\u5E7A \u4E48|\u68F1 \u7A1C|\u6A11 \u6881|\u6A90 \u7C37|\u6C61 \u6C59|\u6CC4 \u6D29|\u6F59 \u6E88|\u6F68 \u6F40|\u7232 \u70BA|\u7240 \u5E8A|\u75F9 \u75FA|\u7661 \u75F4|\u7681 \u7682|\u7740 \u8457|\u777E \u776A|\u7955 \u79D8|\u7AC8 \u7076|\u7CC9 \u7CBD|\u7E6E \u97C1|\u7E94 \u624D|\u7FA3 \u7FA4|\u8123 \u5507|\u8518 \u53C3|\u853F \u848D|\u8846 \u773E|\u88CF \u88E1|\u8988 \u6838|\u8E0A \u8E34|\u9262 \u7F3D|\u937C \u91DD|\u9B8E \u9BF0|\u9EAA \u9EB5|\u9F76 \u984E";
-
-// node_modules/opencc-js/dist/esm-lib/to/tw.js
-var tw_default = [[TWVariantsPhrases_default, TWVariants_default]];
-
-// danmu_api/utils/zh-util.js
-var toSimplified = ConverterFactory(cn_default), toTraditional = ConverterFactory(
-  [STCharacters_default],
-  tw_default
-);
-function traditionalized(value) {
-  return toTraditional(value);
-}
-function simplized(value) {
-  return toSimplified(value);
-}
-function isNonChinese(value) {
-  return !/[\u4e00-\u9fff]/.test(value);
-}
-
-// danmu_api/utils/common-util.js
-function printFirst200Chars(data) {
-  let dataToPrint;
-  if (typeof data == "string")
-    dataToPrint = data;
-  else if (Array.isArray(data))
-    dataToPrint = JSON.stringify(data);
-  else if (typeof data == "object")
-    dataToPrint = JSON.stringify(data);
-  else {
-    log("error", "[system] [common] Unsupported data type");
-    return;
-  }
-  log("info", "[system] [common]", dataToPrint.slice(0, 200));
-}
-var extractEpisodeTitle = (title) => {
-  let match = title.match(/【(.*?)】/);
-  return match ? match[1] : null;
-}, extractAnimeTitle = (str) => str.split("(")[0].trim();
-function extractYear(animeTitle) {
-  let match = animeTitle.match(/\((\d{4})\)/);
-  return match ? parseInt(match[1]) : null;
-}
-function convertChineseNumber(chineseNumber) {
-  if (/^\d+$/.test(chineseNumber))
-    return Number(chineseNumber);
-  let digits = {
-    // 简体
-    \u96F6: 0,
-    \u4E00: 1,
-    \u4E8C: 2,
-    \u4E09: 3,
-    \u56DB: 4,
-    \u4E94: 5,
-    \u516D: 6,
-    \u4E03: 7,
-    \u516B: 8,
-    \u4E5D: 9,
-    // 繁体
-    \u58F9: 1,
-    \u8CB3: 2,
-    \u53C3: 3,
-    \u8086: 4,
-    \u4F0D: 5,
-    \u9678: 6,
-    \u67D2: 7,
-    \u634C: 8,
-    \u7396: 9
-  }, units = {
-    // 简体
-    \u5341: 10,
-    \u767E: 100,
-    \u5343: 1e3,
-    // 繁体
-    \u62FE: 10,
-    \u4F70: 100,
-    \u4EDF: 1e3
-  }, result = 0, current = 0, lastUnit = 1;
-  for (let i = 0; i < chineseNumber.length; i++) {
-    let char = chineseNumber[i];
-    if (digits[char] !== void 0)
-      current = digits[char];
-    else if (units[char] !== void 0) {
-      let unit = units[char];
-      current === 0 && (current = 1), unit >= lastUnit ? result = current * unit : result += current * unit, lastUnit = unit, current = 0;
-    }
-  }
-  return current > 0 && (result += current), result;
-}
-function sanitizeSearchKeyword(str) {
-  return str ? String(str).replace(/[\u200B-\u200F\uFEFF]/g, "").trim() : "";
-}
-function stripNonTitleChars(str) {
-  return str ? String(str).replace(/[^\u4e00-\u9fa5\u3400-\u4DBF\u{20000}-\u{2EE5F}\u{30000}-\u{323AF}\u3040-\u30ff\uFF65-\uFF9F\uAC00-\uD7AFa-zA-Z0-9\uFF10-\uFF19\uFF21-\uFF3A\uFF41-\uFF5A\u2160-\u217F\u0400-\u04FF\u00C0-\u024F\u0370-\u03FF]/gu, "") : "";
-}
-function normalizeTitleForMatch(str) {
-  return str ? stripNonTitleChars(simplized(String(str))) : "";
-}
-function strictTitleMatch(title, query) {
-  if (!title || !query) return !1;
-  let tagFilter = globals.titleNoiseFilter || null, cleanTitle = tagFilter ? title.replace(tagFilter, "").trim() : title, cleanQuery = tagFilter ? query.replace(tagFilter, "").trim() : query, t = normalizeTitleForMatch(cleanTitle), q = normalizeTitleForMatch(cleanQuery);
-  if (t === q) return !0;
-  if (t.startsWith(q) && t.length > q.length) {
-    let suffix = t.substring(q.length);
-    if (/^(?:[\dⅡⅢⅣⅤⅥⅦⅧⅨⅩ]|[sS]\d+|Season\s*\d+|Part\s*\d+|第\d+|[第]?\s*[零一二三四五六七八九十]+\s*[季期部]|年番|合集|部(?!分)|部分|篇|剧场|完结|最终)/.test(suffix)) return !0;
-  }
-  return !1;
-}
-function getExplicitSeasonNumber(text) {
-  if (!text) return null;
-  let match = text.match(/(?:第\s*([0-9一二三四五六七八九十百千万]+)\s*[季期部])|(?:S(?:eason)?\s*(\d+))|(?:Part\s*(\d+))/i);
-  if (match) {
-    let numStr = match[1] || match[2] || match[3];
-    if (numStr)
-      return convertChineseNumber(numStr);
-  }
-  return null;
-}
-function titleMatches(title, query, parsedSeason = null, forceNonStrict = !1, threshold = 0.8) {
-  if (title == null || query == null) return !1;
-  let titleText = String(title), queryText = String(query);
-  if (!titleText || !queryText) return !1;
-  if (!forceNonStrict && globals.strictTitleMatch) return strictTitleMatch(titleText, queryText);
-  let tagFilter = globals.titleNoiseFilter || null, cleanTitle = tagFilter ? titleText.replace(tagFilter, "").trim() : titleText, t = normalizeTitleForMatch(cleanTitle).toLowerCase(), qList = [normalizeTitleForMatch(queryText).toLowerCase()], querySeason = parsedSeason !== null ? parsedSeason : getExplicitSeasonNumber(queryText);
-  if (querySeason !== null && parsedSeason === null) {
-    let seasonStripped = queryText.replace(/(?:season|s|第)\s*[0-9一二三四五六七八九十]+\s*(?:季|期|部(?!分))?/gi, "").trim();
-    seasonStripped && seasonStripped !== queryText && (qList = [.../* @__PURE__ */ new Set([...qList, normalizeTitleForMatch(seasonStripped).toLowerCase()])]);
-  }
-  if (tagFilter) {
-    let tagStripped = queryText.replace(tagFilter, "").trim();
-    tagStripped && tagStripped !== queryText && (qList = [.../* @__PURE__ */ new Set([...qList, normalizeTitleForMatch(tagStripped).toLowerCase()])]);
-  }
-  if (querySeason !== null) {
-    let titleSeason = getExplicitSeasonNumber(titleText);
-    if (querySeason > 1) {
-      if (titleSeason !== null && titleSeason !== querySeason) return !1;
-    } else if (querySeason === 1 && titleSeason !== null && titleSeason !== 1)
-      return !1;
-  }
-  if (qList.some((kw) => t.includes(kw))) return !0;
-  let simMatch = qList.some((kw) => {
-    if (Math.abs(t.length - kw.length) > Math.max(t.length, kw.length) * 0.7 || /^[a-zA-Z0-9]+$/.test(kw))
-      return !1;
-    let matchCount = 0, tIndex = 0;
-    for (let char of kw) {
-      let foundIdx = t.indexOf(char, tIndex);
-      foundIdx !== -1 && (matchCount++, tIndex = foundIdx + 1);
-    }
-    return matchCount / kw.length > threshold;
-  });
-  if (!simMatch) {
-    let yearStripped = queryText.replace(/[\(\（]\s*(?:19|20)\d{2}\s*[\)\）]|\b(?:19|20)\d{2}\b/g, "").trim();
-    if (yearStripped && yearStripped !== queryText) {
-      let cleanYear = tagFilter ? yearStripped.replace(tagFilter, "").trim() : yearStripped, yearQ = normalizeTitleForMatch(cleanYear).toLowerCase(), titleHasYear = /[\(\（]\s*(?:19|20)\d{2}\s*[\)\）]|\b(?:19|20)\d{2}\b/.test(titleText);
-      if (yearQ && t.includes(yearQ) && !titleHasYear) return !0;
-    }
-  }
-  return simMatch;
-}
-function validateType(value, expectedType, fieldName) {
-  let label = fieldName || `${value}`, received = value === null ? "null" : Array.isArray(value) ? "array" : typeof value;
-  if (expectedType === "array") {
-    if (!Array.isArray(value))
-      throw new TypeError(`${label} \u5FC5\u987B\u662F\u4E00\u4E2A\u6570\u7EC4\uFF0C\u4F46\u4F20\u5165\u7684\u662F ${received}`);
-  } else if (expectedType === "boolean") {
-    if (typeof value != "boolean" && typeof value != "number")
-      throw new TypeError(`${label} \u5FC5\u987B\u662F boolean \u6216 number\uFF0C\u4F46\u4F20\u5165\u7684\u662F ${received}`);
-  } else if (typeof value !== expectedType)
-    throw new TypeError(`${label} \u5FC5\u987B\u662F ${expectedType}\uFF0C\u4F46\u4F20\u5165\u7684\u662F ${received}`);
-}
-function extractSeasonNumberFromAnimeTitle(animeTitle) {
-  if (!animeTitle) return { season: null, baseTitle: null, fullTitle: null };
-  let match = animeTitle.match(/^(.*?)\(\d{4}\)/), rawTitleWithoutYear = match ? match[1].trim() : animeTitle.split("(")[0].trim(), titleWithoutYear = stripNonTitleChars(rawTitleWithoutYear), explicitSeasonMatch = titleWithoutYear.match(/第\s*([0-9一二三四五六七八九十壹贰叁肆伍陆柒捌玖拾]+)\s*[季期部]/);
-  if (explicitSeasonMatch)
-    return {
-      season: convertChineseNumber(explicitSeasonMatch[1]),
-      baseTitle: titleWithoutYear.replace(explicitSeasonMatch[0], "").trim(),
-      fullTitle: titleWithoutYear
-    };
-  let seasonMatch = titleWithoutYear.match(/(?:S(?:eason)?|Season)\s*(\d+)/i);
-  if (seasonMatch)
-    return {
-      season: parseInt(seasonMatch[1], 10),
-      baseTitle: titleWithoutYear.replace(seasonMatch[0], "").trim(),
-      fullTitle: titleWithoutYear
-    };
-  let partMatch = titleWithoutYear.match(/Part\s*(\d+)/i);
-  if (partMatch)
-    return {
-      season: parseInt(partMatch[1], 10),
-      baseTitle: titleWithoutYear.replace(partMatch[0], "").trim(),
-      fullTitle: titleWithoutYear
-    };
-  let trailingNumber = titleWithoutYear.match(/(?:^|\s|[^\d])(\d{1,2})$/);
-  if (trailingNumber) {
-    let season = parseInt(trailingNumber[1], 10);
-    return season === 0 ? { season: null, baseTitle: titleWithoutYear, fullTitle: titleWithoutYear } : {
-      season,
-      baseTitle: titleWithoutYear.slice(0, titleWithoutYear.lastIndexOf(trailingNumber[1])).trim(),
-      fullTitle: titleWithoutYear
-    };
-  }
-  let trailingChinese = titleWithoutYear.match(/([一二三四五六七八九十壹贰叁肆伍陆柒捌玖拾]+)$/);
-  if (trailingChinese)
-    return {
-      season: convertChineseNumber(trailingChinese[1]),
-      baseTitle: titleWithoutYear.replace(trailingChinese[0], "").trim(),
-      fullTitle: titleWithoutYear
-    };
-  let romanMatch = titleWithoutYear.match(/[\u2160-\u216B]/);
-  return romanMatch ? {
-    season: romanMatch[0].codePointAt(0) - 8544 + 1,
-    baseTitle: titleWithoutYear.replace(romanMatch[0], "").trim(),
-    fullTitle: titleWithoutYear
-  } : { season: null, baseTitle: titleWithoutYear, fullTitle: titleWithoutYear };
-}
-function extractEpisodeNumberFromTitle(episodeTitle) {
-  if (!episodeTitle) return null;
-  let chineseMatch = episodeTitle.match(/第(\d+)[集话回]/);
-  if (chineseMatch)
-    return parseInt(chineseMatch[1], 10);
-  let epMatch = episodeTitle.match(/[Ee][Pp]?(\d+)/);
-  if (epMatch)
-    return parseInt(epMatch[1], 10);
-  let numberMatch = episodeTitle.match(/(?:^|\s)(\d+)(?:\s|$)/);
-  return numberMatch ? parseInt(numberMatch[1], 10) : null;
-}
-function extractAnimeInfo(animeTitle, episodeTitle) {
-  let { season, baseTitle, fullTitle } = extractSeasonNumberFromAnimeTitle(animeTitle), episode = extractEpisodeNumberFromTitle(episodeTitle);
-  return { baseTitle, fullTitle, season, episode };
-}
-
-// danmu_api/utils/offset-util.js
-var SOURCE_ALIASES = {
-  tencent: "qq",
-  iqiyi: "qiyi",
-  bilibili: "bilibili1"
-};
-function normalizeSegment(segment) {
-  let seasonMatch = segment.match(/^S(\d+)$/i);
-  if (seasonMatch) return `S${String(parseInt(seasonMatch[1])).padStart(2, "0")}`;
-  let episodeMatch = segment.match(/^E(\d+)$/i);
-  return episodeMatch ? `E${String(parseInt(episodeMatch[1])).padStart(2, "0")}` : segment;
-}
-function parseOffsetRules(env) {
-  return !env || typeof env != "string" ? [] : env.split(",").map((entry) => {
-    let trimmed = entry.trim(), colonIdx = trimmed.lastIndexOf(":");
-    if (colonIdx === -1) return null;
-    let rawPath = trimmed.substring(0, colonIdx), offsetStr = trimmed.substring(colonIdx + 1);
-    if (!rawPath || offsetStr === "") return null;
-    let offset = parseFloat(offsetStr);
-    if (!Number.isFinite(offset)) return null;
-    let usePercent = !1, normalizedPath = rawPath.trim();
-    normalizedPath.endsWith("%") && (usePercent = !0, normalizedPath = normalizedPath.slice(0, -1).trim());
-    let atIdx = normalizedPath.lastIndexOf("@"), pathPart, sources, all;
-    if (atIdx !== -1) {
-      pathPart = normalizedPath.substring(0, atIdx);
-      let sourcePart = normalizedPath.substring(atIdx + 1).trim().toLowerCase();
-      if (sourcePart === "all" || sourcePart === "*")
-        sources = null, all = !0;
-      else if (sources = sourcePart.split("&").map((s) => s.trim()).filter(Boolean), all = !1, sources.length === 0) return null;
-    } else
-      pathPart = normalizedPath, sources = null, all = !1;
-    let seMatch = pathPart.match(/^(.*?)\/([SE]\d+)(?:\/([SE]\d+))?$/i), anime = seMatch ? seMatch[1].trim() : pathPart.trim();
-    if (!anime) return null;
-    let season = seMatch ? normalizeSegment(seMatch[2]) : null, episode = seMatch && seMatch[3] ? normalizeSegment(seMatch[3]) : null;
-    return { anime, season, episode, sources, all, offset, usePercent, raw: trimmed };
-  }).filter(Boolean);
-}
-function resolveOffsetRule(rules, { anime, fullTitle, season, episode, source }) {
-  if (!Array.isArray(rules) || rules.length === 0 || !anime) return null;
-  let animeKey = normalizeTitleForMatch(anime), fullTitleKey = fullTitle ? normalizeTitleForMatch(fullTitle) : "", sourceKeys = /* @__PURE__ */ new Set();
-  if (source)
-    for (let s of source.split("&")) {
-      let trimmed = s.trim().toLowerCase();
-      trimmed && (sourceKeys.add(trimmed), SOURCE_ALIASES[trimmed] && sourceKeys.add(SOURCE_ALIASES[trimmed]));
-    }
-  let levels = [
-    { matchSeason: !0, matchEpisode: !0 },
-    // 集级
-    { matchSeason: !0, matchEpisode: !1 },
-    // 季级
-    { matchSeason: !1, matchEpisode: !1 }
-    // 剧级
-  ];
-  for (let level of levels) {
-    let specificMatch = null, allMatch = null, genericMatch = null;
-    for (let rule of rules) {
-      let ruleTitle = normalizeTitleForMatch(rule.anime);
-      if (!(ruleTitle !== animeKey && !(fullTitleKey && ruleTitle === fullTitleKey))) {
-        if (level.matchEpisode) {
-          if (!rule.season || !rule.episode || rule.season !== season || rule.episode !== episode) continue;
-        } else if (level.matchSeason) {
-          if (!rule.season || rule.episode || rule.season !== season) continue;
-        } else if (rule.season || rule.episode) continue;
-        rule.sources ? sourceKeys.size > 0 && rule.sources.some((s) => sourceKeys.has(s)) && (specificMatch = rule) : rule.all ? allMatch = rule : genericMatch = rule;
-      }
-    }
-    if (specificMatch !== null) return specificMatch;
-    if (allMatch !== null) return allMatch;
-    if (genericMatch !== null) return genericMatch;
-  }
-  return null;
-}
-function applyOffset(danmus, offsetSeconds, options = {}) {
-  let offset = Number(offsetSeconds);
-  if (!offset || !Array.isArray(danmus) || danmus.length === 0) return danmus;
-  let usePercent = options?.usePercent === !0, videoDuration = Number(options?.videoDuration || 0), getDanmuTimeSeconds = (danmu) => {
-    if (!danmu || typeof danmu != "object") return null;
-    if (typeof danmu.p == "string") {
-      let parts = danmu.p.split(","), time = parseFloat(parts[0]);
-      if (Number.isFinite(time)) return time;
-    }
-    if (danmu.t !== void 0 && danmu.t !== null) {
-      let time = Number(danmu.t);
-      if (Number.isFinite(time)) return time;
-    }
-    if (danmu.progress !== void 0 && danmu.progress !== null) {
-      let time = Number(danmu.progress);
-      if (Number.isFinite(time)) return time / 1e3;
-    }
-    if (danmu.timepoint !== void 0 && danmu.timepoint !== null) {
-      let time = Number(danmu.timepoint);
-      if (Number.isFinite(time)) return time;
-    }
-    return null;
-  }, fallbackDuration = videoDuration > 0 ? videoDuration : getDanmuTimeSeconds(danmus[danmus.length - 1]) || 0, scaleRatio = usePercent && Number.isFinite(fallbackDuration) && fallbackDuration > 0 ? (fallbackDuration + offset) / fallbackDuration : null;
-  if (usePercent && scaleRatio === null) return danmus;
-  let offsetMs = offset * 1e3, clamp = (v) => Math.max(0, v), roundTo = (value, digits = 2) => Number(value.toFixed(digits)), transformSeconds = (time) => {
-    let value = clamp(scaleRatio !== null ? time * scaleRatio : time + offset);
-    return scaleRatio !== null ? roundTo(value, 2) : value;
-  }, transformMilliseconds = (time) => {
-    let value = clamp(scaleRatio !== null ? time * scaleRatio : time + offsetMs);
-    return scaleRatio !== null ? Math.round(value) : value;
-  };
-  return danmus.map((danmu) => {
-    if (!danmu || typeof danmu != "object") return danmu;
-    let updated = { ...danmu };
-    if (typeof updated.p == "string") {
-      let parts = updated.p.split(","), time = parseFloat(parts[0]);
-      Number.isFinite(time) && (parts[0] = transformSeconds(time).toFixed(2), updated.p = parts.join(","));
-    }
-    if (updated.t !== void 0 && updated.t !== null) {
-      let t = Number(updated.t);
-      Number.isFinite(t) && (updated.t = transformSeconds(t));
-    }
-    if (updated.progress !== void 0 && updated.progress !== null) {
-      let p = Number(updated.progress);
-      Number.isFinite(p) && (updated.progress = transformMilliseconds(p));
-    }
-    if (updated.timepoint !== void 0 && updated.timepoint !== null) {
-      let tp = Number(updated.timepoint);
-      Number.isFinite(tp) && (updated.timepoint = transformSeconds(tp));
-    }
-    return updated;
-  });
-}
-function offsetDuration(duration, offset, usePercent) {
-  return !(duration > 0) || !offset ? duration : applyOffset([{ t: duration }], offset, { usePercent, videoDuration: duration })[0].t;
-}
-function stripLinkOffset(rawUrl) {
-  let url = String(rawUrl ?? ""), percentMatch = url.match(/@%(-?\d+(?:\.\d+)?)$/);
-  if (percentMatch)
-    return { cleanUrl: url.substring(0, url.length - percentMatch[0].length), offset: parseFloat(percentMatch[1]), percent: !0 };
-  let offsetMatch = url.match(/@(-?\d+(?:\.\d+)?)$/);
-  return offsetMatch ? { cleanUrl: url.substring(0, url.length - offsetMatch[0].length), offset: parseFloat(offsetMatch[1]), percent: !1 } : { cleanUrl: url, offset: 0, percent: !1 };
-}
-
-// danmu_api/utils/auto-match-mapping-util.js
-var NON_RULE_TITLE_CHARACTERS = (() => {
-  try {
-    return new RegExp("[^\\p{L}\\p{N}]", "gu");
-  } catch {
-    return /[^0-9A-Za-z\u00C0-\u00D6\u00D8-\u00F6\u00F8-\u02FF\u0370-\u052F\u05D0-\u05EA\u05EF-\u05F2\u0620-\u063F\u0640-\u064A\u0660-\u0669\u0671-\u06D3\u06D5\u06EE-\u06FC\u06FF\u1100-\u11FF\u3005-\u3007\u3031-\u3035\u3038-\u303B\u3041-\u3096\u309D-\u309F\u30A1-\u30FA\u30FC-\u30FF\u3105-\u312F\u3131-\u318E\u31A0-\u31BF\u31F0-\u31FF\u3400-\u4DBF\u4E00-\u9FFF\uA960-\uA97F\uAC00-\uD7A3\uD7B0-\uD7FF\uF900-\uFAFF]/g;
-  }
-})();
-function normalizeRuleTitle(value) {
-  return String(value || "").normalize("NFKC").replace(NON_RULE_TITLE_CHARACTERS, "").toLowerCase();
-}
-function parseEpisodeSide(value, { allowPlatform = !1, allowSeasonZero = !1 } = {}) {
-  let text = String(value || "").trim(), platform = "";
-  if (allowPlatform) {
-    let platformMatch = text.match(/\s+@([a-zA-Z0-9_-]+)\s*$/);
-    platformMatch && (platform = platformMatch[1].toLowerCase(), text = text.slice(0, platformMatch.index).trim());
-  }
-  let match = text.match(/^(.+?)\s+S(\d+)E(\d+)(?:~E?(\d+))?\s*$/i);
-  if (!match) return null;
-  let title = match[1].trim(), season = Number(match[2]), startEpisode = Number(match[3]), endEpisode = match[4] === void 0 ? null : Number(match[4]);
-  return !title || season < (allowSeasonZero ? 0 : 1) || startEpisode < 1 || endEpisode !== null && endEpisode < startEpisode ? null : { title, season, startEpisode, endEpisode, platform };
-}
-function parseTargetTitle(value) {
-  let displayTitle = String(value || "").trim(), yearMatch = displayTitle.match(/[（(]((?:19|20)\d{2})[)）]/), typeMatches = [...displayTitle.matchAll(/【([^】]+)】/g)], mediaType = typeMatches.length > 0 ? typeMatches[typeMatches.length - 1][1].trim() : "";
-  return {
-    title: displayTitle.replace(/[（(](?:19|20)\d{2}[)）]/g, "").replace(/【[^】]+】/g, "").trim(),
-    displayTitle,
-    year: yearMatch ? Number(yearMatch[1]) : null,
-    mediaType
-  };
-}
-function parseAutoMatchMappingRules(value, allowedPlatforms = []) {
-  let rules = [], warnings = [], allowed = new Set((allowedPlatforms || []).map((item) => String(item).toLowerCase()));
-  for (let [index, rawRule] of String(value || "").split(";").entries()) {
-    let text = rawRule.trim();
-    if (!text) continue;
-    let arrowIndex = text.indexOf("->");
-    if (arrowIndex === -1 || text.indexOf("->", arrowIndex + 2) !== -1) {
-      warnings.push(`\u89C4\u5219 ${index + 1} \u7F3A\u5C11\u552F\u4E00\u7684 -> \u5206\u9694\u7B26: ${text}`);
-      continue;
-    }
-    let source = parseEpisodeSide(text.slice(0, arrowIndex), { allowSeasonZero: !0 }), targetSide = parseEpisodeSide(text.slice(arrowIndex + 2), { allowPlatform: !0 });
-    if (!source || !targetSide) {
-      warnings.push(`\u89C4\u5219 ${index + 1} \u7684\u5B63\u96C6\u683C\u5F0F\u65E0\u6548: ${text}`);
-      continue;
-    }
-    let bounded = source.endEpisode !== null;
-    if (bounded !== (targetSide.endEpisode !== null)) {
-      warnings.push(`\u89C4\u5219 ${index + 1} \u7684\u6E90\u548C\u76EE\u6807\u5FC5\u987B\u540C\u65F6\u58F0\u660E\u8303\u56F4: ${text}`);
-      continue;
-    }
-    if (bounded && source.endEpisode - source.startEpisode !== targetSide.endEpisode - targetSide.startEpisode) {
-      warnings.push(`\u89C4\u5219 ${index + 1} \u7684\u6E90\u548C\u76EE\u6807\u8303\u56F4\u957F\u5EA6\u4E0D\u4E00\u81F4: ${text}`);
-      continue;
-    }
-    if (targetSide.platform && allowed.size > 0 && !allowed.has(targetSide.platform)) {
-      warnings.push(`\u89C4\u5219 ${index + 1} \u4F7F\u7528\u4E86\u4E0D\u652F\u6301\u7684\u5E73\u53F0 ${targetSide.platform}: ${text}`);
-      continue;
-    }
-    let targetTitle = parseTargetTitle(targetSide.title);
-    if (!targetTitle.title) {
-      warnings.push(`\u89C4\u5219 ${index + 1} \u7684\u76EE\u6807\u6807\u9898\u4E3A\u7A7A: ${text}`);
-      continue;
-    }
-    rules.push({
-      order: index,
-      raw: text,
-      bounded,
-      sourceTitle: source.title,
-      sourceTitleKey: normalizeRuleTitle(source.title),
-      sourceSeason: source.season,
-      sourceStartEpisode: source.startEpisode,
-      sourceEndEpisode: source.endEpisode,
-      targetTitle: targetTitle.title,
-      targetDisplayTitle: targetTitle.displayTitle,
-      targetYear: targetTitle.year,
-      targetType: targetTitle.mediaType,
-      targetSeason: targetSide.season,
-      targetStartEpisode: targetSide.startEpisode,
-      targetEndEpisode: targetSide.endEpisode,
-      targetPlatform: targetSide.platform
-    });
-  }
-  return { rules, warnings };
-}
-
-// danmu_api/configs/envs.js
-var _Envs = class _Envs {
-  /**
-   * 获取环境变量
-   * @param {string} key 环境变量的键
-   * @param {any} defaultValue 默认值
-   * @param {'string' | 'number' | 'boolean'} type 类型
-   * @param {boolean} [encrypt] 是否按加密变量读取，其值按掩码写入预览集合
-   * @returns {any} 转换后的值
-   */
-  static get(key, defaultValue, type = "string", encrypt = !1) {
-    if (encrypt && _Envs.sensitiveKeys.add(key), type === "string" && _Envs.RAW_ENV_KEYS.has(key))
-      return this.getRawEnv(key, defaultValue, encrypt);
-    let value;
-    typeof this.env < "u" && this.env[key] ? (value = this.env[key], this.originalEnvVars.set(key, value)) : typeof process < "u" && process.env?.[key] ? (value = process.env[key], this.originalEnvVars.set(key, value)) : (value = defaultValue, this.originalEnvVars.set(key, ""));
-    let parsedValue;
-    switch (type) {
-      case "number":
-        if (parsedValue = Number(value), isNaN(parsedValue))
-          throw new Error(`Environment variable ${key} must be a valid number`);
-        break;
-      case "boolean":
-        parsedValue = value === !0 || value === "true" || value === 1 || value === "1";
-        break;
-      case "string":
-      default:
-        parsedValue = String(value);
-        break;
-    }
-    let finalValue = encrypt ? this.encryptStr(parsedValue) : parsedValue;
-    return this.accessedEnvVars.set(key, finalValue), parsedValue;
-  }
-  /**
-   * 设置环境变量
-   * @param {string} key 环境变量的键
-   * @param {any} value 值
-   */
-  static set(key, value) {
-    typeof process < "u" && (process.env[key] = String(value)), this.accessedEnvVars.set(key, value);
-  }
-  /**
-   * 基础加密函数 - 将字符串转换为星号
-   * @param {string} str 输入字符串
-   * @returns {string} 星号字符串
-   */
-  static encryptStr(str) {
-    return "*".repeat(str.length);
-  }
-  /**
-   * 解析 .env 原始内容：跳过整行 # 注释、保留行内 #，并剥除整体双引号包裹（与 node-handler 引号写入一致）。
-   * @param {string} text .env 文件原始内容
-   * @returns {Object} 键值映射
-   */
-  static parseRawEnvText(text) {
-    let result = {};
-    if (typeof text != "string") return result;
-    let lines = text.split(/\r?\n/);
-    for (let line of lines) {
-      let trimmed = line.trim();
-      if (!trimmed || trimmed.startsWith("#")) continue;
-      let eq = trimmed.indexOf("=");
-      if (eq === -1) continue;
-      let key = trimmed.slice(0, eq).trim();
-      if (!key) continue;
-      let value = trimmed.slice(eq + 1).trim();
-      value.length >= 2 && value.startsWith('"') && value.endsWith('"') && (value = value.slice(1, -1)), result[key] = value;
-    }
-    return result;
-  }
-  /**
-   * 读取文本类变量，绕过 dotenv 截断保留 #：系统环境变量 > .env 原始值 > 默认值；非 Node 部署退化为普通取值。
-   * @param {string} key 环境变量键
-   * @param {string} defaultValue 默认值
-   * @param {boolean} encrypt 是否按掩码写入预览集合
-   * @returns {string} 原始值（含 #）
-   */
-  static getRawEnv(key, defaultValue = "", encrypt = !1) {
-    let finalize = (v) => (this.originalEnvVars.set(key, v), this.accessedEnvVars.set(key, encrypt ? this.encryptStr(v) : v), v);
-    return _Envs.systemEnvBackup ? Object.prototype.hasOwnProperty.call(_Envs.systemEnvBackup, key) ? finalize(_Envs.systemEnvBackup[key]) : _Envs.rawEnvValues && Object.prototype.hasOwnProperty.call(_Envs.rawEnvValues, key) ? finalize(_Envs.rawEnvValues[key]) : typeof process < "u" && process.env?.[key] ? finalize(process.env[key]) : finalize(defaultValue) : this.env && this.env[key] ? finalize(this.env[key]) : typeof process < "u" && process.env?.[key] ? finalize(process.env[key]) : finalize(defaultValue);
-  }
-  /**
-   * 解析 VOD 服务器配置
-   * @returns {Array} 服务器列表
-   */
-  static resolveVodServers() {
-    let vodServersConfig = this.get("VOD_SERVERS", "", "string");
-    return !vodServersConfig || vodServersConfig.trim() === "" ? [] : vodServersConfig.split(",").map((s) => s.trim()).filter((s) => s.length > 0).map((item, index) => {
-      if (item.includes("@")) {
-        let [name, url] = item.split("@").map((s) => s.trim());
-        return { name: name || `vod-${index + 1}`, url };
-      }
-      return { name: `vod-${index + 1}`, url: item };
-    }).filter((server) => server.url && server.url.length > 0);
-  }
-  /**
-   * 解析源排序
-   * @returns {Array} 源排序数组
-   */
-  static resolveSourceOrder() {
-    let orderArr = this.get("SOURCE_ORDER", "douban,360,renren,hanjutv", "string").split(",").map((s) => s.trim()).filter((s) => this.ALLOWED_SOURCES.includes(s));
-    return this.accessedEnvVars.set("SOURCE_ORDER", orderArr), orderArr.length > 0 ? orderArr : ["douban", "360", "renren", "hanjutv"];
-  }
-  /**
-   * 解析平台排序
-   * 支持单个平台或通过&连接的组合平台（如 bilibili1&dandan）
-   * @returns {Array} 平台排序数组
-   */
-  static resolvePlatformOrder() {
-    let orderArr = this.get("PLATFORM_ORDER", "", "string").split(",").map((s) => s.trim()).filter((item) => item ? item.includes("&") ? item.split("&").map((p) => p.trim()).every((p) => this.ALLOWED_PLATFORMS.includes(p)) : this.ALLOWED_PLATFORMS.includes(item) : !1);
-    return this.accessedEnvVars.set("PLATFORM_ORDER", orderArr), orderArr.length > 0 ? [...orderArr, null] : [null];
-  }
-  /**
-   * 解析源合并配置
-   * 从环境变量 MERGE_SOURCE_PAIRS 获取配置
-   * 支持使用分号或逗号分隔多组配置
-   * 支持一主多从配置，第一个为主源，后续为副源
-   * 允许单源配置（用于保留特定源的原始结果，不被合并消耗）
-   * 格式示例: dandan&bahamut&animeko,renren&hanjutv,renren
-   * @returns {Array} 合并配置数组 [{primary: 'dandan', secondaries: ['bahamut', 'animeko']}, {primary: 'renren', secondaries: ['hanjutv']}, {primary: 'renren', secondaries: []}]
-   */
-  static resolveMergeSourcePairs() {
-    let config = this.get("MERGE_SOURCE_PAIRS", "", "string");
-    return config ? config.split(/[,;]/).map((group) => {
-      if (!group) return null;
-      let parts = group.split("&").map((s) => s.trim()).filter((s) => s);
-      if (parts.length < 1) return null;
-      let primary = parts[0], secondaries = parts.slice(1);
-      if (!this.MERGE_ALLOWED_SOURCES.includes(primary)) return null;
-      let validSecondaries = secondaries.filter(
-        (sec) => sec !== primary && this.MERGE_ALLOWED_SOURCES.includes(sec)
-      );
-      return { primary, secondaries: validSecondaries };
-    }).filter(Boolean) : [];
-  }
-  /**
-   * 解析合并映射表
-   * 用于解析用户自定义的剧集/季度级别合并与乱序重排规则，以及阻断特定合并。
-   * 支持从全局强制合并到精确单集的路由干预，解决跨源集数错位问题。
-   * 格式: 
-   * 合并: 副源实体 -> 主源实体 | 路由规则
-   * 阻断: 副源实体 × 主源实体
-   * @returns {Array} 解析后的规则对象列表
-   */
-  static resolveCustomMergeRules() {
-    let raw = this.get("CUSTOM_MERGE_RULES", "", "string").trim();
-    if (!raw) return [];
-    let rules = [], ruleStrs = raw.split(";");
-    for (let rStr of ruleStrs)
-      if (rStr.trim())
-        try {
-          let parts = rStr.split("|"), entities = parts[0], routesStr = parts[1] || "", secStr, primStr, action = "merge";
-          if (entities.includes("->"))
-            [secStr, primStr] = entities.split("->").map((s) => s.trim());
-          else if (entities.includes("\xD7"))
-            [secStr, primStr] = entities.split("\xD7").map((s) => s.trim()), action = "block";
-          else
-            continue;
-          if (!secStr || !primStr) continue;
-          let parseEntity = (str) => {
-            let match = str.match(/^(.+?)(?:\/S(\d+))?@([a-zA-Z0-9_&]+)$/i);
-            return match ? {
-              title: match[1].trim(),
-              season: match[2] ? parseInt(match[2], 10) : null,
-              source: match[3].toLowerCase()
-            } : null;
-          }, secEntity = parseEntity(secStr), primEntity = parseEntity(primStr);
-          if (!secEntity || !primEntity) continue;
-          let routes = [], hasRoutes = !1;
-          if (action === "merge" && routesStr.trim()) {
-            hasRoutes = !0;
-            let routeParts = routesStr.split(",");
-            for (let rp of routeParts) {
-              if (!rp.trim()) continue;
-              let [sPart, pPart] = rp.split(">").map((s) => s.trim());
-              if (!sPart || !pPart) continue;
-              let parseRange = (r) => {
-                let match = r.match(/^E(\d+)(?:~E(\d+))?$/i);
-                return match ? {
-                  start: parseInt(match[1], 10),
-                  end: match[2] ? parseInt(match[2], 10) : parseInt(match[1], 10)
-                } : null;
-              }, sRange = parseRange(sPart), pRange = parseRange(pPart);
-              sRange && pRange && routes.push({ sec: sRange, prim: pRange });
-            }
-          }
-          rules.push({ action, secondary: secEntity, primary: primEntity, routes, hasRoutes });
-        } catch (e) {
-          console.warn(`[Envs] \u89E3\u6790\u5408\u5E76\u6620\u5C04\u8868\u89C4\u5219\u5931\u8D25: ${rStr}`, e);
-        }
-    return rules;
-  }
-  /**
-   * 解析剧集标题过滤正则
-   * @description 过滤非正片内容，同时内置白名单防止误杀正片
-   * @returns {RegExp} 过滤正则表达式
-   */
-  static resolveEpisodeTitleFilter() {
-    let defaultFilter = (
-      // [1] 基础物料与口语词防御，保护: 企划书, 预告犯, 被抢先了, 抢先一步, 化学反应, 一直拍, 单纯享
-      "(\u7279\u522B|\u60CA\u559C|\u7EB3\u51C9)?\u4F01\u5212(?!(\u4E66|\u6848|\u90E8))|\u5408\u4F19\u4EBA\u624B\u8BB0|\u8D85\u524D(\u8425\u4E1A|vlog)?|\u901F\u89C8|vlog|(?<!(Chain|Chemical|Nuclear|\u8FDE\u9501|\u5316\u5B66|\u6838|\u751F\u5316|\u751F\u7406|\u5E94\u6FC0))reaction|(?<!(\u5355))\u7EAF\u4EAB|\u52A0\u66F4(\u7248|\u7BC7)?|\u62A2\u5148(\u770B|\u7248|\u96C6|\u7BC7)?|(?<!(\u88AB|\u4E89|\u8C01))\u62A2[\u5148\u9C9C](?!(\u4E00\u6B65|\u624B|\u653B|\u4E86|\u544A|\u8A00|\u673A|\u8BDD))|\u62A2\u9C9C|\u9884\u544A(?!(\u51FD|\u4FE1|\u4E66|\u72AF))|(?<!(\u6B7B\u4EA1|\u6050\u6016|\u7075\u5F02|\u602A\u8C08))\u82B1\u7D6E(\u72EC\u5BB6)?|(?<!(\u4E00|\u76F4))\u76F4\u62CD|(\u5236\u4F5C|\u62CD\u6444|\u5E55\u540E|\u82B1\u7D6E|\u672A\u64AD|\u72EC\u5BB6|\u6F14\u5458|\u5BFC\u6F14|\u4E3B\u521B|\u6740\u9752|\u63A2\u73ED|\u6536\u5B98|\u5F00\u64AD|\u5148\u5BFC|\u5F69\u86CB|NG|\u56DE\u987E|\u9AD8\u5149|\u4E2A\u4EBA|\u4E3B\u521B)\u7279\u8F91|(?<!(\u884C\u52A8|\u8BA1\u5212|\u6E38\u620F|\u4EFB\u52A1|\u5371\u673A|\u795E\u79D8|\u9EC4\u91D1))\u5F69\u86CB|(?<!(\u5ACC\u7591\u4EBA|\u8BC1\u4EBA|\u5BB6\u5C5E|\u5F8B\u5E08|\u8B66\u65B9|\u51F6\u624B|\u6B7B\u8005))\u4E13\u8BBF|(?<!(\u8BC1\u4EBA))\u91C7\u8BBF(?!(\u5438\u8840\u9B3C|\u9B3C))|(\u6B63\u5F0F|\u89D2\u8272|\u5148\u5BFC|\u6982\u5FF5|\u9996\u66DD|\u5B9A\u6863|\u5267\u60C5|\u52A8\u753B|\u5BA3\u4F20|\u4E3B\u9898\u66F2|\u5370\u8C61)[\\s\\.]*[Pp\uFF30\uFF50][Vv\uFF36\uFF56]|(?<!(\u9E26|\u96EA|\u7EB8|\u76F8|\u7167|\u56FE|\u540D|\u5927))\u7247\u82B1|(?<!(\u9000\u5C45|\u56DE\u5F52|\u8D70\u5411|\u8F6C\u6218|\u9690\u8EAB|\u85CF\u8EAB|\u7684))\u5E55\u540E(?!(\u4E3B\u8C0B|\u4E3B\u4F7F|\u9ED1\u624B|\u771F\u51F6|\u73A9\u5BB6|\u8001\u677F|\u91D1\u4E3B|\u82F1\u96C4|\u529F\u81E3|\u63A8\u624B|\u5927\u4F6C|\u64CD\u7EB5|\u4EA4\u6613|\u7B56\u5212|\u535A\u5F08|BOSS|\u771F\u76F8))(\u6545\u4E8B|\u82B1\u7D6E|\u72EC\u5BB6)?|\u884D\u751F(?!(\u54C1|\u7269|\u517D))|\u756A\u5916(?!(\u5730|\u4EBA))|\u76F4\u64AD(\u966A\u770B|\u56DE\u987E)|\u672A\u64AD(\u7247\u6BB5)?|\u4F1A\u5458(\u4E13\u4EAB|\u52A0\u957F|\u5C0A\u4EAB|\u4E13\u5C5E|\u7248)?|(?<!(\u63D0\u53D6|\u5438\u6536|\u751F\u547D|\u9B54\u6CD5|\u4FEE\u62A4|\u7F8E\u767D))\u7CBE\u534E|\u770B\u70B9|\u901F\u770B|\u89E3\u8BFB(?!.*(\u5BC6\u6587|\u5BC6\u7801|\u5BC6\u7535|\u7535\u62A5|\u6863\u6848|\u4E66\u4FE1|\u9057\u4E66|\u7891\u6587|\u4EE3\u7801|\u4FE1\u53F7|\u6697\u53F7|\u8BAF\u606F|\u8C1C\u9898|\u4EBA\u5FC3|\u5507\u8BED|\u771F\u76F8|\u8C1C\u56E2|\u68A6\u5883))|(?<!(\u6848\u60C5|\u4EBA\u751F|\u6B7B\u524D|\u5386\u53F2|\u4E16\u7EAA))\u56DE\u987E|\u5F71\u8BC4|\u89E3\u8BF4|(?<!(\u66F4|\u4F1A|\u80FD|\u6765|\u7684|\u6BD4|\u9002\u5408|\u64C5\u957F|\u6BD4\u8D77))\u5410\u69FD(?!.*(\u827A\u4EBA|\u5F79|\u5927\u4F1A|\u62C5\u5F53))|(?<!(\u5E74\u7EC8|\u5B63\u5EA6|\u5E93\u5B58|\u8D44\u4EA7|\u7269\u8D44|\u8D22\u52A1|\u6536\u83B7|\u6218\u5229))\u76D8\u70B9|\u62CD\u6444\u82B1\u7D6E|\u5236\u4F5C\u82B1\u7D6E|\u5E55\u540E\u82B1\u7D6E|\u672A\u64AD\u82B1\u7D6E|\u72EC\u5BB6\u82B1\u7D6E|\u82B1\u7D6E\u7279\u8F91|\u5148\u5BFC\u9884\u544A|\u7EC8\u6781\u9884\u544A|\u6B63\u5F0F\u9884\u544A|\u5B98\u65B9\u9884\u544A|\u5F69\u86CB\u7247\u6BB5|\u5220\u51CF\u7247\u6BB5|\u672A\u64AD\u7247\u6BB5|\u756A\u5916\u5F69\u86CB|\u7CBE\u5F69\u7247\u6BB5|\u7CBE\u5F69\u770B\u70B9|\u7CBE\u5F69\u96C6\u9526|\u770B\u70B9\u89E3\u6790|\u770B\u70B9\u9884\u544A|NG\u955C\u5934|NG\u82B1\u7D6E|\u756A\u5916\u7BC7|\u756A\u5916\u7279\u8F91|\u5236\u4F5C\u7279\u8F91|\u62CD\u6444\u7279\u8F91|\u5E55\u540E\u7279\u8F91|\u5BFC\u6F14\u7279\u8F91|\u6F14\u5458\u7279\u8F91|\u7247\u5C3E\u66F2|(?<!(\u751F\u547D|\u751F\u6D3B|\u60C5\u611F|\u7231\u60C5|\u4E00\u6BB5|\u5C0F|\u610F\u5916))\u63D2\u66F2|\u9AD8\u5149\u56DE\u987E|\u80CC\u666F\u97F3\u4E50|OST|\u97F3\u4E50MV|\u6B4C\u66F2MV|\u524D\u5B63\u56DE\u987E|\u5267\u60C5\u56DE\u987E|\u5F80\u671F\u56DE\u987E|\u5185\u5BB9\u603B\u7ED3|\u5267\u60C5\u76D8\u70B9|\u7CBE\u9009\u5408\u96C6|\u526A\u8F91\u5408\u96C6|\u6DF7\u526A\u89C6\u9891|\u72EC\u5BB6\u4E13\u8BBF|\u6F14\u5458\u8BBF\u8C08|\u5BFC\u6F14\u8BBF\u8C08|\u4E3B\u521B\u8BBF\u8C08|\u5A92\u4F53\u91C7\u8BBF|\u53D1\u5E03\u4F1A\u91C7\u8BBF|\u966A\u770B(\u8BB0)?|\u8BD5\u770B\u7248|\u77ED\u5267|\u7CBE\u7F16|(?<!(Love|Disney|One|C|Note|S\\d+|\\+|&|\\s))Plus|\u72EC\u5BB6\u7248|(?<!(\u5BFC\u6F14|\u52A0\u957F|\u5468\u5E74))\u7279\u522B\u7248(?!(\u56FE|\u753B))|\u77ED\u7247|(?<!(\u65B0\u95FB|\u7D27\u6025|\u4E34\u65F6|\u53EC\u5F00|\u7834\u574F|\u5927\u95F9|\u6F84\u6E05|\u9053\u6B49|\u65B0\u54C1|\u4EA7\u54C1|\u4E8B\u6545))\u53D1\u5E03\u4F1A|\u89E3\u5FE7\u5C40|\u8D70\u5FC3\u5C40|\u706B\u9505\u5C40|\u5DC5\u5CF0\u65F6\u523B|\u575E\u91CC\u90FD\u77E5\u9053|\u798F\u6301\u76EE\u6807\u575E\u6C11|\u798F\u5229(?!(\u9662|\u4F1A|\u4E3B\u4E49|\u8BFE))\u7BC7|(\u798F\u5229|\u52A0\u66F4|\u756A\u5916|\u5F69\u86CB|\u884D\u751F|\u7279\u522B|\u6536\u5B98|\u6E38\u620F|\u6574\u86CA|\u65E5\u5E38)\u7BC7|\u72EC\u5BB6(?!(\u8BB0\u5FC6|\u8BD5\u7231|\u62A5\u9053|\u79D8\u65B9|\u5360\u6709|\u5BA0\u7231|\u6069\u5BA0))|.{2,}(?<!(\u5E02|\u5206|\u8B66|\u603B|\u7701|\u536B|\u836F|\u653F|\u76D1|\u7ED3|\u5927|\u5F00|\u7834|\u5E03|\u50F5|\u56F0|\u9A97|\u8D4C|\u80DC|\u8D25|\u5B9A|\u4E71|\u5371|\u8FF7|\u8C1C|\u5165|\u6405|\u8BBE|\u4E2D|\u6B8B|\u5E73|\u548C|\u7EC8|\u53D8|\u5BF9|\u5B89|\u505A|\u4E66|\u753B|\u5BDF|\u52A1|\u6848|\u901A|\u4FE1|\u80B2|\u5546|\u8C61|\u6E90|\u4E1A|\u51B0))\u5C40(?!(\u957F|\u5EA7|\u52BF|\u9762|\u90E8|\u5185|\u5916|\u4E2D|\u9650|\u4FC3|\u6C14))|(?<!(\u91CD\u75C7|\u9694\u79BB|\u5B9E\u9A8C|\u5FC3\u7406|\u5BA1\u8BAF|\u5355\u5411|\u672F\u540E))\u89C2\u5BDF\u5BA4|\u4E0A\u73ED\u90A3\u70B9\u4E8B\u513F|\u5468top|\u8D5B\u6BB5|VLOG|(?<!(\u5927\u6848|\u8981\u6848|\u5211\u4FA6|\u4FA6\u67E5|\u7834\u6848|\u6863\u6848|\u98CE\u4E91|\u5386\u53F2|\u6218\u4E89|\u63A2\u6848|\u81EA\u7136|\u4EBA\u6587|\u79D1\u5B66|\u533B\u5B66|\u5730\u7406|\u5B87\u5B99|\u8D5B\u4E8B|\u4E16\u754C\u676F|\u5965\u8FD0))\u5168\u7EAA\u5F55|\u5F00\u64AD|\u5148\u5BFC|\u603B\u5BA3|\u5C55\u6F14|\u96C6\u9526|\u65C5\u884C\u65E5\u8BB0|\u7CBE\u5F69\u5206\u4EAB|\u5267\u60C5\u63ED\u79D8(?!(\u8005|\u4EBA))|(?:^|\u3011\\s*|\\]\\s*)(?:[SC]|SP|OP|ED|PV)\\d+(?:[\\s:\uFF1A\\.\\-]|$)"
-    ), keywords = this.get("EPISODE_TITLE_FILTER", "", "string", !1).trim() || defaultFilter;
-    this.accessedEnvVars.set("EPISODE_TITLE_FILTER", keywords);
-    try {
-      return new RegExp(`^(.*?)(?:${keywords})(.*?)$`, "i");
-    } catch {
-      return console.warn("Invalid EPISODE_TITLE_FILTER format, using default."), new RegExp(`^(.*?)(?:${defaultFilter})(.*?)$`, "i");
-    }
-  }
-  /**
-   * 解析 IP 黑名单列表
-   * @description 支持逗号/分号/换行分隔，支持 /regex/ 或 /regex/i 的正则格式，支持 IPv4/IPv6 CIDR（如 127.0.0.0/24、2001:db8::/64）
-   * @returns {Array} IP 黑名单规则列表
-   */
-  static resolveIpBlacklist() {
-    let rawList = this.get("IP_BLACKLIST", "", "string", !1).trim();
-    if (!rawList)
-      return this.accessedEnvVars.set("IP_BLACKLIST", []), [];
-    let entries = rawList.split(/[\n,;]+/).map((item) => item.trim()).filter(Boolean), rules = [];
-    for (let entry of entries)
-      try {
-        if (entry.startsWith("/") && entry.lastIndexOf("/") > 0) {
-          let lastSlashIndex = entry.lastIndexOf("/"), pattern = entry.slice(1, lastSlashIndex), flags = entry.slice(lastSlashIndex + 1);
-          rules.push({ type: "regex", value: new RegExp(pattern, flags) });
-          continue;
-        }
-        if (entry.includes("/")) {
-          let [ip, prefix] = entry.split("/").map((s) => s.trim()), prefixNum = Number(prefix), isIpv4 = this.isValidIpv4(ip), isIpv6 = this.isValidIpv6(ip);
-          if (Number.isInteger(prefixNum)) {
-            if (isIpv4 && prefixNum >= 0 && prefixNum <= 32) {
-              rules.push({ type: "cidr", ip, prefix: prefixNum });
-              continue;
-            }
-            if (isIpv6 && prefixNum >= 0 && prefixNum <= 128) {
-              rules.push({ type: "cidr", ip, prefix: prefixNum });
-              continue;
-            }
-          }
-        }
-        if (this.isValidIpv4(entry) || this.isValidIpv6(entry)) {
-          rules.push({ type: "exact", value: entry });
-          continue;
-        }
-        let escaped = entry.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-        rules.push({ type: "regex", value: new RegExp(`^${escaped}$`) });
-      } catch {
-        console.warn(`Invalid IP_BLACKLIST entry: ${entry}, skipped.`);
-      }
-    return this.accessedEnvVars.set("IP_BLACKLIST", entries), rules;
-  }
-  /**
-   * 校验 IPv4 地址合法性
-   * @param {string} ip IPv4 地址
-   * @returns {boolean}
-   */
-  static isValidIpv4(ip) {
-    if (!ip || typeof ip != "string") return !1;
-    let parts = ip.split(".");
-    return parts.length !== 4 ? !1 : parts.every((part) => {
-      if (!/^(\d{1,3})$/.test(part)) return !1;
-      let num = Number(part);
-      return num >= 0 && num <= 255;
-    });
-  }
-  /**
-   * 校验 IPv6 地址合法性（支持 :: 缩写与 IPv4 映射）
-   * @param {string} ip IPv6 地址
-   * @returns {boolean}
-   */
-  static isValidIpv6(ip) {
-    if (!ip || typeof ip != "string") return !1;
-    let normalized = ip.trim();
-    if (!normalized.includes(":")) return !1;
-    let [left, right] = normalized.split("::");
-    if (normalized.split("::").length > 2) return !1;
-    let leftParts = left ? left.split(":").filter(Boolean) : [], rightParts = right ? right.split(":").filter(Boolean) : [], expandIpv4Part = (parts) => {
-      if (parts.length === 0) return parts;
-      let last = parts[parts.length - 1];
-      if (!last.includes(".")) return parts;
-      if (!this.isValidIpv4(last)) return null;
-      let nums = last.split(".").map((n) => Number(n)), high = (nums[0] << 8 | nums[1]).toString(16), low = (nums[2] << 8 | nums[3]).toString(16);
-      return [...parts.slice(0, -1), high, low];
-    }, leftExpanded = expandIpv4Part(leftParts);
-    if (!leftExpanded || (rightParts = expandIpv4Part(rightParts), !rightParts) || leftExpanded.length + rightParts.length > 8) return !1;
-    let isValidGroup = (part) => /^[0-9a-fA-F]{1,4}$/.test(part);
-    return !(!leftExpanded.every(isValidGroup) || !rightParts.every(isValidGroup));
-  }
-  /**
-   * 解析剧名过滤正则
-   * @description 用于控制剧名过滤规则，没有默认值
-   * @returns {RegExp|null} 过滤正则表达式或null
-   */
-  static resolveAnimeTitleFilter() {
-    let filterStr = this.get("ANIME_TITLE_FILTER", "", "string", !1).trim();
-    if (!filterStr)
-      return this.accessedEnvVars.set("ANIME_TITLE_FILTER", ""), null;
-    this.accessedEnvVars.set("ANIME_TITLE_FILTER", filterStr);
-    try {
-      return new RegExp(`^(.*?)(?:${filterStr})(.*?)$`, "i");
-    } catch {
-      return console.warn("Invalid ANIME_TITLE_FILTER format, returning null."), null;
-    }
-  }
-  /**
-   * 解析剧名杂音清理规则
-   * 移除搜索关键词和源标题中的画质/配音/版本等杂音词。
-   * 支持完全自定义的正则表达式，默认为同时匹配中英文括号的常用杂音词。
-   * 未设置时使用默认规则，设为空值可禁用。
-   * @returns {RegExp|null} 全局正则，显式设为空时返回 null（禁用）
-   */
-  static resolveTitleNoiseFilter() {
-    let defaultPattern = String.raw`[（(\[［](?:臻彩|真彩|高清|标清|超清|国配|中配|日配|粤语|原声|台配|无修|未删减|完整版|日语版|国语版|英语版|中字|字幕|助听|原版)[\])）］]`, raw = this.get("TITLE_NOISE_FILTER", "", "string").trim(), hasKey = this.env && "TITLE_NOISE_FILTER" in this.env || typeof process < "u" && "TITLE_NOISE_FILTER" in process.env;
-    if (raw)
-      this.accessedEnvVars.set("TITLE_NOISE_FILTER", raw);
-    else {
-      if (hasKey)
-        return this.accessedEnvVars.set("TITLE_NOISE_FILTER", ""), null;
-      this.accessedEnvVars.set("TITLE_NOISE_FILTER", defaultPattern);
-    }
-    try {
-      return new RegExp(raw || defaultPattern, "gi");
-    } catch {
-      console.warn("Invalid TITLE_NOISE_FILTER regex, using default.");
-      try {
-        return new RegExp(defaultPattern, "gi");
-      } catch {
-        return null;
-      }
-    }
-  }
-  /**
-   * 获取记录的原始环境变量 JSON
-   * @returns {Map<any, any>} JSON 字符串
-   */
-  static getOriginalEnvVars() {
-    return this.originalEnvVars;
-  }
-  /**
-   * 解析剧名映射表
-   * @returns {Map} 剧名映射表
-   */
-  static resolveTitleMappingTable() {
-    let mappingStr = this.get("TITLE_MAPPING_TABLE", "", "string").trim(), mappingTable = /* @__PURE__ */ new Map();
-    if (!mappingStr)
-      return mappingTable;
-    let pairs = mappingStr.split(";");
-    for (let pair of pairs)
-      if (pair.includes("->")) {
-        let [original, mapped] = pair.split("->").map((s) => s.trim());
-        original && mapped && mappingTable.set(original, mapped);
-      }
-    return mappingTable;
-  }
-  static resolveAutoMatchMappingTable() {
-    let mappingStr = this.get("AUTO_MATCH_MAPPING_TABLE", "", "string").trim(), { rules, warnings } = parseAutoMatchMappingRules(mappingStr, this.ALLOWED_PLATFORMS);
-    return warnings.forEach((message) => console.warn(`[auto-match-mapping] ${message}`)), rules;
-  }
-  /**
-   * 获取记录的环境变量 JSON
-   * @returns {Map<any, any>} JSON 字符串
-   */
-  static getAccessedEnvVars() {
-    return this.accessedEnvVars;
-  }
-  /**
-   * 初始化环境变量
-   * @param {Object} env 环境对象
-   * @param {string} deployPlatform 部署平台
-   * @returns {Object} 配置对象
-   */
-  static load(env = {}) {
-    this.env = env;
-    let configuredAiMatchPrompt = this.get("AI_MATCH_PROMPT", this.DEFAULT_AI_MATCH_PROMPT, "string"), envVarConfig = {
-      // API配置
-      TOKEN: { category: "api", type: "text", description: "API\u8BBF\u95EE\u4EE4\u724C" },
-      ADMIN_TOKEN: { category: "api", type: "text", description: "\u7CFB\u7EDF\u7BA1\u7406\u8BBF\u95EE\u4EE4\u724C" },
-      FAVORITE_REQUIRE_ADMIN: { category: "api", type: "boolean", description: "\u6536\u85CF\u5199\u5165\u548C\u7BA1\u7406\u63A5\u53E3\u662F\u5426\u5FC5\u987B\u4F7F\u7528 ADMIN_TOKEN\uFF0C\u9ED8\u8BA4\u5173\u95ED\uFF1B\u6536\u85CF\u5217\u8868\u59CB\u7EC8\u53EF\u516C\u5F00\u8BFB\u53D6" },
-      LOCAL_DANMU_NOT_REQUIRE_ADMIN: { category: "api", type: "boolean", description: "\u672C\u5730\u5F39\u5E55\u4E0A\u4F20\u548C\u5220\u9664\u662F\u5426\u65E0\u9700 ADMIN \u6743\u9650\uFF0C\u9ED8\u8BA4 false\uFF1B\u5F00\u542F\u540E\u5141\u8BB8\u666E\u901A TOKEN \u7528\u6237\u4E0A\u4F20\u548C\u5220\u9664\uFF0CADMIN_TOKEN \u59CB\u7EC8\u5141\u8BB8\uFF1B\u666E\u901A TOKEN \u7528\u6237\u53EF\u67E5\u770B\u5DF2\u5BFC\u5165\u5217\u8868" },
-      RATE_LIMIT_MAX_REQUESTS: { category: "api", type: "number", description: "\u9650\u6D41\u914D\u7F6E\uFF1A1\u5206\u949F\u5185\u6700\u5927\u8BF7\u6C42\u6B21\u6570\uFF0C0\u8868\u793A\u4E0D\u9650\u6D41\uFF0C\u9ED8\u8BA43", min: 0, max: 50 },
-      // 源配置
-      SOURCE_ORDER: { category: "source", type: "multi-select", options: this.ALLOWED_SOURCES, description: "\u6E90\u6392\u5E8F\u914D\u7F6E\uFF0C\u9ED8\u8BA4douban,360,renren,hanjutv\uFF1B\u6DFB\u52A0 local \u53EF\u641C\u7D22\u5DF2\u4E0A\u4F20\u7684\u672C\u5730\u5F39\u5E55\uFF0C\u6309\u914D\u7F6E\u987A\u5E8F\u6392\u5217\u641C\u7D22\u7ED3\u679C" },
-      MERGE_SOURCE_PAIRS: { category: "source", type: "multi-select", options: this.MERGE_ALLOWED_SOURCES, description: `\u6E90\u5408\u5E76\u914D\u7F6E\uFF0C\u914D\u7F6E\u540E\u5C06\u5BF9\u5E94\u6E90\u5408\u5E76\u540C\u65F6\u4E00\u8D77\u83B7\u53D6\u5F39\u5E55\u8FD4\u56DE\uFF0C\u5141\u8BB8\u591A\u7EC4\uFF0C\u5141\u8BB8\u591A\u6E90\uFF0C\u5141\u8BB8\u586B\u5355\u6E90\u8868\u793A\u4FDD\u7559\u539F\u7ED3\u679C\uFF0C\u4E00\u7EC4\u4E2D\u7B2C\u4E00\u4E2A\u4E3A\u4E3B\u6E90\u5176\u4F59\u4E3A\u526F\u6E90\uFF0C\u526F\u6E90\u5F80\u4E3B\u6E90\u5408\u5E76\uFF0C\u4E3B\u6E90\u5982\u679C\u6CA1\u6709\u7ED3\u679C\u4F1A\u8F6E\u66FF\u4E0B\u4E00\u4E2A\u4F5C\u4E3A\u4E3B\u6E90\u3002
-\u683C\u5F0F\uFF1A\u6E901&\u6E902&\u6E903 \uFF0C\u591A\u7EC4\u7528\u9017\u53F7\u5206\u9694\u3002
-\u793A\u4F8B\uFF1Adandan&bahamut&animeko,renren&hanjutv,renren` },
-      CUSTOM_MERGE_RULES: { category: "source", type: "text", sources: this.MERGE_ALLOWED_SOURCES, description: `\u5408\u5E76\u6620\u5C04\u8868\uFF0C\u7528\u4E8E\u81EA\u5B9A\u4E49\u6E90\u5408\u5E76\u884C\u4E3A\u3002
-\u683C\u5F0F1(\u5408\u5E76)\uFF1A\u526F\u6E90\u5267\u540D/S\u5B63\u6570@\u6765\u6E90 -> \u4E3B\u6E90\u5267\u540D/S\u5B63\u6570@\u6765\u6E90 | E\u526F\u6E90\u96C6\u6570>E\u4E3B\u6E90\u96C6\u6570
-\u683C\u5F0F2(\u963B\u65AD)\uFF1A\u526F\u6E90\u5267\u540D/S\u5B63\u6570@\u6765\u6E90 \xD7 \u4E3B\u6E90\u5267\u540D/S\u5B63\u6570@\u6765\u6E90
-\u8BF4\u660E\uFF1A[/S\u5B63\u6570] \u4E0E [|\u8DEF\u7531\u89C4\u5219] \u4E3A\u53EF\u9009\u9879\uFF0C\u7559\u7A7A\u5219\u4EA4\u7531\u7A0B\u5E8F\u5224\u65AD\u3002\u591A\u4E2A\u89C4\u5219\u7528\u5206\u53F7\u9694\u5F00\uFF0C\u591A\u6BB5\u8DEF\u7531\u7528\u9017\u53F7\u5206\u9694\u3002
-\u793A\u4F8B\uFF1A
-1. \u5E38\u89C4\u5408\u5E76\uFF1A\u5929\u6C14\u4E4B\u5B50@bilibili -> \u5929\u6C14\u4E4B\u5B50@dandan
-2. \u591A\u96C6\u8DEF\u7531\uFF1A\u6211\u63A8\u7684\u5B69\u5B50/S01@bahamut -> \u6211\u63A8\u7684\u5B69\u5B50/S03@dandan | E25~E35>E25~E35
-3. \u963B\u65AD\u5408\u5E76\uFF1A\u8F89\u591C\u5927\u5C0F\u59D0\u60F3\u8BA9\u6211\u544A\u767D\uFF1F\uFF5E\u5929\u624D\u4EEC\u7684\u604B\u7231\u5934\u8111\u6218\uFF5E(2020)@bilibili \xD7 \u8F89\u591C\u5927\u5C0F\u59D0\u60F3\u8BA9\u6211\u544A\u767D\uFF5E\u5929\u624D\u4EEC\u7684\u604B\u7231\u5934\u8111\u6218\uFF5E OVA(2021)\u3010OVA\u3011@dandan` },
-      OTHER_SERVER: { category: "source", type: "text", description: "\u7B2C\u4E09\u65B9\u5F39\u5E55\u670D\u52A1\u5668\uFF0C\u9ED8\u8BA4https://api.danmu.icu" },
-      CUSTOM_SOURCE_API_URL: { category: "source", type: "text", description: "\u81EA\u5B9A\u4E49\u5F39\u5E55\u6E90API\u5730\u5740\uFF0C\u9ED8\u8BA4\u4E3A\u7A7A\uFF0C\u914D\u7F6E\u540E\u8FD8\u9700\u5728SOURCE_ORDER\u6DFB\u52A0custom\u6E90" },
-      VOD_SERVERS: { category: "source", type: "text", description: "VOD\u7AD9\u70B9\u914D\u7F6E\uFF0C\u683C\u5F0F\uFF1A\u540D\u79F0@URL,\u540D\u79F0@URL\uFF0C\u9ED8\u8BA4\u4E3A\u7A7A\uFF1B\u672A\u914D\u7F6E\u65F6\u8DF3\u8FC7 VOD\uFF0C\u4E0D\u53D1\u9001\u8BF7\u6C42" },
-      VOD_RETURN_MODE: { category: "source", type: "select", options: ["all", "fastest"], description: "VOD\u8FD4\u56DE\u6A21\u5F0F\uFF1Aall\uFF08\u6240\u6709\u7AD9\u70B9\uFF09\u6216 fastest\uFF08\u6700\u5FEB\u7684\u7AD9\u70B9\uFF09\uFF0C\u9ED8\u8BA4fastest" },
-      VOD_REQUEST_TIMEOUT: { category: "source", type: "number", description: "VOD\u8BF7\u6C42\u8D85\u65F6\u65F6\u95F4\uFF0C\u9ED8\u8BA410000", min: 5e3, max: 3e4 },
-      BILIBILI_COOKIE: { category: "source", type: "text", description: "B\u7AD9Cookie" },
-      DOUBAN_COOKIE: { category: "source", type: "text", description: "\u8C46\u74E3Cookie" },
-      YOUKU_CONCURRENCY: { category: "source", type: "number", description: "\u4F18\u9177\u5E76\u53D1\u914D\u7F6E\uFF0C\u9ED8\u8BA48", min: 1, max: 16 },
-      TENCENT_CONCURRENCY: { category: "source", type: "number", description: "\u817E\u8BAF\u5F39\u5E55\u5206\u7247\u5E76\u53D1\u914D\u7F6E\uFF0C\u9ED8\u8BA4100", min: 1, max: 200 },
-      IQIYI_CONCURRENCY: { category: "source", type: "number", description: "\u7231\u5947\u827A\u5F39\u5E55\u5206\u7247\u5E76\u53D1\u914D\u7F6E\uFF0C\u9ED8\u8BA4100", min: 1, max: 200 },
-      DANDANPLAY_ACCOUNT: { category: "source", type: "text", description: `\u5F39\u5F39play\u8D26\u53F7\uFF08dandan \u6E90\u4F7F\u7528\uFF09\u3002
-\u4E0E\u5BC6\u7801\u540C\u65F6\u586B\u5199\u540E\u5F00\u542F NipaPlay \u4E2D\u8F6C\u5F39\u5F39play\u8F85\u52A9\u670D\u52A1\uFF0C\u4F7F\u7528 NipaPlay \u83B7\u53D6\u5F39\u5E55\u4E0E\u515C\u5E95\uFF0C\u89E3\u51B3\u9ED8\u8BA4\u670D\u52A1\u7AEF\u65E0\u5F39\u5E55\u4E0E\u66F4\u65B0\u7F13\u6162\u7684\u95EE\u9898\uFF0C\u5E76\u5F00\u542F\u5F39\u5F39\u805A\u5408\u5F39\u5E55\u5B9E\u65F6\u62C9\u53D6\u529F\u80FD
-\uFF08\u5B9E\u65F6\u62C9\u53D6\u6CE8\u610F\uFF1A\u9700\u5148\u5F00\u542F\u5BF9\u5E94\u6E90\uFF1B\u6307\u5411\u7684\u5E73\u53F0\u89C6\u9891\u82E5\u5DF2\u4E0B\u67B6\u5C06\u65E0\u6CD5\u83B7\u53D6\uFF1B\u542B\u5DF4\u54C8\u59C6\u7279\u5E73\u53F0\u65F6\u9700\u786E\u4FDD\u80FD\u591F\u8FDE\u901A\u5DF4\u54C8\uFF09\u3002` },
-      DANDANPLAY_PASSWORD: { category: "source", type: "text", description: `\u5F39\u5F39play\u5BC6\u7801\uFF08dandan \u6E90\u4F7F\u7528\uFF09
-\u4E0E\u8D26\u53F7\u540C\u65F6\u586B\u5199\u540E\u5F00\u542F NipaPlay \u4E2D\u8F6C\u5F39\u5F39play\u8F85\u52A9\u670D\u52A1\u3002
-\u70B9\u51FB\u7F16\u8F91\u754C\u9762\u7684\u6D4B\u8BD5\u8FDE\u901A\u6027\u6309\u94AE\u53EF\u9A8C\u8BC1\u8D26\u53F7\u4E0E NipaPlay \u4E2D\u8F6C\u5F39\u5F39play\u670D\u52A1\u7AEF\u662F\u5426\u53EF\u7528` },
-      // 匹配配置
-      PLATFORM_ORDER: { category: "match", type: "multi-select", options: this.ALLOWED_PLATFORMS, description: `\u5E73\u53F0\u6392\u5E8F\u914D\u7F6E\uFF0C\u53EF\u4EE5\u914D\u7F6E\u81EA\u52A8\u5339\u914D\u65F6\u7684\u4F18\u9009\u5E73\u53F0\u3002
-\u5F53\u914D\u7F6E\u5408\u5E76\u5E73\u53F0\u7684\u65F6\u5019\uFF0C\u53EF\u4EE5\u6307\u5B9A\u671F\u671B\u7684\u5408\u5E76\u6E90\uFF0C
-\u793A\u4F8B\uFF1A\u4E00\u4E2A\u7ED3\u679C\u8FD4\u56DE\u4E86"dandan&bilibili1&animeko"\u548C"youku"\u65F6\uFF0C
-\u5F53\u914D\u7F6E"youku"\u65F6\u8FD4\u56DE"youku" 
-\u5F53\u914D\u7F6E"dandan&animeko"\u65F6\u8FD4\u56DE"dandan&bilibili1&animeko"` },
-      ANIME_TITLE_FILTER: { category: "match", type: "text", description: "\u5267\u540D\u8FC7\u6EE4\u89C4\u5219" },
-      EPISODE_TITLE_FILTER: { category: "match", type: "text", description: "\u5267\u96C6\u6807\u9898\u8FC7\u6EE4\u89C4\u5219" },
-      ENABLE_ANIME_EPISODE_FILTER: { category: "match", type: "boolean", description: "\u63A7\u5236\u624B\u52A8\u641C\u7D22\u7684\u65F6\u5019\u662F\u5426\u6839\u636EANIME_TITLE_FILTER\u8FDB\u884C\u5267\u540D\u8FC7\u6EE4\u4EE5\u53CA\u6839\u636EEPISODE_TITLE_FILTER\u8FDB\u884C\u96C6\u6807\u9898\u8FC7\u6EE4" },
-      STRICT_TITLE_MATCH: { category: "match", type: "boolean", description: "\u4E25\u683C\u6807\u9898\u5339\u914D\u6A21\u5F0F" },
-      TITLE_TO_CHINESE: { category: "match", type: "boolean", description: "\u5916\u8BED\u6807\u9898\u8F6C\u6362\u4E2D\u6587\u5F00\u5173" },
-      ANIME_TITLE_SIMPLIFIED: { category: "match", type: "boolean", description: "\u641C\u7D22\u7684\u5267\u540D\u6807\u9898\u81EA\u52A8\u7E41\u8F6C\u7B80" },
-      TITLE_MAPPING_TABLE: { category: "match", type: "map", description: '\u672C\u673A\u5267\u540D\u6620\u5C04\u8868\uFF0C\u7528\u4E8E\u81EA\u52A8\u5339\u914D\u3001FongMi\u3001\u6536\u85CF\u65F6\u66FF\u6362\u6807\u9898\u8FDB\u884C\u641C\u7D22\u3002\u7CBE\u786E\u6807\u9898\u4F18\u5148\uFF1B\u672A\u547D\u4E2D\u65F6\u4F1A\u5FFD\u7565\u6807\u9898\u5C3E\u90E8\u62EC\u53F7\u5E74\u4EFD\u518D\u5339\u914D\uFF08\u5982\u201C\u53D8\u5F62\u91D1\u521A3\uFF1A\u6708\u9ED1\u4E4B\u65F6(2011)\u201D\u53EF\u547D\u4E2D\u201C\u53D8\u5F62\u91D1\u521A3\uFF1A\u6708\u9ED1\u4E4B\u65F6\u201D\uFF09\u3002\u672C\u673A\u89C4\u5219\u4F18\u5148\u4E8E\u8FDC\u7A0B\u89C4\u5219\u3002\u683C\u5F0F\uFF1A\u539F\u59CB\u6807\u9898->\u6620\u5C04\u6807\u9898;\u539F\u59CB\u6807\u9898->\u6620\u5C04\u6807\u9898;...\uFF0C\u4F8B\u5982\uFF1A"\u5510\u671D\u8BE1\u4E8B\u5F55->\u5510\u671D\u8BE1\u4E8B\u5F55\u4E4B\u897F\u884C;\u56FD\u8272\u82B3\u534E->\u9526\u7EE3\u82B3\u534E"' },
-      TITLE_MAPPING_TABLE_URL: { category: "match", type: "text", description: "\u8FDC\u7A0B\u5267\u540D\u6620\u5C04\u8868\uFF08\u9ED8\u8BA4\u5173\u95ED\uFF0C\u586B\u5199\u540E\u542F\u7528\uFF09\u3002\u793A\u4F8B\uFF1Ahttps://raw.githubusercontent.com/xlmc/danmu-mapping/main/Word/2026.txt\u3002\u672C\u673A TITLE_MAPPING_TABLE \u4F18\u5148\uFF1BNode/Docker \u4F1A\u7F13\u5B58\u5230 .cache \u5E76\u5728\u6BCF\u5929\u5317\u4EAC\u65F6\u95F405:30\u540E\u53F0\u66F4\u65B0\uFF1BServerless \u51B7\u542F\u52A8\u540E\u7684\u9996\u6B21\u6807\u9898\u5339\u914D\u4F1A\u540C\u6B65\u4E0B\u8F7D\uFF0C\u6700\u957F\u7EA6\u7B49\u5F855\u79D2\uFF0C\u914D\u7F6E\u672C\u53D8\u91CF\u5373\u8868\u793A\u63A5\u53D7\u8BE5\u5EF6\u8FDF\u3002\u652F\u6301 GitHub \u6587\u4EF6\u9875\u3001Gist\u3001jsDelivr \u548C HTTP/HTTPS TXT \u76F4\u94FE\uFF1B\u5185\u5BB9\u683C\u5F0F\u4E3A\u6BCF\u884C \u539F\u59CB\u6807\u9898->\u6620\u5C04\u6807\u9898\uFF0C# \u6216 // \u5F00\u5934\u4E3A\u6CE8\u91CA" },
-      AUTO_MATCH_MAPPING_TABLE: { category: "match", type: "map", description: `\u81EA\u52A8\u5339\u914D\u6620\u5C04\u8868\uFF0C\u4EC5\u4F5C\u7528\u4E8E POST /api/v2/match\u3002\u591A\u4E2A\u89C4\u5219\u4F7F\u7528\u5206\u53F7\u5206\u9694\u3002
-\u5F00\u653E\u6620\u5C04\uFF1A\u6C38\u751F S05E02 -> \u6C38\u751F S01E58
-\u6709\u9650\u8303\u56F4\uFF1A\u6C38\u751F S05E02~03 -> \u6C38\u751F S01E58~59
-\u7279\u522B\u7BC7\uFF1A\u7075\u7B3C S00E01~01 -> \u7075\u7B3C S01E07~07\uFF08\u6E90\u4FA7\u652F\u6301 S00\uFF0C\u76EE\u6807\u4FA7\u987B\u4E3A S01+\uFF09
-\u6307\u5B9A\u7ED3\u679C\uFF1A\u6D77\u8D3C\u738B S02E01 -> \u822A\u6D77\u738B(1999)\u3010\u52A8\u6F2B\u3011 S01E62
-\u6307\u5B9A\u5E73\u53F0\uFF1A\u822A\u6D77\u738B S01E01 -> \u822A\u6D77\u738B S01E01 @qiyi` },
-      AUTO_MATCH_MAPPING_TABLE_URL: { category: "match", type: "text", description: "\u8FDC\u7A0B\u5B63\u96C6\u6620\u5C04\u8868\uFF08\u9ED8\u8BA4\u5173\u95ED\uFF0C\u586B\u5199\u540E\u542F\u7528\uFF09\u3002\u672C\u673A AUTO_MATCH_MAPPING_TABLE \u4F18\u5148\uFF1B\u652F\u6301 GitHub \u6587\u4EF6\u9875\u3001Gist\u3001jsDelivr \u548C HTTP/HTTPS TXT \u76F4\u94FE\uFF0C\u5185\u5BB9\u683C\u5F0F\u4E0E\u672C\u673A\u6620\u5C04\u8868\u4E00\u81F4\uFF0C\u6BCF\u884C\u53EF\u5199\u591A\u6761\u89C4\u5219\uFF0C# \u6216 // \u5F00\u5934\u4E3A\u6CE8\u91CA\u3002Node/Docker \u4F1A\u7F13\u5B58\u5230 .cache \u5E76\u5728\u6BCF\u5929\u5317\u4EAC\u65F6\u95F405:30\u540E\u53F0\u66F4\u65B0\uFF1BServerless \u9996\u6B21\u5339\u914D\u4F1A\u540E\u53F0\u4E0B\u8F7D\uFF0C\u4E0D\u963B\u585E\u5F53\u524D\u8BF7\u6C42\uFF0C\u540E\u7EED\u8BF7\u6C42\u751F\u6548\u3002\u7BA1\u7406\u5458\u53EF\u901A\u8FC7 POST /api/auto-match-mapping/refresh \u7ACB\u5373\u5237\u65B0\u5F53\u524D\u5B9E\u4F8B\u3002" },
-      TITLE_NOISE_FILTER: { category: "match", type: "text", description: "\u5267\u540D\u6742\u97F3\u6E05\u7406\u89C4\u5219\uFF0C\u6309\u6B63\u5219\u8868\u8FBE\u5F0F\u6E05\u7406\u641C\u7D22\u4E0E\u5339\u914D\u9636\u6BB5\u7684\u5267\u540D\u6742\u97F3\u8BCD\uFF08\u5982`\u767E\u82B1\u6740\uFF08\u771F\u5F69\uFF09`\u2192`\u767E\u82B1\u6740`\uFF09\u3002\n\u9ED8\u8BA4\u503C\uFF1A[\uFF08(\\[\uFF3B](?:\u81FB\u5F69|\u771F\u5F69|\u9AD8\u6E05|\u6807\u6E05|\u8D85\u6E05|\u56FD\u914D|\u4E2D\u914D|\u65E5\u914D|\u7CA4\u8BED|\u539F\u58F0|\u53F0\u914D|\u65E0\u4FEE|\u672A\u5220\u51CF|\u5B8C\u6574\u7248|\u65E5\u8BED\u7248|\u56FD\u8BED\u7248|\u82F1\u8BED\u7248|\u4E2D\u5B57|\u5B57\u5E55|\u52A9\u542C|\u539F\u7248)[\\])\uFF09\uFF3D]\uFF0C\u4E2D\u82F1\u6587\u5706\u65B9\u62EC\u53F7\u5747\u5339\u914D\u3002\n\u8BBE\u4E3A\u7A7A\u503C\u53EF\u7981\u7528" },
-      AI_BASE_URL: { category: "match", type: "text", description: "AI\u670D\u52A1\u57FA\u7840URL\uFF0C\u4E0D\u586B\u9ED8\u8BA4\u4E3Ahttps://api.openai.com/v1" },
-      AI_MODEL: { category: "match", type: "text", description: "AI\u6A21\u578B\u540D\u79F0\uFF0C\u4E0D\u586B\u9ED8\u8BA4\u4E3Agpt-4o" },
-      AI_API_KEY: { category: "match", type: "text", description: "AI\u670D\u52A1API\u5BC6\u94A5\uFF0C\u9ED8\u8BA4\u4E3A\u7A7A\uFF0C\u9700\u624B\u52A8\u586B\u5199" },
-      AI_MATCH_PROMPT: { category: "match", type: "text", description: "AI\u81EA\u52A8\u5339\u914D\u63D0\u793A\u8BCD\u6A21\u677F\uFF0C\u4E0D\u586B\u63D0\u4F9B\u9ED8\u8BA4\u63D0\u793A\u8BCD\uFF0C\u9ED8\u8BA4\u63D0\u793A\u8BCD\u8BF7\u67E5\u770BREADME" },
-      USE_BANGUMI_DATA: { category: "match", type: "boolean", description: `Bangumi Data \u6570\u636E\u8F85\u52A9\u5F00\u5173\uFF0C\u9ED8\u8BA4\u503C\uFF1Afalse\uFF08\u5173\u95ED\uFF09\uFF0C\u5F00\u542F\u540E\u5C06\u52A8\u753B\u5143\u6570\u636E\u7F13\u5B58\u81F3\u672C\u5730\u6216\u5185\u5B58\u4E2D\u7ED9\u6E90\u8C03\u7528\uFF0C\u63D0\u5347\u52A8\u753B\u6E90\u7684\u68C0\u7D22\u901F\u5EA6\u4E0E\u5339\u914D\u7CBE\u51C6\u5EA6\u5E76\u8865\u5168\u7279\u5B9A\u6570\u636E\u4E0E\u756A\u5267\u3002
-\u672C\u5730\u548CDocker\u90E8\u7F72\u4F7F\u7528\u65F6\u8BF7\u5148\u6302\u8F7D.cache\u76EE\u5F55\u83B7\u5F97\u6700\u4F73\u4F53\u9A8C\uFF0C\u4E91\u90E8\u7F72\u4F7F\u7528\u65F6\u4F1A\u5C06\u6570\u636E\u7F13\u5B58\u81F3\u4E34\u65F6\u5185\u5B58\u4E2D\u5982\u679C\u4F53\u9A8C\u4E0D\u4F73\u8BF7\u5173\u95ED\u3002` },
-      // 弹幕配置
-      BLOCKED_WORDS: { category: "danmu", type: "text", description: "\u5C4F\u853D\u8BCD\u5217\u8868" },
-      GROUP_MINUTE: { category: "danmu", type: "number", description: "\u5206\u949F\u5185\u5408\u5E76\u53BB\u91CD\uFF080 \u8868\u793A\u4E0D\u6309\u5206\u949F\u5408\u5E76\uFF0C\u591A\u6E90\u7EC4\u5408\u4ECD\u6309\u65F6\u70B9\u53BB\u91CD\uFF09\uFF0C\u9ED8\u8BA41", min: 0, max: 30 },
-      DANMU_LIMIT: { category: "danmu", type: "number", description: "\u5F39\u5E55\u6570\u91CF\u9650\u5236\uFF0C\u5355\u4F4D\u4E3Ak\uFF0C\u5373\u5343\uFF1A\u9ED8\u8BA4 0\uFF0C\u8868\u793A\u4E0D\u9650\u5236\u5F39\u5E55\u6570", min: 0, max: 100 },
-      DANMU_SIMPLIFIED_TRADITIONAL: { category: "danmu", type: "select", options: ["default", "simplified", "traditional"], description: "\u5F39\u5E55\u7B80\u7E41\u4F53\u8F6C\u6362\u8BBE\u7F6E\uFF1Adefault\uFF08\u9ED8\u8BA4\u4E0D\u8F6C\u6362\uFF09\u3001simplified\uFF08\u7E41\u8F6C\u7B80\uFF09\u3001traditional\uFF08\u7B80\u8F6C\u7E41\uFF09" },
-      CONVERT_TOP_BOTTOM_TO_SCROLL: { category: "danmu", type: "boolean", description: "\u9876\u90E8/\u5E95\u90E8\u5F39\u5E55\u8F6C\u6362\u4E3A\u6D6E\u52A8\u5F39\u5E55" },
-      CONVERT_COLOR: { category: "danmu", type: "select", options: ["default", "white", "color"], description: "\u5F39\u5E55\u8F6C\u6362\u989C\u8272\u914D\u7F6E" },
-      COLOR_POOL: { category: "danmu", type: "text", description: "\u81EA\u5B9A\u4E49\u989C\u8272\u6C60\uFF08CONVERT_COLOR\u4E3Acolor\u65F6\u751F\u6548\uFF09\uFF0C\u4E0D\u914D\u7F6E\u4F7F\u7528\u9ED8\u8BA4\u989C\u8272\u6C60\uFF0C\u683C\u5F0F\uFF1A\u5341\u8FDB\u5236\u989C\u8272\u503C\u9017\u53F7\u5206\u9694" },
-      GRADIENT_CHANCE: { category: "danmu", type: "number", min: 0, max: 100, description: "\u6E10\u53D8\u8272\u5F39\u5E55\u6982\u7387\uFF08CONVERT_COLOR\u4E3Acolor\u65F6\u751F\u6548\uFF09\uFF0C\u5355\u4F4D\u767E\u5206\u6BD4 0-100\uFF0C\u9ED8\u8BA4 0\uFF0C\u5F39\u5E55\u6309\u6B64\u6982\u7387\u4ECE\u6E10\u53D8\u8272\u5E26\u53D6\u8272\uFF08\u968F\u51FA\u73B0\u65F6\u95F4\u5E73\u6ED1\u6D41\u8F6C\uFF09\uFF0C0 \u8868\u793A\u5173\u95ED" },
-      GRADIENT_COLORS: { category: "danmu", type: "text", description: "\u6E10\u53D8\u8272\u5E26\uFF08CONVERT_COLOR\u4E3Acolor\u65F6\u751F\u6548\uFF09\uFF0C\u53EF\u586B\u76AE\u80A4\u540D\uFF1Abilibili(\u9ED8\u8BA4)/sweet/cyber/sunset/ocean/mint/rainbow\uFF0C\u6216\u5341\u8FDB\u5236\u989C\u8272\u503C\u9017\u53F7\u5206\u9694\uFF08\u81F3\u5C112\u4E2A\uFF09" },
-      DANMU_OUTPUT_FORMAT: { category: "danmu", type: "select", options: ["json", "xml", ...danAnyFormats], description: "\u5F39\u5E55\u8F93\u51FA\u683C\u5F0F\uFF0C\u9ED8\u8BA4json" },
-      DANMU_PUSH_URL: { category: "danmu", type: "text", description: "\u5F39\u5E55\u63A8\u9001\u5730\u5740\uFF0C\u793A\u4F8B http://127.0.0.1:9978/action?do=refresh&type=danmaku&path= " },
-      LIKE_SWITCH: { category: "danmu", type: "boolean", description: "\u5F39\u5E55\u70B9\u8D5E\u6570\u663E\u793A\u5F00\u5173\uFF0C\u9ED8\u8BA4\u5F00\u542F" },
-      HONGGUO_MERGE_ALL_EPISODES: { category: "danmu", type: "boolean", description: "\u7EA2\u679C\u77ED\u5267\u5408\u5E76\u5168\u96C6\u5F39\u5E55\uFF0C\u9ED8\u8BA4\u5173\u95ED\u3002\u542F\u7528\u540E\u4FDD\u7559\u771F\u5B9E\u96C6\u6570\uFF0C\u7BA1\u7406\u9875\u83B7\u53D6\u5168\u96C6\u524D\u4F1A\u786E\u8BA4\u5E76\u4F7F\u7528\u5206\u7247\u8BF7\u6C42\u3002" },
-      DANMU_OFFSET: { category: "danmu", type: "text", sources: this.ALLOWED_SOURCES, description: "\u5F39\u5E55\u65F6\u95F4\u504F\u79FB\u914D\u7F6E\uFF0C\u683C\u5F0F\uFF1A\u5267\u540D:\u79D2 \u6216 \u5267\u540D/\u5B63:\u79D2 \u6216 \u5267\u540D/\u5B63/\u96C6:\u79D2\uFF0C\u652F\u6301\u6307\u5B9A\u6765\u6E90\uFF1A\u5267\u540D@\u6765\u6E90:\u79D2 \u6216 \u5267\u540D/\u5B63@\u6765\u6E901&\u6765\u6E902:\u79D2\uFF0C\u591A\u6761\u7528\u9017\u53F7\u5206\u9694\uFF0C\u6B63\u6570\u8868\u793A\u5F39\u5E55\u5EF6\u540E\uFF08\u5411\u53F3\uFF09\uFF0C\u8D1F\u6570\u8868\u793A\u5F39\u5E55\u63D0\u524D\uFF08\u5411\u5DE6\uFF09\u3002\u652F\u6301\u767E\u5206\u6BD4\u6A21\u5F0F\uFF1A\u5728\u8DEF\u5F84\u6216\u6765\u6E90\u672B\u5C3E\u8FFD\u52A0 %\uFF0C\u5982 \u4E1C\u65B9/S03/E02@tencent%:11\uFF0C\u6309\u516C\u5F0F \u539F\u65F6\u95F4 * (\u89C6\u9891\u65F6\u957F + \u504F\u79FB\u79D2\u6570) / \u89C6\u9891\u65F6\u957F \u7F29\u653E\u5168\u90E8\u5F39\u5E55\u65F6\u95F4\u3002\u793A\u4F8B\uFF1Aoverlord/S01:90,re-zero/S02@bilibili:120,re-zero/S02/E03@dandan&bilibili:10,\u4E1C\u65B9/S03/E02@tencent%:11" },
-      // 缓存配置
-      LOCAL_CACHE_ENABLED: { category: "cache", type: "boolean", description: "\u901A\u7528\u6587\u4EF6\u7F13\u5B58\u5F00\u5173\uFF0C\u9ED8\u8BA4\u5F00\u542F\u4E14\u4ECD\u9700\u5DF2\u6709 .cache \u76EE\u5F55\uFF1B\u5173\u95ED\u540E\u4E0D\u8BFB\u53D6\u6216\u5199\u5165\u901A\u7528\u6587\u4EF6\u7F13\u5B58\uFF0C\u5305\u62EC\u6536\u85CF\u4E0E\u5B9A\u65F6\u8BA1\u5212\uFF1B\u5DF2\u914D\u7F6E Upstash \u65F6\u4ECD\u53EF\u6301\u4E45\u5316\u3002\u4E0D\u5F71\u54CD\u672C\u5730\u5F39\u5E55\u6587\u4EF6\u3001Bangumi Data \u6216 Redis" },
-      SEARCH_CACHE_MINUTES: { category: "cache", type: "number", description: "\u641C\u7D22\u7ED3\u679C\u7F13\u5B58\u65F6\u95F4(\u5206\u949F)\uFF0C\u9ED8\u8BA43", min: 1, max: 120 },
-      COMMENT_CACHE_MINUTES: { category: "cache", type: "number", description: "\u5F39\u5E55\u7F13\u5B58\u65F6\u95F4(\u5206\u949F)\uFF0C\u9ED8\u8BA43", min: 1, max: 120 },
-      COMMENT_CACHE_MIN_COUNT: { category: "cache", type: "number", description: "\u5F39\u5E55\u7F13\u5B58\u6700\u5C11\u6761\u6570\uFF0C\u4F4E\u4E8E\u8BE5\u503C\u65F6\u91CD\u65B0\u83B7\u53D6\uFF0C\u9ED8\u8BA4100\uFF0C\u8BBE\u7F6E0\u5173\u95ED", min: 0, max: 1e4 },
-      REMEMBER_LAST_SELECT: { category: "cache", type: "boolean", description: "\u8BB0\u4F4F\u660E\u786E\u624B\u52A8\u9009\u62E9\u7684\u7ED3\u679C\uFF1B\u81EA\u52A8\u5339\u914D\u540E\u76F4\u63A5\u83B7\u53D6\u5176\u8FD4\u56DE\u7ED3\u679C\u4E0D\u4F1A\u5199\u5165\u504F\u597D" },
-      MAX_LAST_SELECT_MAP: { category: "cache", type: "number", description: "\u8BB0\u4F4F\u4E0A\u6B21\u9009\u62E9\u6620\u5C04\u7F13\u5B58\u5927\u5C0F\u9650\u5236\uFF0C\u9ED8\u8BA4100", min: 10, max: 1e3 },
-      MAX_ANIMES: { category: "cache", type: "number", description: "\u52A8\u6F2B\u6807\u9898\u7F13\u5B58\u6700\u5927\u6570\u91CF\uFF0C\u9ED8\u8BA4100", min: 100, max: 1e3 },
-      UPSTASH_REDIS_REST_URL: { category: "cache", type: "text", description: "Upstash Redis\u8BF7\u6C42\u94FE\u63A5" },
-      UPSTASH_REDIS_REST_TOKEN: { category: "cache", type: "text", description: "Upstash Redis\u8BBF\u95EE\u4EE4\u724C" },
-      LOCAL_REDIS_URL: { category: "cache", type: "text", description: "\u672C\u5730 Redis \u8FDE\u63A5URL\uFF0C\u793A\u4F8B\uFF1Aredis://:password@127.0.0.1:6379/0\uFF0C\u53EA\u652F\u6301\u672C\u5730\u90E8\u7F72\u548Cdocker\u90E8\u7F72" },
-      BANGUMI_DATA_CACHE_DAYS: { category: "cache", type: "number", description: "Bangumi Data \u7F13\u5B58\u6709\u6548\u671F(\u5929)\uFF0C\u8BBE\u7F6E0\u5219\u6BCF\u6B21\u8BF7\u6C42\u65F6\u5F3A\u5236\u5F02\u6B65\u66F4\u65B0\uFF0C\u9ED8\u8BA47\u5929", min: 0, max: 30 },
-      // 系统配置
-      UI_THEME: { category: "system", type: "select", options: ["lavender", "shinyo", "sakura", "tianyi", "hatsune", "sakuragi", "violet", "amber"], description: "\u7BA1\u7406\u754C\u9762\u4E3B\u9898" },
-      PROXY_URL: { category: "system", type: "text", description: "\u4EE3\u7406/\u53CD\u4EE3\u5730\u5740" },
-      TMDB_API_KEY: { category: "system", type: "text", description: "TMDB API\u5BC6\u94A5" },
-      LOG_LEVEL: { category: "system", type: "select", options: ["debug", "info", "warn", "error"], description: "\u65E5\u5FD7\u7EA7\u522B\u914D\u7F6E" },
-      DEPLOY_PLATFROM_ACCOUNT: { category: "system", type: "text", description: "\u90E8\u7F72\u5E73\u53F0\u8D26\u53F7ID" },
-      DEPLOY_PLATFROM_PROJECT: { category: "system", type: "text", description: "\u90E8\u7F72\u5E73\u53F0\u9879\u76EE\u540D\u79F0" },
-      DEPLOY_PLATFROM_TOKEN: { category: "system", type: "text", description: "\u90E8\u7F72\u5E73\u53F0\u8BBF\u95EE\u4EE4\u724C" },
-      NODE_TLS_REJECT_UNAUTHORIZED: { category: "system", type: "number", description: "\u5728\u5EFA\u7ACB HTTPS \u8FDE\u63A5\u65F6\u662F\u5426\u9A8C\u8BC1\u670D\u52A1\u5668\u7684 SSL/TLS \u8BC1\u4E66\uFF0C0\u8868\u793A\u5FFD\u7565\uFF0C\u9ED8\u8BA4\u4E3A1", min: 0, max: 1 },
-      IP_BLACKLIST: { category: "system", type: "text", description: "IP \u9ED1\u540D\u5355\u5217\u8868\uFF0C\u652F\u6301\u9017\u53F7/\u5206\u53F7/\u6362\u884C\u5206\u9694\uFF0C\u652F\u6301 /regex/ \u6216 /regex/i \u6B63\u5219\uFF0C\u652F\u6301 IPv4/IPv6 CIDR\uFF08\u5982 10.0.0.0/4\u30012001:db8::/64\uFF09\u3002\u547D\u4E2D\u5219\u62D2\u7EDD\u8BF7\u6C42" }
-    };
-    return {
-      vodAllowedPlatforms: this.VOD_ALLOWED_PLATFORMS,
-      allowedPlatforms: this.ALLOWED_PLATFORMS,
-      token: this.get("TOKEN", "87654321", "string", !0),
-      // token，默认为87654321
-      adminToken: this.get("ADMIN_TOKEN", "", "string", !0),
-      // admin token，用于系统管理访问控制
-      favoriteRequireAdmin: this.get("FAVORITE_REQUIRE_ADMIN", !1, "boolean"),
-      // 收藏写入和管理接口是否必须使用 admin token；列表始终公开
-      localDanmuNotRequireAdmin: this.get("LOCAL_DANMU_NOT_REQUIRE_ADMIN", !1, "boolean"),
-      sourceOrderArr: this.resolveSourceOrder(),
-      // 源排序
-      mergeSourcePairs: this.resolveMergeSourcePairs(),
-      // 源合并配置，用于将源合并获取
-      customMergeRules: this.resolveCustomMergeRules(),
-      // 合并映射表，用于自定义源合并行为。
-      otherServer: this.get("OTHER_SERVER", "https://api.danmu.icu", "string"),
-      // 第三方弹幕服务器
-      customSourceApiUrl: this.get("CUSTOM_SOURCE_API_URL", "", "string", !0),
-      // 自定义弹幕源API地址，默认为空，配置后还需在SOURCE_ORDER添加custom源
-      vodServers: this.resolveVodServers(),
-      // vod站点配置，格式：名称@URL,名称@URL
-      vodReturnMode: this.get("VOD_RETURN_MODE", "fastest", "string").toLowerCase(),
-      // vod返回模式：all（所有站点）或 fastest（最快的站点）
-      vodRequestTimeout: this.get("VOD_REQUEST_TIMEOUT", "10000", "string"),
-      // vod超时时间（默认10秒）
-      bilibliCookie: this.get("BILIBILI_COOKIE", "", "string", !0),
-      // b站cookie
-      doubanCookie: this.get("DOUBAN_COOKIE", "", "string", !0),
-      // 豆瓣cookie
-      youkuConcurrency: Math.min(this.get("YOUKU_CONCURRENCY", 8, "number"), 16),
-      // 优酷并发配置
-      tencentConcurrency: Math.max(1, Math.min(this.get("TENCENT_CONCURRENCY", 100, "number"), 200)),
-      // 腾讯弹幕分片并发配置
-      iqiyiConcurrency: Math.max(1, Math.min(this.get("IQIYI_CONCURRENCY", 100, "number"), 200)),
-      // 爱奇艺弹幕分片并发配置
-      dandanplayAccount: this.get("DANDANPLAY_ACCOUNT", "", "string", !0),
-      // 弹弹play账号，dandan 源使用
-      dandanplayPassword: this.get("DANDANPLAY_PASSWORD", "", "string", !0),
-      // 弹弹play密码，dandan 源使用
-      platformOrderArr: this.resolvePlatformOrder(),
-      // 自动匹配优选平台
-      animeTitleFilter: this.resolveAnimeTitleFilter(),
-      // 剧名正则过滤
-      episodeTitleFilter: this.resolveEpisodeTitleFilter(),
-      // 剧集标题正则过滤
-      titleNoiseFilter: this.resolveTitleNoiseFilter(),
-      // 剧名杂音清理规则
-      blockedWords: this.get("BLOCKED_WORDS", "", "string"),
-      // 屏蔽词列表
-      groupMinute: Math.min(this.get("GROUP_MINUTE", 1, "number"), 30),
-      // 分钟内合并去重（默认 1，最大值30，0 表示不按分钟合并，多源仍按时点去重）
-      danmuLimit: this.get("DANMU_LIMIT", 0, "number"),
-      // 等间隔采样限制弹幕总数，单位为k，即千：默认 0，表示不限制弹幕数，若改为5，弹幕总数在超过5000的情况下会将弹幕数控制在5000
-      uiTheme: this.get("UI_THEME", "lavender", "string").toLowerCase(),
-      // 管理界面主题
-      proxyUrl: this.get("PROXY_URL", "", "string", !0),
-      // 代理/反代地址
-      danmuSimplifiedTraditional: this.get("DANMU_SIMPLIFIED_TRADITIONAL", "default", "string"),
-      // 弹幕简繁体转换设置：default（默认不转换）、simplified（繁转简）、traditional（简转繁）
-      danmuPushUrl: this.get("DANMU_PUSH_URL", "", "string"),
-      // 代理/反代地址
-      likeSwitch: this.get("LIKE_SWITCH", !0, "boolean"),
-      // 弹幕点赞数显示开关，默认开启
-      danmuOffset: this.get("DANMU_OFFSET", "", "string"),
-      // 弹幕时间偏移配置
-      danmuOffsetRules: parseOffsetRules(this.get("DANMU_OFFSET", "", "string")),
-      // 解析后的偏移规则（缓存）
-      tmdbApiKey: this.get("TMDB_API_KEY", "", "string", !0),
-      // TMDB API KEY
-      redisUrl: this.get("UPSTASH_REDIS_REST_URL", "", "string", !0),
-      // upstash redis url
-      redisToken: this.get("UPSTASH_REDIS_REST_TOKEN", "", "string", !0),
-      // upstash redis url
-      localCacheEnabled: this.get("LOCAL_CACHE_ENABLED", !0, "boolean"),
-      // 允许使用已有 .cache 目录保存通用文件缓存
-      localRedisUrl: this.get("LOCAL_REDIS_URL", "", "string", !0),
-      // 本地 Redis 连接URL，示例：redis://:password@127.0.0.1:6379/0，只支持本地部署和docker部署
-      rateLimitMaxRequests: this.get("RATE_LIMIT_MAX_REQUESTS", 3, "number"),
-      // 限流配置：时间窗口内最大请求次数（默认 3，0表示不限流）
-      enableAnimeEpisodeFilter: this.get("ENABLE_ANIME_EPISODE_FILTER", !1, "boolean"),
-      // 控制手动搜索的时候是否根据ANIME_TITLE_FILTER进行剧名过滤以及根据EPISODE_TITLE_FILTER进行集标题过滤（默认 false，禁用过滤）
-      logLevel: this.get("LOG_LEVEL", "info", "string"),
-      // 日志级别配置（默认 info，可选值：error, warn, info）
-      searchCacheMinutes: this.get("SEARCH_CACHE_MINUTES", 3, "number"),
-      // 搜索结果缓存时间配置（分钟，默认 3）
-      commentCacheMinutes: this.get("COMMENT_CACHE_MINUTES", 3, "number"),
-      // 弹幕缓存时间配置（分钟，默认 3）
-      commentCacheMinCount: this.get("COMMENT_CACHE_MIN_COUNT", 100, "number"),
-      // 弹幕缓存最少条数，低于该值时忽略缓存（默认 100，0 表示关闭）
-      hongguoMergeAllEpisodes: this.get("HONGGUO_MERGE_ALL_EPISODES", !1, "boolean"),
-      // 红果短剧是否合并全集弹幕（默认 false）
-      convertTopBottomToScroll: this.get("CONVERT_TOP_BOTTOM_TO_SCROLL", !1, "boolean"),
-      // 顶部/底部弹幕转换为浮动弹幕配置（默认 false，禁用转换）
-      convertColor: this.get("CONVERT_COLOR", "default", "string"),
-      // 弹幕转换颜色配置，支持 default、white、color（默认 default，禁用转换）
-      colorPool: this.get("COLOR_POOL", "16777215,16777215,16777215,16777215,16777215,16777215,16777215,16777215,16744319,16752762,16774799,9498256,8388564,8900346,14204888,16758465", "string"),
-      // 自定义颜色池，CONVERT_COLOR为color时生效
-      gradientChance: this.get("GRADIENT_CHANCE", 0, "number"),
-      // 渐变色弹幕出现概率（百分比），CONVERT_COLOR为color时生效，0 表示关闭
-      gradientColors: this.get("GRADIENT_COLORS", "16478873,3389695", "string"),
-      // 渐变色带（B站标准粉蓝 #FB7299→#33B8FF），CONVERT_COLOR为color时生效
-      danmuOutputFormat: this.get("DANMU_OUTPUT_FORMAT", "json", "string"),
-      // 弹幕输出格式配置（默认 json，可选值：json, xml, ...danAnyFormats）
-      strictTitleMatch: this.get("STRICT_TITLE_MATCH", !1, "boolean"),
-      // 严格标题匹配模式配置（默认 false，宽松模糊匹配）
-      titleToChinese: this.get("TITLE_TO_CHINESE", !1, "boolean"),
-      // 外语标题转换中文开关
-      animeTitleSimplified: this.get("ANIME_TITLE_SIMPLIFIED", !1, "boolean"),
-      // 搜索的剧名标题自动繁转简
-      titleMappingTable: this.resolveTitleMappingTable(),
-      // 剧名映射表，用于自动匹配时替换标题进行搜索
-      titleMappingTableUrl: this.get("TITLE_MAPPING_TABLE_URL", "", "string"),
-      // 远程剧名映射表地址（由用户托管维护，自动拉取生效）
-      autoMatchMappingTable: this.resolveAutoMatchMappingTable(),
-      // 自动匹配标题/季度/集数映射规则
-      autoMatchMappingTableUrl: this.get("AUTO_MATCH_MAPPING_TABLE_URL", "", "string"),
-      // 远程季集映射表地址
-      ipBlacklist: this.resolveIpBlacklist(),
-      // IP 黑名单（支持正则）
-      aiBaseUrl: this.get("AI_BASE_URL", "https://api.openai.com/v1", "string"),
-      // AI服务基础URL
-      aiModel: this.get("AI_MODEL", "gpt-4o", "string"),
-      // AI模型名称
-      aiApiKey: this.get("AI_API_KEY", "", "string", !0),
-      // AI服务API密钥
-      aiMatchPrompt: configuredAiMatchPrompt.trim() ? configuredAiMatchPrompt : this.DEFAULT_AI_MATCH_PROMPT,
-      // AI自动匹配提示词模板
-      useBangumiData: this.get("USE_BANGUMI_DATA", !1, "boolean"),
-      // Bangumi Data 数据辅助开关
-      rememberLastSelect: this.get("REMEMBER_LAST_SELECT", !0, "boolean"),
-      // 是否记住手动选择结果，用于match自动匹配时优选上次的选择（默认 true，记住）
-      MAX_LAST_SELECT_MAP: this.get("MAX_LAST_SELECT_MAP", 100, "number"),
-      // 记住上次选择映射缓存大小限制（默认 100）
-      MAX_ANIMES: this.get("MAX_ANIMES", 100, "number"),
-      // 动漫标题缓存最大数量（默认 100）
-      bangumiDataCacheDays: this.get("BANGUMI_DATA_CACHE_DAYS", 7, "number"),
-      // Bangumi Data 缓存有效期(天)，默认7天
-      deployPlatformAccount: this.get("DEPLOY_PLATFROM_ACCOUNT", "", "string", !0),
-      // 部署平台账号ID配置（默认空）
-      deployPlatformProject: this.get("DEPLOY_PLATFROM_PROJECT", "", "string", !0),
-      // 部署平台项目名称配置（默认空）
-      deployPlatformToken: this.get("DEPLOY_PLATFROM_TOKEN", "", "string", !0),
-      // 部署平台项目名称配置（默认空）
-      NODE_TLS_REJECT_UNAUTHORIZED: this.get("NODE_TLS_REJECT_UNAUTHORIZED", 1, "number"),
-      // 在建立 HTTPS 连接时是否验证服务器的 SSL/TLS 证书，0表示忽略，默认为1
-      envVarConfig
-      // 环境变量分类和描述映射
-    };
-  }
-};
-__publicField(_Envs, "env"), // 记录获取过的环境变量
-__publicField(_Envs, "originalEnvVars", /* @__PURE__ */ new Map()), __publicField(_Envs, "accessedEnvVars", /* @__PURE__ */ new Map()), // Node 本地部署时由 server.js 注入：启动前的真实系统环境变量快照（最高优先级判定依据）与 .env 原始解析结果
-__publicField(_Envs, "systemEnvBackup", null), __publicField(_Envs, "rawEnvValues", null), // 按 encrypt 读取的变量（凭据类），随 Envs.get 调用登记，供日志脱敏判定是否为敏感变量
-__publicField(_Envs, "sensitiveKeys", /* @__PURE__ */ new Set()), // 允许在值中写入 # 等 dotenv 视为注释字符的变量；读取时绕过 dotenv 截断以保留完整内容。加密变量按掩码写入预览集合，原始值仅供运行期使用与日志脱敏。
-__publicField(_Envs, "RAW_ENV_KEYS", /* @__PURE__ */ new Set(["ADMIN_TOKEN", "AI_API_KEY", "AI_MATCH_PROMPT", "ANIME_TITLE_FILTER", "AUTO_MATCH_MAPPING_TABLE", "BLOCKED_WORDS", "BILIBILI_COOKIE", "COLOR_POOL", "CUSTOM_MERGE_RULES", "CUSTOM_SOURCE_API_URL", "DANDANPLAY_ACCOUNT", "DANDANPLAY_PASSWORD", "DANMU_OFFSET", "DANMU_PUSH_URL", "DEPLOY_PLATFROM_ACCOUNT", "DEPLOY_PLATFROM_PROJECT", "DEPLOY_PLATFROM_TOKEN", "DOUBAN_COOKIE", "EPISODE_TITLE_FILTER", "IP_BLACKLIST", "LOCAL_REDIS_URL", "OTHER_SERVER", "PROXY_URL", "TITLE_MAPPING_TABLE", "TITLE_NOISE_FILTER", "TMDB_API_KEY", "TOKEN", "UPSTASH_REDIS_REST_TOKEN", "UPSTASH_REDIS_REST_URL", "VOD_SERVERS"])), __publicField(_Envs, "VOD_ALLOWED_PLATFORMS", ["qiyi", "bilibili1", "imgo", "youku", "qq", "migu", "sohu", "leshi", "xigua", "maiduidui", "aiyifan"]), // vod允许的播放平台
-__publicField(_Envs, "ALLOWED_PLATFORMS", ["qiyi", "bilibili1", "imgo", "youku", "qq", "migu", "renren", "hanjutv", "sohu", "leshi", "xigua", "maiduidui", "aiyifan", "hongguo", "dandan", "bahamut", "animeko", "custom"]), // 全部源允许的播放平台
-__publicField(_Envs, "ALLOWED_SOURCES", ["360", "vod", "tmdb", "douban", "tencent", "youku", "iqiyi", "imgo", "bilibili", "migu", "renren", "hanjutv", "sohu", "leshi", "xigua", "maiduidui", "aiyifan", "hongguo", "dandan", "bahamut", "animeko", "custom", "local"]), // 允许的源
-__publicField(_Envs, "MERGE_ALLOWED_SOURCES", ["tencent", "youku", "iqiyi", "imgo", "bilibili", "migu", "renren", "hanjutv", "sohu", "leshi", "xigua", "maiduidui", "aiyifan", "hongguo", "dandan", "bahamut", "animeko"]), // 允许的源合并
-__publicField(_Envs, "DEFAULT_AI_MATCH_PROMPT", `\u4F60\u662F\u4E00\u4E2A\u4E13\u4E1A\u7684\u5F71\u89C6\u5339\u914D\u4E13\u5BB6\uFF0C\u4F60\u7684\u7684\u4EFB\u52A1\u662F\u6839\u636E\u7528\u6237\u63D0\u4F9B\u7684 JSON \u6570\u636E\uFF0C\u4ECE\u5019\u9009\u52A8\u6F2B\u5217\u8868\u4E2D\u5339\u914D\u6700\u7B26\u5408\u6761\u4EF6\u7684\u52A8\u6F2B\u53CA\u96C6\u6570\u3002
-
-\u8F93\u5165\u5B57\u6BB5\u8BF4\u660E\uFF1A
-- title: \u67E5\u8BE2\u6807\u9898
-- season: \u5B63\u6570\uFF08\u53EF\u4E3A null\uFF09
-- episode: \u96C6\u6570\uFF08\u53EF\u4E3A null\uFF09
-- year: \u5E74\u4EFD\uFF08\u53EF\u4E3A null\uFF09
-- dynamicPlatformOrder: \u5E73\u53F0\u504F\u597D\u5217\u8868\uFF08\u53EF\u4E3A null\uFF09
-- preferAnimeId: \u504F\u597D\u52A8\u6F2B ID\uFF08\u53EF\u4E3A null\uFF09
-- animes: \u5019\u9009\u52A8\u6F2B\u5217\u8868
-  - animeId: \u52A8\u6F2Bid
-    animeTitle: \u52A8\u6F2B\u6807\u9898\uFF0C(\u5E74\u4EFD)\u524D\u9762\u624D\u662F\u771F\u5B9E\u7684\u6807\u9898
-	aliases: \u52A8\u6F2B\u6807\u9898\u7684\u522B\u540D\uFF0C\u89C6\u60C5\u51B5\u53EF\u4EE5\u4F5C\u4E3A(\u52A8\u6F2B\u6807\u9898)\u770B\u5F85
-    type: \u7C7B\u578B
-    startDate: \u53D1\u5E03\u65E5\u671F\uFF0C\u6709\u5E74\u4EFD
-    episodeCount: \u603B\u96C6\u6570
-    source: \u5F39\u5E55\u6765\u6E90
-
-\u5339\u914D\u89C4\u5219 (\u6309\u4F18\u5148\u7EA7\u6392\u5E8F):
-1. \u5982\u679CpreferAnimeId\u975E\u7A7A\uFF0C\u4E14animes\u5B58\u5728\u8BE5animeId\uFF0C\u5219\u8FD4\u56DE\u8BE5id\u5BF9\u5E94\u7684anime\u548Cepisode
-2. \u6807\u9898\u76F8\u4F3C\u5EA6: \u4F18\u5148\u5339\u914D\u6807\u9898\u76F8\u4F3C\u5EA6\u6700\u9AD8\u7684\u6761\u76EE
-3. \u5B63\u5EA6\u4E25\u683C\u5339\u914D: \u5982\u679C\u6307\u5B9A\u4E86\u5B63\u5EA6,\u5FC5\u987B\u4E25\u683C\u5339\u914D
-4. \u7C7B\u578B\u5339\u914D: episode\u4E3A\u7A7A\u5219\u4F18\u5148\u5339\u914D\u7535\u5F71\uFF0C\u975E\u7A7A\u5219\u5339\u914D\u7535\u89C6\u5267\u7B49
-5. \u5E74\u4EFD\u63A5\u8FD1: \u4F18\u5148\u9009\u62E9\u5E74\u4EFD\u63A5\u8FD1\u7684
-6. \u5E73\u53F0\u5339\u914D\uFF1A\u5982\u679C\u6709\u591A\u4E2A\u9AD8\u5EA6\u76F8\u4F3C\u7684\u7ED3\u679C\u4E14dynamicPlatformOrder\u975E\u7A7A\uFF0C\u5219\u4ECE\u524D\u5F80\u540E\u9009\u62E9\u76F8\u5BF9\u5E94\u7684\u5E73\u53F0
-7. \u96C6\u6570\u5B8C\u6574: \u5982\u679C\u6709\u591A\u4E2A\u9AD8\u5EA6\u76F8\u4F3C\u7684\u7ED3\u679C,\u9009\u62E9\u96C6\u6570\u6700\u5B8C\u6574\u7684
-
-\u8BF7\u5206\u6790\u54EA\u4E2A\u52A8\u6F2B\u6700\u7B26\u5408\u67E5\u8BE2\u6761\u4EF6\uFF0C\u5982\u679C\u6307\u5B9A\u4E86\u5B63\u6570\u548C\u96C6\u6570\uFF0C\u8BF7\u4E5F\u8FD4\u56DE\u5BF9\u5E94\u7684\u96C6\u4FE1\u606F\u3002
-\u8BF7\u4E25\u683C\u6309\u7167\u4EE5\u4E0B JSON \u683C\u5F0F\u8FD4\u56DE\u7ED3\u679C\uFF0C\u4E0D\u8981\u5305\u542B\u4EFB\u4F55\u5176\u4ED6\u5185\u5BB9\uFF1A
-{
-  "animeIndex": \u5339\u914D\u7684\u52A8\u6F2B\u5728\u5217\u8868\u4E2D\u7684\u7D22\u5F15(\u4ECE0\u5F00\u59CB) \u6216 null
-}
-
-\u5982\u679C\u6CA1\u6709\u627E\u5230\u5408\u9002\u7684\u5339\u914D\uFF0C\u8FD4\u56DE\uFF1A
-{
-  "animeIndex": null
-}`);
-var Envs = _Envs;
-
-// danmu_api/configs/globals.js
-var TRAILING_RELEASE_YEAR_PATTERN = /(?:\s*[（(]\s*(?:19|20)\d{2}\s*[)）]|\s*[\[［]\s*(?:19|20)\d{2}\s*[\]］]|\s*【\s*(?:19|20)\d{2}\s*】)\s*$/;
-function stripTrailingReleaseYear(value) {
-  return String(value || "").replace(TRAILING_RELEASE_YEAR_PATTERN, "").trim();
-}
-var Globals = {
-  // 缓存环境变量
-  env: {},
-  envs: {},
-  originalEnvVars: {},
-  accessedEnvVars: {},
-  // 静态常量
-  VERSION: "1.21.10",
-  MAX_LOGS: 1e3,
-  // 日志存储，最多保存 1000 行
-  MAX_RECORDS: 100,
-  // 请求记录最大数量
-  // 运行时状态
-  animes: [],
-  episodeIds: [],
-  episodeNum: 10001,
-  // 全局变量，用于自增 ID
-  logBuffer: [],
-  requestHistory: /* @__PURE__ */ new Map(),
-  // 记录每个 IP 地址的请求历史
-  localCacheValid: !1,
-  // 本地缓存是否生效
-  localCacheInitialized: !1,
-  // 本地缓存是否已初始化
-  localRedisCacheInitialized: !1,
-  // 本地 Redis 缓存是否已初始化
-  queryCacheInitialized: !1,
-  // 查询数据只恢复一次，之后以内存为准
-  queryCacheWritable: {},
-  // 后端成功读取后才可写入；失败后本进程保留远端数据
-  favoriteCacheWritable: {},
-  // 收藏读取失败时保护原快照，与查询恢复状态独立
-  redisValid: !1,
-  // redis是否生效
-  localRedisValid: !1,
-  // 本地redis是否生效
-  aiValid: !1,
-  // AI配置是否生效
-  redisCacheInitialized: !1,
-  // redis 缓存是否已初始化
-  lastSelectMap: /* @__PURE__ */ new Map(),
-  // 存储查询关键字上次选择的animeId，用于下次match自动匹配时优先选择该anime
-  reqRecords: [],
-  // 记录请求历史，包括接口/参数/请求时间
-  todayReqNum: 0,
-  // 今日请求数量统计
-  // 各后端只记录自身已确认持有的数据；缺少哈希表示尚未持久化。
-  localFileHashes: {},
-  upstashHashes: {},
-  localRedisHashes: {},
-  searchCache: /* @__PURE__ */ new Map(),
-  // 搜索结果缓存，存储格式：{ keyword: { results, timestamp } }
-  commentCache: /* @__PURE__ */ new Map(),
-  // 弹幕缓存，存储格式：{ videoUrl: { comments, timestamp } }
-  favoriteCache: /* @__PURE__ */ new Map(),
-  // 收藏剧集永久缓存，存储格式：{ keyword: { results, details, timestamp } }，无 TTL、无数量上限
-  remoteTitleMappingTable: /* @__PURE__ */ new Map(),
-  // 远端剧名映射，查询时由本机映射优先兜底
-  deployPlatform: "",
-  // 部署平台配置
-  currentToken: "",
-  // 标识当前可用token
-  /**
-   * 初始化全局变量，加载环境变量依赖
-   * @param {Object} env 环境对象
-   * @returns {Object} 全局配置对象
-   */
-  init(env = {}) {
-    return this.env = env, this.envs = Envs.load(this.env), this.originalEnvVars = Object.fromEntries(Envs.getOriginalEnvVars()), this.accessedEnvVars = Object.fromEntries(Envs.getAccessedEnvVars()), this.getConfig();
-  },
-  /**
-   * 重新初始化全局变量，加载环境变量依赖
-   * @returns {Object} 全局配置对象
-   */
-  reInit() {
-    return this.envs = Envs.load(this.env), this.originalEnvVars = Object.fromEntries(Envs.getOriginalEnvVars()), this.accessedEnvVars = Object.fromEntries(Envs.getAccessedEnvVars()), this.getConfig();
-  },
-  /**
-   * 智能构建代理URL
-   * 逻辑：专用反代/万能反代直接替换/拼接URL（无视平台）；正向代理走5321端口（仅本地Node有效）
-   * @param {string} targetUrl 原始目标URL
-   * @returns {string} 处理后的URL
-   */
-  makeProxyUrl(targetUrl) {
-    let proxyConfig = this.envs.proxyUrl || "";
-    if (!proxyConfig || !targetUrl) return targetUrl;
-    let configs = proxyConfig.split(",").map((s) => s.trim()).filter((s) => s), forwardProxy = null, specificProxy = null, universalProxy = null, targetObj;
-    try {
-      targetObj = new URL(targetUrl);
-    } catch {
-      return targetUrl;
-    }
-    let hostname = targetObj.hostname;
-    for (let conf of configs)
-      if (conf.startsWith("bahamut@") && hostname.includes("gamer.com.tw")) {
-        specificProxy = conf.substring(8);
-        break;
-      } else if (conf.startsWith("tmdb@") && hostname.includes("tmdb")) {
-        specificProxy = conf.substring(5);
-        break;
-      } else if (conf.startsWith("bilibili@") && hostname.includes("bilibili")) {
-        specificProxy = conf.substring(9);
-        break;
-      } else if (conf.startsWith("animeko@") && (hostname.includes("animeko") || hostname.includes("bgm.tv"))) {
-        specificProxy = conf.substring(8);
-        break;
-      } else if (conf.startsWith("aiyifan@") && /(^|\.)(tripdata\.app|yfsp\.tv)$/.test(hostname)) {
-        specificProxy = conf.substring(8);
-        break;
-      } else conf.startsWith("@") && !universalProxy ? universalProxy = conf.substring(1) : /^https?:\/\//i.test(conf) && !forwardProxy && (forwardProxy = conf);
-    if (specificProxy)
-      try {
-        let proxyObj = new URL(specificProxy);
-        return targetObj.protocol = proxyObj.protocol, targetObj.host = proxyObj.host, targetObj.port = proxyObj.port, proxyObj.pathname !== "/" && (targetObj.pathname = proxyObj.pathname.replace(/\/$/, "") + targetObj.pathname), targetObj.toString();
-      } catch {
-        return targetUrl;
-      }
-    return universalProxy ? `${universalProxy.replace(/\/$/, "")}/${targetUrl}` : forwardProxy ? `http://127.0.0.1:5321/proxy?url=${encodeURIComponent(targetUrl)}` : targetUrl;
-  },
-  resolveTitleMapping(title) {
-    let key = String(title ?? ""), localMappings = this.envs?.titleMappingTable, keys = [key], withoutYear = stripTrailingReleaseYear(key);
-    withoutYear && withoutYear !== key && keys.push(withoutYear);
-    for (let candidate of keys) {
-      if (localMappings?.has(candidate)) return localMappings.get(candidate);
-      if (this.remoteTitleMappingTable?.has(candidate)) return this.remoteTitleMappingTable.get(candidate);
-    }
-    return null;
-  },
-  /**
-   * 获取全局配置快照
-   * @returns {Object} 当前全局配置
-   */
-  /**
-   * 获取全局配置对象（单例，可修改）
-   * 使用 Proxy 保持接口兼容性，实例懒初始化后缓存复用避免每次新建
-   * @returns {Object} 全局配置对象本身
-   */
-  getConfig() {
-    if (this._configProxy) return this._configProxy;
-    let self = this;
-    return this._configProxy = new Proxy({}, {
-      get(target, prop) {
-        return prop in self.envs ? self.envs[prop] : prop === "version" ? self.VERSION : prop === "maxLogs" ? self.MAX_LOGS : prop === "maxAnimes" ? self.envs.MAX_ANIMES : prop === "maxRecords" ? self.MAX_RECORDS : prop === "maxLastSelectMap" ? self.MAX_LAST_SELECT_MAP : prop === "makeProxyUrl" ? self.makeProxyUrl.bind(self) : self[prop];
-      },
-      set(target, prop, value) {
-        return prop in self.envs ? self.envs[prop] = value : self[prop] = value, !0;
-      }
-    }), this._configProxy;
-  }
-}, globals = new Proxy({}, {
-  get(target, prop) {
-    return Globals.getConfig()[prop];
-  },
-  set(target, prop, value) {
-    return Globals.getConfig()[prop] = value, !0;
-  },
-  has(target, prop) {
-    return prop in Globals.getConfig();
-  },
-  ownKeys(target) {
-    return Reflect.ownKeys(Globals.getConfig());
-  },
-  getOwnPropertyDescriptor(target, prop) {
-    return Object.getOwnPropertyDescriptor(Globals.getConfig(), prop);
-  }
-});
 
 // forward-node-builtins:async-hooks
 var AsyncLocalStorage = class {
@@ -6836,6 +5558,1555 @@ async function httpGetWithStreamCheck(url, options = {}, checkCallback) {
     cleanupSignal();
   }
 }
+
+// node_modules/opencc-js/dist/esm-lib/core.js
+var Trie = class {
+  // 使用 Map 實作 Trie 樹
+  // Trie 的每個節點為一個 Map 物件
+  // key 為 code point，value 為子節點（也是一個 Map）。
+  // 如果 Map 物件有 trie_val 屬性，則該屬性為值字串，代表替換的字詞。
+  constructor() {
+    this.map = /* @__PURE__ */ new Map();
+  }
+  /**
+   * 將一項資料加入字典樹
+   * @param {string} s 要匹配的字串
+   * @param {string} v 若匹配成功，則替換為此字串
+   */
+  addWord(s, v) {
+    let { map } = this;
+    for (let c of s) {
+      let cp = c.codePointAt(0), nextMap = map.get(cp);
+      if (nextMap == null) {
+        let tmp = /* @__PURE__ */ new Map();
+        map.set(cp, tmp), map = tmp;
+      } else
+        map = nextMap;
+    }
+    map.trie_val = v;
+  }
+  /**
+     * 讀取字典資料
+     * @param {DictLike} d 字典
+     */
+  loadDict(d) {
+    if (typeof d == "string") {
+      d = d.split("|");
+      for (let line of d) {
+        let [l, r] = line.split(" ");
+        if (typeof r != "string")
+          throw new TypeError('Invalid dictionary entry: expected string entries to use "source replacement" format.');
+        this.addWord(l, r);
+      }
+    } else
+      for (let arr of d) {
+        if (!Array.isArray(arr) || typeof arr[0] != "string" || typeof arr[1] != "string")
+          throw new TypeError(
+            "Invalid dictionary entry: expected [source, replacement] pairs. If you are passing locale dictionaries to ConverterFactory, spread them, for example: ConverterFactory(...Locale.from.cn, ...Locale.to.hk)."
+          );
+        let [l, r] = arr;
+        this.addWord(l, r);
+      }
+  }
+  /**
+   * 讀取多個字典資料
+   * @param {DictLike[]} arr 字典
+   */
+  loadDictGroup(arr) {
+    arr.slice().reverse().forEach((d) => {
+      this.loadDict(d);
+    });
+  }
+  matchPrefix(s, i) {
+    let n = s.length, t_curr = this.map, k = 0, v;
+    for (let j = i; j < n; ) {
+      let x = s.codePointAt(j);
+      j += x > 65535 ? 2 : 1;
+      let t_next = t_curr.get(x);
+      if (typeof t_next > "u")
+        break;
+      t_curr = t_next;
+      let v_curr = t_curr.trie_val;
+      typeof v_curr < "u" && (k = j, v = v_curr);
+    }
+    return k > 0 ? { end: k, value: v } : null;
+  }
+  segment(s) {
+    let n = s.length, segments = [], orig_i = null;
+    for (let i = 0; i < n; ) {
+      let matched = this.matchPrefix(s, i);
+      matched ? (orig_i !== null && (segments.push(s.slice(orig_i, i)), orig_i = null), segments.push(s.slice(i, matched.end)), i = matched.end) : (orig_i === null && (orig_i = i), i += getUnmatchedLength(s, i));
+    }
+    return orig_i !== null && segments.push(s.slice(orig_i, n)), segments;
+  }
+  /**
+   * 根據字典樹中的資料轉換字串。
+   * @param {string} s 要轉換的字串
+   */
+  convert(s) {
+    let n = s.length, arr = [], orig_i = null;
+    for (let i = 0; i < n; ) {
+      let matched = this.matchPrefix(s, i);
+      matched ? (orig_i !== null && (arr.push(s.slice(orig_i, i)), orig_i = null), arr.push(matched.value), i = matched.end) : (orig_i === null && (orig_i = i), i += getUnmatchedLength(s, i));
+    }
+    return orig_i !== null && arr.push(s.slice(orig_i, n)), arr.join("");
+  }
+};
+function getCodePointLength(s, i) {
+  return s.codePointAt(i) > 65535 ? 2 : 1;
+}
+function getIdeographicDescriptionArity(cp) {
+  return cp >= 12272 && cp <= 12273 ? 2 : cp >= 12274 && cp <= 12275 ? 3 : cp >= 12276 && cp <= 12287 ? 2 : 0;
+}
+function getIdeographicDescriptionSequenceEnd(s, i) {
+  let cp = s.codePointAt(i), arity = getIdeographicDescriptionArity(cp);
+  if (arity === 0)
+    return 0;
+  let end = i + getCodePointLength(s, i);
+  for (let n = 0; n < arity; n += 1) {
+    if (end >= s.length)
+      return 0;
+    end = getIdeographicDescriptionSequenceEnd(s, end) || end + getCodePointLength(s, end);
+  }
+  return end;
+}
+function getUnmatchedLength(s, i) {
+  let idsEnd = getIdeographicDescriptionSequenceEnd(s, i);
+  return idsEnd > i ? idsEnd - i : getCodePointLength(s, i);
+}
+function ConverterFactory(...dictGroups) {
+  let trieArr = normalizeConverterFactoryDictGroups(dictGroups).map((grp) => {
+    let t = new Trie();
+    return t.loadDictGroup(grp), t;
+  });
+  function convert(s) {
+    return trieArr.reduce((res, t) => t.convert(res), s);
+  }
+  return convert;
+}
+function isDictPair(entry) {
+  return Array.isArray(entry) && typeof entry[0] == "string" && typeof entry[1] == "string";
+}
+function isSerializedDict(dict) {
+  return typeof dict == "string" && (dict === "" || dict.includes(" "));
+}
+function isDictLike(dict) {
+  return typeof dict == "string" || Array.isArray(dict) && dict.every(isDictPair);
+}
+function isDictGroup(dictGroup) {
+  return Array.isArray(dictGroup) && dictGroup.every((dict) => isSerializedDict(dict) || Array.isArray(dict) && dict.every(isDictPair));
+}
+function isDictGroupCollection(dictGroups) {
+  return Array.isArray(dictGroups) && dictGroups.every(isDictGroup);
+}
+function normalizeConverterFactoryDictGroups(dictGroups) {
+  return dictGroups.flatMap((dictGroup) => {
+    if (isDictGroupCollection(dictGroup))
+      return dictGroup;
+    if (isDictGroup(dictGroup))
+      return [dictGroup];
+    if (!Array.isArray(dictGroup))
+      throw new TypeError("Invalid ConverterFactory argument: expected a dictionary group or locale dictionary collection.");
+    let groups = [], i = 0;
+    for (; i < dictGroup.length && isDictGroup(dictGroup[i]); )
+      groups.push(dictGroup[i].slice()), i += 1;
+    let appendedDicts = dictGroup.slice(i);
+    return groups.length > 0 && appendedDicts.length > 0 && appendedDicts.every(isDictLike) ? (groups[groups.length - 1].push(...appendedDicts), groups) : [dictGroup];
+  });
+}
+
+// node_modules/opencc-js/dist/esm-lib/dict/STCharacters.js
+var STCharacters_default = "\u3437 \u508C|\u3439 \u3476|\u343D \u5051|\u3447 \u3473|\u3448 \u5032|\u3454 \u346F|\u3469 \u5138|\u34C6 \u{205E3}|\u34E5 \u528F|\u34F0 \u5283|\u3509 \u529A|\u358A \u565A|\u359E \u558E|\u360E \u361A|\u36AF \u3704|\u36C0 \u5AB0|\u36DF \u{217B5}|\u36E0 \u{21883}|\u36E3 \u370F|\u36E4 \u5B4B|\u36FF \u{21839}|\u37C6 \u380F|\u37DC \u{21FB1}|\u37E5 \u5D7E|\u384E \u5E53|\u3918 \u396E|\u393D \u61E4|\u396A \u617A|\u39CF \u6386|\u39D0 \u3A73|\u39D1 \u649D|\u39DF \u64D3|\u39F0 \u64FD|\u3A2B \u3A5C|\u3B4E \u68E1|\u3B4F \u6932|\u3B63 \u{2364E}|\u3B64 \u6A22|\u3B74 \u6A2B|\u3C69 \u6BB0|\u3C6E \u6BA8|\u3CBF \u7007|\u3CD4 \u6FE7|\u3CD5 \u7061|\u3CE0 \u6FBE|\u3CE1 \u6FC4|\u3CE2 \u{23FB7}|\u3CFD \u7030|\u3D0B \u6F5A|\u3D89 \u9E02|\u3DB6 \u71F6|\u3DBD \u7171|\u3E8D \u7371|\u3EC5 \u74AF|\u3ECF \u{24AE9}|\u3ED8 \u{24ABA}|\u4025 \u407B|\u4056 \u779C|\u40B5 \u78BD|\u40C5 \u78FE|\u4149 \u7A0F|\u415F \u7A47|\u416A \u{258A2}|\u41F2 \u7B74|\u4264 \u7C54|\u4336 \u42B7|\u4337 \u7D2C|\u4338 \u7E33|\u4339 \u7D45|\u433A \u42D9|\u433B \u42DA|\u433C \u7D90|\u433D \u7DB5|\u433E \u42FB|\u433F \u42F9|\u4340 \u7E7F|\u4341 \u7E78|\u4360 \u4366|\u43AC \u43B1|\u43DD \u819E|\u447D \u{26A99}|\u44D3 \u85B5|\u44D5 \u85B3|\u44D6 \u85ED|\u44E8 \u7F43|\u45D6 \u87AE|\u461B \u{2775E}|\u461E \u{27717}|\u464A \u{27735}|\u464C \u4661|\u4653 \u896C|\u4723 \u8A22|\u4724 \u9FC1|\u4725 \u{27A59}|\u4727 \u4700|\u4729 \u8B8C|\u4759 \u8C99|\u478C \u{27D73}|\u478D \u477C|\u478E \u{27DA7}|\u4790 \u8CF0|\u47E2 \u8E8E|\u4880 \u{282B0}|\u4881 \u{282B8}|\u4882 \u{282E2}|\u497A \u91FE|\u497D \u93FA|\u497E \u4971|\u497F \u{28BC5}|\u4980 \u{289AB}|\u4981 \u{289DC}|\u4982 \u4947|\u4983 \u942F|\u4985 \u9425|\u4986 \u9481|\u49B6 \u499B|\u49B7 \u499F|\u4A44 \u9766|\u4B6A \u{297AF}|\u4BC3 \u{298D1}|\u4BC4 \u9A27|\u4BC5 \u4BC0|\u4C9D \u4C7D|\u4C9E \u{29D98}|\u4C9F \u9BA3|\u4CA0 \u9C06|\u4CA1 \u9C0C|\u4CA2 \u9C27|\u4CA3 \u4C77|\u4D13 \u9CFE|\u4D14 \u9D41|\u4D15 \u9D37|\u4D16 \u9D84|\u4D17 \u9DAA|\u4D18 \u9DC9|\u4D19 \u9E0A|\u4DAE \u9F91|\u4E07 \u842C|\u4E0E \u8207|\u4E11 \u919C|\u4E13 \u5C08|\u4E1A \u696D|\u4E1B \u53E2|\u4E1C \u6771|\u4E1D \u7D72|\u4E22 \u4E1F|\u4E24 \u5169|\u4E25 \u56B4|\u4E27 \u55AA|\u4E2A \u500B|\u4E30 \u8C50|\u4E34 \u81E8|\u4E3A \u7232|\u4E3D \u9E97|\u4E3E \u8209|\u4E48 \u9EBC|\u4E49 \u7FA9|\u4E4C \u70CF|\u4E50 \u6A02|\u4E54 \u55AC|\u4E60 \u7FD2|\u4E61 \u9109|\u4E66 \u66F8|\u4E70 \u8CB7|\u4E71 \u4E82|\u4E89 \u722D|\u4E8E \u65BC|\u4E8F \u8667|\u4E91 \u96F2|\u4E98 \u4E99|\u4E9A \u4E9E|\u4EA7 \u7522|\u4EA9 \u755D|\u4EB2 \u89AA|\u4EB5 \u893B|\u4EB8 \u56B2|\u4EBF \u5104|\u4EC5 \u50C5|\u4EC6 \u50D5|\u4ECE \u5F9E|\u4ED1 \u4F96|\u4ED3 \u5009|\u4EEA \u5100|\u4EEC \u5011|\u4EF7 \u50F9|\u4F17 \u8846|\u4F18 \u512A|\u4F19 \u5925|\u4F1A \u6703|\u4F1B \u50B4|\u4F1E \u5098|\u4F1F \u5049|\u4F20 \u50B3|\u4F21 \u4FE5|\u4F23 \u4FD4|\u4F24 \u50B7|\u4F25 \u5000|\u4F26 \u502B|\u4F27 \u5096|\u4F2A \u50DE|\u4F2B \u4F47|\u4F53 \u9AD4|\u4F59 \u9918|\u4F63 \u50AD|\u4F65 \u50C9|\u4FA0 \u4FE0|\u4FA3 \u4FB6|\u4FA5 \u50E5|\u4FA6 \u5075|\u4FA7 \u5074|\u4FA8 \u50D1|\u4FA9 \u5108|\u4FAA \u5115|\u4FAC \u5102|\u4FAD \u5118|\u4FE3 \u4FC1|\u4FE6 \u5114|\u4FE8 \u513C|\u4FE9 \u5006|\u4FEA \u5137|\u4FEB \u5008|\u4FED \u5109|\u503A \u50B5|\u503E \u50BE|\u506C \u50AF|\u507B \u50C2|\u507E \u50E8|\u507F \u511F|\u50A4 \u510E|\u50A5 \u513B|\u50A7 \u5110|\u50A8 \u5132|\u50A9 \u513A|\u513F \u5152|\u5151 \u514C|\u5156 \u5157|\u515A \u9EE8|\u5170 \u862D|\u5173 \u95DC|\u5174 \u8208|\u5179 \u8332|\u517B \u990A|\u517D \u7378|\u5181 \u56C5|\u5185 \u5167|\u5188 \u5CA1|\u518C \u518A|\u5199 \u5BEB|\u519B \u8ECD|\u519C \u8FB2|\u51AF \u99AE|\u51B2 \u885D|\u51B3 \u6C7A|\u51B5 \u6CC1|\u51BB \u51CD|\u51C0 \u6DE8|\u51C4 \u60BD|\u51C6 \u6E96|\u51C9 \u6DBC|\u51CF \u6E1B|\u51D1 \u6E4A|\u51DB \u51DC|\u51E0 \u5E7E|\u51E4 \u9CF3|\u51EB \u9CE7|\u51ED \u6191|\u51EF \u51F1|\u51F6 \u5147|\u51FB \u64CA|\u51FF \u947F|\u520D \u82BB|\u5212 \u5283|\u5218 \u5289|\u5219 \u5247|\u521A \u525B|\u521B \u5275|\u5220 \u522A|\u522B \u5225|\u522C \u5257|\u522D \u5244|\u5239 \u524E|\u523D \u528A|\u523E \u34E8|\u523F \u528C|\u5240 \u5274|\u5242 \u5291|\u5250 \u526E|\u5251 \u528D|\u5265 \u525D|\u5267 \u5287|\u529D \u52F8|\u529E \u8FA6|\u52A1 \u52D9|\u52A2 \u52F1|\u52A8 \u52D5|\u52B1 \u52F5|\u52B2 \u52C1|\u52B3 \u52DE|\u52BF \u52E2|\u52CB \u52F3|\u52DA \u52E9|\u5300 \u52FB|\u5326 \u532D|\u532E \u5331|\u533A \u5340|\u533B \u91AB|\u534E \u83EF|\u534F \u5354|\u5355 \u55AE|\u5356 \u8CE3|\u5360 \u4F54|\u5362 \u76E7|\u5364 \u6EF7|\u5367 \u81E5|\u536B \u885B|\u5374 \u537B|\u537A \u5DF9|\u5382 \u5EE0|\u5385 \u5EF3|\u5386 \u6B77|\u5389 \u53B2|\u538B \u58D3|\u538C \u53AD|\u538D \u5399|\u5390 \u9F8E|\u5395 \u5EC1|\u5398 \u91D0|\u53A2 \u5EC2|\u53A3 \u53B4|\u53A6 \u5EC8|\u53A8 \u5EDA|\u53A9 \u5EC4|\u53AE \u5EDD|\u53BF \u7E23|\u53C1 \u53C4|\u53C2 \u53C3|\u53C6 \u9749|\u53C7 \u9746|\u53CC \u96D9|\u53D1 \u767C|\u53D8 \u8B8A|\u53D9 \u6558|\u53E0 \u758A|\u53F0 \u81FA|\u53F6 \u8449|\u53F7 \u865F|\u53F9 \u5606|\u53FD \u5630|\u5401 \u7C72|\u5403 \u55AB|\u540E \u5F8C|\u5413 \u5687|\u5415 \u5442|\u5417 \u55CE|\u5428 \u5678|\u542C \u807D|\u542F \u5553|\u5434 \u5433|\u5450 \u5436|\u5452 \u5638|\u5453 \u56C8|\u5455 \u5614|\u5456 \u56A6|\u5457 \u5504|\u5458 \u54E1|\u5459 \u54BC|\u545B \u55C6|\u545C \u55DA|\u548F \u8A60|\u5499 \u56A8|\u549B \u5680|\u549D \u565D|\u54A4 \u5412|\u54A8 \u8AEE|\u54B8 \u9E79|\u54CD \u97FF|\u54D1 \u555E|\u54D2 \u5660|\u54D3 \u5635|\u54D4 \u55F6|\u54D5 \u5666|\u54D7 \u8B41|\u54D9 \u5672|\u54DC \u568C|\u54DD \u5665|\u54DF \u55B2|\u5507 \u8123|\u551B \u561C|\u551D \u55CA|\u5520 \u562E|\u5521 \u5562|\u5522 \u55E9|\u5524 \u559A|\u5567 \u5616|\u556C \u55C7|\u556D \u56C0|\u556E \u9F67|\u556F \u5613|\u5570 \u56C9|\u5574 \u563D|\u5578 \u562F|\u55B7 \u5674|\u55BD \u560D|\u55BE \u56B3|\u55EB \u56C1|\u55F3 \u566F|\u5618 \u5653|\u5624 \u56B6|\u5631 \u56D1|\u565C \u5695|\u56A3 \u56C2|\u56E2 \u5718|\u56ED \u5712|\u56F1 \u56EA|\u56F4 \u570D|\u56F5 \u5707|\u56FD \u570B|\u56FE \u5716|\u5706 \u5713|\u5723 \u8056|\u5739 \u58D9|\u573A \u5834|\u574F \u58DE|\u5757 \u584A|\u575A \u5805|\u575B \u58C7|\u575C \u58E2|\u575D \u58E9|\u575E \u5862|\u575F \u58B3|\u5760 \u589C|\u5784 \u58DF|\u5785 \u58E0|\u5786 \u58DA|\u5792 \u58D8|\u57A6 \u58BE|\u57A9 \u580A|\u57AB \u588A|\u57AD \u57E1|\u57AF \u58B6|\u57B1 \u58CB|\u57B2 \u584F|\u57B4 \u5816|\u57D8 \u5852|\u57D9 \u58CE|\u57DA \u581D|\u5811 \u5879|\u5815 \u58AE|\u5846 \u58EA|\u5899 \u7246|\u58EE \u58EF|\u58F0 \u8072|\u58F3 \u6BBC|\u58F6 \u58FA|\u58F8 \u58FC|\u5904 \u8655|\u5907 \u5099|\u590D \u5FA9|\u591F \u5920|\u5934 \u982D|\u5938 \u8A87|\u5939 \u593E|\u593A \u596A|\u5941 \u5969|\u5942 \u5950|\u594B \u596E|\u5956 \u734E|\u5965 \u5967|\u5986 \u599D|\u5987 \u5A66|\u5988 \u5ABD|\u59A9 \u5AF5|\u59AA \u5AD7|\u59AB \u5B00|\u59D7 \u59CD|\u59F9 \u597C|\u5A04 \u5A41|\u5A05 \u5A6D|\u5A06 \u5B08|\u5A07 \u5B0C|\u5A08 \u5B4C|\u5A31 \u5A1B|\u5A32 \u5AA7|\u5A34 \u5AFA|\u5A73 \u5AFF|\u5A74 \u5B30|\u5A75 \u5B0B|\u5A76 \u5B38|\u5AAA \u5ABC|\u5AAD \u5B03|\u5AD2 \u5B21|\u5AD4 \u5B2A|\u5AF1 \u5B19|\u5B37 \u5B24|\u5B59 \u5B6B|\u5B66 \u5B78|\u5B6A \u5B7F|\u5B81 \u5BE7|\u5B9D \u5BF6|\u5B9E \u5BE6|\u5BA0 \u5BF5|\u5BA1 \u5BE9|\u5BAA \u61B2|\u5BAB \u5BAE|\u5BBD \u5BEC|\u5BBE \u8CD3|\u5BDD \u5BE2|\u5BF9 \u5C0D|\u5BFB \u5C0B|\u5BFC \u5C0E|\u5BFF \u58FD|\u5C06 \u5C07|\u5C14 \u723E|\u5C18 \u5875|\u5C1D \u5617|\u5C27 \u582F|\u5C34 \u5C37|\u5C38 \u5C4D|\u5C3D \u76E1|\u5C42 \u5C64|\u5C43 \u5C53|\u5C49 \u5C5C|\u5C4A \u5C46|\u5C5E \u5C6C|\u5C61 \u5C62|\u5C66 \u5C68|\u5C7F \u5DBC|\u5C81 \u6B72|\u5C82 \u8C48|\u5C96 \u5D87|\u5C97 \u5D17|\u5C98 \u5CF4|\u5C9A \u5D50|\u5C9B \u5CF6|\u5CA9 \u5DD6|\u5CAD \u5DBA|\u5CB3 \u5DBD|\u5CBD \u5D2C|\u5CBF \u5DCB|\u5CC3 \u5DA8|\u5CC4 \u5DA7|\u5CE1 \u5CFD|\u5CE3 \u5DA2|\u5CE4 \u5DA0|\u5CE5 \u5D22|\u5CE6 \u5DD2|\u5CF0 \u5CEF|\u5D02 \u5D97|\u5D03 \u5D0D|\u5D04 \u5DAE|\u5D2D \u5D84|\u5D58 \u5DB8|\u5D5A \u5D94|\u5D5D \u5D81|\u5DC5 \u5DD4|\u5DE9 \u978F|\u5DEF \u5DF0|\u5E01 \u5E63|\u5E05 \u5E25|\u5E08 \u5E2B|\u5E0F \u5E43|\u5E10 \u5E33|\u5E18 \u7C3E|\u5E1C \u5E5F|\u5E26 \u5E36|\u5E27 \u5E40|\u5E2E \u5E6B|\u5E31 \u5E6C|\u5E3B \u5E58|\u5E3C \u5E57|\u5E42 \u51AA|\u5E72 \u5E79|\u5E76 \u4E26|\u5E7F \u5EE3|\u5E84 \u838A|\u5E86 \u6176|\u5E8A \u7240|\u5E90 \u5EEC|\u5E91 \u5EE1|\u5E93 \u5EAB|\u5E94 \u61C9|\u5E99 \u5EDF|\u5E9E \u9F90|\u5E9F \u5EE2|\u5EBC \u5ECE|\u5EEA \u5EE9|\u5F00 \u958B|\u5F02 \u7570|\u5F03 \u68C4|\u5F11 \u5F12|\u5F20 \u5F35|\u5F25 \u5F4C|\u5F2A \u5F33|\u5F2F \u5F4E|\u5F39 \u5F48|\u5F3A \u5F37|\u5F52 \u6B78|\u5F53 \u7576|\u5F55 \u9304|\u5F5F \u5F60|\u5F66 \u5F65|\u5F68 \u5F72|\u5F7B \u5FB9|\u5F81 \u5FB5|\u5F84 \u5F91|\u5F95 \u5FA0|\u5FC6 \u61B6|\u5FCF \u61FA|\u5FE7 \u6182|\u5FFE \u613E|\u6000 \u61F7|\u6001 \u614B|\u6002 \u616B|\u6003 \u61AE|\u6004 \u616A|\u6005 \u60B5|\u6006 \u6134|\u601C \u6190|\u603B \u7E3D|\u603C \u61DF|\u603F \u61CC|\u604B \u6200|\u6052 \u6046|\u6073 \u61C7|\u6076 \u60E1|\u6078 \u615F|\u6079 \u61E8|\u607A \u6137|\u607B \u60FB|\u607C \u60F1|\u607D \u60F2|\u60A6 \u6085|\u60AB \u6128|\u60AC \u61F8|\u60AD \u6173|\u60AE \u609E|\u60AF \u61AB|\u60CA \u9A5A|\u60E7 \u61FC|\u60E8 \u6158|\u60E9 \u61F2|\u60EB \u618A|\u60EC \u611C|\u60ED \u615A|\u60EE \u619A|\u60EF \u6163|\u6120 \u614D|\u6124 \u61A4|\u6126 \u6192|\u613F \u9858|\u6151 \u61FE|\u616D \u6196|\u61D1 \u61E3|\u61D2 \u61F6|\u61D4 \u61CD|\u6206 \u6207|\u620B \u6214|\u620F \u6232|\u6217 \u6227|\u6218 \u6230|\u622C \u6229|\u622F \u6231|\u6237 \u6236|\u6251 \u64B2|\u6267 \u57F7|\u6269 \u64F4|\u626A \u636B|\u626B \u6383|\u626C \u63DA|\u6270 \u64FE|\u629A \u64AB|\u629B \u62CB|\u629F \u6476|\u62A0 \u6473|\u62A1 \u6384|\u62A2 \u6436|\u62A4 \u8B77|\u62A5 \u5831|\u62C5 \u64D4|\u62DF \u64EC|\u62E2 \u650F|\u62E3 \u63C0|\u62E5 \u64C1|\u62E6 \u6514|\u62E7 \u64F0|\u62E8 \u64A5|\u62E9 \u64C7|\u6302 \u639B|\u631A \u646F|\u631B \u6523|\u631C \u6397|\u631D \u64BE|\u631E \u64BB|\u631F \u633E|\u6320 \u6493|\u6321 \u64CB|\u6322 \u649F|\u6323 \u6399|\u6324 \u64E0|\u6325 \u63EE|\u6326 \u648F|\u635D \u6329|\u635E \u6488|\u635F \u640D|\u6361 \u64BF|\u6362 \u63DB|\u6363 \u6417|\u636E \u64DA|\u63B3 \u64C4|\u63B4 \u6451|\u63B7 \u64F2|\u63B8 \u64A3|\u63BA \u647B|\u63BC \u645C|\u63FD \u652C|\u63FE \u6435|\u63FF \u64B3|\u6400 \u6519|\u6401 \u64F1|\u6402 \u645F|\u6404 \u63EF|\u6405 \u652A|\u643A \u651C|\u6444 \u651D|\u6445 \u6504|\u6446 \u64FA|\u6447 \u6416|\u6448 \u64EF|\u644A \u6524|\u6484 \u6516|\u6491 \u6490|\u64B5 \u6506|\u64B7 \u64F7|\u64B8 \u64FC|\u64BA \u651B|\u64DC \u3A75|\u64DE \u64FB|\u6512 \u6522|\u654C \u6575|\u655A \u6553|\u655B \u6582|\u6569 \u6586|\u6570 \u6578|\u658B \u9F4B|\u6593 \u6595|\u6597 \u9B25|\u65A9 \u65AC|\u65AD \u65B7|\u65E0 \u7121|\u65E7 \u820A|\u65F6 \u6642|\u65F7 \u66E0|\u65F8 \u6698|\u6619 \u66C7|\u6635 \u66B1|\u663C \u665D|\u663D \u66E8|\u663E \u986F|\u664B \u6649|\u6652 \u66EC|\u6653 \u66C9|\u6654 \u66C4|\u6655 \u6688|\u6656 \u6689|\u6682 \u66AB|\u6685 \u{23236}|\u66A7 \u66D6|\u672F \u8853|\u6734 \u6A38|\u673A \u6A5F|\u6740 \u6BBA|\u6742 \u96DC|\u6743 \u6B0A|\u6760 \u69D3|\u6761 \u689D|\u6765 \u4F86|\u6768 \u694A|\u6769 \u69AA|\u6770 \u5091|\u6781 \u6975|\u6784 \u69CB|\u679E \u6A05|\u67A2 \u6A1E|\u67A3 \u68D7|\u67A5 \u6AEA|\u67A7 \u6898|\u67A8 \u68D6|\u67AA \u69CD|\u67AB \u6953|\u67AD \u689F|\u67DC \u6AC3|\u67E0 \u6AB8|\u67FD \u6A89|\u6800 \u6894|\u6805 \u67F5|\u6807 \u6A19|\u6808 \u68E7|\u6809 \u6ADB|\u680A \u6AF3|\u680B \u68DF|\u680C \u6AE8|\u680E \u6ADF|\u680F \u6B04|\u6811 \u6A39|\u6816 \u68F2|\u6837 \u6A23|\u683E \u6B12|\u6860 \u690F|\u6861 \u6A48|\u6862 \u6968|\u6863 \u6A94|\u6864 \u69BF|\u6865 \u6A4B|\u6866 \u6A3A|\u6867 \u6A9C|\u6868 \u69F3|\u6869 \u6A01|\u686A \u6A33|\u68A6 \u5922|\u68BC \u6AAE|\u68BE \u68F6|\u68BF \u69E4|\u68C0 \u6AA2|\u68C1 \u68B2|\u68C2 \u6B1E|\u6901 \u69E8|\u691D \u69FC|\u691F \u6ADD|\u6920 \u69E7|\u6922 \u69F6|\u6924 \u6B0F|\u692B \u6A3F|\u692D \u6A62|\u692E \u69EE|\u697C \u6A13|\u6984 \u6B16|\u6985 \u69B2|\u6987 \u6AEC|\u6988 \u6ADA|\u6989 \u6AF8|\u699D \u6A27|\u69DA \u6A9F|\u69DB \u6ABB|\u69DF \u6AB3|\u69E0 \u6AE7|\u6A2A \u6A6B|\u6A2F \u6AA3|\u6A31 \u6AFB|\u6A65 \u6AEB|\u6A71 \u6AE5|\u6A79 \u6AD3|\u6A7C \u6ADE|\u6AA9 \u6A81|\u6B22 \u6B61|\u6B24 \u6B5F|\u6B27 \u6B50|\u6B7C \u6BB2|\u6B81 \u6B7F|\u6B87 \u6BA4|\u6B8B \u6B98|\u6B92 \u6B9E|\u6B93 \u6BAE|\u6B9A \u6BAB|\u6BA1 \u6BAF|\u6BB4 \u6BC6|\u6BC1 \u6BC0|\u6BC2 \u8F42|\u6BD5 \u7562|\u6BD9 \u6583|\u6BE1 \u6C08|\u6BF5 \u6BFF|\u6BF6 \u{23BF6}|\u6C07 \u6C0C|\u6C14 \u6C23|\u6C22 \u6C2B|\u6C29 \u6C2C|\u6C32 \u6C33|\u6C47 \u532F|\u6C49 \u6F22|\u6C64 \u6E6F|\u6C79 \u6D36|\u6C84 \u6F90|\u6C9F \u6E9D|\u6CA1 \u6C92|\u6CA3 \u7043|\u6CA4 \u6F1A|\u6CA5 \u701D|\u6CA6 \u6DEA|\u6CA7 \u6EC4|\u6CA8 \u6E22|\u6CA9 \u6F59|\u6CAA \u6EEC|\u6CDE \u6FD8|\u6CEA \u6DDA|\u6CF6 \u6FA9|\u6CF7 \u7027|\u6CF8 \u7018|\u6CFA \u6FFC|\u6CFB \u7009|\u6CFC \u6F51|\u6CFD \u6FA4|\u6CFE \u6D87|\u6D01 \u6F54|\u6D12 \u7051|\u6D3C \u7AAA|\u6D43 \u6D79|\u6D45 \u6DFA|\u6D46 \u6F3F|\u6D47 \u6F86|\u6D48 \u6E5E|\u6D49 \u6EAE|\u6D4A \u6FC1|\u6D4B \u6E2C|\u6D4D \u6FAE|\u6D4E \u6FDF|\u6D4F \u700F|\u6D50 \u6EFB|\u6D51 \u6E3E|\u6D52 \u6EF8|\u6D53 \u6FC3|\u6D54 \u6F6F|\u6D55 \u6FDC|\u6D82 \u5857|\u6D8C \u6E67|\u6D9A \u6D97|\u6D9B \u6FE4|\u6D9D \u6F87|\u6D9E \u6DF6|\u6D9F \u6F23|\u6DA0 \u6F7F|\u6DA1 \u6E26|\u6DA2 \u6EB3|\u6DA3 \u6E19|\u6DA4 \u6ECC|\u6DA6 \u6F64|\u6DA7 \u6F97|\u6DA8 \u6F32|\u6DA9 \u6F80|\u6DC0 \u6FB1|\u6E0A \u6DF5|\u6E0C \u6DE5|\u6E0D \u6F2C|\u6E0E \u7006|\u6E10 \u6F38|\u6E11 \u6FA0|\u6E14 \u6F01|\u6E16 \u700B|\u6E17 \u6EF2|\u6E29 \u6EAB|\u6E38 \u904A|\u6E7E \u7063|\u6E7F \u6EBC|\u6E81 \u6FDA|\u6E83 \u6F70|\u6E85 \u6FFA|\u6E86 \u6F35|\u6E87 \u6F0A|\u6ED7 \u6F77|\u6EDA \u6EFE|\u6EDE \u6EEF|\u6EDF \u7069|\u6EE0 \u7044|\u6EE1 \u6EFF|\u6EE2 \u7005|\u6EE4 \u6FFE|\u6EE5 \u6FEB|\u6EE6 \u7064|\u6EE8 \u6FF1|\u6EE9 \u7058|\u6EEA \u6FA6|\u6F46 \u7020|\u6F47 \u701F|\u6F4B \u7032|\u6F4D \u6FF0|\u6F5C \u6F5B|\u6F74 \u7026|\u6F9B \u7002|\u6F9C \u703E|\u6FD1 \u7028|\u6FD2 \u7015|\u704F \u705D|\u706D \u6EC5|\u706F \u71C8|\u7075 \u9748|\u7076 \u7AC8|\u707E \u707D|\u707F \u71E6|\u7080 \u716C|\u7089 \u7210|\u7096 \u71C9|\u709C \u7152|\u709D \u7197|\u70B9 \u9EDE|\u70BC \u7149|\u70BD \u71BE|\u70C1 \u720D|\u70C2 \u721B|\u70C3 \u70F4|\u70DB \u71ED|\u70DF \u7159|\u70E6 \u7169|\u70E7 \u71D2|\u70E8 \u71C1|\u70E9 \u71F4|\u70EB \u71D9|\u70EC \u71FC|\u70ED \u71B1|\u7115 \u7165|\u7116 \u71DC|\u7118 \u71FE|\u7174 \u7185|\u718F \u71FB|\u7231 \u611B|\u7237 \u723A|\u724D \u7258|\u7266 \u729B|\u7275 \u727D|\u727A \u72A7|\u728A \u72A2|\u72B6 \u72C0|\u72B7 \u7377|\u72B8 \u7341|\u72B9 \u7336|\u72C8 \u72FD|\u72DD \u736E|\u72DE \u7370|\u72EC \u7368|\u72ED \u72F9|\u72EE \u7345|\u72EF \u736A|\u72F0 \u7319|\u72F1 \u7344|\u72F2 \u733B|\u7303 \u736B|\u730E \u7375|\u7315 \u737C|\u7321 \u7380|\u732A \u8C6C|\u732B \u8C93|\u732C \u875F|\u732E \u737B|\u736D \u737A|\u7391 \u74A3|\u7399 \u74B5|\u739A \u7452|\u739B \u746A|\u73AE \u744B|\u73AF \u74B0|\u73B0 \u73FE|\u73B1 \u7472|\u73BA \u74BD|\u73D0 \u743A|\u73D1 \u74CF|\u73F0 \u74AB|\u73F2 \u743F|\u740E \u74A1|\u740F \u7489|\u7410 \u7463|\u743C \u74CA|\u7476 \u7464|\u7477 \u74A6|\u7478 \u74B8|\u748E \u74D4|\u74D2 \u74DA|\u74EE \u7515|\u74EF \u750C|\u7535 \u96FB|\u753B \u756B|\u7545 \u66A2|\u7574 \u7587|\u7596 \u7664|\u7597 \u7642|\u759F \u7627|\u75A0 \u7658|\u75A1 \u760D|\u75AC \u7667|\u75AD \u7632|\u75AE \u7621|\u75AF \u760B|\u75B1 \u76B0|\u75B4 \u75FE|\u75C8 \u7670|\u75C9 \u75D9|\u75D2 \u7662|\u75D6 \u7602|\u75E8 \u7646|\u75EA \u7613|\u75EB \u7647|\u75F4 \u7661|\u7605 \u7649|\u7606 \u762E|\u7617 \u761E|\u7618 \u763B|\u762A \u765F|\u762B \u7671|\u763E \u766E|\u763F \u766D|\u765E \u7669|\u7663 \u766C|\u766B \u7672|\u7682 \u7681|\u7691 \u769A|\u76B1 \u76BA|\u76B2 \u76B8|\u76CF \u76DE|\u76D0 \u9E7D|\u76D1 \u76E3|\u76D6 \u84CB|\u76D7 \u76DC|\u76D8 \u76E4|\u770D \u7798|\u7726 \u7725|\u772C \u77D3|\u7741 \u775C|\u7750 \u775E|\u7751 \u77BC|\u7786 \u77B6|\u7792 \u779E|\u77A9 \u77DA|\u77EB \u77EF|\u77F6 \u78EF|\u77FE \u792C|\u77FF \u7926|\u7800 \u78AD|\u7801 \u78BC|\u7816 \u78DA|\u7817 \u7868|\u781A \u786F|\u781C \u78B8|\u783A \u792A|\u783B \u7931|\u783E \u792B|\u7840 \u790E|\u7841 \u785C|\u7855 \u78A9|\u7856 \u7864|\u7857 \u78FD|\u7859 \u78D1|\u785A \u7904|\u786E \u78BA|\u7875 \u78E0|\u788D \u7919|\u789B \u78E7|\u789C \u78E3|\u78B1 \u9E7C|\u793C \u79AE|\u7943 \u79A1|\u794E \u7995|\u7962 \u79B0|\u796F \u798E|\u7977 \u79B1|\u7978 \u798D|\u7980 \u7A1F|\u7984 \u797F|\u7985 \u79AA|\u79BB \u96E2|\u79C3 \u79BF|\u79C6 \u7A08|\u79CD \u7A2E|\u79D8 \u7955|\u79EF \u7A4D|\u79F0 \u7A31|\u79FD \u7A62|\u79FE \u7A60|\u7A06 \u7A6D|\u7A0E \u7A05|\u7A23 \u7A4C|\u7A33 \u7A69|\u7A51 \u7A61|\u7A5E \u7A6D|\u7A77 \u7AAE|\u7A83 \u7ACA|\u7A8D \u7AC5|\u7A8E \u7AB5|\u7A91 \u7AAF|\u7A9C \u7AC4|\u7A9D \u7AA9|\u7AA5 \u7ABA|\u7AA6 \u7AC7|\u7AAD \u7AB6|\u7AD6 \u8C4E|\u7ADE \u7AF6|\u7B03 \u7BE4|\u7B0B \u7B4D|\u7B14 \u7B46|\u7B15 \u7B67|\u7B3A \u7B8B|\u7B3C \u7C60|\u7B3E \u7C69|\u7B51 \u7BC9|\u7B5A \u7BF3|\u7B5B \u7BE9|\u7B5C \u7C39|\u7B5D \u7B8F|\u7B79 \u7C4C|\u7B7C \u7BD4|\u7B7E \u7C64|\u7B7F \u7BE0|\u7B80 \u7C21|\u7B93 \u7C59|\u7BA6 \u7C00|\u7BA7 \u7BCB|\u7BA8 \u7C5C|\u7BA9 \u7C6E|\u7BAA \u7C1E|\u7BAB \u7C2B|\u7BD1 \u7C23|\u7BD3 \u7C0D|\u7BEE \u7C43|\u7BEF \u7C5B|\u7BF1 \u7C6C|\u7C16 \u7C6A|\u7C41 \u7C5F|\u7C74 \u7CF4|\u7C7B \u985E|\u7C7C \u79C8|\u7C9C \u7CF6|\u7C9D \u7CF2|\u7CA4 \u7CB5|\u7CAA \u7CDE|\u7CAE \u7CE7|\u7CBD \u7CC9|\u7CC1 \u7CDD|\u7CC7 \u9931|\u7CCD \u9908|\u7D27 \u7DCA|\u7D77 \u7E36|\u7DFC \u7E15|\u7E06 \u7DEA|\u7E9F \u7CF9|\u7EA0 \u7CFE|\u7EA1 \u7D06|\u7EA2 \u7D05|\u7EA3 \u7D02|\u7EA4 \u7E96|\u7EA5 \u7D07|\u7EA6 \u7D04|\u7EA7 \u7D1A|\u7EA8 \u7D08|\u7EA9 \u7E8A|\u7EAA \u7D00|\u7EAB \u7D09|\u7EAC \u7DEF|\u7EAD \u7D1C|\u7EAE \u7D18|\u7EAF \u7D14|\u7EB0 \u7D15|\u7EB1 \u7D17|\u7EB2 \u7DB1|\u7EB3 \u7D0D|\u7EB4 \u7D1D|\u7EB5 \u7E31|\u7EB6 \u7DB8|\u7EB7 \u7D1B|\u7EB8 \u7D19|\u7EB9 \u7D0B|\u7EBA \u7D21|\u7EBB \u7D35|\u7EBC \u7D16|\u7EBD \u7D10|\u7EBE \u7D13|\u7EBF \u7DDA|\u7EC0 \u7D3A|\u7EC1 \u7D32|\u7EC2 \u7D31|\u7EC3 \u7DF4|\u7EC4 \u7D44|\u7EC5 \u7D33|\u7EC6 \u7D30|\u7EC7 \u7E54|\u7EC8 \u7D42|\u7EC9 \u7E10|\u7ECA \u7D46|\u7ECB \u7D3C|\u7ECC \u7D40|\u7ECD \u7D39|\u7ECE \u7E79|\u7ECF \u7D93|\u7ED0 \u7D3F|\u7ED1 \u7D81|\u7ED2 \u7D68|\u7ED3 \u7D50|\u7ED4 \u7D5D|\u7ED5 \u7E5E|\u7ED6 \u7D70|\u7ED7 \u7D4E|\u7ED8 \u7E6A|\u7ED9 \u7D66|\u7EDA \u7D62|\u7EDB \u7D73|\u7EDC \u7D61|\u7EDD \u7D55|\u7EDE \u7D5E|\u7EDF \u7D71|\u7EE0 \u7D86|\u7EE1 \u7D83|\u7EE2 \u7D79|\u7EE3 \u7E61|\u7EE4 \u7D8C|\u7EE5 \u7D8F|\u7EE6 \u7D5B|\u7EE7 \u7E7C|\u7EE8 \u7D88|\u7EE9 \u7E3E|\u7EEA \u7DD2|\u7EEB \u7DBE|\u7EEC \u7DD3|\u7EED \u7E8C|\u7EEE \u7DBA|\u7EEF \u7DCB|\u7EF0 \u7DBD|\u7EF1 \u979D|\u7EF2 \u7DC4|\u7EF3 \u7E69|\u7EF4 \u7DAD|\u7EF5 \u7DBF|\u7EF6 \u7DAC|\u7EF7 \u7E43|\u7EF8 \u7DA2|\u7EF9 \u7DAF|\u7EFA \u7DB9|\u7EFB \u7DA3|\u7EFC \u7D9C|\u7EFD \u7DBB|\u7EFE \u7DB0|\u7EFF \u7DA0|\u7F00 \u7DB4|\u7F01 \u7DC7|\u7F02 \u7DD9|\u7F03 \u7DD7|\u7F04 \u7DD8|\u7F05 \u7DEC|\u7F06 \u7E9C|\u7F07 \u7DF9|\u7F08 \u7DF2|\u7F09 \u7DDD|\u7F0A \u7E15|\u7F0B \u7E62|\u7F0C \u7DE6|\u7F0D \u7D9E|\u7F0E \u7DDE|\u7F0F \u7DF6|\u7F10 \u7DDA|\u7F11 \u7DF1|\u7F12 \u7E0B|\u7F13 \u7DE9|\u7F14 \u7DE0|\u7F15 \u7E37|\u7F16 \u7DE8|\u7F17 \u7DE1|\u7F18 \u7DE3|\u7F19 \u7E09|\u7F1A \u7E1B|\u7F1B \u7E1F|\u7F1C \u7E1D|\u7F1D \u7E2B|\u7F1E \u7E17|\u7F1F \u7E1E|\u7F20 \u7E8F|\u7F21 \u7E2D|\u7F22 \u7E0A|\u7F23 \u7E11|\u7F24 \u7E7D|\u7F25 \u7E39|\u7F26 \u7E35|\u7F27 \u7E32|\u7F28 \u7E93|\u7F29 \u7E2E|\u7F2A \u7E46|\u7F2B \u7E45|\u7F2C \u7E88|\u7F2D \u7E5A|\u7F2E \u7E55|\u7F2F \u7E52|\u7F30 \u7E6E|\u7F31 \u7E7E|\u7F32 \u7E70|\u7F33 \u7E6F|\u7F34 \u7E73|\u7F35 \u7E98|\u7F42 \u7F4C|\u7F51 \u7DB2|\u7F57 \u7F85|\u7F5A \u7F70|\u7F62 \u7F77|\u7F74 \u7F86|\u7F81 \u7F88|\u7F9F \u7FA5|\u7FA1 \u7FA8|\u7FA4 \u7FA3|\u7FD8 \u7FF9|\u7FD9 \u7FFD|\u7FDA \u7FEC|\u8022 \u802E|\u8027 \u802C|\u8038 \u8073|\u803B \u6065|\u8042 \u8076|\u804B \u807E|\u804C \u8077|\u804D \u8079|\u8054 \u806F|\u8069 \u8075|\u806A \u8070|\u8083 \u8085|\u80A0 \u8178|\u80A4 \u819A|\u80AE \u9AAF|\u80B4 \u991A|\u80BE \u814E|\u80BF \u816B|\u80C0 \u8139|\u80C1 \u8105|\u80C6 \u81BD|\u80DC \u52DD|\u80E7 \u6727|\u80E8 \u8156|\u80EA \u81DA|\u80EB \u811B|\u80F6 \u81A0|\u8109 \u8108|\u810D \u81BE|\u810F \u9AD2|\u8110 \u81CD|\u8111 \u8166|\u8113 \u81BF|\u8114 \u81E0|\u811A \u8173|\u8131 \u812B|\u8136 \u8161|\u8138 \u81C9|\u814A \u81D8|\u814C \u9183|\u8158 \u8195|\u816D \u9F76|\u817B \u81A9|\u817C \u9766|\u817D \u8183|\u817E \u9A30|\u8191 \u81CF|\u81BB \u7FB6|\u81DC \u81E2|\u8206 \u8F3F|\u8223 \u8264|\u8230 \u8266|\u8231 \u8259|\u823B \u826B|\u8270 \u8271|\u8273 \u8C54|\u827A \u85DD|\u8282 \u7BC0|\u8288 \u7F8B|\u8297 \u858C|\u829C \u856A|\u82A6 \u8606|\u82C1 \u84EF|\u82C7 \u8466|\u82C8 \u85F6|\u82CB \u83A7|\u82CC \u8407|\u82CD \u84BC|\u82CE \u82E7|\u82CF \u8607|\u82E7 \u85B4|\u82F9 \u860B|\u8303 \u7BC4|\u830E \u8396|\u830F \u8622|\u8311 \u8526|\u8314 \u584B|\u8315 \u7162|\u8327 \u7E6D|\u8346 \u834A|\u8350 \u85A6|\u8359 \u8598|\u835A \u83A2|\u835B \u8558|\u835C \u84FD|\u835D \u8434|\u835E \u854E|\u835F \u8588|\u8360 \u85BA|\u8361 \u8569|\u8363 \u69AE|\u8364 \u8477|\u8365 \u6ECE|\u8366 \u7296|\u8367 \u7192|\u8368 \u8541|\u8369 \u85CE|\u836A \u84C0|\u836B \u852D|\u836C \u8552|\u836D \u8452|\u836E \u8464|\u836F \u85E5|\u8385 \u849E|\u83B1 \u840A|\u83B2 \u84EE|\u83B3 \u8494|\u83B4 \u8435|\u83B6 \u859F|\u83B7 \u7372|\u83B8 \u8555|\u83B9 \u7469|\u83BA \u9DAF|\u83BC \u84F4|\u841A \u8600|\u841D \u863F|\u8424 \u87A2|\u8425 \u71DF|\u8426 \u7E08|\u8427 \u856D|\u8428 \u85A9|\u8471 \u8525|\u8480 \u8495|\u8487 \u8546|\u8489 \u8562|\u848B \u8523|\u848C \u851E|\u848F \u919F|\u84DD \u85CD|\u84DF \u858A|\u84E0 \u863A|\u84E3 \u8577|\u84E5 \u93A3|\u84E6 \u9A40|\u8502 \u8646|\u8537 \u8594|\u8539 \u861E|\u853A \u85FA|\u853C \u85F9|\u8570 \u8580|\u8572 \u8604|\u8574 \u860A|\u85AE \u85EA|\u85D3 \u861A|\u85F4 \u860A|\u8616 \u6AF1|\u864F \u865C|\u8651 \u616E|\u865A \u865B|\u866B \u87F2|\u866C \u866F|\u866E \u87E3|\u8671 \u8768|\u867D \u96D6|\u867E \u8766|\u867F \u8806|\u8680 \u8755|\u8681 \u87FB|\u8682 \u879E|\u8683 \u8801|\u8695 \u8836|\u869D \u8814|\u86AC \u8706|\u86CA \u8831|\u86CE \u8823|\u86CF \u87F6|\u86EE \u883B|\u86F0 \u87C4|\u86F1 \u86FA|\u86F2 \u87EF|\u86F3 \u8784|\u86F4 \u8810|\u8715 \u86FB|\u8717 \u8778|\u8721 \u881F|\u8747 \u8805|\u8748 \u87C8|\u8749 \u87EC|\u874E \u880D|\u877C \u87BB|\u877E \u8811|\u8780 \u87BF|\u87A8 \u87CE|\u87CF \u8828|\u8845 \u91C1|\u8854 \u929C|\u8865 \u88DC|\u886C \u896F|\u886E \u889E|\u8884 \u8956|\u8885 \u5ACB|\u8886 \u8918|\u889C \u896A|\u88AD \u8972|\u88AF \u894F|\u88C5 \u88DD|\u88C6 \u8960|\u88C8 \u890C|\u88E2 \u8933|\u88E3 \u895D|\u88E4 \u8932|\u88E5 \u8949|\u891B \u8938|\u8934 \u8964|\u8955 \u8974|\u89C1 \u898B|\u89C2 \u89C0|\u89C3 \u898E|\u89C4 \u898F|\u89C5 \u8993|\u89C6 \u8996|\u89C7 \u8998|\u89C8 \u89BD|\u89C9 \u89BA|\u89CA \u89AC|\u89CB \u89A1|\u89CC \u89BF|\u89CD \u89A5|\u89CE \u89A6|\u89CF \u89AF|\u89D0 \u89B2|\u89D1 \u89B7|\u89DE \u89F4|\u89E6 \u89F8|\u89EF \u89F6|\u8A1A \u8ABE|\u8A5F \u8B8B|\u8A89 \u8B7D|\u8A8A \u8B04|\u8BA0 \u8A01|\u8BA1 \u8A08|\u8BA2 \u8A02|\u8BA3 \u8A03|\u8BA4 \u8A8D|\u8BA5 \u8B4F|\u8BA6 \u8A10|\u8BA7 \u8A0C|\u8BA8 \u8A0E|\u8BA9 \u8B93|\u8BAA \u8A15|\u8BAB \u8A16|\u8BAC \u8A17|\u8BAD \u8A13|\u8BAE \u8B70|\u8BAF \u8A0A|\u8BB0 \u8A18|\u8BB1 \u8A12|\u8BB2 \u8B1B|\u8BB3 \u8AF1|\u8BB4 \u8B33|\u8BB5 \u8A4E|\u8BB6 \u8A1D|\u8BB7 \u8A25|\u8BB8 \u8A31|\u8BB9 \u8A1B|\u8BBA \u8AD6|\u8BBB \u8A29|\u8BBC \u8A1F|\u8BBD \u8AF7|\u8BBE \u8A2D|\u8BBF \u8A2A|\u8BC0 \u8A23|\u8BC1 \u8B49|\u8BC2 \u8A41|\u8BC3 \u8A36|\u8BC4 \u8A55|\u8BC5 \u8A5B|\u8BC6 \u8B58|\u8BC7 \u8A57|\u8BC8 \u8A50|\u8BC9 \u8A34|\u8BCA \u8A3A|\u8BCB \u8A46|\u8BCC \u8B05|\u8BCD \u8A5E|\u8BCE \u8A58|\u8BCF \u8A54|\u8BD0 \u8A56|\u8BD1 \u8B6F|\u8BD2 \u8A52|\u8BD3 \u8A86|\u8BD4 \u8A84|\u8BD5 \u8A66|\u8BD6 \u8A7F|\u8BD7 \u8A69|\u8BD8 \u8A70|\u8BD9 \u8A7C|\u8BDA \u8AA0|\u8BDB \u8A85|\u8BDC \u8A75|\u8BDD \u8A71|\u8BDE \u8A95|\u8BDF \u8A6C|\u8BE0 \u8A6E|\u8BE1 \u8A6D|\u8BE2 \u8A62|\u8BE3 \u8A63|\u8BE4 \u8ACD|\u8BE5 \u8A72|\u8BE6 \u8A73|\u8BE7 \u8A6B|\u8BE8 \u8AE2|\u8BE9 \u8A61|\u8BEA \u8B78|\u8BEB \u8AA1|\u8BEC \u8AA3|\u8BED \u8A9E|\u8BEE \u8A9A|\u8BEF \u8AA4|\u8BF0 \u8AA5|\u8BF1 \u8A98|\u8BF2 \u8AA8|\u8BF3 \u8A91|\u8BF4 \u8AAA|\u8BF5 \u8AA6|\u8BF6 \u8A92|\u8BF7 \u8ACB|\u8BF8 \u8AF8|\u8BF9 \u8ACF|\u8BFA \u8AFE|\u8BFB \u8B80|\u8BFC \u8AD1|\u8BFD \u8AB9|\u8BFE \u8AB2|\u8BFF \u8AC9|\u8C00 \u8ADB|\u8C01 \u8AB0|\u8C02 \u8AD7|\u8C03 \u8ABF|\u8C04 \u8AC2|\u8C05 \u8AD2|\u8C06 \u8AC4|\u8C07 \u8AB6|\u8C08 \u8AC7|\u8C09 \u8B85|\u8C0A \u8ABC|\u8C0B \u8B00|\u8C0C \u8AF6|\u8C0D \u8ADC|\u8C0E \u8B0A|\u8C0F \u8AEB|\u8C10 \u8AE7|\u8C11 \u8B14|\u8C12 \u8B01|\u8C13 \u8B02|\u8C14 \u8AE4|\u8C15 \u8AED|\u8C16 \u8AFC|\u8C17 \u8B92|\u8C18 \u8AEE|\u8C19 \u8AF3|\u8C1A \u8AFA|\u8C1B \u8AE6|\u8C1C \u8B0E|\u8C1D \u8ADE|\u8C1E \u8ADD|\u8C1F \u8B28|\u8C20 \u8B9C|\u8C21 \u8B16|\u8C22 \u8B1D|\u8C23 \u8B20|\u8C24 \u8B17|\u8C25 \u8AE1|\u8C26 \u8B19|\u8C27 \u8B10|\u8C28 \u8B39|\u8C29 \u8B3E|\u8C2A \u8B2B|\u8C2B \u8B7E|\u8C2C \u8B2C|\u8C2D \u8B5A|\u8C2E \u8B56|\u8C2F \u8B59|\u8C30 \u8B95|\u8C31 \u8B5C|\u8C32 \u8B4E|\u8C33 \u8B9E|\u8C34 \u8B74|\u8C35 \u8B6B|\u8C36 \u8B96|\u8C6E \u8C76|\u8D1D \u8C9D|\u8D1E \u8C9E|\u8D1F \u8CA0|\u8D20 \u8C9F|\u8D21 \u8CA2|\u8D22 \u8CA1|\u8D23 \u8CAC|\u8D24 \u8CE2|\u8D25 \u6557|\u8D26 \u8CEC|\u8D27 \u8CA8|\u8D28 \u8CEA|\u8D29 \u8CA9|\u8D2A \u8CAA|\u8D2B \u8CA7|\u8D2C \u8CB6|\u8D2D \u8CFC|\u8D2E \u8CAF|\u8D2F \u8CAB|\u8D30 \u8CB3|\u8D31 \u8CE4|\u8D32 \u8CC1|\u8D33 \u8CB0|\u8D34 \u8CBC|\u8D35 \u8CB4|\u8D36 \u8CBA|\u8D37 \u8CB8|\u8D38 \u8CBF|\u8D39 \u8CBB|\u8D3A \u8CC0|\u8D3B \u8CBD|\u8D3C \u8CCA|\u8D3D \u8D04|\u8D3E \u8CC8|\u8D3F \u8CC4|\u8D40 \u8CB2|\u8D41 \u8CC3|\u8D42 \u8CC2|\u8D43 \u8D13|\u8D44 \u8CC7|\u8D45 \u8CC5|\u8D46 \u8D10|\u8D47 \u8CD5|\u8D48 \u8CD1|\u8D49 \u8CDA|\u8D4A \u8CD2|\u8D4B \u8CE6|\u8D4C \u8CED|\u8D4D \u9F4E|\u8D4E \u8D16|\u8D4F \u8CDE|\u8D50 \u8CDC|\u8D51 \u8D14|\u8D52 \u8CD9|\u8D53 \u8CE1|\u8D54 \u8CE0|\u8D55 \u8CE7|\u8D56 \u8CF4|\u8D57 \u8CF5|\u8D58 \u8D05|\u8D59 \u8CFB|\u8D5A \u8CFA|\u8D5B \u8CFD|\u8D5C \u8CFE|\u8D5D \u8D17|\u8D5E \u8D0A|\u8D5F \u8D07|\u8D60 \u8D08|\u8D61 \u8D0D|\u8D62 \u8D0F|\u8D63 \u8D1B|\u8D6A \u8D6C|\u8D75 \u8D99|\u8D76 \u8D95|\u8D8B \u8DA8|\u8DB1 \u8DB2|\u8DB8 \u8E89|\u8DC3 \u8E8D|\u8DC4 \u8E4C|\u8DD6 \u8E60|\u8DDE \u8E92|\u8DF5 \u8E10|\u8DF6 \u8E82|\u8DF7 \u8E7A|\u8DF8 \u8E55|\u8DF9 \u8E9A|\u8DFB \u8E8B|\u8E0C \u8E8A|\u8E2A \u8E64|\u8E2C \u8E93|\u8E2F \u8E91|\u8E51 \u8EA1|\u8E52 \u8E63|\u8E70 \u8E95|\u8E7F \u8EA5|\u8E8F \u8EAA|\u8E9C \u8EA6|\u8EAF \u8EC0|\u8F3C \u8F40|\u8F66 \u8ECA|\u8F67 \u8ECB|\u8F68 \u8ECC|\u8F69 \u8ED2|\u8F6A \u8ED1|\u8F6B \u8ED4|\u8F6C \u8F49|\u8F6D \u8EDB|\u8F6E \u8F2A|\u8F6F \u8EDF|\u8F70 \u8F5F|\u8F71 \u8EF2|\u8F72 \u8EFB|\u8F73 \u8F64|\u8F74 \u8EF8|\u8F75 \u8EF9|\u8F76 \u8EFC|\u8F77 \u8EE4|\u8F78 \u8EEB|\u8F79 \u8F62|\u8F7A \u8EFA|\u8F7B \u8F15|\u8F7C \u8EFE|\u8F7D \u8F09|\u8F7E \u8F0A|\u8F7F \u8F4E|\u8F80 \u8F08|\u8F81 \u8F07|\u8F82 \u8F05|\u8F83 \u8F03|\u8F84 \u8F12|\u8F85 \u8F14|\u8F86 \u8F1B|\u8F87 \u8F26|\u8F88 \u8F29|\u8F89 \u8F1D|\u8F8A \u8F25|\u8F8B \u8F1E|\u8F8C \u8F2C|\u8F8D \u8F1F|\u8F8E \u8F1C|\u8F8F \u8F33|\u8F90 \u8F3B|\u8F91 \u8F2F|\u8F92 \u8F40|\u8F93 \u8F38|\u8F94 \u8F61|\u8F95 \u8F45|\u8F96 \u8F44|\u8F97 \u8F3E|\u8F98 \u8F46|\u8F99 \u8F4D|\u8F9A \u8F54|\u8F9E \u8FAD|\u8F9F \u95E2|\u8FA9 \u8FAF|\u8FAB \u8FAE|\u8FB9 \u908A|\u8FBD \u907C|\u8FBE \u9054|\u8FC1 \u9077|\u8FC7 \u904E|\u8FC8 \u9081|\u8FD0 \u904B|\u8FD8 \u9084|\u8FD9 \u9019|\u8FDB \u9032|\u8FDC \u9060|\u8FDD \u9055|\u8FDE \u9023|\u8FDF \u9072|\u8FE9 \u9087|\u8FF3 \u9015|\u8FF9 \u8DE1|\u9002 \u9069|\u9009 \u9078|\u900A \u905C|\u9012 \u905E|\u9026 \u9090|\u903B \u908F|\u9057 \u907A|\u9065 \u9059|\u9093 \u9127|\u909D \u913A|\u90AC \u9114|\u90AE \u90F5|\u90B9 \u9112|\u90BA \u9134|\u90BB \u9130|\u90C1 \u9B31|\u90CF \u90DF|\u90D0 \u9136|\u90D1 \u912D|\u90D3 \u9106|\u90E6 \u9148|\u90E7 \u9116|\u90F8 \u9132|\u9142 \u9147|\u915D \u919E|\u9166 \u91B1|\u9171 \u91AC|\u917D \u91C5|\u917E \u91C3|\u917F \u91C0|\u9196 \u919E|\u91C7 \u63A1|\u91CA \u91CB|\u91CC \u88CF|\u9274 \u9451|\u92AE \u947E|\u933E \u93E8|\u9485 \u91D2|\u9486 \u91D3|\u9487 \u91D4|\u9488 \u91DD|\u9489 \u91D8|\u948A \u91D7|\u948B \u91D9|\u948C \u91D5|\u948D \u91F7|\u948E \u91FA|\u948F \u91E7|\u9490 \u91E4|\u9491 \u9212|\u9492 \u91E9|\u9493 \u91E3|\u9494 \u9346|\u9495 \u91F9|\u9496 \u935A|\u9497 \u91F5|\u9498 \u9203|\u9499 \u9223|\u949A \u9208|\u949B \u9226|\u949C \u9245|\u949D \u920D|\u949E \u9214|\u949F \u937E|\u94A0 \u9209|\u94A1 \u92C7|\u94A2 \u92FC|\u94A3 \u9211|\u94A4 \u9210|\u94A5 \u9470|\u94A6 \u6B3D|\u94A7 \u921E|\u94A8 \u93A2|\u94A9 \u9264|\u94AA \u9227|\u94AB \u9201|\u94AC \u9225|\u94AD \u9204|\u94AE \u9215|\u94AF \u9200|\u94B0 \u923A|\u94B1 \u9322|\u94B2 \u9266|\u94B3 \u9257|\u94B4 \u9237|\u94B5 \u9262|\u94B6 \u9233|\u94B7 \u9255|\u94B8 \u923D|\u94B9 \u9238|\u94BA \u925E|\u94BB \u947D|\u94BC \u926C|\u94BD \u926D|\u94BE \u9240|\u94BF \u923F|\u94C0 \u923E|\u94C1 \u9435|\u94C2 \u9251|\u94C3 \u9234|\u94C4 \u9460|\u94C5 \u925B|\u94C6 \u925A|\u94C7 \u924B|\u94C8 \u9230|\u94C9 \u9249|\u94CA \u9248|\u94CB \u924D|\u94CC \u922E|\u94CD \u9239|\u94CE \u9438|\u94CF \u9276|\u94D0 \u92AC|\u94D1 \u92A0|\u94D2 \u927A|\u94D3 \u92E9|\u94D4 \u930F|\u94D5 \u92AA|\u94D6 \u92EE|\u94D7 \u92CF|\u94D8 \u92E3|\u94D9 \u9403|\u94DA \u928D|\u94DB \u943A|\u94DC \u9285|\u94DD \u92C1|\u94DE \u92B1|\u94DF \u92A6|\u94E0 \u93A7|\u94E1 \u9358|\u94E2 \u9296|\u94E3 \u9291|\u94E4 \u92CC|\u94E5 \u92A9|\u94E6 \u929B|\u94E7 \u93F5|\u94E8 \u9293|\u94E9 \u93A9|\u94EA \u927F|\u94EB \u929A|\u94EC \u927B|\u94ED \u9298|\u94EE \u931A|\u94EF \u92AB|\u94F0 \u9278|\u94F1 \u92A5|\u94F2 \u93DF|\u94F3 \u9283|\u94F4 \u940B|\u94F5 \u92A8|\u94F6 \u9280|\u94F7 \u92A3|\u94F8 \u9444|\u94F9 \u9412|\u94FA \u92EA|\u94FB \u92D9|\u94FC \u9338|\u94FD \u92F1|\u94FE \u93C8|\u94FF \u93D7|\u9500 \u92B7|\u9501 \u9396|\u9502 \u92F0|\u9503 \u92E5|\u9504 \u92E4|\u9505 \u934B|\u9506 \u92EF|\u9507 \u92E8|\u9508 \u93FD|\u9509 \u92BC|\u950A \u92DD|\u950B \u92D2|\u950C \u92C5|\u950D \u92F6|\u950E \u9426|\u950F \u9427|\u9510 \u92B3|\u9511 \u92BB|\u9512 \u92C3|\u9513 \u92DF|\u9514 \u92E6|\u9515 \u9312|\u9516 \u9306|\u9517 \u937A|\u9518 \u9369|\u9519 \u932F|\u951A \u9328|\u951B \u931B|\u951C \u9321|\u951D \u9340|\u951E \u9301|\u951F \u9315|\u9520 \u9329|\u9521 \u932B|\u9522 \u932E|\u9523 \u947C|\u9524 \u9318|\u9525 \u9310|\u9526 \u9326|\u9527 \u9455|\u9528 \u9341|\u9529 \u9308|\u952A \u9343|\u952B \u9307|\u952C \u931F|\u952D \u9320|\u952E \u9375|\u952F \u92F8|\u9530 \u9333|\u9531 \u9319|\u9532 \u9365|\u9533 \u9348|\u9534 \u9347|\u9535 \u93D8|\u9536 \u9376|\u9537 \u9354|\u9538 \u9364|\u9539 \u936C|\u953A \u937E|\u953B \u935B|\u953C \u93AA|\u953D \u9360|\u953E \u9370|\u953F \u9384|\u9540 \u934D|\u9541 \u9382|\u9542 \u93E4|\u9543 \u93A1|\u9544 \u9428|\u9545 \u9387|\u9546 \u93CC|\u9547 \u93AE|\u9548 \u939B|\u9549 \u9398|\u954A \u9477|\u954B \u9482|\u954C \u942B|\u954D \u93B3|\u954E \u93BF|\u954F \u93A6|\u9550 \u93AC|\u9551 \u938A|\u9552 \u93B0|\u9553 \u93B5|\u9554 \u944C|\u9555 \u9394|\u9556 \u93E2|\u9557 \u93DC|\u9558 \u93DD|\u9559 \u93CD|\u955A \u93F0|\u955B \u93DE|\u955C \u93E1|\u955D \u93D1|\u955E \u93C3|\u955F \u93C7|\u9560 \u93D0|\u9561 \u9414|\u9562 \u9481|\u9563 \u9410|\u9564 \u93F7|\u9565 \u9465|\u9566 \u9413|\u9567 \u946D|\u9568 \u9420|\u9569 \u9479|\u956A \u93F9|\u956B \u9419|\u956C \u944A|\u956D \u9433|\u956E \u9436|\u956F \u9432|\u9570 \u942E|\u9571 \u943F|\u9572 \u9454|\u9573 \u9463|\u9574 \u945E|\u9575 \u9471|\u9576 \u9472|\u957F \u9577|\u95E8 \u9580|\u95E9 \u9582|\u95EA \u9583|\u95EB \u9586|\u95EC \u9588|\u95ED \u9589|\u95EE \u554F|\u95EF \u95D6|\u95F0 \u958F|\u95F1 \u95C8|\u95F2 \u9592|\u95F3 \u958E|\u95F4 \u9593|\u95F5 \u9594|\u95F6 \u958C|\u95F7 \u60B6|\u95F8 \u9598|\u95F9 \u9B27|\u95FA \u95A8|\u95FB \u805E|\u95FC \u95E5|\u95FD \u95A9|\u95FE \u95AD|\u95FF \u95D3|\u9600 \u95A5|\u9601 \u95A3|\u9602 \u95A1|\u9603 \u95AB|\u9604 \u9B2E|\u9605 \u95B1|\u9606 \u95AC|\u9607 \u95CD|\u9608 \u95BE|\u9609 \u95B9|\u960A \u95B6|\u960B \u9B29|\u960C \u95BF|\u960D \u95BD|\u960E \u95BB|\u960F \u95BC|\u9610 \u95E1|\u9611 \u95CC|\u9612 \u95C3|\u9613 \u95E0|\u9614 \u95CA|\u9615 \u95CB|\u9616 \u95D4|\u9617 \u95D0|\u9618 \u95D2|\u9619 \u95D5|\u961A \u95DE|\u961B \u95E4|\u961F \u968A|\u9633 \u967D|\u9634 \u9670|\u9635 \u9663|\u9636 \u968E|\u9645 \u969B|\u9646 \u9678|\u9647 \u96B4|\u9648 \u9673|\u9649 \u9658|\u9655 \u965D|\u9666 \u96AF|\u9667 \u9689|\u9668 \u9695|\u9669 \u96AA|\u968F \u96A8|\u9690 \u96B1|\u96B6 \u96B8|\u96BD \u96CB|\u96BE \u96E3|\u96C7 \u50F1|\u96CF \u96DB|\u96E0 \u8B8E|\u96F3 \u9742|\u96FE \u9727|\u9701 \u973D|\u9709 \u9EF4|\u9721 \u9722|\u972D \u9744|\u9753 \u975A|\u9754 \u975D|\u9759 \u975C|\u9765 \u9768|\u9791 \u97C3|\u9792 \u97BD|\u97AF \u97C9|\u97B2 \u97DD|\u97E6 \u97CB|\u97E7 \u97CC|\u97E8 \u97CD|\u97E9 \u97D3|\u97EA \u97D9|\u97EB \u97DE|\u97EC \u97DC|\u97F5 \u97FB|\u9875 \u9801|\u9876 \u9802|\u9877 \u9803|\u9878 \u9807|\u9879 \u9805|\u987A \u9806|\u987B \u9808|\u987C \u980A|\u987D \u9811|\u987E \u9867|\u987F \u9813|\u9880 \u980E|\u9881 \u9812|\u9882 \u980C|\u9883 \u980F|\u9884 \u9810|\u9885 \u9871|\u9886 \u9818|\u9887 \u9817|\u9888 \u9838|\u9889 \u9821|\u988A \u9830|\u988B \u9832|\u988C \u981C|\u988D \u6F41|\u988E \u71B2|\u988F \u9826|\u9890 \u9824|\u9891 \u983B|\u9892 \u982E|\u9893 \u9839|\u9894 \u9837|\u9895 \u9834|\u9896 \u7A4E|\u9897 \u9846|\u9898 \u984C|\u9899 \u9852|\u989A \u984E|\u989B \u9853|\u989C \u984F|\u989D \u984D|\u989E \u9873|\u989F \u9862|\u98A0 \u985B|\u98A1 \u9859|\u98A2 \u9865|\u98A3 \u7E87|\u98A4 \u986B|\u98A5 \u986C|\u98A6 \u9870|\u98A7 \u9874|\u98CE \u98A8|\u98CF \u98BA|\u98D0 \u98AD|\u98D1 \u98AE|\u98D2 \u98AF|\u98D3 \u98B6|\u98D4 \u98B8|\u98D5 \u98BC|\u98D6 \u98BB|\u98D7 \u98C0|\u98D8 \u98C4|\u98D9 \u98C6|\u98DA \u98C8|\u98DE \u98DB|\u98E8 \u9957|\u990D \u995C|\u9963 \u98E0|\u9964 \u98E3|\u9965 \u98E2|\u9966 \u98E5|\u9967 \u9933|\u9968 \u98E9|\u9969 \u993C|\u996A \u98EA|\u996B \u98EB|\u996C \u98ED|\u996D \u98EF|\u996E \u98F2|\u996F \u991E|\u9970 \u98FE|\u9971 \u98FD|\u9972 \u98FC|\u9973 \u98FF|\u9974 \u98F4|\u9975 \u990C|\u9976 \u9952|\u9977 \u9909|\u9978 \u9904|\u9979 \u990E|\u997A \u9903|\u997B \u990F|\u997C \u9905|\u997D \u9911|\u997E \u9916|\u997F \u9913|\u9980 \u9918|\u9981 \u9912|\u9982 \u9915|\u9983 \u991C|\u9984 \u991B|\u9985 \u9921|\u9986 \u9928|\u9987 \u9937|\u9988 \u994B|\u9989 \u9936|\u998A \u993F|\u998B \u995E|\u998C \u9941|\u998D \u9943|\u998E \u993A|\u998F \u993E|\u9990 \u9948|\u9991 \u9949|\u9992 \u9945|\u9993 \u994A|\u9994 \u994C|\u9995 \u9962|\u9A6C \u99AC|\u9A6D \u99AD|\u9A6E \u99B1|\u9A6F \u99B4|\u9A70 \u99B3|\u9A71 \u9A45|\u9A72 \u99B9|\u9A73 \u99C1|\u9A74 \u9A62|\u9A75 \u99D4|\u9A76 \u99DB|\u9A77 \u99DF|\u9A78 \u99D9|\u9A79 \u99D2|\u9A7A \u9A36|\u9A7B \u99D0|\u9A7C \u99DD|\u9A7D \u99D1|\u9A7E \u99D5|\u9A7F \u9A5B|\u9A80 \u99D8|\u9A81 \u9A4D|\u9A82 \u7F75|\u9A83 \u99F0|\u9A84 \u9A55|\u9A85 \u9A4A|\u9A86 \u99F1|\u9A87 \u99ED|\u9A88 \u99E2|\u9A89 \u9A6B|\u9A8A \u9A6A|\u9A8B \u9A01|\u9A8C \u9A57|\u9A8D \u9A02|\u9A8E \u99F8|\u9A8F \u99FF|\u9A90 \u9A0F|\u9A91 \u9A0E|\u9A92 \u9A0D|\u9A93 \u9A05|\u9A94 \u9A0C|\u9A95 \u9A4C|\u9A96 \u9A42|\u9A97 \u9A19|\u9A98 \u9A2D|\u9A99 \u9A24|\u9A9A \u9A37|\u9A9B \u9A16|\u9A9C \u9A41|\u9A9D \u9A2E|\u9A9E \u9A2B|\u9A9F \u9A38|\u9AA0 \u9A43|\u9AA1 \u9A3E|\u9AA2 \u9A44|\u9AA3 \u9A4F|\u9AA4 \u9A5F|\u9AA5 \u9A65|\u9AA6 \u9A66|\u9AA7 \u9A64|\u9AC5 \u9ACF|\u9ACB \u9AD6|\u9ACC \u9AD5|\u9B13 \u9B22|\u9B36 \u9B39|\u9B47 \u9B58|\u9B49 \u9B4E|\u9C7C \u9B5A|\u9C7D \u9B5B|\u9C7E \u9B62|\u9C7F \u9B77|\u9C80 \u9B68|\u9C81 \u9B6F|\u9C82 \u9B74|\u9C83 \u4C3E|\u9C84 \u9B7A|\u9C85 \u9B81|\u9C86 \u9B83|\u9C87 \u9B8E|\u9C88 \u9C78|\u9C89 \u9B8B|\u9C8A \u9B93|\u9C8B \u9B92|\u9C8C \u9B8A|\u9C8D \u9B91|\u9C8E \u9C5F|\u9C8F \u9B8D|\u9C90 \u9B90|\u9C91 \u9BAD|\u9C92 \u9B9A|\u9C93 \u9BB3|\u9C94 \u9BAA|\u9C95 \u9B9E|\u9C96 \u9BA6|\u9C97 \u9C02|\u9C98 \u9B9C|\u9C99 \u9C60|\u9C9A \u9C6D|\u9C9B \u9BAB|\u9C9C \u9BAE|\u9C9D \u9BBA|\u9C9E \u9BD7|\u9C9F \u9C58|\u9CA0 \u9BC1|\u9CA1 \u9C7A|\u9CA2 \u9C31|\u9CA3 \u9C39|\u9CA4 \u9BC9|\u9CA5 \u9C23|\u9CA6 \u9C37|\u9CA7 \u9BC0|\u9CA8 \u9BCA|\u9CA9 \u9BC7|\u9CAA \u9BB6|\u9CAB \u9BFD|\u9CAC \u9BD2|\u9CAD \u9BD6|\u9CAE \u9BEA|\u9CAF \u9BD5|\u9CB0 \u9BEB|\u9CB1 \u9BE1|\u9CB2 \u9BE4|\u9CB3 \u9BE7|\u9CB4 \u9BDD|\u9CB5 \u9BE2|\u9CB6 \u9BF0|\u9CB7 \u9BDB|\u9CB8 \u9BE8|\u9CB9 \u9C3A|\u9CBA \u9BF4|\u9CBB \u9BD4|\u9CBC \u9C5D|\u9CBD \u9C08|\u9CBE \u9C0F|\u9CBF \u9C68|\u9CC0 \u9BF7|\u9CC1 \u9C2E|\u9CC2 \u9C03|\u9CC3 \u9C13|\u9CC4 \u9C77|\u9CC5 \u9C0D|\u9CC6 \u9C12|\u9CC7 \u9C09|\u9CC8 \u9C01|\u9CC9 \u9C42|\u9CCA \u9BFF|\u9CCB \u9C20|\u9CCC \u9C32|\u9CCD \u9C2D|\u9CCE \u9C28|\u9CCF \u9C25|\u9CD0 \u9C29|\u9CD1 \u9C1F|\u9CD2 \u9C1C|\u9CD3 \u9C33|\u9CD4 \u9C3E|\u9CD5 \u9C48|\u9CD6 \u9C49|\u9CD7 \u9C3B|\u9CD8 \u9C35|\u9CD9 \u9C45|\u9CDA \u4C81|\u9CDB \u9C3C|\u9CDC \u9C56|\u9CDD \u9C54|\u9CDE \u9C57|\u9CDF \u9C52|\u9CE0 \u9C6F|\u9CE1 \u9C64|\u9CE2 \u9C67|\u9CE3 \u9C63|\u9CE4 \u4C98|\u9E1F \u9CE5|\u9E20 \u9CE9|\u9E21 \u96DE|\u9E22 \u9CF6|\u9E23 \u9CF4|\u9E24 \u9CF2|\u9E25 \u9DD7|\u9E26 \u9D09|\u9E27 \u9DAC|\u9E28 \u9D07|\u9E29 \u9D06|\u9E2A \u9D23|\u9E2B \u9D87|\u9E2C \u9E15|\u9E2D \u9D28|\u9E2E \u9D1E|\u9E2F \u9D26|\u9E30 \u9D12|\u9E31 \u9D1F|\u9E32 \u9D1D|\u9E33 \u9D1B|\u9E34 \u9DFD|\u9E35 \u9D15|\u9E36 \u9DE5|\u9E37 \u9DD9|\u9E38 \u9D2F|\u9E39 \u9D30|\u9E3A \u9D42|\u9E3B \u9D34|\u9E3C \u9D43|\u9E3D \u9D3F|\u9E3E \u9E1E|\u9E3F \u9D3B|\u9E40 \u9D50|\u9E41 \u9D53|\u9E42 \u9E1D|\u9E43 \u9D51|\u9E44 \u9D60|\u9E45 \u9D5D|\u9E46 \u9D52|\u9E47 \u9DF3|\u9E48 \u9D5C|\u9E49 \u9D61|\u9E4A \u9D72|\u9E4B \u9D93|\u9E4C \u9D6A|\u9E4D \u9D7E|\u9E4E \u9D6F|\u9E4F \u9D6C|\u9E50 \u9D6E|\u9E51 \u9D89|\u9E52 \u9D8A|\u9E53 \u9D77|\u9E54 \u9DEB|\u9E55 \u9D98|\u9E56 \u9DA1|\u9E57 \u9D9A|\u9E58 \u9DBB|\u9E59 \u9D96|\u9E5A \u9DC0|\u9E5B \u9DA5|\u9E5C \u9DA9|\u9E5D \u9DCA|\u9E5E \u9DC2|\u9E5F \u9DB2|\u9E60 \u9DB9|\u9E61 \u9DBA|\u9E62 \u9DC1|\u9E63 \u9DBC|\u9E64 \u9DB4|\u9E65 \u9DD6|\u9E66 \u9E1A|\u9E67 \u9DD3|\u9E68 \u9DDA|\u9E69 \u9DEF|\u9E6A \u9DE6|\u9E6B \u9DF2|\u9E6C \u9DF8|\u9E6D \u9DFA|\u9E6E \u4D09|\u9E6F \u9E07|\u9E70 \u9DF9|\u9E71 \u9E0C|\u9E72 \u9E0F|\u9E73 \u9E1B|\u9E74 \u9E18|\u9E7E \u9E7A|\u9EA6 \u9EA5|\u9EB8 \u9EA9|\u9EB9 \u9EB4|\u9EBA \u9EAA|\u9EBD \u9EBC|\u9EC4 \u9EC3|\u9EC9 \u9ECC|\u9EE1 \u9EF6|\u9EE9 \u9EF7|\u9EEA \u9EF2|\u9EFE \u9EFD|\u9F0B \u9EFF|\u9F0C \u9F02|\u9F0D \u9F09|\u9F39 \u9F34|\u9F50 \u9F4A|\u9F51 \u9F4F|\u9F7F \u9F52|\u9F80 \u9F54|\u9F81 \u9F55|\u9F82 \u9F57|\u9F83 \u9F5F|\u9F84 \u9F61|\u9F85 \u9F59|\u9F86 \u9F60|\u9F87 \u9F5C|\u9F88 \u9F66|\u9F89 \u9F6C|\u9F8A \u9F6A|\u9F8B \u9F72|\u9F8C \u9F77|\u9F99 \u9F8D|\u9F9A \u9F94|\u9F9B \u9F95|\u9F9F \u9F9C|\u9FCE \u40EE|\u9FCF \u4951|\u9FD2 \u9FD3|\u9FD4 \u93B6|\u{2003E} \u{2005E}|\u{201B2} \u5123|\u{201BF} \u{20325}|\u{201F9} \u4FD3|\u{20242} \u3493|\u{20257} \u{203E2}|\u{202C6} \u512D|\u{206B3} \u{2080E}|\u{206C5} \u527E|\u{206C6} \u{20786}|\u{206FE} \u{2A7D6}|\u{20860} \u52D1|\u{20BB6} \u55F0|\u{20BDF} \u54EF|\u{20BE0} \u5645|\u{20C31} \u3609|\u{20C37} \u56A7|\u{20C5E} \u56C3|\u{20CA5} \u{2114F}|\u{20D1B} \u{210D5}|\u{20D22} \u{21114}|\u{20D78} \u{21123}|\u{20D7E} \u35F2|\u{212C0} \u{214FE}|\u{212D7} \u{2146D}|\u{212E4} \u58D7|\u{21363} \u{21516}|\u{21484} \u58C8|\u{21760} \u3737|\u{2178B} \u3717|\u{217B1} \u3722|\u{2181F} \u5B4E|\u{21967} \u5B7B|\u{21B5C} \u{21B89}|\u{21B6C} \u{21BA3}|\u{21CC3} \u{21CF3}|\u{21CD2} \u{26627}|\u{21DB4} \u5D7C|\u{21E03} \u{21F57}|\u{21E83} \u5D88|\u{21E84} \u5D98|\u{222C8} \u389D|\u{225D3} \u399B|\u{22619} \u{22931}|\u{2261D} \u{228DA}|\u{2261E} \u{228ED}|\u{2264F} \u613B|\u{22650} \u61B9|\u{22651} \u{2283C}|\u{22652} \u61A2|\u{22653} \u61C0|\u{226EF} \u398E|\u{22801} \u61CE|\u{22890} \u{248BB}|\u{229D0} \u6230|\u{22ACA} \u{22DEE}|\u{22ADE} \u{22DAB}|\u{22AEC} \u644B|\u{22B0D} \u64EB|\u{22B26} \u{22E7F}|\u{22B4F} \u64E3|\u{22F7E} \u6585|\u{230C1} \u65B8|\u{23190} \u66E5|\u{23223} \u{232CB}|\u{23368} \u{26888}|\u{2336F} \u816A|\u{23370} \u8125|\u{23391} \u81D7|\u{233E2} \u69EB|\u{23415} \u6871|\u{23424} \u6B0D|\u{23476} \u{23832}|\u{2348C} \u6947|\u{234FF} \u6A6F|\u{2350C} \u6A24|\u{235CA} \u6A20|\u{235CB} \u6B13|\u{235D9} \u3C19|\u{23610} \u3BE4|\u{23613} \u{237BB}|\u{23634} \u6AAD|\u{23637} \u{23755}|\u{2369A} \u6B18|\u{2378E} \u{23829}|\u{23A3C} \u6BA2|\u{23B64} \u{23BF4}|\u{23BE3} \u{23BE9}|\u{23C5D} \u6C2D|\u{23C97} \u6E4B|\u{23C98} \u6F55|\u{23CC6} \u3D57|\u{23DA9} \u6F85|\u{23DAB} \u{23FC9}|\u{23DAD} \u{2ADD3}|\u{23DF7} \u{24176}|\u{23E23} \u6FC6|\u{23EBC} \u7059|\u{23EBD} \u{24063}|\u{23F77} \u7003|\u{241A1} \u7193|\u{241A2} \u3DCD|\u{241C3} \u7204|\u{241C4} \u718C|\u{241ED} \u7216|\u{241F9} \u719A|\u{24236} \u7189|\u{24237} \u3DFF|\u{24280} \u{2448E}|\u{242B0} \u{244E9}|\u{242CF} \u71A1|\u{243BA} \u{244CE}|\u{243BB} \u{24473}|\u{2466F} \u{246EE}|\u{24762} \u{2489F}|\u{24783} \u7369|\u{247A4} \u7381|\u{2480B} \u3E8F|\u{24980} \u74D5|\u{24A7D} \u74DB|\u{24CC4} \u{24CF8}|\u{24D8A} \u7650|\u{24DA7} \u{24E2B}|\u{24ECA} \u3FD7|\u{24F6F} \u3FE7|\u{24F80} \u769F|\u{24FF2} \u9EAC|\u{25062} \u4009|\u{25158} \u{25303}|\u{25174} \u4039|\u{2517F} \u{2529D}|\u{251A7} \u77A4|\u{251E2} \u406A|\u{2539D} \u408E|\u{2541F} \u7912|\u{2542F} \u{25585}|\u{25430} \u{25565}|\u{2543B} \u7899|\u{257A6} \u{257B5}|\u{259C2} \u{25A10}|\u{25A5F} \u7ADA|\u{25A7A} \u{25A82}|\u{25AE3} \u7C45|\u{25B00} \u4259|\u{25B1E} \u7C4B|\u{25B20} \u7BD8|\u{25B49} \u{25D4A}|\u{25B8B} \u{25E20}|\u{25B9C} \u4272|\u{25BBE} \u7BF8|\u{25C54} \u{25D43}|\u{25E65} \u{25F3D}|\u{25E85} \u42AD|\u{25E87} \u{25F56}|\u{26208} \u{25FCA}|\u{26209} \u7DF7|\u{2620B} \u7D87|\u{2620C} \u7D80|\u{2620E} \u7E5F|\u{2620F} \u7DCD|\u{26210} \u7E3A|\u{26211} \u7DF8|\u{26212} \u{26085}|\u{26213} \u42FF|\u{26214} \u7E0E|\u{26215} \u7DF0|\u{26216} \u4308|\u{26217} \u{260C4}|\u{26218} \u430B|\u{26219} \u4330|\u{2621A} \u7E2C|\u{2621B} \u7E53|\u{2621C} \u4316|\u{2621D} \u7E4F|\u{2621E} \u431F|\u{2621F} \u431D|\u{26220} \u4325|\u{26221} \u7E7B|\u{26360} \u437D|\u{266E8} \u6725|\u{2677C} \u81A2|\u{267D7} \u{268CE}|\u{26A29} \u{26ABD}|\u{26C0F} \u84E7|\u{26C34} \u4573|\u{26D9F} \u7207|\u{26DBB} \u{26F9F}|\u{26ED5} \u861F|\u{27250} \u{2755F}|\u{2725E} \u45FF|\u{27325} \u{27388}|\u{273D6} \u8819|\u{273D7} \u8800|\u{2744F} \u883E|\u{274AD} \u{27525}|\u{2772D} \u4671|\u{2775D} \u8970|\u{27767} \u{277C0}|\u{27BAA} \u8A40|\u{27CD5} \u{27CDF}|\u{27E51} \u4788|\u{27E52} \u8CB7|\u{27E53} \u{27D94}|\u{27E54} \u8CEC|\u{27E55} \u477B|\u{27E56} \u8CDF|\u{27E57} \u8D03|\u{27FC8} \u{281C1}|\u{28001} \u8E98|\u{28031} \u{28123}|\u{28074} \u{2814D}|\u{280BA} \u{2820A}|\u{28104} \u{2820C}|\u{2815B} \u4831|\u{2816B} \u{281DE}|\u{2816C} \u8E9D|\u{28257} \u8EC9|\u{28405} \u8ED7|\u{28406} \u{282BB}|\u{28407} \u{283E0}|\u{28408} \u8F04|\u{28409} \u{283AE}|\u{2840A} \u{283E5}|\u{28479} \u48A8|\u{287F3} \u{288DE}|\u{28828} \u{288E7}|\u{28859} \u{288BF}|\u{2887A} \u{288C8}|\u{28930} \u{2893B}|\u{28C3E} \u93B7|\u{28C3F} \u91F3|\u{28C40} \u{2895B}|\u{28C41} \u9220|\u{28C42} \u920B|\u{28C43} \u9232|\u{28C44} \u922F|\u{28C45} \u9241|\u{28C46} \u9FAF|\u{28C47} \u92B6|\u{28C48} \u92C9|\u{28C49} \u9344|\u{28C4A} \u{289F1}|\u{28C4B} \u9302|\u{28C4C} \u93C6|\u{28C4D} \u93AF|\u{28C4E} \u936E|\u{28C4F} \u939D|\u{28C50} \u{28AD2}|\u{28C51} \u9404|\u{28C52} \u93C9|\u{28C53} \u940E|\u{28C54} \u940F|\u{28C55} \u{28B82}|\u{28C56} \u4969|\u{28DFF} \u49B3|\u{28E00} \u{28CD5}|\u{28E01} \u{28CD1}|\u{28E02} \u958D|\u{28E03} \u9590|\u{28E04} \u4998|\u{28E05} \u{28D17}|\u{28E06} \u{28D69}|\u{28E07} \u{28D78}|\u{28E09} \u{28D80}|\u{28E0A} \u{28D8F}|\u{28E0B} \u{28DB2}|\u{28E0C} \u{28DAE}|\u{28E0E} \u{28DF2}|\u{28E18} \u{28F4F}|\u{28E1F} \u49E2|\u{293FC} \u4A8F|\u{293FD} \u{293EA}|\u{293FE} \u{293A2}|\u{293FF} \u4A98|\u{29400} \u4A97|\u{294CB} \u9842|\u{29595} \u{294E3}|\u{29596} \u9843|\u{29597} \u4AF4|\u{29665} \u98B0|\u{29666} \u{295C0}|\u{29667} \u4B1E|\u{29668} \u{29639}|\u{29669} \u{29600}|\u{2966A} \u98B7|\u{2966B} \u98BE|\u{2966C} \u{2963A}|\u{2966D} \u{2961D}|\u{2966E} \u4B18|\u{2966F} \u4B1D|\u{29670} \u{29648}|\u{297FF} \u{2969B}|\u{29800} \u{296A5}|\u{29801} \u{296B5}|\u{29802} \u{296C6}|\u{29803} \u{296E9}|\u{29805} \u{297D0}|\u{29806} \u{29726}|\u{29807} \u4B40|\u{29808} \u4B43|\u{29809} \u{29707}|\u{2980A} \u{29735}|\u{2980B} \u{29754}|\u{2980C} \u9938|\u{2980E} \u{29784}|\u{2980F} \u{297A6}|\u{29820} \u{29834}|\u{29856} \u{29863}|\u{299E6} \u{2987A}|\u{299E8} \u99CE|\u{299E9} \u{2990A}|\u{299EA} \u4BBE|\u{299EB} \u99DA|\u{299EC} \u{298A1}|\u{299ED} \u4B7F|\u{299EE} \u{298BE}|\u{299EF} \u9A4B|\u{299F0} \u4B9D|\u{299F1} \u{29949}|\u{299F2} \u99E7|\u{299F3} \u{298B8}|\u{299F4} \u99E9|\u{299F5} \u{298B4}|\u{299F6} \u{298CF}|\u{299F8} \u{298EB}|\u{299FA} \u99F6|\u{299FB} \u{298F5}|\u{299FC} \u{298FA}|\u{299FF} \u4BA0|\u{29A00} \u9A14|\u{29A01} \u4B9E|\u{29A02} \u9A44|\u{29A03} \u9A1D|\u{29A04} \u9A2A|\u{29A05} \u{29938}|\u{29A06} \u{29919}|\u{29A07} \u4BAB|\u{29A08} \u9A1F|\u{29A09} \u{29932}|\u{29A0A} \u9A1A|\u{29A0B} \u{29944}|\u{29A0C} \u{29951}|\u{29A0D} \u{29947}|\u{29A0E} \u9FAD|\u{29A0F} \u4BB3|\u{29A10} \u{299C6}|\u{29A48} \u4BE4|\u{29B23} \u{29B59}|\u{29B24} \u{29C00}|\u{29B79} \u9B16|\u{29BD2} \u{29BF3}|\u{29C30} \u{29C39}|\u{29C92} \u{29CE4}|\u{29D0C} \u{29D35}|\u{29F79} \u9B65|\u{29F7A} \u{29D69}|\u{29F7B} \u{29D79}|\u{29F7C} \u9BF6|\u{29F7D} \u{29DB1}|\u{29F7E} \u9B9F|\u{29F7F} \u{29DB0}|\u{29F81} \u9BC4|\u{29F82} \u4C96|\u{29F83} \u9BB8|\u{29F84} \u{29DF0}|\u{29F85} \u{29E03}|\u{29F86} \u{29E26}|\u{29F87} \u9BF1|\u{29F88} \u4C59|\u{29F8A} \u4C6C|\u{29F8B} \u4C70|\u{29F8C} \u9C47|\u{29F8E} \u{29F47}|\u{2A242} \u4CB0|\u{2A243} \u9CFC|\u{2A244} \u{29FEA}|\u{2A245} \u{2A026}|\u{2A246} \u9D32|\u{2A248} \u9D1C|\u{2A249} \u{2A048}|\u{2A24A} \u9DE8|\u{2A24B} \u{2A03E}|\u{2A24C} \u{2A056}|\u{2A24D} \u9D5A|\u{2A24E} \u{2A086}|\u{2A24F} \u{2A0CF}|\u{2A250} \u{2A0CD}|\u{2A251} \u9DD4|\u{2A252} \u{2A115}|\u{2A254} \u{2A106}|\u{2A255} \u{2A1F3}|\u{2A388} \u4D2C|\u{2A389} \u9EB2|\u{2A38A} \u9EA8|\u{2A38B} \u4D34|\u{2A38C} \u9EB3|\u{2A445} \u4D73|\u{2A52D} \u{2A535}|\u{2A68F} \u{2A600}|\u{2A690} \u{2A62F}|\u{2A70E} \u{20FD5}|\u{2A79D} \u51D9|\u{2A7CE} \u350B|\u{2A7DD} \u52E3|\u{2A800} \u{27DCE}|\u{2A81F} \u34C4|\u{2A821} \u{20B19}|\u{2A833} \u5513|\u{2A835} \u35AE|\u{2A838} \u569B|\u{2A83A} \u{20F43}|\u{2A83D} \u5679|\u{2A840} \u563A|\u{2A843} \u562A|\u{2A84B} \u565E|\u{2A84F} \u55F9|\u{2A85B} \u35FF|\u{2A85E} \u5633|\u{2A87A} \u{210C4}|\u{2A88C} \u3613|\u{2A890} \u{210E4}|\u{2A892} \u{210A1}|\u{2A895} \u56BD|\u{2A896} \u{2116F}|\u{2A8A0} \u56D2|\u{2A8AE} \u571E|\u{2A8B8} \u58B2|\u{2A8C6} \u57EC|\u{2A8D2} \u581A|\u{2A8FB} \u587F|\u{2A904} \u{214C1}|\u{2A91A} \u58E3|\u{2A960} \u{27E48}|\u{2A96B} \u5B47|\u{2A970} \u5B23|\u{2A97F} \u5B3B|\u{2A9C0} \u5B7E|\u{2A9D8} \u5BE0|\u{2AA0A} \u379E|\u{2AA17} \u5C69|\u{2AA27} \u5D19|\u{2AA29} \u{21E17}|\u{2AA36} \u8F0B|\u{2AA37} \u5DD7|\u{2AA39} \u{21E6C}|\u{2AA47} \u37FA|\u{2AA4E} \u5DCA|\u{2AA58} \u5DD8|\u{2AA5B} \u{21FD6}|\u{2AA77} \u5E5D|\u{2AA78} \u5E69|\u{2AA8F} \u5EEC|\u{2AA91} \u3897|\u{2AA9E} \u5EE7|\u{2AAB4} \u{22370}|\u{2AABC} \u5F43|\u{2AACC} \u5FBF|\u{2AAE1} \u{22929}|\u{2AAF7} \u399E|\u{2AAFA} \u61B8|\u{2AB1A} \u{228D0}|\u{2AB2F} \u{2293F}|\u{2AB5D} \u{22BF7}|\u{2AB62} \u6450|\u{2AB67} \u64DF|\u{2AB6F} \u{22D92}|\u{2AB75} \u639A|\u{2AB7E} \u648A|\u{2AB83} \u3A3B|\u{2AB8B} \u3A4B|\u{2AB96} \u64A7|\u{2ABB3} \u{22EB3}|\u{2ABB6} \u650B|\u{2ABCB} \u3A8E|\u{2AC36} \u66CA|\u{2AC65} \u81B9|\u{2AC77} \u6896|\u{2AC8E} \u6AC5|\u{2AC94} \u6B10|\u{2AC9B} \u6AB5|\u{2ACAE} \u6AE0|\u{2ACCD} \u6B07|\u{2ACD7} \u{2372C}|\u{2AD19} \u6B11|\u{2AD51} \u6BCA|\u{2AD63} \u973C|\u{2AD71} \u6FFF|\u{2AD84} \u6EA1|\u{2AD92} \u{24137}|\u{2ADAE} \u{23F4F}|\u{2ADCD} \u3D7E|\u{2ADFD} \u7052|\u{2AE15} \u7182|\u{2AE29} \u7147|\u{2AE40} \u{24479}|\u{2AE60} \u{244CC}|\u{2AE73} \u7225|\u{2AE79} \u{244BB}|\u{2AEA3} \u{24600}|\u{2AEAA} \u{24706}|\u{2AEAD} \u729E|\u{2AEB7} \u734A|\u{2AEB8} \u{2482E}|\u{2AEBB} \u3E9C|\u{2AEBD} \u730C|\u{2AED0} \u747D|\u{2AEE8} \u74C4|\u{2AEF2} \u747B|\u{2AEFA} \u749D|\u{2AF0B} \u3EF6|\u{2AF34} \u{24B05}|\u{2AF48} \u757C|\u{2AF5D} \u{24CF7}|\u{2AF6A} \u75EE|\u{2AF6D} \u{24DC3}|\u{2AF6E} \u3FD6|\u{2AF74} \u{24E94}|\u{2AF77} \u7631|\u{2AF94} \u76E8|\u{2AFA2} \u774D|\u{2AFA3} \u771D|\u{2AFA6} \u77D1|\u{2AFB8} \u77C9|\u{2AFCA} \u{253DD}|\u{2AFDE} \u{255B2}|\u{2AFEB} \u792E|\u{2AFF5} \u{255C7}|\u{2B00C} \u{25730}|\u{2B013} \u{25710}|\u{2B028} \u4150|\u{2B02C} \u4173|\u{2B02E} \u{258B7}|\u{2B042} \u4189|\u{2B05F} \u7AF1|\u{2B061} \u9D17|\u{2B071} \u{25DBD}|\u{2B072} \u4251|\u{2B073} \u{25BE4}|\u{2B077} \u4276|\u{2B07A} \u{25D3C}|\u{2B083} \u7C22|\u{2B086} \u7C02|\u{2B088} \u426C|\u{2B096} \u{25D28}|\u{2B0BF} \u{25EE6}|\u{2B0D7} \u{293F7}|\u{2B119} \u7CFA|\u{2B11A} \u42BA|\u{2B11B} \u7D1F|\u{2B11C} \u42C3|\u{2B11D} \u{25FAF}|\u{2B11E} \u42D4|\u{2B11F} \u7D41|\u{2B120} \u7D59|\u{2B121} \u7D67|\u{2B122} \u7D65|\u{2B123} \u7E77|\u{2B124} \u7E68|\u{2B125} \u7E9A|\u{2B126} \u{26016}|\u{2B127} \u7D96|\u{2B128} \u7D7A|\u{2B129} \u42E6|\u{2B12A} \u{26147}|\u{2B12B} \u7D9F|\u{2B12C} \u7DE4|\u{2B12D} \u7DEE|\u{2B12E} \u42FC|\u{2B12F} \u{260E9}|\u{2B130} \u7E0D|\u{2B131} \u7E6C|\u{2B132} \u7E38|\u{2B133} \u7E30|\u{2B134} \u7E42|\u{2B135} \u{26148}|\u{2B136} \u7E48|\u{2B137} \u7E76|\u{2B138} \u7E81|\u{2B139} \u7E97|\u{2B145} \u4364|\u{2B157} \u7FB5|\u{2B165} \u{26480}|\u{2B16D} \u4399|\u{2B17C} \u{26516}|\u{2B18F} \u807B|\u{2B19D} \u{267FC}|\u{2B1AB} \u{2685D}|\u{2B1D8} \u{269FA}|\u{2B1DB} \u8263|\u{2B1EA} \u{26C4C}|\u{2B1ED} \u853F|\u{2B1F4} \u84AD|\u{2B1FD} \u857D|\u{2B209} \u8573|\u{2B20E} \u845D|\u{2B21F} \u852F|\u{2B235} \u855D|\u{2B241} \u8586|\u{2B244} \u85F7|\u{2B2AA} \u45C5|\u{2B2AE} \u8826|\u{2B2B8} \u87DC|\u{2B2B9} \u{274AF}|\u{2B2BB} \u87F3|\u{2B2C7} \u87C2|\u{2B2CC} \u87D8|\u{2B2F2} \u4654|\u{2B2F7} \u8957|\u{2B2F9} \u8953|\u{2B2FB} \u8958|\u{2B300} \u8940|\u{2B307} \u8975|\u{2B30B} \u{277AB}|\u{2B328} \u89BC|\u{2B32A} \u899B|\u{2B32B} \u{27874}|\u{2B32C} \u{27884}|\u{2B32D} \u89B9|\u{2B32F} \u46A9|\u{2B350} \u{27B79}|\u{2B359} \u8A11|\u{2B35A} \u8A1E|\u{2B35B} \u8A1C|\u{2B35C} \u8A53|\u{2B35D} \u8AEB|\u{2B35E} \u{2799D}|\u{2B35F} \u{279A7}|\u{2B360} \u46C4|\u{2B361} \u8A51|\u{2B362} \u8B4A|\u{2B363} \u8A77|\u{2B364} \u8B51|\u{2B365} \u8A82|\u{2B366} \u8B68|\u{2B367} \u8ABA|\u{2B368} \u8AAB|\u{2B369} \u8AE3|\u{2B36A} \u8A8B|\u{2B36B} \u46F3|\u{2B36C} \u8AB7|\u{2B36D} \u{27A55}|\u{2B36E} \u8AB3|\u{2B36F} \u8AF4|\u{2B370} \u8AF0|\u{2B371} \u8AEF|\u{2B372} \u8B0F|\u{2B373} \u8AE5|\u{2B374} \u8B31|\u{2B375} \u8B38|\u{2B376} \u{27A7C}|\u{2B377} \u8B09|\u{2B378} \u8B06|\u{2B379} \u8B2F|\u{2B37A} \u{27ADD}|\u{2B37B} \u8B46|\u{2B37C} \u{27B24}|\u{2B37D} \u8B5E|\u{2B37E} \u{27B48}|\u{2B37F} \u8B7E|\u{2B386} \u8C75|\u{2B38C} \u8C97|\u{2B3A6} \u8D1A|\u{2B3A7} \u476D|\u{2B3A8} \u{27E18}|\u{2B3A9} \u8CDD|\u{2B3AA} \u478B|\u{2B3AB} \u8D09|\u{2B3AC} \u8D11|\u{2B3AD} \u4793|\u{2B3B1} \u47D0|\u{2B3B3} \u47C6|\u{2B3B8} \u{27F6F}|\u{2B3BA} \u47C3|\u{2B3C3} \u4806|\u{2B3C6} \u8E73|\u{2B3CB} \u8E7B|\u{2B3CC} \u{28090}|\u{2B3D0} \u8E54|\u{2B3D1} \u{281FD}|\u{2B3D5} \u{281AA}|\u{2B3DE} \u{281F0}|\u{2B3E8} \u{281E4}|\u{2B404} \u8ECF|\u{2B405} \u8ED5|\u{2B406} \u8F63|\u{2B407} \u8EDC|\u{2B408} \u8EF7|\u{2B409} \u8EE8|\u{2B40A} \u8EEC|\u{2B40B} \u{2838C}|\u{2B40C} \u8EFF|\u{2B40D} \u{28308}|\u{2B40E} \u8F22|\u{2B40F} \u8F16|\u{2B410} \u8F17|\u{2B411} \u8F28|\u{2B412} \u8F37|\u{2B413} \u8F2E|\u{2B414} \u{28370}|\u{2B415} \u8F4A|\u{2B416} \u8F47|\u{2B417} \u8F50|\u{2B418} \u8F57|\u{2B419} \u8F60|\u{2B437} \u9071|\u{2B458} \u911F|\u{2B461} \u9133|\u{2B477} \u91B6|\u{2B4E5} \u91DF|\u{2B4E6} \u91E8|\u{2B4E7} \u9207|\u{2B4E8} \u921B|\u{2B4E9} \u93E6|\u{2B4EA} \u9206|\u{2B4EB} \u{2895F}|\u{2B4EC} \u9254|\u{2B4ED} \u9260|\u{2B4EE} \u{28A95}|\u{2B4EF} \u9288|\u{2B4F0} \u928A|\u{2B4F1} \u9408|\u{2B4F2} \u9281|\u{2B4F3} \u{28C0B}|\u{2B4F4} \u927E|\u{2B4F5} \u92E0|\u{2B4F6} \u92D7|\u{2B4F7} \u{2B4A1}|\u{2B4F8} \u933D|\u{2B4F9} \u9324|\u{2B4FA} \u942A|\u{2B4FB} \u931C|\u{2B4FC} \u{28A1B}|\u{2B4FD} \u931D|\u{2B4FE} \u9325|\u{2B4FF} \u{28A22}|\u{2B500} \u934A|\u{2B501} \u943C|\u{2B502} \u9349|\u{2B503} \u{28C32}|\u{2B504} \u9352|\u{2B505} \u938D|\u{2B506} \u496F|\u{2B507} \u939E|\u{2B508} \u9399|\u{2B509} \u{28C03}|\u{2B50A} \u93E5|\u{2B50B} \u4957|\u{2B50C} \u93FE|\u{2B50D} \u9407|\u{2B50E} \u940D|\u{2B50F} \u{28B16}|\u{2B510} \u{28B78}|\u{2B511} \u{28B56}|\u{2B512} \u{28BB3}|\u{2B513} \u{28BDF}|\u{2B514} \u9474|\u{2B515} \u{28C25}|\u{2B516} \u{28CB3}|\u{2B52D} \u958B|\u{2B52E} \u9592|\u{2B52F} \u9597|\u{2B530} \u959E|\u{2B532} \u{28D39}|\u{2B534} \u95B5|\u{2B535} \u49AF|\u{2B536} \u95D1|\u{2B53D} \u{28F33}|\u{2B55A} \u{29028}|\u{2B565} \u9723|\u{2B568} \u{29159}|\u{2B583} \u9767|\u{2B585} \u4A8A|\u{2B587} \u97BE|\u{2B591} \u{29396}|\u{2B592} \u97E0|\u{2B593} \u{293C2}|\u{2B594} \u97DB|\u{2B595} \u97DD|\u{2B596} \u{293E0}|\u{2B5AA} \u{29454}|\u{2B5AB} \u4AB4|\u{2B5AC} \u4ABE|\u{2B5AD} \u{2948E}|\u{2B5AE} \u9857|\u{2B5AF} \u982B|\u{2B5B0} \u4AC2|\u{2B5B1} \u4AC0|\u{2B5B2} \u4ADF|\u{2B5B3} \u9835|\u{2B5B4} \u{29533}|\u{2B5B5} \u{294E5}|\u{2B5B6} \u9845|\u{2B5B7} \u{29511}|\u{2B5B8} \u9858|\u{2B5B9} \u9863|\u{2B5BA} \u4AF6|\u{2B5C7} \u4AFB|\u{2B5C8} \u{295D3}|\u{2B5C9} \u{295F4}|\u{2B5CA} \u4B13|\u{2B5CB} \u98CB|\u{2B5DA} \u{297D7}|\u{2B5DE} \u98E6|\u{2B5DF} \u4B27|\u{2B5E0} \u9926|\u{2B5E1} \u{296A9}|\u{2B5E2} \u98F5|\u{2B5E3} \u98F6|\u{2B5E4} \u{296CC}|\u{2B5E5} \u992B|\u{2B5E6} \u9914|\u{2B5E7} \u9917|\u{2B5E8} \u{296E1}|\u{2B5E9} \u9960|\u{2B5EA} \u9927|\u{2B5EB} \u992C|\u{2B5EC} \u992A|\u{2B5ED} \u9935|\u{2B5EE} \u992D|\u{2B5EF} \u9931|\u{2B5F0} \u4B54|\u{2B5F1} \u4B51|\u{2B5F3} \u{2977D}|\u{2B5F4} \u9958|\u{2B5F5} \u995F|\u{2B61B} \u99AF|\u{2B61C} \u99BC|\u{2B61D} \u99C3|\u{2B61E} \u99DE|\u{2B61F} \u99CA|\u{2B620} \u99E4|\u{2B621} \u99EB|\u{2B623} \u99FB|\u{2B624} \u9A03|\u{2B625} \u9A09|\u{2B626} \u9A0A|\u{2B627} \u9A04|\u{2B628} \u9A20|\u{2B629} \u9A1C|\u{2B62A} \u9A35|\u{2B62B} \u9A34|\u{2B62C} \u9A31|\u{2B62D} \u9A3B|\u{2B62E} \u4BB0|\u{2B62F} \u9A53|\u{2B630} \u9A59|\u{2B631} \u9A68|\u{2B63D} \u9B20|\u{2B642} \u{29BC1}|\u{2B688} \u9C6E|\u{2B689} \u9B5F|\u{2B68A} \u9C11|\u{2B68B} \u9C44|\u{2B68C} \u9B66|\u{2B68D} \u9B75|\u{2B68E} \u{29D81}|\u{2B68F} \u4C41|\u{2B690} \u4C40|\u{2B691} \u9B85|\u{2B692} \u9B84|\u{2B693} \u9BA4|\u{2B694} \u9BB0|\u{2B695} \u9C24|\u{2B696} \u9B86|\u{2B697} \u9BAF|\u{2B698} \u{29EEE}|\u{2B699} \u9BC6|\u{2B69A} \u9BBF|\u{2B69B} \u9BB5|\u{2B69C} \u4C85|\u{2B69D} \u{29E04}|\u{2B69E} \u9BEC|\u{2B69F} \u{29E21}|\u{2B6A0} \u4C67|\u{2B6A1} \u9BDE|\u{2B6A2} \u9C0B|\u{2B6A3} \u9BFE|\u{2B6A4} \u9C26|\u{2B6A5} \u9C15|\u{2B6A6} \u9C2B|\u{2B6A7} \u9C3D|\u{2B6A8} \u{29ED7}|\u{2B6A9} \u{29EEC}|\u{2B6AA} \u9C4A|\u{2B6AB} \u9C62|\u{2B6AC} \u{29F36}|\u{2B6AD} \u9C72|\u{2B6DA} \u9CFD|\u{2B6DB} \u9CF7|\u{2B6DC} \u9D00|\u{2B6DD} \u9D05|\u{2B6DE} \u9D03|\u{2B6DF} \u9E17|\u{2B6E0} \u{29FE4}|\u{2B6E1} \u9D14|\u{2B6E2} \u9E0B|\u{2B6E3} \u9D25|\u{2B6E4} \u9D10|\u{2B6E5} \u9D4A|\u{2B6E6} \u9D2E|\u{2B6E7} \u{2A016}|\u{2B6E8} \u9D67|\u{2B6E9} \u9D33|\u{2B6EA} \u9D3D|\u{2B6EB} \u9DB0|\u{2B6EC} \u4CDC|\u{2B6ED} \u9D5F|\u{2B6EE} \u4CE4|\u{2B6EF} \u9DAD|\u{2B6F0} \u4CE2|\u{2B6F1} \u9D6B|\u{2B6F2} \u9D70|\u{2B6F3} \u9D69|\u{2B6F4} \u9DE4|\u{2B6F5} \u9D8C|\u{2B6F6} \u9D92|\u{2B6F7} \u9DA6|\u{2B6F8} \u9D97|\u{2B6F9} \u{2A0E7}|\u{2B6FA} \u4CE7|\u{2B6FB} \u{2A0D2}|\u{2B6FC} \u4CEB|\u{2B6FD} \u9DC5|\u{2B6FE} \u{2A1B7}|\u{2B700} \u9DD0|\u{2B701} \u9DE9|\u{2B702} \u{2A142}|\u{2B703} \u9DE3|\u{2B704} \u9DF7|\u{2B705} \u4D0B|\u{2B70A} \u{2A278}|\u{2B711} \u9EB7|\u{2B712} \u4D31|\u{2B713} \u{2A32D}|\u{2B714} \u4D3D|\u{2B715} \u{2A360}|\u{2B719} \u4D74|\u{2B71F} \u{2A4F0}|\u{2B728} \u4D95|\u{2B729} \u9F67|\u{2B72A} \u9F69|\u{2B72B} \u{2B726}|\u{2B72C} \u9F70|\u{2B72D} \u9F6D|\u{2B72E} \u9F74|\u{2B72F} \u{2A64F}|\u{2B730} \u9F7E|\u{2B732} \u9F93|\u{2B733} \u4DB2|\u{2B748} \u346E|\u{2B74B} \u{2040A}|\u{2B766} \u36DD|\u{2B767} \u3710|\u{2B768} \u5A88|\u{2B769} \u5B26|\u{2B76A} \u{217EB}|\u{2B76B} \u5A61|\u{2B76C} \u5B07|\u{2B76D} \u5B46|\u{2B76E} \u5B44|\u{2B775} \u5DB9|\u{2B785} \u{26805}|\u{2B797} \u6F63|\u{2B79A} \u6FAC|\u{2B79B} \u3D86|\u{2B79D} \u704D|\u{2B7A0} \u7227|\u{2B7A1} \u7203|\u{2B7A2} \u{246F1}|\u{2B7A3} \u3E7D|\u{2B7A5} \u73FC|\u{2B7A6} \u74BE|\u{2B7A7} \u{24A42}|\u{2B7A8} \u74BC|\u{2B7A9} \u748A|\u{2B7B7} \u{258B6}|\u{2B7C3} \u7D4D|\u{2B7C4} \u7D8B|\u{2B7C5} \u7DA1|\u{2B7C6} \u7DDF|\u{2B7C7} \u{261B2}|\u{2B7D1} \u4585|\u{2B7D5} \u4564|\u{2B7DE} \u8A28|\u{2B7DF} \u8A4A|\u{2B7E0} \u8B42|\u{2B7E1} \u8AB4|\u{2B7E2} \u4716|\u{2B7E4} \u4850|\u{2B7E5} \u4869|\u{2B7E6} \u4875|\u{2B7EB} \u{287BA}|\u{2B7EC} \u{287CA}|\u{2B7F2} \u91DA|\u{2B7F3} \u91F2|\u{2B7F4} \u9216|\u{2B7F5} \u9217|\u{2B7F6} \u928F|\u{2B7F7} \u925D|\u{2B7F8} \u927D|\u{2B7F9} \u9277|\u{2B7FA} \u4924|\u{2B7FB} \u9282|\u{2B7FC} \u943D|\u{2B7FD} \u{289F0}|\u{2B7FE} \u{28A70}|\u{2B7FF} \u9388|\u{2B800} \u4944|\u{2B801} \u9449|\u{2B802} \u959D|\u{2B805} \u97DA|\u{2B806} \u980D|\u{2B807} \u{295B0}|\u{2B808} \u4AFE|\u{2B80A} \u4B84|\u{2B80B} \u9A3C|\u{2B80C} \u{299A0}|\u{2B80F} \u{29D66}|\u{2B810} \u9B7D|\u{2B811} \u4C78|\u{2B812} \u9C46|\u{2B816} \u{29FC5}|\u{2B81C} \u9F6F|\u{2B8B8} \u50E4|\u{2B9C3} \u{23350}|\u{2B9EE} \u{2A2FF}|\u{2BAC7} \u5641|\u{2BB10} \u3614|\u{2BB5F} \u5878|\u{2BB62} \u57E8|\u{2BB7C} \u{2144D}|\u{2BB83} \u58A0|\u{2BC1B} \u5A19|\u{2BD77} \u3823|\u{2BD87} \u5D7D|\u{2BDF7} \u5EDE|\u{2BE29} \u5F44|\u{2C029} \u6690|\u{2C02A} \u665B|\u{2C0A9} \u689C|\u{2C0CA} \u6ACD|\u{2C1D5} \u6FAB|\u{2C1D9} \u6D7F|\u{2C1F9} \u6F0D|\u{2C27C} \u71B0|\u{2C288} \u71D6|\u{2C2A4} \u71C0|\u{2C35B} \u74C5|\u{2C361} \u7497|\u{2C364} \u7495|\u{2C488} \u7910|\u{2C497} \u{255FD}|\u{2C542} \u7BE2|\u{2C613} \u7D03|\u{2C618} \u7D1E|\u{2C621} \u7D6A|\u{2C629} \u7D8E|\u{2C62B} \u7D84|\u{2C62C} \u7DAA|\u{2C62D} \u7D9D|\u{2C62F} \u7DA7|\u{2C642} \u7E2F|\u{2C64A} \u7E86|\u{2C64B} \u7E95|\u{2C72C} \u8504|\u{2C72F} \u44E3|\u{2C79F} \u860B|\u{2C7C1} \u8649|\u{2C7FD} \u8740|\u{2C8D9} \u8A0F|\u{2C8DE} \u8A5D|\u{2C8E1} \u8AD3|\u{2C8F3} \u8A6A|\u{2C907} \u8AF2|\u{2C90A} \u8ADF|\u{2C91D} \u8B53|\u{2CA02} \u8EDD|\u{2CA0E} \u8F36|\u{2CA7D} \u9129|\u{2CAA9} \u91B2|\u{2CB29} \u91F4|\u{2CB2D} \u9300|\u{2CB2E} \u92F9|\u{2CB31} \u91FF|\u{2CB38} \u9265|\u{2CB39} \u926E|\u{2CB3B} \u946A|\u{2CB3F} \u924A|\u{2CB41} \u9267|\u{2CB4A} \u{289C0}|\u{2CB4E} \u92D0|\u{2CB5A} \u931E|\u{2CB5B} \u{28A0F}|\u{2CB64} \u936D|\u{2CB69} \u9393|\u{2CB6C} \u93CF|\u{2CB6D} \u93DA|\u{2CB6F} \u4955|\u{2CB73} \u{28B4E}|\u{2CB76} \u{28B46}|\u{2CB78} \u93FB|\u{2CB7C} \u9429|\u{2CBB1} \u95C9|\u{2CBBF} \u9691|\u{2CBC0} \u96AE|\u{2CBCE} \u96A4|\u{2CC56} \u9814|\u{2CC5F} \u9820|\u{2CCF5} \u99D3|\u{2CCF6} \u99C9|\u{2CCFD} \u99EA|\u{2CCFF} \u99FC|\u{2CD02} \u9A11|\u{2CD03} \u9A1E|\u{2CD0A} \u9A4E|\u{2CD8B} \u9B88|\u{2CD8D} \u9B80|\u{2CD8F} \u9BA0|\u{2CD90} \u9BA1|\u{2CD9F} \u9BFB|\u{2CDA0} \u9C0A|\u{2CDA8} \u9C40|\u{2CDAD} \u9C36|\u{2CDAE} \u9C5A|\u{2CDD5} \u9D4F|\u{2CE18} \u9DA0|\u{2CE1A} \u9E11|\u{2CE23} \u9DB1|\u{2CE26} \u9DDF|\u{2CE2A} \u9DED|\u{2CE2F} \u9DFF|\u{2CE7C} \u9F58|\u{2CE88} \u9F6E|\u{2CE93} \u9F7C|\u{30B38} \u7E50|\u{30C28} \u83D5|\u{30D8E} \u8B45|\u{30EDD} \u{30EDE}|\u{30F84} \u92C2|\u{30FAD} \u9440|\u{3129C} \u{2A23C}";
+
+// node_modules/opencc-js/dist/esm-lib/dict/TSPhrases.js
+var TSPhrases_default = "\u4E00\u574F \u4E00\u576F|\u4E00\u76EE\u77AD\u7136 \u4E00\u76EE\u4E86\u7136|\u4E03\u9015 \u4E03\u8FF3|\u4E0A\u9015 \u4E0A\u8FF3|\u4E0A\u934A \u4E0A\u94FE|\u4E0D\u53EF\u8CB2\u8A08 \u4E0D\u53EF\u8D40\u8A08|\u4E0D\u77AD\u89E3 \u4E0D\u4E86\u89E3|\u4E48\u9EBC \u5E7A\u9EBD|\u4E48\u9EBD \u5E7A\u9EBD|\u4E5D\u9015\u5C71 \u4E5D\u8FF3\u5C71|\u4E7E\u4E7E\u6DE8\u6DE8 \u5E72\u5E72\u51C0\u51C0|\u4E7E\u4E7E\u8106\u8106 \u5E72\u5E72\u8106\u8106|\u4E7E\u4F51\u7E23 \u4E7E\u4F51\u53BF|\u4E7E\u5143 \u4E7E\u5143|\u4E7E\u5366 \u4E7E\u5366|\u4E7E\u5609 \u4E7E\u5609|\u4E7E\u5716 \u4E7E\u56FE|\u4E7E\u5764 \u4E7E\u5764|\u4E7E\u5764\u4E00\u64F2 \u4E7E\u5764\u4E00\u63B7|\u4E7E\u5764\u518D\u9020 \u4E7E\u5764\u518D\u9020|\u4E7E\u5764\u5927\u632A\u79FB \u4E7E\u5764\u5927\u632A\u79FB|\u4E7E\u5B85 \u4E7E\u5B85|\u4E7E\u5B89\u7E23 \u4E7E\u5B89\u53BF|\u4E7E\u5B89\u93AE \u4E7E\u5B89\u9547|\u4E7E\u5DDE \u4E7E\u5DDE|\u4E7E\u65B7 \u4E7E\u65AD|\u4E7E\u65B7\u98DF \u5E72\u65AD\u98DF|\u4E7E\u65E6 \u4E7E\u65E6|\u4E7E\u66DC \u4E7E\u66DC|\u4E7E\u6E05\u5BAE \u4E7E\u6E05\u5BAB|\u4E7E\u76DB\u4E16 \u4E7E\u76DB\u4E16|\u4E7E\u7D05 \u5E72\u7EA2|\u4E7E\u7DB1 \u4E7E\u7EB2|\u4E7E\u7E23 \u4E7E\u53BF|\u4E7E\u8C61 \u4E7E\u8C61|\u4E7E\u9020 \u4E7E\u9020|\u4E7E\u9053 \u4E7E\u9053|\u4E7E\u95E5\u5A46 \u4E7E\u95FC\u5A46|\u4E7E\u9675 \u4E7E\u9675|\u4E7E\u9686 \u4E7E\u9686|\u4E7E\u9686\u5E74\u9593 \u4E7E\u9686\u5E74\u95F4|\u4E7E\u9686\u7687\u5E1D \u4E7E\u9686\u7687\u5E1D|\u4E8C\u5641\u82F1 \u4E8C\u{2BAC7}\u82F1|\u4EC7\u8B8E \u4EC7\u96E0|\u4EE5\u514D\u85C9\u53E3 \u4EE5\u514D\u501F\u53E3|\u4EE5\u529F\u8986\u904E \u4EE5\u529F\u8986\u8FC7|\u4EFB\u7B46\u6C88\u8A69 \u4EFB\u7B14\u6C88\u8BD7|\u4F94\u5FB7\u8986\u8F09 \u4F94\u5FB7\u8986\u8F7D|\u50A2\u4FF1 \u5BB6\u5177|\u50B7\u4EA1\u6795\u85C9 \u4F24\u4EA1\u6795\u85C9|\u5141\u7955 \u5141\u7955|\u516B\u6FDB\u5C71 \u516B\u6FDB\u5C71|\u5176\u9670\u591A\u8490 \u5176\u9634\u591A\u8490|\u51CC\u85C9 \u51CC\u501F|\u51FA\u919C\u72FC\u85C9 \u51FA\u4E11\u72FC\u85C9|\u51FD\u8986 \u51FD\u590D|\u524B\u67B6 \u524B\u67B6|\u524B\u6BD2 \u524B\u6BD2|\u5343\u937E\u7C9F \u5343\u953A\u7C9F|\u5357\u6C3E \u5357\u6C3E|\u5357\u9015 \u5357\u8FF3|\u53CD\u53CD\u8986\u8986 \u53CD\u53CD\u590D\u590D|\u53CD\u8986 \u53CD\u590D|\u53CD\u8986\u601D\u7DAD \u53CD\u590D\u601D\u7EF4|\u53CD\u8986\u601D\u91CF \u53CD\u590D\u601D\u91CF|\u53CD\u8986\u6027 \u53CD\u590D\u6027|\u540D\u8986\u91D1\u750C \u540D\u590D\u91D1\u74EF|\u5433\u7955 \u5434\u7955|\u5433\u80B2\u6607 \u5434\u80B2\u6607|\u54EA\u5412 \u54EA\u5412|\u56DE\u8986 \u56DE\u590D|\u571F\u574F \u571F\u576F|\u574F\u571F \u576F\u571F|\u574F\u5B50 \u576F\u5B50|\u574F\u5E03 \u576F\u5E03|\u574F\u6236 \u576F\u6237|\u58A8\u6C88\u6C88 \u58A8\u6C89\u6C89|\u58FA\u88CF\u4E7E\u5764 \u58F6\u91CC\u4E7E\u5764|\u5927\u76EE\u4E7E\u9023\u51A5\u9593\u6551\u6BCD\u8B8A\u6587 \u5927\u76EE\u4E7E\u8FDE\u51A5\u95F4\u6551\u6BCD\u53D8\u6587|\u5BAB\u5546\u89D2\u5FB5\u7FBD \u5BAB\u5546\u89D2\u5FB5\u7FBD|\u5C04\u8986 \u5C04\u8986|\u5C3C\u4E7E\u5B50 \u5C3C\u4E7E\u5B50|\u5C3C\u4E7E\u9640 \u5C3C\u4E7E\u9640|\u5E74\u91D0 \u5E74\u91D0|\u5E7A\u9EBC \u5E7A\u9EBD|\u5E7A\u9EBC\u5C0F\u4E11 \u5E7A\u9EBD\u5C0F\u4E11|\u5E7A\u9EBC\u5C0F\u919C \u5E7A\u9EBD\u5C0F\u4E11|\u5EB7\u4E7E \u5EB7\u4E7E|\u5F35\u6607 \u5F20\u6607|\u5F35\u6CD5\u4E7E \u5F20\u6CD5\u4E7E|\u5F77\u5F7F \u4EFF\u4F5B|\u5F77\u5FA8 \u5F77\u5FA8|\u5F90\u80E4\u6607 \u5F90\u80E4\u6607|\u5FA9\u7526 \u590D\u82CF|\u5FB5\u5F26 \u5FB5\u5F26|\u5FB5\u7D43 \u5FB5\u5F26|\u5FB5\u7FBD\u6469\u67EF \u5FB5\u7FBD\u6469\u67EF|\u5FB5\u8072 \u5FB5\u58F0|\u5FB5\u8ABF \u5FB5\u8C03|\u5FB5\u97F3 \u5FB5\u97F3|\u60C5\u6709\u7368\u937E \u60C5\u6709\u72EC\u949F|\u60F3\u50CF \u60F3\u50CF|\u610F\u5FD7\u6D88\u6C88 \u610F\u5FD7\u6D88\u6C89|\u6170\u85C9 \u6170\u85C9|\u6170\u85C9\u7740 \u6170\u85C9\u7740|\u6191\u85C9 \u51ED\u501F|\u6191\u85C9\u7740 \u51ED\u501F\u7740|\u61F7\u91D0 \u6000\u91D0|\u6210\u7526 \u6210\u7526|\u6240\u8CBB\u4E0D\u8CB2 \u6240\u8D39\u4E0D\u8D40|\u624B\u934A \u624B\u94FE|\u6253\u574F \u6253\u576F|\u625E\u683C \u625E\u683C|\u626D\u8F49\u4E7E\u5764 \u626D\u8F6C\u4E7E\u5764|\u6279\u8986 \u6279\u590D|\u627E\u85C9\u53E3 \u627E\u501F\u53E3|\u6298\u621F\u6C88\u6C99 \u6298\u621F\u6C89\u6C99|\u6298\u621F\u6C88\u6CB3 \u6298\u621F\u6C89\u6CB3|\u62C9\u574F \u62C9\u576F|\u62C9\u934A \u62C9\u94FE|\u62C9\u934A\u5DE5\u7A0B \u62C9\u94FE\u5DE5\u7A0B|\u62DC\u8986 \u62DC\u590D|\u6328\u524B \u6328\u524B|\u634F\u574F \u634F\u576F|\u64CA\u6C88 \u51FB\u6C89|\u64DA\u77AD\u89E3 \u636E\u4E86\u89E3|\u6587\u9326\u8986\u9631 \u6587\u9526\u8986\u9631|\u65BC\u4E16\u6210 \u65BC\u4E16\u6210|\u65BC\u4E4E \u65BC\u4E4E|\u65BC\u4EF2\u5B8C \u65BC\u4EF2\u5B8C|\u65BC\u502B \u65BC\u4F26|\u65BC\u5176\u4E00 \u65BC\u5176\u4E00|\u65BC\u5247 \u65BC\u5219|\u65BC\u52C7\u660E \u65BC\u52C7\u660E|\u65BC\u547C\u54C0\u54C9 \u65BC\u547C\u54C0\u54C9|\u65BC\u55AE \u65BC\u5355|\u65BC\u5766 \u65BC\u5766|\u65BC\u5D07\u6587 \u65BC\u5D07\u6587|\u65BC\u5FE0\u7965 \u65BC\u5FE0\u7965|\u65BC\u60DF\u4E00 \u65BC\u60DF\u4E00|\u65BC\u6232 \u65BC\u620F|\u65BC\u6556 \u65BC\u6556|\u65BC\u68A8\u83EF \u65BC\u68A8\u534E|\u65BC\u6E05\u8A00 \u65BC\u6E05\u8A00|\u65BC\u6F5B \u65BC\u6F5C|\u65BC\u7433 \u65BC\u7433|\u65BC\u7A46 \u65BC\u7A46|\u65BC\u7AF9\u5C4B \u65BC\u7AF9\u5C4B|\u65BC\u83DF \u65BC\u83DF|\u65BC\u9091 \u65BC\u9091|\u65BC\u9675\u5B50 \u65BC\u9675\u5B50|\u65CB\u4E7E\u8F49\u5764 \u65CB\u4E7E\u8F6C\u5764|\u65CB\u8F49\u4E7E\u5764 \u65CB\u8F6C\u4E7E\u5764|\u65CB\u8F49\u4E7E\u5764\u4E4B\u529B \u65CB\u8F6C\u4E7E\u5764\u4E4B\u529B|\u660E\u77AD \u660E\u4E86|\u660E\u8986 \u660E\u590D|\u660F\u6C88 \u660F\u6C89|\u6625\u8490 \u6625\u8490|\u6625\u91D0 \u6625\u91D0|\u6697\u6C88\u6C88 \u6697\u6C89\u6C89|\u66F8\u4E2D\u81EA\u6709\u5343\u937E\u7C9F \u4E66\u4E2D\u81EA\u6709\u5343\u953A\u7C9F|\u6709\u5E8F \u6709\u5E8F|\u671D\u4E7E\u5915\u60D5 \u671D\u4E7E\u5915\u60D5|\u6728\u5412 \u6728\u5412|\u674E\u4E7E\u5FB7 \u674E\u4E7E\u5FB7|\u674E\u6607 \u674E\u6607|\u674E\u6607\u52F3 \u674E\u6607\u52CB|\u674E\u6FA4\u9245 \u674E\u6CFD\u949C|\u674E\u7955 \u674E\u7955|\u674E\u934A\u798F \u674E\u94FE\u798F|\u674E\u937E\u90C1 \u674E\u953A\u90C1|\u675F\u8129 \u675F\u8129|\u6771\u6C3E \u4E1C\u6C3E|\u6797\u7526 \u6797\u7526|\u6821\u8B8E \u6821\u96E0|\u6881\u6607\u537F \u6881\u6607\u537F|\u6881\u7AE0\u9245 \u6881\u7AE0\u949C|\u694A\u7526\u68E3 \u6768\u7526\u68E3|\u694A\u806F\u965E \u6768\u8054\u965E|\u6A0A\u65BC\u671F \u6A0A\u65BC\u671F|\u6A61\u6900 \u6A61\u6900|\u6B7B\u6C23\u6C88\u6C88 \u6B7B\u6C14\u6C89\u6C89|\u6BB5\u8129 \u6BB5\u8129|\u6BDB\u574F \u6BDB\u576F|\u6C34\u9015 \u6C34\u8FF3|\u6C3E\u52DD\u4E4B \u6C3E\u80DC\u4E4B|\u6C3E\u5357 \u6C3E\u5357|\u6C3E\u570B \u6C3E\u56FD|\u6C3E\u6C34 \u6C3E\u6C34|\u6C88\u4E0B \u6C89\u4E0B|\u6C88\u4E0D\u4F4F\u6C23 \u6C89\u4E0D\u4F4F\u6C14|\u6C88\u4F4F\u6C23 \u6C89\u4F4F\u6C14|\u6C88\u51A4 \u6C89\u51A4|\u6C88\u539A \u6C89\u539A|\u6C88\u541F \u6C89\u541F|\u6C88\u5BC2 \u6C89\u5BC2|\u6C88\u5F97\u4F4F\u6C23 \u6C89\u5F97\u4F4F\u6C14|\u6C88\u601D \u6C89\u601D|\u6C88\u601D\u5F80\u4E8B \u6C89\u601D\u5F80\u4E8B|\u6C88\u60B6 \u6C89\u95F7|\u6C88\u6C92 \u6C89\u6CA1|\u6C88\u6C92\u6210\u672C \u6C89\u6CA1\u6210\u672C|\u6C88\u6D6E \u6C89\u6D6E|\u6C88\u6D78 \u6C89\u6D78|\u6C88\u6D78\u65BC \u6C89\u6D78\u4E8E|\u6C88\u6DEA \u6C89\u6CA6|\u6C88\u6E4E \u6C89\u6E4E|\u6C88\u6E4E\u9152\u8272 \u6C89\u6E4E\u9152\u8272|\u6C88\u6EBA \u6C89\u6EBA|\u6C88\u6EEF \u6C89\u6EDE|\u6C88\u6EEF\u6027 \u6C89\u6EDE\u6027|\u6C88\u6FB1 \u6C89\u6DC0|\u6C88\u6FB1\u51FA\u4F86 \u6C89\u6DC0\u51FA\u6765|\u6C88\u6FB1\u5291 \u6C89\u6DC0\u5242|\u6C88\u6FB1\u6CD5 \u6C89\u6DC0\u6CD5|\u6C88\u6FB1\u7269 \u6C89\u6DC0\u7269|\u6C88\u6FC1 \u6C89\u6D4A|\u6C88\u7538\u7538 \u6C89\u7538\u7538|\u6C88\u75DB \u6C89\u75DB|\u6C88\u75FC \u6C89\u75FC|\u6C88\u75FE \u6C89\u75B4|\u6C88\u7761 \u6C89\u7761|\u6C88\u7761\u4E0D\u9192 \u6C89\u7761\u4E0D\u9192|\u6C88\u7802\u6C60 \u6C89\u7802\u6C60|\u6C88\u7A4D \u6C89\u79EF|\u6C88\u7A4D\u5CA9 \u6C89\u79EF\u5CA9|\u6C88\u7A4D\u77F3 \u6C89\u79EF\u77F3|\u6C88\u7B52 \u6C89\u7B52|\u6C88\u8239 \u6C89\u8239|\u6C88\u843D \u6C89\u843D|\u6C88\u8A69\u4EFB\u7B46 \u6C88\u8BD7\u4EFB\u7B14|\u6C88\u8FF7 \u6C89\u8FF7|\u6C88\u8FF7\u4E0D\u9192 \u6C89\u8FF7\u4E0D\u9192|\u6C88\u9189 \u6C89\u9189|\u6C88\u91CD \u6C89\u91CD|\u6C88\u964D \u6C89\u964D|\u6C88\u9677 \u6C89\u9677|\u6C88\u975C \u6C89\u9759|\u6C88\u975C\u4E0B\u4F86 \u6C89\u9759\u4E0B\u6765|\u6C88\u9999 \u6C89\u9999|\u6C88\u9B31 \u6C89\u90C1|\u6C88\u9B5A\u843D\u96C1 \u6C89\u9C7C\u843D\u96C1|\u6C88\u9ED8 \u6C89\u9ED8|\u6C88\u9ED8\u4E0D\u8A9E \u6C89\u9ED8\u4E0D\u8BED|\u6C88\u9ED8\u5BE1\u8A00 \u6C89\u9ED8\u5BE1\u8A00|\u6C99\u9015 \u6C99\u8FF3|\u6CB3\u9015 \u6CB3\u8FF3|\u6D41\u5FB5 \u6D41\u5FB5|\u6D6A\u8569\u4E7E\u5764 \u6D6A\u8361\u4E7E\u5764|\u6D6E\u6C88 \u6D6E\u6C89|\u6D77\u54E9 \u6D77\u91CC|\u6DF1\u6C88 \u6DF1\u6C89|\u6DF1\u6C88\u4E0D\u9732 \u6DF1\u6C89\u4E0D\u9732|\u6EAB\u6607\u8C6A \u6E29\u6607\u8C6A|\u6ED1\u85C9 \u6ED1\u501F|\u70CF\u6607 \u4E4C\u6607|\u70CF\u6C88\u6C88 \u4E4C\u6C89\u6C89|\u70CF\u9015 \u4E4C\u8FF3|\u7121\u5E8F \u65E0\u5E8F|\u72D0\u85C9\u864E\u5A01 \u72D0\u501F\u864E\u5A01|\u738B\u5F65\u6607 \u738B\u5F66\u6607|\u73CD\u73E0\u9805\u934A \u73CD\u73E0\u9879\u94FE|\u751A\u9245 \u751A\u949C|\u7526\u751F \u82CF\u751F|\u7526\u9192 \u82CF\u9192|\u7533\u6607\u52F3 \u7533\u6607\u52CB|\u7533\u8986 \u7533\u590D|\u7562\u6607 \u6BD5\u6607|\u767C\u8986 \u53D1\u8986|\u76E7\u8C61\u6607 \u5362\u8C61\u6607|\u76EE\u5284 \u76EE\u5284|\u77AD\u54E8 \u77AD\u54E8|\u77AD\u5982 \u4E86\u5982|\u77AD\u5982\u6307\u638C \u4E86\u5982\u6307\u638C|\u77AD\u671B \u77AD\u671B|\u77AD\u7136 \u4E86\u7136|\u77AD\u7136\u65BC\u5FC3 \u4E86\u7136\u4E8E\u5FC3|\u77AD\u82E5\u6307\u638C \u4E86\u82E5\u6307\u638C|\u77AD\u89E3 \u4E86\u89E3|\u77AD\u89E3\u5230 \u4E86\u89E3\u5230|\u7834\u91DC\u6C88\u821F \u7834\u91DC\u6C89\u821F|\u78DA\u574F \u7816\u576F|\u793A\u8986 \u793A\u590D|\u793E\u9015 \u793E\u8FF3|\u7955\u4E15\u7B08 \u7955\u4E15\u7B08|\u7955\u5F6D\u7956 \u7955\u5F6D\u7956|\u7955\u74CA \u7955\u743C|\u795D\u91D0 \u795D\u91D0|\u795E\u7947 \u795E\u7947|\u7A1F\u8986 \u7980\u590D|\u7AFA\u4E7E \u7AFA\u4E7E|\u7B54\u8986 \u7B54\u590D|\u7BE4\u9EBC \u7B03\u9EBD|\u7C21\u55AE\u660E\u77AD \u7B80\u5355\u660E\u4E86|\u7C4C\u756B \u7B79\u5212|\u7D20\u85C9 \u7D20\u501F|\u8001\u614B\u9F8D\u937E \u8001\u6001\u9F99\u949F|\u8033\u6C88 \u8033\u6C89|\u8089\u8129 \u8089\u8129|\u8098\u624B\u934A\u8DB3 \u8098\u624B\u94FE\u8DB3|\u80E4\u7955 \u80E4\u7955|\u8129\u656C \u8129\u656C|\u8129\u70B3 \u8129\u70B3|\u8129\u8121 \u8129\u8121|\u8129\u812F \u8129\u812F|\u8129\u91D1 \u8129\u91D1|\u812B\u574F \u8131\u576F|\u8176\u8129 \u8176\u8129|\u82F1\u54E9 \u82F1\u91CC|\u8305\u8490 \u8305\u8490|\u8335\u85C9 \u8335\u501F|\u842C\u937E \u4E07\u953A|\u843D\u96C1\u6C88\u9B5A \u843D\u96C1\u6C89\u9C7C|\u8490\u4E8E\u7D05 \u8490\u4E8E\u7EA2|\u8490\u65BC\u7D05 \u8490\u4E8E\u7EA2|\u8490\u72E9 \u8490\u72E9|\u8490\u736E \u8490\u72DD|\u8490\u7375 \u8490\u730E|\u8490\u7530 \u8490\u7530|\u8490\u754B \u8490\u754B|\u8490\u82D7 \u8490\u82D7|\u849C\u85B9 \u849C\u85B9|\u8523\u6607 \u848B\u6607|\u8553\u85B9 \u82B8\u85B9|\u8569\u8986 \u8361\u8986|\u856D\u4E7E \u8427\u4E7E|\u85C9\u4EE3 \u501F\u4EE3|\u85C9\u4EE5 \u501F\u4EE5|\u85C9\u52A9 \u501F\u52A9|\u85C9\u52A9\u65BC \u501F\u52A9\u4E8E|\u85C9\u5349 \u501F\u5349|\u85C9\u53E3 \u501F\u53E3|\u85C9\u55BB \u501F\u55BB|\u85C9\u5BC7\u5175 \u501F\u5BC7\u5175|\u85C9\u5BC7\u5175\u9F4E\u76DC\u7CE7 \u501F\u5BC7\u5175\u8D4D\u76D7\u7CAE|\u85C9\u624B \u501F\u624B|\u85C9\u64DA \u501F\u636E|\u85C9\u6545 \u501F\u6545|\u85C9\u6545\u63A8\u8FAD \u501F\u6545\u63A8\u8F9E|\u85C9\u65B9 \u501F\u65B9|\u85C9\u689D \u501F\u6761|\u85C9\u69C1 \u501F\u69C1|\u85C9\u6A5F \u501F\u673A|\u85C9\u6B64 \u501F\u6B64|\u85C9\u6B64\u6A5F\u6703 \u501F\u6B64\u673A\u4F1A|\u85C9\u751A \u501F\u751A|\u85C9\u7531 \u501F\u7531|\u85C9\u7740 \u501F\u7740|\u85C9\u7AEF \u501F\u7AEF|\u85C9\u7AEF\u751F\u4E8B \u501F\u7AEF\u751F\u4E8B|\u85C9\u7BB8\u4EE3\u7C4C \u501F\u7BB8\u4EE3\u7B79|\u85C9\u8349\u6795\u584A \u501F\u8349\u6795\u5757|\u85C9\u85C9 \u85C9\u85C9|\u85C9\u85C9\u65E0\u540D \u85C9\u85C9\u65E0\u540D|\u85C9\u8A5E \u501F\u8BCD|\u85C9\u8B80 \u501F\u8BFB|\u85C9\u8CC7 \u501F\u8D44|\u8879\u5F97 \u53EA\u5F97|\u8879\u898B\u6A39\u6728 \u53EA\u89C1\u6811\u6728|\u8879\u898B\u6A39\u6728\u4E0D\u898B\u68EE\u6797 \u53EA\u89C1\u6811\u6728\u4E0D\u89C1\u68EE\u6797|\u8881\u7955 \u8881\u7955|\u8896\u88CF\u4E7E\u5764 \u8896\u91CC\u4E7E\u5764|\u88B7\u88A2 \u88B7\u88A2|\u88FD\u574F \u5236\u576F|\u8986\u4E0A \u8986\u4E0A|\u8986\u4F4F \u8986\u4F4F|\u8986\u4FE1 \u590D\u4FE1|\u8986\u5192 \u8986\u5192|\u8986\u5448 \u590D\u5448|\u8986\u547D \u590D\u547D|\u8986\u5893 \u590D\u5893|\u8986\u5B97 \u8986\u5B97|\u8986\u5E33 \u590D\u5E10|\u8986\u5E6C \u8986\u5E31|\u8986\u6210 \u8986\u6210|\u8986\u6309 \u590D\u6309|\u8986\u6587 \u590D\u6587|\u8986\u676F \u8986\u676F|\u8986\u6821 \u590D\u6821|\u8986\u74FF \u8986\u74FF|\u8986\u76C2 \u8986\u76C2|\u8986\u76C6 \u8986\u76C6|\u8986\u76C6\u5B50 \u8986\u76C6\u5B50|\u8986\u76E4 \u8986\u76D8|\u8986\u80B2 \u8986\u80B2|\u8986\u8549\u5C0B\u9E7F \u8986\u8549\u5BFB\u9E7F|\u8986\u9006 \u8986\u9006|\u8986\u91A2 \u8986\u91A2|\u8986\u91AC\u74FF \u8986\u9171\u74FF|\u8986\u96FB \u590D\u7535|\u8986\u9732 \u8986\u9732|\u8986\u9E7F\u5C0B\u8549 \u8986\u9E7F\u5BFB\u8549|\u8986\u9E7F\u907A\u8549 \u8986\u9E7F\u9057\u8549|\u8986\u9F0E \u8986\u9F0E|\u898B\u8986 \u89C1\u590D|\u89D2\u5FB5 \u89D2\u5FB5|\u89D2\u5FB5\u7FBD \u89D2\u5FB5\u7FBD|\u8A08\u756B \u8BA1\u5212|\u8A31\u7526\u9B42 \u8BB8\u7526\u9B42|\u8B8A\u5FB5 \u53D8\u5FB5|\u8B8A\u5FB5\u4E4B\u8072 \u53D8\u5FB5\u4E4B\u58F0|\u8B8A\u5FB5\u4E4B\u97F3 \u53D8\u5FB5\u4E4B\u97F3|\u8B8E\u5B9A \u96E0\u5B9A|\u8C3F\u5DE5 \u8C3F\u5DE5|\u8C82\u8986\u984D \u8C82\u8986\u989D|\u8CB7\u81E3\u8986\u6C34 \u4E70\u81E3\u8986\u6C34|\u8D64\u77F3\u9015 \u8D64\u77F3\u8FF3|\u8E05\u9580\u77AD\u6236 \u8E05\u95E8\u4E86\u6237|\u8EAA\u85C9 \u8E8F\u501F|\u8F09\u6C88\u8F09\u6D6E \u8F7D\u6C89\u8F7D\u6D6E|\u8F09\u6D6E\u8F09\u6C88 \u8F7D\u6D6E\u8F7D\u6C89|\u8F9B\u7955 \u8F9B\u7955|\u9006\u91D0 \u9006\u91D0|\u9015\u53E3 \u8FF3\u53E3|\u9015\u806F \u8FF3\u8054|\u9015\u982D \u8FF3\u5934|\u90ED\u5B50\u4E7E \u90ED\u5B50\u4E7E|\u9152\u9022\u77E5\u5DF1\u5343\u937E\u5C11 \u9152\u9022\u77E5\u5DF1\u5343\u953A\u5C11|\u919E\u85C9 \u915D\u501F|\u91CD\u8986 \u91CD\u590D|\u91D1\u5412 \u91D1\u5412|\u91D1\u6607\u739F \u91D1\u6607\u739F|\u91D1\u934A \u91D1\u94FE|\u921E\u8986 \u94A7\u590D|\u9245\u5B50 \u949C\u5B50|\u9245\u842C \u949C\u4E07|\u9245\u9632 \u949C\u9632|\u9278\u934A \u94F0\u94FE|\u9280\u934A \u94F6\u94FE|\u92FC\u574F \u94A2\u576F|\u9322\u937E\u66F8 \u94B1\u953A\u4E66|\u934A\u589C \u94FE\u5760|\u934A\u5B50 \u94FE\u5B50|\u934A\u5F62 \u94FE\u5F62|\u934A\u689D \u94FE\u6761|\u934A\u9318 \u94FE\u9524|\u934A\u9396 \u94FE\u9501|\u935B\u937E \u953B\u953A|\u937E\u7E47 \u953A\u7E47|\u937E\u842C\u6885 \u953A\u4E07\u6885|\u937E\u91CD\u767C \u953A\u91CD\u53D1|\u937E\u935B \u953A\u953B|\u937E\u9997 \u953A\u9997|\u9396\u934A \u9501\u94FE|\u9435\u934A \u94C1\u94FE|\u947D\u77F3\u9805\u934A \u94BB\u77F3\u9879\u94FE|\u947F\u574F \u51FF\u576F|\u95BB\u9DB4\u6607 \u960E\u9E64\u6607|\u9670\u6C88 \u9634\u6C89|\u9670\u6C88\u6C88 \u9634\u6C89\u6C89|\u9670\u9670\u6C88\u6C88 \u9634\u9634\u6C89\u6C89|\u9673\u5FD7\u6607 \u9648\u5FD7\u6607|\u9673\u6607 \u9648\u6607|\u9673\u7526 \u9648\u7526|\u9676\u574F \u9676\u576F|\u96C1\u6773\u9B5A\u6C88 \u96C1\u6773\u9C7C\u6C89|\u96D6\u8986\u80FD\u5FA9 \u867D\u8986\u80FD\u590D|\u96FB\u8986 \u7535\u590D|\u9732\u8986 \u9732\u8986|\u97D3\u6607\u5EF6 \u97E9\u6607\u5EF6|\u97D3\u7526 \u97E9\u7526|\u9805\u934A \u9879\u94FE|\u9817\u8986 \u9887\u8986|\u9838\u934A \u9888\u94FE|\u985B\u4E7E\u5012\u5764 \u98A0\u4E7E\u5012\u5764|\u985B\u5012\u4E7E\u5764 \u98A0\u5012\u4E7E\u5764|\u9867\u85C9 \u987E\u501F|\u99AE\u7526 \u51AF\u7526|\u9B4F\u5FB5 \u9B4F\u5FB5|\u9B5A\u6C88\u96C1\u6773 \u9C7C\u6C89\u96C1\u6773|\u9EAA\u574F\u5152 \u9762\u576F\u513F|\u9EBC\u4E9B\u65CF \u9EBD\u4E9B\u65CF|\u9EC3\u7526 \u9EC4\u7526|\u9EC3\u937E\u516C \u9EC4\u953A\u516C|\u9ED1\u6C88\u6C88 \u9ED1\u6C89\u6C89|\u9F8D\u937E \u9F99\u949F|\u9F94\u6607 \u9F9A\u6607";
+
+// node_modules/opencc-js/dist/esm-lib/dict/TSCharacters.js
+var TSCharacters_default = "\u346F \u3454|\u3473 \u3447|\u3476 \u3439|\u34E8 \u523E|\u35F2 \u{20D7E}|\u361A \u360E|\u3704 \u36AF|\u370F \u36E3|\u3722 \u{217B1}|\u380F \u37C6|\u3823 \u{2BD77}|\u396E \u3918|\u3A5C \u3A2B|\u3A73 \u39D0|\u3A75 \u64DC|\u3E8F \u{2480B}|\u406A \u{251E2}|\u407B \u4025|\u40EE \u9FCE|\u42B7 \u4336|\u42D9 \u433A|\u42DA \u433B|\u42F9 \u433F|\u42FB \u433E|\u4366 \u4360|\u43B1 \u43AC|\u44E3 \u{2C72F}|\u4661 \u464C|\u4700 \u4727|\u477C \u478D|\u4875 \u{2B7E6}|\u4947 \u4982|\u4951 \u9FCF|\u4955 \u{2CB6F}|\u4971 \u497E|\u499B \u49B6|\u499F \u49B7|\u49E2 \u{28E1F}|\u4B84 \u{2B80A}|\u4BC0 \u4BC5|\u4C3E \u9C83|\u4C77 \u4CA3|\u4C7D \u4C9D|\u4C81 \u9CDA|\u4C98 \u9CE4|\u4D09 \u9E6E|\u4E1F \u4E22|\u4E26 \u5E76|\u4E7E \u5E72|\u4E82 \u4E71|\u4E99 \u4E98|\u4E9E \u4E9A|\u4F47 \u4F2B|\u4F48 \u5E03|\u4F54 \u5360|\u4F75 \u5E76|\u4F86 \u6765|\u4F96 \u4ED1|\u4FB6 \u4FA3|\u4FB7 \u5C40|\u4FC1 \u4FE3|\u4FC2 \u7CFB|\u4FD4 \u4F23|\u4FE0 \u4FA0|\u4FE5 \u4F21|\u4FEC \u79C1|\u5000 \u4F25|\u5006 \u4FE9|\u5008 \u4FEB|\u5009 \u4ED3|\u500B \u4E2A|\u5011 \u4EEC|\u5016 \u5E78|\u502B \u4F26|\u5032 \u3448|\u5049 \u4F1F|\u5051 \u343D|\u5074 \u4FA7|\u5075 \u4FA6|\u507D \u4F2A|\u508C \u3437|\u5091 \u6770|\u5096 \u4F27|\u5098 \u4F1E|\u5099 \u5907|\u50A2 \u5BB6|\u50AD \u4F63|\u50AF \u506C|\u50B3 \u4F20|\u50B4 \u4F1B|\u50B5 \u503A|\u50B7 \u4F24|\u50BE \u503E|\u50C2 \u507B|\u50C5 \u4EC5|\u50C9 \u4F65|\u50D1 \u4FA8|\u50D5 \u4EC6|\u50DE \u4F2A|\u50E4 \u{2B8B8}|\u50E5 \u4FA5|\u50E8 \u507E|\u50F1 \u96C7|\u50F9 \u4EF7|\u5100 \u4EEA|\u5101 \u4FCA|\u5102 \u4FAC|\u5104 \u4EBF|\u5108 \u4FA9|\u5109 \u4FED|\u510E \u50A4|\u5110 \u50A7|\u5114 \u4FE6|\u5115 \u4FAA|\u5118 \u5C3D|\u511F \u507F|\u512A \u4F18|\u5132 \u50A8|\u5137 \u4FEA|\u5138 \u3469|\u513A \u50A9|\u513B \u50A5|\u513C \u4FE8|\u5147 \u51F6|\u514C \u5151|\u5152 \u513F|\u5157 \u5156|\u5167 \u5185|\u5169 \u4E24|\u518A \u518C|\u5191 \u80C4|\u51AA \u5E42|\u51C8 \u51C0|\u51CD \u51BB|\u51DC \u51DB|\u51F1 \u51EF|\u5225 \u522B|\u522A \u5220|\u5244 \u522D|\u5247 \u5219|\u524B \u514B|\u524E \u5239|\u5257 \u522C|\u525B \u521A|\u525D \u5265|\u526E \u5250|\u5274 \u5240|\u5275 \u521B|\u5277 \u94F2|\u5283 \u5212|\u5284 \u672D|\u5287 \u5267|\u5289 \u5218|\u528A \u523D|\u528C \u523F|\u528D \u5251|\u528F \u34E5|\u5291 \u5242|\u529A \u3509|\u52C1 \u52B2|\u52D5 \u52A8|\u52D9 \u52A1|\u52DB \u52CB|\u52DD \u80DC|\u52DE \u52B3|\u52E2 \u52BF|\u52E3 \u{2A7DD}|\u52E9 \u52DA|\u52F1 \u52A2|\u52F3 \u52CB|\u52F5 \u52B1|\u52F8 \u529D|\u52FB \u5300|\u532D \u5326|\u532F \u6C47|\u5331 \u532E|\u5340 \u533A|\u5354 \u534F|\u5379 \u6064|\u537B \u5374|\u537D \u5373|\u5399 \u538D|\u53A0 \u5395|\u53A4 \u5386|\u53AD \u538C|\u53B2 \u5389|\u53B4 \u53A3|\u53C3 \u53C2|\u53C4 \u53C1|\u53E2 \u4E1B|\u5412 \u54A4|\u5433 \u5434|\u5436 \u5450|\u5442 \u5415|\u54BC \u5459|\u54E1 \u5458|\u5504 \u5457|\u5538 \u5FF5|\u554F \u95EE|\u5553 \u542F|\u555E \u54D1|\u555F \u542F|\u5562 \u5521|\u558E \u359E|\u559A \u5524|\u55AA \u4E27|\u55AB \u5403|\u55AC \u4E54|\u55AE \u5355|\u55B2 \u54DF|\u55C6 \u545B|\u55C7 \u556C|\u55CA \u551D|\u55CE \u5417|\u55DA \u545C|\u55E9 \u5522|\u55F0 \u{20BB6}|\u55F6 \u54D4|\u5606 \u53F9|\u560D \u55BD|\u5613 \u556F|\u5614 \u5455|\u5616 \u5567|\u5617 \u5C1D|\u561C \u551B|\u5629 \u54D7|\u562E \u5520|\u562F \u5578|\u5630 \u53FD|\u5635 \u54D3|\u5638 \u5452|\u563D \u5574|\u5641 \u6076|\u5653 \u5618|\u565A \u358A|\u565D \u549D|\u5660 \u54D2|\u5665 \u54DD|\u5666 \u54D5|\u566F \u55F3|\u5672 \u54D9|\u5674 \u55B7|\u5678 \u5428|\u5679 \u5F53|\u5680 \u549B|\u5687 \u5413|\u568C \u54DC|\u5690 \u5C1D|\u5695 \u565C|\u5699 \u556E|\u56A5 \u54BD|\u56A6 \u5456|\u56A7 \u{20C37}|\u56A8 \u5499|\u56AE \u5411|\u56B2 \u4EB8|\u56B3 \u55BE|\u56B4 \u4E25|\u56B6 \u5624|\u56C0 \u556D|\u56C1 \u55EB|\u56C2 \u56A3|\u56C5 \u5181|\u56C8 \u5453|\u56C9 \u5570|\u56CC \u82CF|\u56D1 \u5631|\u56EA \u56F1|\u5707 \u56F5|\u570B \u56FD|\u570D \u56F4|\u5712 \u56ED|\u5713 \u5706|\u5716 \u56FE|\u5718 \u56E2|\u57BB \u575D|\u57E1 \u57AD|\u57E8 \u{2BB62}|\u57F0 \u91C7|\u57F7 \u6267|\u5805 \u575A|\u580A \u57A9|\u5816 \u57B4|\u581D \u57DA|\u582F \u5C27|\u5831 \u62A5|\u5834 \u573A|\u584A \u5757|\u584B \u8314|\u584F \u57B2|\u5852 \u57D8|\u5857 \u6D82|\u585A \u51A2|\u5862 \u575E|\u5864 \u57D9|\u5875 \u5C18|\u5878 \u{2BB5F}|\u5879 \u5811|\u587F \u{2A8FB}|\u588A \u57AB|\u589C \u5760|\u58A0 \u{2BB83}|\u58AE \u5815|\u58B0 \u575B|\u58B3 \u575F|\u58B6 \u57AF|\u58BB \u5899|\u58BE \u57A6|\u58C7 \u575B|\u58CB \u57B1|\u58CE \u57D9|\u58D3 \u538B|\u58D7 \u{212E4}|\u58D8 \u5792|\u58D9 \u5739|\u58DA \u5786|\u58DC \u575B|\u58DE \u574F|\u58DF \u5784|\u58E0 \u5785|\u58E2 \u575C|\u58E9 \u575D|\u58EA \u5846|\u58EF \u58EE|\u58FA \u58F6|\u58FC \u58F8|\u58FD \u5BFF|\u5920 \u591F|\u5922 \u68A6|\u5925 \u4F19|\u593E \u5939|\u5950 \u5942|\u5967 \u5965|\u5969 \u5941|\u596A \u593A|\u596C \u5956|\u596E \u594B|\u597C \u59F9|\u599D \u5986|\u59CD \u59D7|\u59E6 \u5978|\u5A19 \u{2BC1B}|\u5A1B \u5A31|\u5A41 \u5A04|\u5A66 \u5987|\u5A6D \u5A05|\u5AA7 \u5A32|\u5AAF \u59AB|\u5AB0 \u36C0|\u5ABC \u5AAA|\u5ABD \u5988|\u5ACB \u8885|\u5AD7 \u59AA|\u5AF5 \u59A9|\u5AFA \u5A34|\u5AFB \u5A34|\u5AFF \u5A73|\u5B00 \u59AB|\u5B03 \u5AAD|\u5B08 \u5A06|\u5B0B \u5A75|\u5B0C \u5A07|\u5B19 \u5AF1|\u5B21 \u5AD2|\u5B24 \u5B37|\u5B2A \u5AD4|\u5B30 \u5A74|\u5B38 \u5A76|\u5B43 \u5A18|\u5B4B \u36E4|\u5B4C \u5A08|\u5B6B \u5B59|\u5B78 \u5B66|\u5B7B \u{21967}|\u5B7F \u5B6A|\u5BAE \u5BAB|\u5BC0 \u91C7|\u5BE2 \u5BDD|\u5BE6 \u5B9E|\u5BE7 \u5B81|\u5BE9 \u5BA1|\u5BEB \u5199|\u5BEC \u5BBD|\u5BF5 \u5BA0|\u5BF6 \u5B9D|\u5C07 \u5C06|\u5C08 \u4E13|\u5C0B \u5BFB|\u5C0D \u5BF9|\u5C0E \u5BFC|\u5C37 \u5C34|\u5C46 \u5C4A|\u5C4D \u5C38|\u5C53 \u5C43|\u5C5C \u5C49|\u5C62 \u5C61|\u5C64 \u5C42|\u5C68 \u5C66|\u5C6C \u5C5E|\u5CA1 \u5188|\u5CEF \u5CF0|\u5CF4 \u5C98|\u5CF6 \u5C9B|\u5CFD \u5CE1|\u5D0D \u5D03|\u5D11 \u6606|\u5D17 \u5C97|\u5D19 \u4ED1|\u5D22 \u5CE5|\u5D2C \u5CBD|\u5D50 \u5C9A|\u5D57 \u5C81|\u5D7D \u{2BD87}|\u5D7E \u37E5|\u5D81 \u5D5D|\u5D84 \u5D2D|\u5D87 \u5C96|\u5D94 \u5D5A|\u5D97 \u5D02|\u5DA0 \u5CE4|\u5DA2 \u5CE3|\u5DA7 \u5CC4|\u5DA8 \u5CC3|\u5DAE \u5D04|\u5DB8 \u5D58|\u5DBA \u5CAD|\u5DBC \u5C7F|\u5DBD \u5CB3|\u5DCB \u5CBF|\u5DD2 \u5CE6|\u5DD4 \u5DC5|\u5DD6 \u5CA9|\u5DD8 \u{2AA58}|\u5DF0 \u5DEF|\u5DF9 \u537A|\u5E25 \u5E05|\u5E2B \u5E08|\u5E33 \u5E10|\u5E36 \u5E26|\u5E40 \u5E27|\u5E43 \u5E0F|\u5E53 \u384E|\u5E57 \u5E3C|\u5E58 \u5E3B|\u5E5F \u5E1C|\u5E63 \u5E01|\u5E6B \u5E2E|\u5E6C \u5E31|\u5E77 \u5E76|\u5E79 \u5E72|\u5E7E \u51E0|\u5EAB \u5E93|\u5EC1 \u5395|\u5EC2 \u53A2|\u5EC4 \u53A9|\u5EC8 \u53A6|\u5ECE \u5EBC|\u5ED5 \u836B|\u5EDA \u53A8|\u5EDD \u53AE|\u5EDE \u{2BDF7}|\u5EDF \u5E99|\u5EE0 \u5382|\u5EE1 \u5E91|\u5EE2 \u5E9F|\u5EE3 \u5E7F|\u5EE9 \u5EEA|\u5EEC \u5E90|\u5EF3 \u5385|\u5F12 \u5F11|\u5F14 \u540A|\u5F33 \u5F2A|\u5F35 \u5F20|\u5F37 \u5F3A|\u5F44 \u{2BE29}|\u5F46 \u522B|\u5F48 \u5F39|\u5F4C \u5F25|\u5F4E \u5F2F|\u5F54 \u5F55|\u5F59 \u6C47|\u5F60 \u5F5F|\u5F65 \u5F66|\u5F6B \u96D5|\u5F72 \u5F68|\u5F7F \u4F5B|\u5F8C \u540E|\u5F91 \u5F84|\u5F9E \u4ECE|\u5FA0 \u5F95|\u5FA9 \u590D|\u5FB5 \u5F81|\u5FB9 \u5F7B|\u6046 \u6052|\u6065 \u803B|\u6085 \u60A6|\u609E \u60AE|\u60B5 \u6005|\u60B6 \u95F7|\u60BD \u51C4|\u60E1 \u6076|\u60F1 \u607C|\u60F2 \u607D|\u60FB \u607B|\u611B \u7231|\u611C \u60EC|\u6128 \u60AB|\u6134 \u6006|\u6137 \u607A|\u613E \u5FFE|\u6144 \u6817|\u614B \u6001|\u614D \u6120|\u6158 \u60E8|\u615A \u60ED|\u615F \u6078|\u6163 \u60EF|\u6164 \u60AB|\u616A \u6004|\u616B \u6002|\u616E \u8651|\u6173 \u60AD|\u6176 \u5E86|\u617A \u396A|\u617C \u621A|\u617E \u6B32|\u6182 \u5FE7|\u618A \u60EB|\u6190 \u601C|\u6191 \u51ED|\u6192 \u6126|\u6196 \u616D|\u619A \u60EE|\u61A4 \u6124|\u61AB \u60AF|\u61AE \u6003|\u61B2 \u5BAA|\u61B6 \u5FC6|\u61C7 \u6073|\u61C9 \u5E94|\u61CC \u603F|\u61CD \u61D4|\u61DE \u8499|\u61DF \u603C|\u61E3 \u61D1|\u61E4 \u393D|\u61E8 \u6079|\u61F2 \u60E9|\u61F6 \u61D2|\u61F7 \u6000|\u61F8 \u60AC|\u61FA \u5FCF|\u61FC \u60E7|\u61FE \u6151|\u6200 \u604B|\u6207 \u6206|\u6214 \u620B|\u6227 \u6217|\u6229 \u622C|\u6230 \u6218|\u6231 \u622F|\u6232 \u620F|\u6236 \u6237|\u625E \u634D|\u62CB \u629B|\u62DA \u62FC|\u6329 \u635D|\u6331 \u6332|\u633E \u631F|\u6368 \u820D|\u636B \u626A|\u6371 \u6328|\u6372 \u5377|\u6383 \u626B|\u6384 \u62A1|\u6386 \u39CF|\u6397 \u631C|\u6399 \u6323|\u639B \u6302|\u63A1 \u91C7|\u63C0 \u62E3|\u63DA \u626C|\u63DB \u6362|\u63EE \u6325|\u63EF \u6404|\u640D \u635F|\u6416 \u6447|\u6417 \u6363|\u6427 \u6247|\u6435 \u63FE|\u6436 \u62A2|\u6451 \u63B4|\u645C \u63BC|\u645F \u6402|\u646F \u631A|\u6473 \u62A0|\u6476 \u629F|\u647A \u6298|\u647B \u63BA|\u6488 \u635E|\u648F \u6326|\u6490 \u6491|\u6493 \u6320|\u649D \u39D1|\u649F \u6322|\u64A3 \u63B8|\u64A5 \u62E8|\u64AB \u629A|\u64B2 \u6251|\u64B3 \u63FF|\u64BB \u631E|\u64BE \u631D|\u64BF \u6361|\u64C1 \u62E5|\u64C4 \u63B3|\u64C7 \u62E9|\u64CA \u51FB|\u64CB \u6321|\u64D3 \u39DF|\u64D4 \u62C5|\u64DA \u636E|\u64E0 \u6324|\u64E1 \u62AC|\u64E3 \u6363|\u64EC \u62DF|\u64EF \u6448|\u64F0 \u62E7|\u64F1 \u6401|\u64F2 \u63B7|\u64F4 \u6269|\u64F7 \u64B7|\u64FA \u6446|\u64FB \u64DE|\u64FC \u64B8|\u64FD \u39F0|\u64FE \u6270|\u6504 \u6445|\u6506 \u64B5|\u650F \u62E2|\u6514 \u62E6|\u6516 \u6484|\u6519 \u6400|\u651B \u64BA|\u651C \u643A|\u651D \u6444|\u6522 \u6512|\u6523 \u631B|\u6524 \u644A|\u652A \u6405|\u652C \u63FD|\u654E \u6559|\u6553 \u655A|\u6557 \u8D25|\u6558 \u53D9|\u6575 \u654C|\u6578 \u6570|\u6582 \u655B|\u6583 \u6BD9|\u6586 \u6569|\u6595 \u6593|\u65AC \u65A9|\u65B7 \u65AD|\u65BC \u4E8E|\u65C2 \u65D7|\u65E3 \u65E2|\u6607 \u5347|\u6642 \u65F6|\u6649 \u664B|\u665B \u{2C02A}|\u665D \u663C|\u6688 \u6655|\u6689 \u6656|\u6690 \u{2C029}|\u6698 \u65F8|\u66A2 \u7545|\u66AB \u6682|\u66C4 \u6654|\u66C6 \u5386|\u66C7 \u6619|\u66C9 \u6653|\u66CF \u5411|\u66D6 \u66A7|\u66E0 \u65F7|\u66E5 \u{23190}|\u66E8 \u663D|\u66EC \u6652|\u66F8 \u4E66|\u6703 \u4F1A|\u6725 \u{266E8}|\u6727 \u80E7|\u672E \u672F|\u6771 \u4E1C|\u67B4 \u62D0|\u67F5 \u6805|\u67FA \u62D0|\u67FB \u67E5|\u6871 \u{23415}|\u687F \u6746|\u6894 \u6800|\u6898 \u67A7|\u689C \u{2C0A9}|\u689D \u6761|\u689F \u67AD|\u68B2 \u68C1|\u68C4 \u5F03|\u68CA \u68CB|\u68D6 \u67A8|\u68D7 \u67A3|\u68DF \u680B|\u68E1 \u3B4E|\u68E7 \u6808|\u68F2 \u6816|\u68F6 \u68BE|\u690F \u6860|\u6932 \u3B4F|\u694A \u6768|\u6953 \u67AB|\u6968 \u6862|\u696D \u4E1A|\u6975 \u6781|\u6998 \u77E9|\u69A6 \u5E72|\u69AA \u6769|\u69AE \u8363|\u69B2 \u6985|\u69BF \u6864|\u69CB \u6784|\u69CD \u67AA|\u69D3 \u6760|\u69E4 \u68BF|\u69E7 \u6920|\u69E8 \u6901|\u69EE \u692E|\u69F3 \u6868|\u69F6 \u6922|\u69FC \u691D|\u6A01 \u6869|\u6A02 \u4E50|\u6A05 \u679E|\u6A11 \u6881|\u6A13 \u697C|\u6A19 \u6807|\u6A1E \u67A2|\u6A22 \u3B64|\u6A23 \u6837|\u6A27 \u699D|\u6A2B \u3B74|\u6A33 \u686A|\u6A38 \u6734|\u6A39 \u6811|\u6A3A \u6866|\u6A3F \u692B|\u6A48 \u6861|\u6A4B \u6865|\u6A5F \u673A|\u6A62 \u692D|\u6A6B \u6A2A|\u6A6F \u{234FF}|\u6A81 \u6AA9|\u6A89 \u67FD|\u6A94 \u6863|\u6A9C \u6867|\u6A9F \u69DA|\u6AA2 \u68C0|\u6AA3 \u6A2F|\u6AAE \u68BC|\u6AAF \u53F0|\u6AB3 \u69DF|\u6AB8 \u67E0|\u6ABB \u69DB|\u6AC3 \u67DC|\u6ACD \u{2C0CA}|\u6AD3 \u6A79|\u6ADA \u6988|\u6ADB \u6809|\u6ADD \u691F|\u6ADE \u6A7C|\u6ADF \u680E|\u6AE5 \u6A71|\u6AE7 \u69E0|\u6AE8 \u680C|\u6AEA \u67A5|\u6AEB \u6A65|\u6AEC \u6987|\u6AF1 \u8616|\u6AF3 \u680A|\u6AF8 \u6989|\u6AFB \u6A31|\u6B04 \u680F|\u6B05 \u6989|\u6B0A \u6743|\u6B0F \u6924|\u6B12 \u683E|\u6B13 \u{235CB}|\u6B16 \u6984|\u6B1E \u68C2|\u6B3D \u94A6|\u6B4E \u53F9|\u6B50 \u6B27|\u6B5F \u6B24|\u6B61 \u6B22|\u6B72 \u5C81|\u6B77 \u5386|\u6B78 \u5F52|\u6B7F \u6B81|\u6B98 \u6B8B|\u6B9E \u6B92|\u6BA4 \u6B87|\u6BA8 \u3C6E|\u6BAB \u6B9A|\u6BAD \u50F5|\u6BAE \u6B93|\u6BAF \u6BA1|\u6BB0 \u3C69|\u6BB2 \u6B7C|\u6BBA \u6740|\u6BBB \u58F3|\u6BBC \u58F3|\u6BC0 \u6BC1|\u6BC6 \u6BB4|\u6BFF \u6BF5|\u6C02 \u7266|\u6C08 \u6BE1|\u6C0C \u6C07|\u6C23 \u6C14|\u6C2B \u6C22|\u6C2C \u6C29|\u6C33 \u6C32|\u6C3E \u6CDB|\u6C4E \u6CDB|\u6C59 \u6C61|\u6C7A \u51B3|\u6C92 \u6CA1|\u6C96 \u51B2|\u6CC1 \u51B5|\u6CDD \u6EAF|\u6D29 \u6CC4|\u6D36 \u6C79|\u6D79 \u6D43|\u6D7F \u{2C1D9}|\u6D87 \u6CFE|\u6D97 \u6D9A|\u6DBC \u51C9|\u6DD2 \u51C4|\u6DDA \u6CEA|\u6DE5 \u6E0C|\u6DE8 \u51C0|\u6DE9 \u51CC|\u6DEA \u6CA6|\u6DF5 \u6E0A|\u6DF6 \u6D9E|\u6DFA \u6D45|\u6E19 \u6DA3|\u6E1B \u51CF|\u6E22 \u6CA8|\u6E26 \u6DA1|\u6E2C \u6D4B|\u6E3E \u6D51|\u6E4A \u51D1|\u6E4B \u{23C97}|\u6E5E \u6D48|\u6E67 \u6D8C|\u6E6F \u6C64|\u6E88 \u6CA9|\u6E96 \u51C6|\u6E9D \u6C9F|\u6EAB \u6E29|\u6EAE \u6D49|\u6EB3 \u6DA2|\u6EBC \u6E7F|\u6EC4 \u6CA7|\u6EC5 \u706D|\u6ECC \u6DA4|\u6ECE \u8365|\u6ED9 \u6C47|\u6EEC \u6CAA|\u6EEF \u6EDE|\u6EF2 \u6E17|\u6EF7 \u5364|\u6EF8 \u6D52|\u6EFB \u6D50|\u6EFE \u6EDA|\u6EFF \u6EE1|\u6F01 \u6E14|\u6F0A \u6E87|\u6F0D \u{2C1F9}|\u6F1A \u6CA4|\u6F22 \u6C49|\u6F23 \u6D9F|\u6F2C \u6E0D|\u6F32 \u6DA8|\u6F35 \u6E86|\u6F38 \u6E10|\u6F3F \u6D46|\u6F41 \u988D|\u6F51 \u6CFC|\u6F54 \u6D01|\u6F55 \u{23C98}|\u6F59 \u6CA9|\u6F5A \u3D0B|\u6F5B \u6F5C|\u6F64 \u6DA6|\u6F6F \u6D54|\u6F70 \u6E83|\u6F77 \u6ED7|\u6F7F \u6DA0|\u6F80 \u6DA9|\u6F86 \u6D47|\u6F87 \u6D9D|\u6F90 \u6C84|\u6F97 \u6DA7|\u6FA0 \u6E11|\u6FA4 \u6CFD|\u6FA6 \u6EEA|\u6FA9 \u6CF6|\u6FAB \u{2C1D5}|\u6FAE \u6D4D|\u6FB1 \u6DC0|\u6FBE \u3CE0|\u6FC1 \u6D4A|\u6FC3 \u6D53|\u6FC4 \u3CE1|\u6FC6 \u{23E23}|\u6FD5 \u6E7F|\u6FD8 \u6CDE|\u6FDA \u6E81|\u6FDB \u8499|\u6FDC \u6D55|\u6FDF \u6D4E|\u6FE4 \u6D9B|\u6FE7 \u3CD4|\u6FEB \u6EE5|\u6FF0 \u6F4D|\u6FF1 \u6EE8|\u6FFA \u6E85|\u6FFC \u6CFA|\u6FFE \u6EE4|\u7002 \u6F9B|\u7005 \u6EE2|\u7006 \u6E0E|\u7007 \u3CBF|\u7009 \u6CFB|\u700B \u6C88|\u700F \u6D4F|\u7015 \u6FD2|\u7018 \u6CF8|\u701D \u6CA5|\u701F \u6F47|\u7020 \u6F46|\u7026 \u6F74|\u7027 \u6CF7|\u7028 \u6FD1|\u7030 \u5F25|\u7032 \u6F4B|\u703E \u6F9C|\u7043 \u6CA3|\u7044 \u6EE0|\u7051 \u6D12|\u7052 \u{2ADFD}|\u7055 \u6F13|\u7058 \u6EE9|\u7059 \u{23EBC}|\u705D \u704F|\u7061 \u3CD5|\u7063 \u6E7E|\u7064 \u6EE6|\u7067 \u6EDF|\u7069 \u6EDF|\u707D \u707E|\u70BA \u4E3A|\u70CF \u4E4C|\u70F4 \u70C3|\u7121 \u65E0|\u7149 \u70BC|\u7152 \u709C|\u7159 \u70DF|\u7162 \u8315|\u7165 \u7115|\u7169 \u70E6|\u716C \u7080|\u7171 \u3DBD|\u7185 \u7174|\u7192 \u8367|\u7197 \u709D|\u71B0 \u{2C27C}|\u71B1 \u70ED|\u71B2 \u988E|\u71BE \u70BD|\u71C0 \u{2C2A4}|\u71C1 \u70E8|\u71C8 \u706F|\u71C9 \u7096|\u71D2 \u70E7|\u71D6 \u{2C288}|\u71D9 \u70EB|\u71DC \u7116|\u71DF \u8425|\u71E6 \u707F|\u71EC \u6BC1|\u71ED \u70DB|\u71F4 \u70E9|\u71F6 \u3DB6|\u71FB \u718F|\u71FC \u70EC|\u71FE \u7118|\u720D \u70C1|\u7210 \u7089|\u721B \u70C2|\u722D \u4E89|\u7232 \u4E3A|\u723A \u7237|\u723E \u5C14|\u7240 \u5E8A|\u7246 \u5899|\u7258 \u724D|\u7274 \u62B5|\u727D \u7275|\u7296 \u8366|\u729B \u7266|\u72A2 \u728A|\u72A7 \u727A|\u72C0 \u72B6|\u72F9 \u72ED|\u72FD \u72C8|\u7319 \u72F0|\u7336 \u72B9|\u733B \u72F2|\u7341 \u72B8|\u7343 \u5446|\u7344 \u72F1|\u7345 \u72EE|\u734E \u5956|\u7368 \u72EC|\u736A \u72EF|\u736B \u7303|\u736E \u72DD|\u7370 \u72DE|\u7371 \u3E8D|\u7372 \u83B7|\u7375 \u730E|\u7377 \u72B7|\u7378 \u517D|\u737A \u736D|\u737B \u732E|\u737C \u7315|\u7380 \u7321|\u73FE \u73B0|\u7431 \u96D5|\u743A \u73D0|\u743F \u73F2|\u744B \u73AE|\u7452 \u739A|\u7463 \u7410|\u7464 \u7476|\u7469 \u83B9|\u746A \u739B|\u7472 \u73B1|\u7489 \u740F|\u748A \u{2B7A9}|\u7495 \u{2C364}|\u7497 \u{2C361}|\u74A1 \u740E|\u74A3 \u7391|\u74A6 \u7477|\u74AB \u73F0|\u74AF \u3EC5|\u74B0 \u73AF|\u74B5 \u7399|\u74B8 \u7478|\u74BD \u73BA|\u74BF \u7487|\u74C5 \u{2C35B}|\u74CA \u743C|\u74CF \u73D1|\u74D4 \u748E|\u74DA \u74D2|\u74DB \u{24A7D}|\u750C \u74EF|\u7515 \u74EE|\u7522 \u4EA7|\u7523 \u4EA7|\u755D \u4EA9|\u7562 \u6BD5|\u756B \u753B|\u7570 \u5F02|\u7575 \u753B|\u7576 \u5F53|\u7587 \u7574|\u758A \u53E0|\u75D9 \u75C9|\u75E0 \u9178|\u75FE \u75B4|\u7602 \u75D6|\u760B \u75AF|\u760D \u75A1|\u7613 \u75EA|\u761E \u7617|\u7621 \u75AE|\u7627 \u759F|\u762E \u7606|\u7632 \u75AD|\u763A \u7618|\u763B \u7618|\u7642 \u7597|\u7646 \u75E8|\u7647 \u75EB|\u7649 \u7605|\u7652 \u6108|\u7658 \u75A0|\u765F \u762A|\u7661 \u75F4|\u7662 \u75D2|\u7664 \u7596|\u7665 \u75C7|\u7667 \u75AC|\u7669 \u765E|\u766C \u7663|\u766D \u763F|\u766E \u763E|\u7670 \u75C8|\u7671 \u762B|\u7672 \u766B|\u767C \u53D1|\u7681 \u7682|\u769A \u7691|\u76B0 \u75B1|\u76B8 \u76B2|\u76BA \u76B1|\u76C3 \u676F|\u76DC \u76D7|\u76DE \u76CF|\u76E1 \u5C3D|\u76E3 \u76D1|\u76E4 \u76D8|\u76E7 \u5362|\u76EA \u8361|\u771E \u771F|\u7725 \u7726|\u773E \u4F17|\u774D \u{2AFA2}|\u774F \u56F0|\u775C \u7741|\u775E \u7750|\u7798 \u770D|\u779C \u4056|\u779E \u7792|\u77B6 \u7786|\u77BC \u7751|\u77C7 \u8499|\u77D3 \u772C|\u77DA \u77A9|\u77EF \u77EB|\u7843 \u6731|\u785C \u7841|\u7864 \u7856|\u7868 \u7817|\u786F \u781A|\u7895 \u57FC|\u78A9 \u7855|\u78AD \u7800|\u78B8 \u781C|\u78BA \u786E|\u78BC \u7801|\u78BD \u40B5|\u78D1 \u7859|\u78DA \u7816|\u78E0 \u7875|\u78E3 \u789C|\u78E7 \u789B|\u78EF \u77F6|\u78FD \u7857|\u78FE \u40C5|\u7904 \u785A|\u790E \u7840|\u7910 \u{2C488}|\u7919 \u788D|\u7926 \u77FF|\u792A \u783A|\u792B \u783E|\u792C \u77FE|\u7931 \u783B|\u7955 \u79D8|\u797F \u7984|\u798D \u7978|\u798E \u796F|\u7995 \u794E|\u79A1 \u7943|\u79A6 \u5FA1|\u79AA \u7985|\u79AE \u793C|\u79B0 \u7962|\u79B1 \u7977|\u79BF \u79C3|\u79C8 \u7C7C|\u7A05 \u7A0E|\u7A08 \u79C6|\u7A0F \u4149|\u7A1C \u68F1|\u7A1F \u7980|\u7A2E \u79CD|\u7A31 \u79F0|\u7A40 \u8C37|\u7A47 \u415F|\u7A4C \u7A23|\u7A4D \u79EF|\u7A4E \u9896|\u7A60 \u79FE|\u7A61 \u7A51|\u7A62 \u79FD|\u7A69 \u7A33|\u7A6B \u83B7|\u7A6D \u7A5E|\u7AA9 \u7A9D|\u7AAA \u6D3C|\u7AAE \u7A77|\u7AAF \u7A91|\u7AB5 \u7A8E|\u7AB6 \u7AAD|\u7ABA \u7AA5|\u7AC4 \u7A9C|\u7AC5 \u7A8D|\u7AC7 \u7AA6|\u7AC8 \u7076|\u7ACA \u7A83|\u7AEA \u7AD6|\u7AF6 \u7ADE|\u7B46 \u7B14|\u7B4D \u7B0B|\u7B67 \u7B15|\u7B74 \u41F2|\u7B87 \u4E2A|\u7B8B \u7B3A|\u7B8F \u7B5D|\u7B9A \u672D|\u7BC0 \u8282|\u7BC4 \u8303|\u7BC9 \u7B51|\u7BCB \u7BA7|\u7BD4 \u7B7C|\u7BE0 \u7B7F|\u7BE2 \u{2C542}|\u7BE4 \u7B03|\u7BE9 \u7B5B|\u7BF3 \u7B5A|\u7BF8 \u{25BBE}|\u7C00 \u7BA6|\u7C0D \u7BD3|\u7C11 \u84D1|\u7C1E \u7BAA|\u7C21 \u7B80|\u7C23 \u7BD1|\u7C2B \u7BAB|\u7C39 \u7B5C|\u7C3D \u7B7E|\u7C3E \u5E18|\u7C43 \u7BEE|\u7C45 \u{25AE3}|\u7C4C \u7B79|\u7C54 \u4264|\u7C59 \u7B93|\u7C5B \u7BEF|\u7C5C \u7BA8|\u7C5F \u7C41|\u7C60 \u7B3C|\u7C64 \u7B7E|\u7C69 \u7B3E|\u7C6A \u7C16|\u7C6C \u7BF1|\u7C6E \u7BA9|\u7C72 \u5401|\u7CB5 \u7CA4|\u7CC9 \u7CBD|\u7CDD \u7CC1|\u7CDE \u7CAA|\u7CE7 \u7CAE|\u7CF0 \u56E2|\u7CF2 \u7C9D|\u7CF4 \u7C74|\u7CF6 \u7C9C|\u7CF9 \u7E9F|\u7CFE \u7EA0|\u7D00 \u7EAA|\u7D02 \u7EA3|\u7D03 \u{2C613}|\u7D04 \u7EA6|\u7D05 \u7EA2|\u7D06 \u7EA1|\u7D07 \u7EA5|\u7D08 \u7EA8|\u7D09 \u7EAB|\u7D0B \u7EB9|\u7D0D \u7EB3|\u7D10 \u7EBD|\u7D13 \u7EBE|\u7D14 \u7EAF|\u7D15 \u7EB0|\u7D16 \u7EBC|\u7D17 \u7EB1|\u7D18 \u7EAE|\u7D19 \u7EB8|\u7D1A \u7EA7|\u7D1B \u7EB7|\u7D1C \u7EAD|\u7D1D \u7EB4|\u7D1E \u{2C618}|\u7D21 \u7EBA|\u7D2C \u4337|\u7D2E \u624E|\u7D30 \u7EC6|\u7D31 \u7EC2|\u7D32 \u7EC1|\u7D33 \u7EC5|\u7D35 \u7EBB|\u7D39 \u7ECD|\u7D3A \u7EC0|\u7D3C \u7ECB|\u7D3F \u7ED0|\u7D40 \u7ECC|\u7D42 \u7EC8|\u7D43 \u5F26|\u7D44 \u7EC4|\u7D45 \u4339|\u7D46 \u7ECA|\u7D4E \u7ED7|\u7D50 \u7ED3|\u7D55 \u7EDD|\u7D5B \u7EE6|\u7D5D \u7ED4|\u7D5E \u7EDE|\u7D61 \u7EDC|\u7D62 \u7EDA|\u7D66 \u7ED9|\u7D68 \u7ED2|\u7D6A \u{2C621}|\u7D70 \u7ED6|\u7D71 \u7EDF|\u7D72 \u4E1D|\u7D73 \u7EDB|\u7D76 \u7EDD|\u7D79 \u7EE2|\u7D7A \u{2B128}|\u7D81 \u7ED1|\u7D83 \u7EE1|\u7D84 \u{2C62B}|\u7D86 \u7EE0|\u7D88 \u7EE8|\u7D89 \u7EE3|\u7D8C \u7EE4|\u7D8E \u{2C629}|\u7D8F \u7EE5|\u7D90 \u433C|\u7D91 \u6346|\u7D93 \u7ECF|\u7D96 \u{2B127}|\u7D9C \u7EFC|\u7D9D \u{2C62D}|\u7D9E \u7F0D|\u7DA0 \u7EFF|\u7DA1 \u{2B7C5}|\u7DA2 \u7EF8|\u7DA3 \u7EFB|\u7DA7 \u{2C62F}|\u7DAA \u{2C62C}|\u7DAB \u7EBF|\u7DAC \u7EF6|\u7DAD \u7EF4|\u7DAF \u7EF9|\u7DB0 \u7EFE|\u7DB1 \u7EB2|\u7DB2 \u7F51|\u7DB3 \u7EF7|\u7DB4 \u7F00|\u7DB5 \u5F69|\u7DB8 \u7EB6|\u7DB9 \u7EFA|\u7DBA \u7EEE|\u7DBB \u7EFD|\u7DBD \u7EF0|\u7DBE \u7EEB|\u7DBF \u7EF5|\u7DC4 \u7EF2|\u7DC7 \u7F01|\u7DCA \u7D27|\u7DCB \u7EEF|\u7DD1 \u7EFF|\u7DD2 \u7EEA|\u7DD3 \u7EEC|\u7DD4 \u7EF1|\u7DD7 \u7F03|\u7DD8 \u7F04|\u7DD9 \u7F02|\u7DDA \u7EBF|\u7DDD \u7F09|\u7DDE \u7F0E|\u7DE0 \u7F14|\u7DE1 \u7F17|\u7DE3 \u7F18|\u7DE6 \u7F0C|\u7DE8 \u7F16|\u7DE9 \u7F13|\u7DEC \u7F05|\u7DEF \u7EAC|\u7DF1 \u7F11|\u7DF2 \u7F08|\u7DF4 \u7EC3|\u7DF6 \u7F0F|\u7DF9 \u7F07|\u7DFB \u81F4|\u7DFC \u7F0A|\u7E08 \u8426|\u7E09 \u7F19|\u7E0A \u7F22|\u7E0B \u7F12|\u7E10 \u7EC9|\u7E11 \u7F23|\u7E15 \u7F0A|\u7E17 \u7F1E|\u7E1B \u7F1A|\u7E1D \u7F1C|\u7E1E \u7F1F|\u7E1F \u7F1B|\u7E23 \u53BF|\u7E27 \u7EE6|\u7E2B \u7F1D|\u7E2D \u7F21|\u7E2E \u7F29|\u7E2F \u{2C642}|\u7E31 \u7EB5|\u7E32 \u7F27|\u7E33 \u4338|\u7E34 \u7EA4|\u7E35 \u7F26|\u7E36 \u7D77|\u7E37 \u7F15|\u7E39 \u7F25|\u7E3D \u603B|\u7E3E \u7EE9|\u7E43 \u7EF7|\u7E45 \u7F2B|\u7E46 \u7F2A|\u7E52 \u7F2F|\u7E54 \u7EC7|\u7E55 \u7F2E|\u7E5A \u7F2D|\u7E5E \u7ED5|\u7E61 \u7EE3|\u7E62 \u7F0B|\u7E69 \u7EF3|\u7E6A \u7ED8|\u7E6B \u7CFB|\u7E6D \u8327|\u7E6E \u7F30|\u7E6F \u7F33|\u7E70 \u7F32|\u7E73 \u7F34|\u7E76 \u{2B137}|\u7E78 \u4341|\u7E79 \u7ECE|\u7E7B \u{26221}|\u7E7C \u7EE7|\u7E7D \u7F24|\u7E7E \u7F31|\u7E7F \u4340|\u7E81 \u{2B138}|\u7E86 \u{2C64A}|\u7E87 \u98A3|\u7E88 \u7F2C|\u7E8A \u7EA9|\u7E8C \u7EED|\u7E8D \u7D2F|\u7E8F \u7F20|\u7E93 \u7F28|\u7E94 \u624D|\u7E95 \u{2C64B}|\u7E96 \u7EA4|\u7E98 \u7F35|\u7E9C \u7F06|\u7F3D \u94B5|\u7F43 \u44E8|\u7F48 \u575B|\u7F4C \u7F42|\u7F4E \u575B|\u7F70 \u7F5A|\u7F75 \u9A82|\u7F77 \u7F62|\u7F85 \u7F57|\u7F86 \u7F74|\u7F88 \u7F81|\u7F8B \u8288|\u7FA3 \u7FA4|\u7FA5 \u7F9F|\u7FA8 \u7FA1|\u7FA9 \u4E49|\u7FB6 \u81BB|\u7FD2 \u4E60|\u7FEB \u73A9|\u7FEC \u7FDA|\u7FF9 \u7FD8|\u7FFD \u7FD9|\u802C \u8027|\u802E \u8022|\u8056 \u5723|\u805E \u95FB|\u806F \u8054|\u8070 \u806A|\u8072 \u58F0|\u8073 \u8038|\u8075 \u8069|\u8076 \u8042|\u8077 \u804C|\u8079 \u804D|\u807D \u542C|\u807E \u804B|\u8085 \u8083|\u8105 \u80C1|\u8108 \u8109|\u811B \u80EB|\u8123 \u5507|\u8129 \u4FEE|\u812B \u8131|\u8139 \u80C0|\u814E \u80BE|\u8156 \u80E8|\u8161 \u8136|\u8166 \u8111|\u816B \u80BF|\u8173 \u811A|\u8178 \u80A0|\u8183 \u817D|\u8195 \u8158|\u819A \u80A4|\u819E \u43DD|\u81A0 \u80F6|\u81A2 \u{2677C}|\u81A9 \u817B|\u81BD \u80C6|\u81BE \u810D|\u81BF \u8113|\u81C9 \u8138|\u81CD \u8110|\u81CF \u8191|\u81D8 \u814A|\u81DA \u80EA|\u81DF \u810F|\u81E0 \u8114|\u81E2 \u81DC|\u81E5 \u5367|\u81E8 \u4E34|\u81FA \u53F0|\u8207 \u4E0E|\u8208 \u5174|\u8209 \u4E3E|\u820A \u65E7|\u8216 \u94FA|\u8218 \u9986|\u8259 \u8231|\u8264 \u8223|\u8266 \u8230|\u826B \u823B|\u8271 \u8270|\u8277 \u8273|\u82BB \u520D|\u82E7 \u82CE|\u8332 \u5179|\u834A \u8346|\u838A \u5E84|\u8396 \u830E|\u83A2 \u835A|\u83A7 \u82CB|\u83EF \u534E|\u83F4 \u5EB5|\u83F8 \u70DF|\u8407 \u82CC|\u840A \u83B1|\u842C \u4E07|\u8434 \u835D|\u8435 \u83B4|\u8449 \u53F6|\u8452 \u836D|\u8464 \u836E|\u8466 \u82C7|\u846F \u836F|\u8477 \u8364|\u848D \u{2B1ED}|\u8490 \u641C|\u8493 \u83BC|\u8494 \u83B3|\u8495 \u8480|\u849E \u8385|\u84BC \u82CD|\u84C0 \u836A|\u84C6 \u5E2D|\u84CB \u76D6|\u84EE \u83B2|\u84EF \u82C1|\u84F4 \u83BC|\u84FD \u835C|\u8504 \u{2C72C}|\u8514 \u535C|\u8518 \u53C2|\u851E \u848C|\u8523 \u848B|\u8525 \u8471|\u8526 \u8311|\u852D \u836B|\u852F \u{2B21F}|\u853F \u{2B1ED}|\u8541 \u8368|\u8546 \u8487|\u854E \u835E|\u8552 \u836C|\u8553 \u82B8|\u8555 \u83B8|\u8558 \u835B|\u8562 \u8489|\u8569 \u8361|\u856A \u829C|\u856D \u8427|\u8577 \u84E3|\u8580 \u8570|\u8588 \u835F|\u858A \u84DF|\u858C \u8297|\u8591 \u59DC|\u8594 \u8537|\u8598 \u8359|\u859F \u83B6|\u85A6 \u8350|\u85A9 \u8428|\u85B3 \u44D5|\u85B4 \u82E7|\u85B5 \u44D3|\u85B9 \u82D4|\u85BA \u8360|\u85CD \u84DD|\u85CE \u8369|\u85DD \u827A|\u85E5 \u836F|\u85EA \u85AE|\u85ED \u44D6|\u85F4 \u8574|\u85F6 \u82C8|\u85F9 \u853C|\u85FA \u853A|\u8600 \u841A|\u8604 \u8572|\u8606 \u82A6|\u8607 \u82CF|\u860A \u8574|\u860B \u82F9|\u861A \u85D3|\u861E \u8539|\u861F \u{26ED5}|\u8622 \u830F|\u862D \u5170|\u863A \u84E0|\u863F \u841D|\u8646 \u8502|\u8649 \u{2C7C1}|\u8655 \u5904|\u865B \u865A|\u865C \u864F|\u865F \u53F7|\u8667 \u4E8F|\u866F \u866C|\u86FA \u86F1|\u86FB \u8715|\u8706 \u86AC|\u8740 \u{2C7FD}|\u8755 \u8680|\u875F \u732C|\u8766 \u867E|\u8768 \u8671|\u8778 \u8717|\u8784 \u86F3|\u879E \u8682|\u87A2 \u8424|\u87AE \u45D6|\u87BB \u877C|\u87BF \u8780|\u87C4 \u86F0|\u87C8 \u8748|\u87CE \u87A8|\u87E3 \u866E|\u87EC \u8749|\u87EF \u86F2|\u87F2 \u866B|\u87F3 \u{2B2BB}|\u87F6 \u86CF|\u87FB \u8681|\u8801 \u8683|\u8805 \u8747|\u8806 \u867F|\u880D \u874E|\u8810 \u86F4|\u8811 \u877E|\u8814 \u869D|\u881F \u8721|\u8823 \u86CE|\u8828 \u87CF|\u8831 \u86CA|\u8836 \u8695|\u883B \u86EE|\u8846 \u4F17|\u884A \u8511|\u8853 \u672F|\u8855 \u540C|\u885A \u80E1|\u885B \u536B|\u885D \u51B2|\u889E \u886E|\u88B7 \u5939|\u88CA \u8885|\u88CF \u91CC|\u88DC \u8865|\u88DD \u88C5|\u88E1 \u91CC|\u88FD \u5236|\u8907 \u590D|\u890C \u88C8|\u8918 \u8886|\u8932 \u88E4|\u8933 \u88E2|\u8938 \u891B|\u893B \u4EB5|\u8940 \u{2B300}|\u8947 \u88E5|\u8949 \u88E5|\u894F \u88AF|\u8956 \u8884|\u895D \u88E3|\u8960 \u88C6|\u8964 \u8934|\u896A \u889C|\u896C \u6446|\u896F \u886C|\u8972 \u88AD|\u8974 \u8955|\u8988 \u6838|\u898B \u89C1|\u898E \u89C3|\u898F \u89C4|\u8993 \u89C5|\u8996 \u89C6|\u8998 \u89C7|\u89A1 \u89CB|\u89A5 \u89CD|\u89A6 \u89CE|\u89AA \u4EB2|\u89AC \u89CA|\u89AF \u89CF|\u89B2 \u89D0|\u89B7 \u89D1|\u89BA \u89C9|\u89BD \u89C8|\u89BF \u89CC|\u89C0 \u89C2|\u89F4 \u89DE|\u89F6 \u89EF|\u89F8 \u89E6|\u8A01 \u8BA0|\u8A02 \u8BA2|\u8A03 \u8BA3|\u8A08 \u8BA1|\u8A0A \u8BAF|\u8A0C \u8BA7|\u8A0E \u8BA8|\u8A0F \u{2C8D9}|\u8A10 \u8BA6|\u8A12 \u8BB1|\u8A13 \u8BAD|\u8A15 \u8BAA|\u8A16 \u8BAB|\u8A17 \u6258|\u8A18 \u8BB0|\u8A1B \u8BB9|\u8A1D \u8BB6|\u8A1F \u8BBC|\u8A22 \u4723|\u8A23 \u8BC0|\u8A25 \u8BB7|\u8A29 \u8BBB|\u8A2A \u8BBF|\u8A2D \u8BBE|\u8A31 \u8BB8|\u8A34 \u8BC9|\u8A36 \u8BC3|\u8A3A \u8BCA|\u8A3B \u6CE8|\u8A3C \u8BC1|\u8A40 \u{27BAA}|\u8A41 \u8BC2|\u8A46 \u8BCB|\u8A4E \u8BB5|\u8A50 \u8BC8|\u8A52 \u8BD2|\u8A54 \u8BCF|\u8A55 \u8BC4|\u8A56 \u8BD0|\u8A57 \u8BC7|\u8A58 \u8BCE|\u8A5B \u8BC5|\u8A5D \u{2C8DE}|\u8A5E \u8BCD|\u8A60 \u548F|\u8A61 \u8BE9|\u8A62 \u8BE2|\u8A63 \u8BE3|\u8A66 \u8BD5|\u8A69 \u8BD7|\u8A6A \u{2C8F3}|\u8A6B \u8BE7|\u8A6C \u8BDF|\u8A6D \u8BE1|\u8A6E \u8BE0|\u8A70 \u8BD8|\u8A71 \u8BDD|\u8A72 \u8BE5|\u8A73 \u8BE6|\u8A75 \u8BDC|\u8A77 \u{2B363}|\u8A7C \u8BD9|\u8A7F \u8BD6|\u8A84 \u8BD4|\u8A85 \u8BDB|\u8A86 \u8BD3|\u8A87 \u5938|\u8A8C \u5FD7|\u8A8D \u8BA4|\u8A91 \u8BF3|\u8A92 \u8BF6|\u8A95 \u8BDE|\u8A98 \u8BF1|\u8A9A \u8BEE|\u8A9E \u8BED|\u8AA0 \u8BDA|\u8AA1 \u8BEB|\u8AA3 \u8BEC|\u8AA4 \u8BEF|\u8AA5 \u8BF0|\u8AA6 \u8BF5|\u8AA8 \u8BF2|\u8AAA \u8BF4|\u8AAC \u8BF4|\u8AB0 \u8C01|\u8AB2 \u8BFE|\u8AB6 \u8C07|\u8AB9 \u8BFD|\u8ABC \u8C0A|\u8ABE \u8A1A|\u8ABF \u8C03|\u8AC2 \u8C04|\u8AC4 \u8C06|\u8AC7 \u8C08|\u8AC9 \u8BFF|\u8ACB \u8BF7|\u8ACD \u8BE4|\u8ACF \u8BF9|\u8AD1 \u8BFC|\u8AD2 \u8C05|\u8AD3 \u{2C8E1}|\u8AD6 \u8BBA|\u8AD7 \u8C02|\u8ADB \u8C00|\u8ADC \u8C0D|\u8ADD \u8C1E|\u8ADE \u8C1D|\u8ADF \u{2C90A}|\u8AE1 \u8C25|\u8AE2 \u8BE8|\u8AE4 \u8C14|\u8AE6 \u8C1B|\u8AE7 \u8C10|\u8AEB \u8C0F|\u8AED \u8C15|\u8AEE \u54A8|\u8AF1 \u8BB3|\u8AF2 \u{2C907}|\u8AF3 \u8C19|\u8AF4 \u{2B36F}|\u8AF6 \u8C0C|\u8AF7 \u8BBD|\u8AF8 \u8BF8|\u8AFA \u8C1A|\u8AFC \u8C16|\u8AFE \u8BFA|\u8B00 \u8C0B|\u8B01 \u8C12|\u8B02 \u8C13|\u8B04 \u8A8A|\u8B05 \u8BCC|\u8B0A \u8C0E|\u8B0E \u8C1C|\u8B0F \u{2B372}|\u8B10 \u8C27|\u8B14 \u8C11|\u8B16 \u8C21|\u8B17 \u8C24|\u8B19 \u8C26|\u8B1A \u8C25|\u8B1B \u8BB2|\u8B1D \u8C22|\u8B20 \u8C23|\u8B21 \u8C23|\u8B28 \u8C1F|\u8B2B \u8C2A|\u8B2C \u8C2C|\u8B2D \u8C2B|\u8B33 \u8BB4|\u8B39 \u8C28|\u8B3E \u8C29|\u8B41 \u54D7|\u8B49 \u8BC1|\u8B4E \u8C32|\u8B4F \u8BA5|\u8B53 \u{2C91D}|\u8B56 \u8C2E|\u8B58 \u8BC6|\u8B59 \u8C2F|\u8B5A \u8C2D|\u8B5C \u8C31|\u8B5E \u{2B37D}|\u8B5F \u566A|\u8B6B \u8C35|\u8B6D \u6BC1|\u8B6F \u8BD1|\u8B70 \u8BAE|\u8B74 \u8C34|\u8B77 \u62A4|\u8B78 \u8BEA|\u8B7D \u8A89|\u8B7E \u8C2B|\u8B80 \u8BFB|\u8B85 \u8C09|\u8B8A \u53D8|\u8B8B \u8A5F|\u8B8C \u4729|\u8B8E \u96E0|\u8B92 \u8C17|\u8B93 \u8BA9|\u8B95 \u8C30|\u8B96 \u8C36|\u8B9A \u8D5E|\u8B9C \u8C20|\u8B9E \u8C33|\u8C3F \u6EAA|\u8C48 \u5C82|\u8C4E \u7AD6|\u8C50 \u4E30|\u8C54 \u8273|\u8C6C \u732A|\u8C76 \u8C6E|\u8C8D \u72F8|\u8C93 \u732B|\u8C99 \u4759|\u8C9D \u8D1D|\u8C9E \u8D1E|\u8C9F \u8D20|\u8CA0 \u8D1F|\u8CA1 \u8D22|\u8CA2 \u8D21|\u8CA7 \u8D2B|\u8CA8 \u8D27|\u8CA9 \u8D29|\u8CAA \u8D2A|\u8CAB \u8D2F|\u8CAC \u8D23|\u8CAF \u8D2E|\u8CB0 \u8D33|\u8CB2 \u8D40|\u8CB3 \u8D30|\u8CB4 \u8D35|\u8CB6 \u8D2C|\u8CB7 \u4E70|\u8CB8 \u8D37|\u8CBA \u8D36|\u8CBB \u8D39|\u8CBC \u8D34|\u8CBD \u8D3B|\u8CBF \u8D38|\u8CC0 \u8D3A|\u8CC1 \u8D32|\u8CC2 \u8D42|\u8CC3 \u8D41|\u8CC4 \u8D3F|\u8CC5 \u8D45|\u8CC7 \u8D44|\u8CC8 \u8D3E|\u8CCA \u8D3C|\u8CD1 \u8D48|\u8CD2 \u8D4A|\u8CD3 \u5BBE|\u8CD5 \u8D47|\u8CD9 \u8D52|\u8CDA \u8D49|\u8CDC \u8D50|\u8CDE \u8D4F|\u8CE0 \u8D54|\u8CE1 \u8D53|\u8CE2 \u8D24|\u8CE3 \u5356|\u8CE4 \u8D31|\u8CE6 \u8D4B|\u8CE7 \u8D55|\u8CEA \u8D28|\u8CEB \u8D4D|\u8CEC \u8D26|\u8CED \u8D4C|\u8CF0 \u4790|\u8CF4 \u8D56|\u8CF5 \u8D57|\u8CFA \u8D5A|\u8CFB \u8D59|\u8CFC \u8D2D|\u8CFD \u8D5B|\u8CFE \u8D5C|\u8D04 \u8D3D|\u8D05 \u8D58|\u8D07 \u8D5F|\u8D08 \u8D60|\u8D0A \u8D5E|\u8D0B \u8D5D|\u8D0D \u8D61|\u8D0F \u8D62|\u8D10 \u8D46|\u8D13 \u8D43|\u8D14 \u8D51|\u8D16 \u8D4E|\u8D17 \u8D5D|\u8D1B \u8D63|\u8D1C \u8D43|\u8D6C \u8D6A|\u8D95 \u8D76|\u8D99 \u8D75|\u8DA8 \u8D8B|\u8DB2 \u8DB1|\u8DE1 \u8FF9|\u8E10 \u8DF5|\u8E30 \u903E|\u8E34 \u8E0A|\u8E4C \u8DC4|\u8E55 \u8DF8|\u8E5F \u8FF9|\u8E60 \u8DD6|\u8E63 \u8E52|\u8E64 \u8E2A|\u8E7A \u8DF7|\u8E82 \u8DF6|\u8E89 \u8DB8|\u8E8A \u8E0C|\u8E8B \u8DFB|\u8E8D \u8DC3|\u8E8E \u47E2|\u8E91 \u8E2F|\u8E92 \u8DDE|\u8E93 \u8E2C|\u8E95 \u8E70|\u8E9A \u8DF9|\u8EA1 \u8E51|\u8EA5 \u8E7F|\u8EA6 \u8E9C|\u8EAA \u8E8F|\u8EC0 \u8EAF|\u8ECA \u8F66|\u8ECB \u8F67|\u8ECC \u8F68|\u8ECD \u519B|\u8ECF \u{2B404}|\u8ED1 \u8F6A|\u8ED2 \u8F69|\u8ED4 \u8F6B|\u8EDB \u8F6D|\u8EDD \u{2CA02}|\u8EDF \u8F6F|\u8EE4 \u8F77|\u8EEB \u8F78|\u8EF2 \u8F71|\u8EF8 \u8F74|\u8EF9 \u8F75|\u8EFA \u8F7A|\u8EFB \u8F72|\u8EFC \u8F76|\u8EFE \u8F7C|\u8F03 \u8F83|\u8F04 \u{28408}|\u8F05 \u8F82|\u8F07 \u8F81|\u8F08 \u8F80|\u8F09 \u8F7D|\u8F0A \u8F7E|\u8F0B \u{2AA36}|\u8F12 \u8F84|\u8F13 \u633D|\u8F14 \u8F85|\u8F15 \u8F7B|\u8F17 \u{2B410}|\u8F1B \u8F86|\u8F1C \u8F8E|\u8F1D \u8F89|\u8F1E \u8F8B|\u8F1F \u8F8D|\u8F25 \u8F8A|\u8F26 \u8F87|\u8F29 \u8F88|\u8F2A \u8F6E|\u8F2C \u8F8C|\u8F2E \u{2B413}|\u8F2F \u8F91|\u8F33 \u8F8F|\u8F36 \u{2CA0E}|\u8F38 \u8F93|\u8F3B \u8F90|\u8F3C \u8F92|\u8F3E \u8F97|\u8F3F \u8206|\u8F40 \u8F92|\u8F42 \u6BC2|\u8F44 \u8F96|\u8F45 \u8F95|\u8F46 \u8F98|\u8F49 \u8F6C|\u8F4D \u8F99|\u8F4E \u8F7F|\u8F54 \u8F9A|\u8F5F \u8F70|\u8F61 \u8F94|\u8F62 \u8F79|\u8F64 \u8F73|\u8FA6 \u529E|\u8FAD \u8F9E|\u8FAE \u8FAB|\u8FAF \u8FA9|\u8FB2 \u519C|\u8FF4 \u56DE|\u9015 \u5F84|\u9019 \u8FD9|\u9023 \u8FDE|\u9031 \u5468|\u9032 \u8FDB|\u904A \u6E38|\u904B \u8FD0|\u904E \u8FC7|\u9054 \u8FBE|\u9055 \u8FDD|\u9059 \u9065|\u905C \u900A|\u905E \u9012|\u9060 \u8FDC|\u9061 \u6EAF|\u9069 \u9002|\u9072 \u8FDF|\u9076 \u7ED5|\u9077 \u8FC1|\u9078 \u9009|\u907A \u9057|\u907C \u8FBD|\u9081 \u8FC8|\u9084 \u8FD8|\u9087 \u8FE9|\u908A \u8FB9|\u908F \u903B|\u9090 \u9026|\u90DF \u90CF|\u90F5 \u90AE|\u9106 \u90D3|\u9109 \u4E61|\u9112 \u90B9|\u9114 \u90AC|\u9116 \u90E7|\u9127 \u9093|\u9129 \u{2CA7D}|\u912D \u90D1|\u9130 \u90BB|\u9132 \u90F8|\u9133 \u{2B461}|\u9134 \u90BA|\u9136 \u90D0|\u913A \u909D|\u9147 \u9142|\u9148 \u90E6|\u9183 \u814C|\u9196 \u915D|\u919C \u4E11|\u919E \u915D|\u919F \u848F|\u91A3 \u7CD6|\u91AB \u533B|\u91AC \u9171|\u91B1 \u9166|\u91B2 \u{2CAA9}|\u91C0 \u917F|\u91C1 \u8845|\u91C3 \u917E|\u91C5 \u917D|\u91CB \u91CA|\u91D0 \u5398|\u91D2 \u9485|\u91D3 \u9486|\u91D4 \u9487|\u91D5 \u948C|\u91D7 \u948A|\u91D8 \u9489|\u91D9 \u948B|\u91DD \u9488|\u91E3 \u9493|\u91E4 \u9490|\u91E6 \u6263|\u91E7 \u948F|\u91E9 \u9492|\u91F4 \u{2CB29}|\u91F5 \u9497|\u91F7 \u948D|\u91F9 \u9495|\u91FA \u948E|\u91FE \u497A|\u91FF \u{2CB31}|\u9200 \u94AF|\u9201 \u94AB|\u9203 \u9498|\u9204 \u94AD|\u9205 \u94A5|\u9207 \u{2B4E7}|\u9208 \u949A|\u9209 \u94A0|\u920D \u949D|\u920E \u94A9|\u9210 \u94A4|\u9211 \u94A3|\u9212 \u9491|\u9214 \u949E|\u9215 \u94AE|\u921E \u94A7|\u9221 \u949F|\u9223 \u9499|\u9225 \u94AC|\u9226 \u949B|\u9227 \u94AA|\u922E \u94CC|\u9230 \u94C8|\u9233 \u94B6|\u9234 \u94C3|\u9237 \u94B4|\u9238 \u94B9|\u9239 \u94CD|\u923A \u94B0|\u923D \u94B8|\u923E \u94C0|\u923F \u94BF|\u9240 \u94BE|\u9245 \u5DE8|\u9246 \u94BB|\u9248 \u94CA|\u9249 \u94C9|\u924A \u{2CB3F}|\u924B \u94C7|\u924D \u94CB|\u9251 \u94C2|\u9255 \u94B7|\u9257 \u94B3|\u925A \u94C6|\u925B \u94C5|\u925D \u{2B7F7}|\u925E \u94BA|\u9262 \u94B5|\u9264 \u94A9|\u9265 \u{2CB38}|\u9266 \u94B2|\u9267 \u{2CB41}|\u926C \u94BC|\u926D \u94BD|\u926E \u{2CB39}|\u9273 \u952B|\u9276 \u94CF|\u9277 \u{2B7F9}|\u9278 \u94F0|\u927A \u94D2|\u927B \u94EC|\u927F \u94EA|\u9280 \u94F6|\u9283 \u94F3|\u9285 \u94DC|\u9288 \u{2B4EF}|\u928D \u94DA|\u9291 \u94E3|\u9293 \u94E8|\u9296 \u94E2|\u9298 \u94ED|\u929A \u94EB|\u929B \u94E6|\u929C \u8854|\u92A0 \u94D1|\u92A3 \u94F7|\u92A5 \u94F1|\u92A6 \u94DF|\u92A8 \u94F5|\u92A9 \u94E5|\u92AA \u94D5|\u92AB \u94EF|\u92AC \u94D0|\u92B1 \u94DE|\u92B3 \u9510|\u92B6 \u{28C47}|\u92B7 \u9500|\u92B9 \u9508|\u92BB \u9511|\u92BC \u9509|\u92C1 \u94DD|\u92C3 \u9512|\u92C5 \u950C|\u92C7 \u94A1|\u92CC \u94E4|\u92CF \u94D7|\u92D0 \u{2CB4E}|\u92D2 \u950B|\u92D7 \u{2B4F6}|\u92D9 \u94FB|\u92DD \u950A|\u92DF \u9513|\u92E3 \u94D8|\u92E4 \u9504|\u92E5 \u9503|\u92E6 \u9514|\u92E8 \u9507|\u92E9 \u94D3|\u92EA \u94FA|\u92ED \u9510|\u92EE \u94D6|\u92EF \u9506|\u92F0 \u9502|\u92F1 \u94FD|\u92F6 \u950D|\u92F8 \u952F|\u92F9 \u{2CB2E}|\u92FC \u94A2|\u9300 \u{2CB2D}|\u9301 \u951E|\u9304 \u5F55|\u9306 \u9516|\u9307 \u952B|\u9308 \u9529|\u930F \u94D4|\u9310 \u9525|\u9312 \u9515|\u9315 \u951F|\u9318 \u9524|\u9319 \u9531|\u931A \u94EE|\u931B \u951B|\u931E \u{2CB5A}|\u931F \u952C|\u9320 \u952D|\u9321 \u951C|\u9322 \u94B1|\u9324 \u{2B4F9}|\u9326 \u9526|\u9328 \u951A|\u9329 \u9520|\u932B \u9521|\u932E \u9522|\u932F \u9519|\u9332 \u5F55|\u9333 \u9530|\u9336 \u8868|\u9338 \u94FC|\u933C \u954E|\u9340 \u951D|\u9341 \u9528|\u9343 \u952A|\u9345 \u94AB|\u9346 \u9494|\u9347 \u9534|\u9348 \u9533|\u934A \u70BC|\u934B \u9505|\u934D \u9540|\u9354 \u9537|\u9358 \u94E1|\u935A \u9496|\u935B \u953B|\u9360 \u953D|\u9364 \u9538|\u9365 \u9532|\u9369 \u9518|\u936C \u9539|\u936D \u{2CB64}|\u9370 \u953E|\u9375 \u952E|\u9376 \u9536|\u937A \u9517|\u937C \u9488|\u937E \u949F|\u9382 \u9541|\u9384 \u953F|\u9387 \u9545|\u938A \u9551|\u938C \u9570|\u9393 \u{2CB69}|\u9394 \u9555|\u9396 \u9501|\u9398 \u9549|\u939A \u9524|\u939B \u9548|\u939D \u{28C4F}|\u93A1 \u9543|\u93A2 \u94A8|\u93A3 \u84E5|\u93A6 \u954F|\u93A7 \u94E0|\u93A9 \u94E9|\u93AA \u953C|\u93AC \u9550|\u93AD \u9547|\u93AE \u9547|\u93B0 \u9552|\u93B2 \u954B|\u93B3 \u954D|\u93B5 \u9553|\u93B6 \u9FD4|\u93B8 \u954C|\u93BF \u954E|\u93C3 \u955E|\u93C7 \u65CB|\u93C8 \u94FE|\u93CC \u9546|\u93CD \u9559|\u93CF \u{2CB6C}|\u93D0 \u9560|\u93D1 \u955D|\u93D7 \u94FF|\u93D8 \u9535|\u93DC \u9557|\u93DD \u9558|\u93DE \u955B|\u93DF \u94F2|\u93E1 \u955C|\u93E2 \u9556|\u93E4 \u9542|\u93E8 \u933E|\u93F0 \u955A|\u93F5 \u94E7|\u93F7 \u9564|\u93F9 \u956A|\u93FA \u497D|\u93FB \u{2CB78}|\u93FD \u9508|\u9403 \u94D9|\u9404 \u{28C51}|\u9407 \u{2B50D}|\u940B \u94F4|\u940D \u{2B50E}|\u940F \u{28C54}|\u9410 \u9563|\u9412 \u94F9|\u9413 \u9566|\u9414 \u9561|\u9418 \u949F|\u9419 \u956B|\u941D \u9562|\u9420 \u9568|\u9425 \u4985|\u9426 \u950E|\u9427 \u950F|\u9428 \u9544|\u9429 \u{2CB7C}|\u942B \u954C|\u942E \u9570|\u942F \u4983|\u9432 \u956F|\u9433 \u956D|\u9435 \u94C1|\u9436 \u956E|\u9438 \u94CE|\u943A \u94DB|\u943D \u{2B7FC}|\u943F \u9571|\u9444 \u94F8|\u944A \u956C|\u944C \u9554|\u9451 \u9274|\u9452 \u9274|\u9454 \u9572|\u9455 \u9527|\u945E \u9574|\u9460 \u94C4|\u9463 \u9573|\u9465 \u9565|\u946A \u{2CB3B}|\u946D \u9567|\u9470 \u94A5|\u9471 \u9575|\u9472 \u9576|\u9477 \u954A|\u9479 \u9569|\u947C \u9523|\u947D \u94BB|\u947E \u92AE|\u947F \u51FF|\u9481 \u9562|\u9482 \u954B|\u9577 \u957F|\u9580 \u95E8|\u9582 \u95E9|\u9583 \u95EA|\u9586 \u95EB|\u9588 \u95EC|\u9589 \u95ED|\u958B \u5F00|\u958C \u95F6|\u958E \u95F3|\u958F \u95F0|\u9591 \u95F2|\u9592 \u95F2|\u9593 \u95F4|\u9594 \u95F5|\u9598 \u95F8|\u95A1 \u9602|\u95A3 \u9601|\u95A4 \u5408|\u95A5 \u9600|\u95A8 \u95FA|\u95A9 \u95FD|\u95AB \u9603|\u95AC \u9606|\u95AD \u95FE|\u95B1 \u9605|\u95B2 \u9605|\u95B6 \u960A|\u95B9 \u9609|\u95BB \u960E|\u95BC \u960F|\u95BD \u960D|\u95BE \u9608|\u95BF \u960C|\u95C3 \u9612|\u95C6 \u677F|\u95C7 \u6697|\u95C8 \u95F1|\u95C9 \u{2CBB1}|\u95CA \u9614|\u95CB \u9615|\u95CC \u9611|\u95CD \u9607|\u95D0 \u9617|\u95D1 \u{2B536}|\u95D2 \u9618|\u95D3 \u95FF|\u95D4 \u9616|\u95D5 \u9619|\u95D6 \u95EF|\u95DC \u5173|\u95DE \u961A|\u95E0 \u9613|\u95E1 \u9610|\u95E2 \u8F9F|\u95E4 \u961B|\u95E5 \u95FC|\u9658 \u9649|\u965D \u9655|\u965E \u5347|\u9663 \u9635|\u9670 \u9634|\u9673 \u9648|\u9678 \u9646|\u967D \u9633|\u9689 \u9667|\u968A \u961F|\u968E \u9636|\u9691 \u{2CBBF}|\u9695 \u9668|\u969B \u9645|\u96A4 \u{2CBCE}|\u96A8 \u968F|\u96AA \u9669|\u96AE \u{2CBC0}|\u96AF \u9666|\u96B1 \u9690|\u96B4 \u9647|\u96B8 \u96B6|\u96BB \u53EA|\u96CB \u96BD|\u96D6 \u867D|\u96D9 \u53CC|\u96DB \u96CF|\u96DC \u6742|\u96DE \u9E21|\u96E2 \u79BB|\u96E3 \u96BE|\u96F2 \u4E91|\u96FB \u7535|\u9711 \u6CBE|\u9722 \u9721|\u9727 \u96FE|\u973D \u9701|\u9742 \u96F3|\u9744 \u972D|\u9746 \u53C7|\u9748 \u7075|\u9749 \u53C6|\u975A \u9753|\u975C \u9759|\u975D \u9754|\u9766 \u817C|\u9768 \u9765|\u978F \u5DE9|\u979D \u7EF1|\u97A6 \u79CB|\u97BD \u9792|\u97C1 \u7F30|\u97C3 \u9791|\u97C6 \u5343|\u97C9 \u97AF|\u97CB \u97E6|\u97CC \u97E7|\u97CD \u97E8|\u97D3 \u97E9|\u97D9 \u97EA|\u97DC \u97EC|\u97DD \u97B2|\u97DE \u97EB|\u97FB \u97F5|\u97FF \u54CD|\u9801 \u9875|\u9802 \u9876|\u9803 \u9877|\u9805 \u9879|\u9806 \u987A|\u9807 \u9878|\u9808 \u987B|\u980A \u987C|\u980C \u9882|\u980D \u{2B806}|\u980E \u9880|\u980F \u9883|\u9810 \u9884|\u9811 \u987D|\u9812 \u9881|\u9813 \u987F|\u9814 \u{2CC56}|\u9817 \u9887|\u9818 \u9886|\u981C \u988C|\u9820 \u{2CC5F}|\u9821 \u9889|\u9824 \u9890|\u9826 \u988F|\u982B \u{2B5AF}|\u982D \u5934|\u982E \u9892|\u9830 \u988A|\u9832 \u988B|\u9834 \u9895|\u9835 \u{2B5B3}|\u9837 \u9894|\u9838 \u9888|\u9839 \u9893|\u983B \u9891|\u983D \u9893|\u9846 \u9897|\u984C \u9898|\u984D \u989D|\u984E \u989A|\u984F \u989C|\u9852 \u9899|\u9853 \u989B|\u9854 \u989C|\u9857 \u{2B5AE}|\u9858 \u613F|\u9859 \u98A1|\u985B \u98A0|\u985E \u7C7B|\u9862 \u989F|\u9865 \u98A2|\u9867 \u987E|\u986B \u98A4|\u986C \u98A5|\u986F \u663E|\u9870 \u98A6|\u9871 \u9885|\u9873 \u989E|\u9874 \u98A7|\u98A8 \u98CE|\u98AD \u98D0|\u98AE \u98D1|\u98AF \u98D2|\u98B1 \u53F0|\u98B3 \u522E|\u98B6 \u98D3|\u98B8 \u98D4|\u98BA \u98CF|\u98BB \u98D6|\u98BC \u98D5|\u98C0 \u98D7|\u98C4 \u98D8|\u98C6 \u98D9|\u98C8 \u98DA|\u98DB \u98DE|\u98E0 \u9963|\u98E2 \u9965|\u98E3 \u9964|\u98E5 \u9966|\u98E9 \u9968|\u98EA \u996A|\u98EB \u996B|\u98ED \u996C|\u98EF \u996D|\u98F1 \u98E7|\u98F2 \u996E|\u98F4 \u9974|\u98FC \u9972|\u98FD \u9971|\u98FE \u9970|\u98FF \u9973|\u9903 \u997A|\u9904 \u9978|\u9905 \u997C|\u9908 \u7CCD|\u9909 \u9977|\u990A \u517B|\u990C \u9975|\u990E \u9979|\u990F \u997B|\u9911 \u997D|\u9912 \u9981|\u9913 \u997F|\u9915 \u9982|\u9916 \u997E|\u9917 \u{2B5E7}|\u9918 \u4F59|\u991A \u80B4|\u991B \u9984|\u991C \u9983|\u991E \u996F|\u9921 \u9985|\u9928 \u9986|\u992C \u7CCA|\u9931 \u7CC7|\u9933 \u9967|\u9935 \u5582|\u9936 \u9989|\u9937 \u9987|\u9938 \u{2980C}|\u993A \u998E|\u993C \u9969|\u993E \u998F|\u993F \u998A|\u9941 \u998C|\u9943 \u998D|\u9945 \u9992|\u9948 \u9990|\u9949 \u9991|\u994A \u9993|\u994B \u9988|\u994C \u9994|\u9951 \u9965|\u9952 \u9976|\u9957 \u98E8|\u9958 \u{2B5F4}|\u995C \u990D|\u995E \u998B|\u9962 \u9995|\u99AC \u9A6C|\u99AD \u9A6D|\u99AE \u51AF|\u99B1 \u9A6E|\u99B3 \u9A70|\u99B4 \u9A6F|\u99B9 \u9A72|\u99BC \u{2B61C}|\u99C1 \u9A73|\u99C3 \u{2B61D}|\u99C9 \u{2CCF6}|\u99D0 \u9A7B|\u99D1 \u9A7D|\u99D2 \u9A79|\u99D3 \u{2CCF5}|\u99D4 \u9A75|\u99D5 \u9A7E|\u99D8 \u9A80|\u99D9 \u9A78|\u99DB \u9A76|\u99DD \u9A7C|\u99DF \u9A77|\u99E1 \u9A82|\u99E2 \u9A88|\u99EA \u{2CCFD}|\u99ED \u9A87|\u99F0 \u9A83|\u99F1 \u9A86|\u99F8 \u9A8E|\u99FC \u{2CCFF}|\u99FF \u9A8F|\u9A01 \u9A8B|\u9A02 \u9A8D|\u9A04 \u{2B627}|\u9A05 \u9A93|\u9A0A \u{2B626}|\u9A0C \u9A94|\u9A0D \u9A92|\u9A0E \u9A91|\u9A0F \u9A90|\u9A11 \u{2CD02}|\u9A16 \u9A9B|\u9A19 \u9A97|\u9A1E \u{2CD03}|\u9A20 \u{2B628}|\u9A24 \u9A99|\u9A27 \u4BC4|\u9A2B \u9A9E|\u9A2D \u9A98|\u9A2E \u9A9D|\u9A30 \u817E|\u9A31 \u{2B62C}|\u9A35 \u{2B62A}|\u9A36 \u9A7A|\u9A37 \u9A9A|\u9A38 \u9A9F|\u9A3E \u9AA1|\u9A40 \u84E6|\u9A41 \u9A9C|\u9A42 \u9A96|\u9A43 \u9AA0|\u9A44 \u9AA2|\u9A45 \u9A71|\u9A4A \u9A85|\u9A4C \u9A95|\u9A4D \u9A81|\u9A4E \u{2CD0A}|\u9A4F \u9AA3|\u9A55 \u9A84|\u9A57 \u9A8C|\u9A5A \u60CA|\u9A5B \u9A7F|\u9A5F \u9AA4|\u9A62 \u9A74|\u9A64 \u9AA7|\u9A65 \u9AA5|\u9A66 \u9AA6|\u9A6A \u9A8A|\u9A6B \u9A89|\u9AAF \u80AE|\u9ACF \u9AC5|\u9AD2 \u810F|\u9AD4 \u4F53|\u9AD5 \u9ACC|\u9AD6 \u9ACB|\u9AEE \u53D1|\u9B06 \u677E|\u9B0D \u80E1|\u9B1A \u987B|\u9B22 \u9B13|\u9B25 \u6597|\u9B27 \u95F9|\u9B28 \u54C4|\u9B29 \u960B|\u9B2E \u9604|\u9B31 \u90C1|\u9B39 \u9B36|\u9B4E \u9B49|\u9B58 \u9B47|\u9B5A \u9C7C|\u9B5B \u9C7D|\u9B5F \u{2B689}|\u9B62 \u9C7E|\u9B68 \u9C80|\u9B6F \u9C81|\u9B74 \u9C82|\u9B77 \u9C7F|\u9B7A \u9C84|\u9B80 \u{2CD8D}|\u9B81 \u9C85|\u9B83 \u9C86|\u9B86 \u{2B696}|\u9B88 \u{2CD8B}|\u9B8A \u9C8C|\u9B8B \u9C89|\u9B8D \u9C8F|\u9B8E \u9C87|\u9B90 \u9C90|\u9B91 \u9C8D|\u9B92 \u9C8B|\u9B93 \u9C8A|\u9B9A \u9C92|\u9B9C \u9C98|\u9B9D \u9C9E|\u9B9E \u9C95|\u9B9F \u{29F7E}|\u9BA0 \u{2CD8F}|\u9BA1 \u{2CD90}|\u9BA3 \u4C9F|\u9BA6 \u9C96|\u9BAA \u9C94|\u9BAB \u9C9B|\u9BAD \u9C91|\u9BAE \u9C9C|\u9BB3 \u9C93|\u9BB6 \u9CAA|\u9BB8 \u{29F83}|\u9BBA \u9C9D|\u9BC0 \u9CA7|\u9BC1 \u9CA0|\u9BC7 \u9CA9|\u9BC9 \u9CA4|\u9BCA \u9CA8|\u9BD2 \u9CAC|\u9BD4 \u9CBB|\u9BD5 \u9CAF|\u9BD6 \u9CAD|\u9BD7 \u9C9E|\u9BDB \u9CB7|\u9BDD \u9CB4|\u9BE1 \u9CB1|\u9BE2 \u9CB5|\u9BE4 \u9CB2|\u9BE7 \u9CB3|\u9BE8 \u9CB8|\u9BEA \u9CAE|\u9BEB \u9CB0|\u9BF0 \u9CB6|\u9BF4 \u9CBA|\u9BF7 \u9CC0|\u9BFB \u{2CD9F}|\u9BFD \u9CAB|\u9BFF \u9CCA|\u9C01 \u9CC8|\u9C02 \u9C97|\u9C03 \u9CC2|\u9C06 \u4CA0|\u9C08 \u9CBD|\u9C09 \u9CC7|\u9C0A \u{2CDA0}|\u9C0C \u4CA1|\u9C0D \u9CC5|\u9C0F \u9CBE|\u9C10 \u9CC4|\u9C12 \u9CC6|\u9C13 \u9CC3|\u9C1B \u9CC1|\u9C1C \u9CD2|\u9C1F \u9CD1|\u9C20 \u9CCB|\u9C23 \u9CA5|\u9C24 \u{2B695}|\u9C25 \u9CCF|\u9C27 \u4CA2|\u9C28 \u9CCE|\u9C29 \u9CD0|\u9C2D \u9CCD|\u9C2E \u9CC1|\u9C31 \u9CA2|\u9C32 \u9CCC|\u9C33 \u9CD3|\u9C35 \u9CD8|\u9C36 \u{2CDAD}|\u9C37 \u9CA6|\u9C39 \u9CA3|\u9C3A \u9CB9|\u9C3B \u9CD7|\u9C3C \u9CDB|\u9C3E \u9CD4|\u9C40 \u{2CDA8}|\u9C42 \u9CC9|\u9C45 \u9CD9|\u9C47 \u{29F8C}|\u9C48 \u9CD5|\u9C49 \u9CD6|\u9C52 \u9CDF|\u9C54 \u9CDD|\u9C56 \u9CDC|\u9C57 \u9CDE|\u9C58 \u9C9F|\u9C5A \u{2CDAE}|\u9C5D \u9CBC|\u9C5F \u9C8E|\u9C60 \u9C99|\u9C63 \u9CE3|\u9C64 \u9CE1|\u9C67 \u9CE2|\u9C68 \u9CBF|\u9C6D \u9C9A|\u9C6F \u9CE0|\u9C72 \u{2B6AD}|\u9C77 \u9CC4|\u9C78 \u9C88|\u9C7A \u9CA1|\u9CE5 \u9E1F|\u9CE7 \u51EB|\u9CE9 \u9E20|\u9CEC \u51EB|\u9CF2 \u9E24|\u9CF3 \u51E4|\u9CF4 \u9E23|\u9CF6 \u9E22|\u9CFE \u4D13|\u9D06 \u9E29|\u9D07 \u9E28|\u9D09 \u9E26|\u9D12 \u9E30|\u9D15 \u9E35|\u9D1B \u9E33|\u9D1D \u9E32|\u9D1E \u9E2E|\u9D1F \u9E31|\u9D23 \u9E2A|\u9D26 \u9E2F|\u9D28 \u9E2D|\u9D2F \u9E38|\u9D30 \u9E39|\u9D34 \u9E3B|\u9D37 \u4D15|\u9D3B \u9E3F|\u9D3F \u9E3D|\u9D41 \u4D14|\u9D42 \u9E3A|\u9D43 \u9E3C|\u9D4F \u{2CDD5}|\u9D50 \u9E40|\u9D51 \u9E43|\u9D52 \u9E46|\u9D53 \u9E41|\u9D5C \u9E48|\u9D5D \u9E45|\u9D5F \u{2B6ED}|\u9D60 \u9E44|\u9D61 \u9E49|\u9D6A \u9E4C|\u9D6C \u9E4F|\u9D6E \u9E50|\u9D6F \u9E4E|\u9D70 \u96D5|\u9D72 \u9E4A|\u9D77 \u9E53|\u9D7E \u9E4D|\u9D84 \u4D16|\u9D87 \u9E2B|\u9D89 \u9E51|\u9D8A \u9E52|\u9D93 \u9E4B|\u9D96 \u9E59|\u9D98 \u9E55|\u9D9A \u9E57|\u9DA0 \u{2CE18}|\u9DA1 \u9E56|\u9DA5 \u9E5B|\u9DA9 \u9E5C|\u9DAA \u4D17|\u9DAC \u9E27|\u9DAF \u83BA|\u9DB1 \u{2CE23}|\u9DB2 \u9E5F|\u9DB4 \u9E64|\u9DB9 \u9E60|\u9DBA \u9E61|\u9DBB \u9E58|\u9DBC \u9E63|\u9DBF \u9E5A|\u9DC0 \u9E5A|\u9DC1 \u9E62|\u9DC2 \u9E5E|\u9DC4 \u9E21|\u9DC9 \u4D18|\u9DCA \u9E5D|\u9DD3 \u9E67|\u9DD6 \u9E65|\u9DD7 \u9E25|\u9DD9 \u9E37|\u9DDA \u9E68|\u9DDF \u{2CE26}|\u9DE5 \u9E36|\u9DE6 \u9E6A|\u9DEB \u9E54|\u9DED \u{2CE2A}|\u9DEF \u9E69|\u9DF2 \u9E6B|\u9DF3 \u9E47|\u9DF4 \u9E47|\u9DF8 \u9E6C|\u9DF9 \u9E70|\u9DFA \u9E6D|\u9DFD \u9E34|\u9E02 \u3D89|\u9E07 \u9E6F|\u9E0A \u4D19|\u9E0C \u9E71|\u9E0F \u9E72|\u9E11 \u{2CE1A}|\u9E15 \u9E2C|\u9E18 \u9E74|\u9E1A \u9E66|\u9E1B \u9E73|\u9E1D \u9E42|\u9E1E \u9E3E|\u9E75 \u5364|\u9E79 \u54B8|\u9E7A \u9E7E|\u9E7C \u78B1|\u9E7D \u76D0|\u9E97 \u4E3D|\u9EA5 \u9EA6|\u9EA9 \u9EB8|\u9EAA \u9762|\u9EAB \u9762|\u9EAC \u{24FF2}|\u9EAF \u66F2|\u9EB3 \u{2A38C}|\u9EB4 \u66F2|\u9EB5 \u9762|\u9EBC \u4E48|\u9EBD \u4E48|\u9EC3 \u9EC4|\u9ECC \u9EC9|\u9EDE \u70B9|\u9EE8 \u515A|\u9EF2 \u9EEA|\u9EF4 \u9709|\u9EF6 \u9EE1|\u9EF7 \u9EE9|\u9EFD \u9EFE|\u9EFF \u9F0B|\u9F02 \u9F0C|\u9F09 \u9F0D|\u9F15 \u51AC|\u9F34 \u9F39|\u9F4A \u9F50|\u9F4B \u658B|\u9F4E \u8D4D|\u9F4F \u9F51|\u9F52 \u9F7F|\u9F54 \u9F80|\u9F55 \u9F81|\u9F57 \u9F82|\u9F58 \u{2CE7C}|\u9F59 \u9F85|\u9F5C \u9F87|\u9F5F \u9F83|\u9F60 \u9F86|\u9F61 \u9F84|\u9F63 \u51FA|\u9F66 \u9F88|\u9F67 \u556E|\u9F6A \u9F8A|\u9F6C \u9F89|\u9F6E \u{2CE88}|\u9F6F \u{2B81C}|\u9F72 \u9F8B|\u9F76 \u816D|\u9F77 \u9F8C|\u9F7C \u{2CE93}|\u9F8D \u9F99|\u9F8E \u5390|\u9F90 \u5E9E|\u9F91 \u4DAE|\u9F94 \u9F9A|\u9F95 \u9F9B|\u9F9C \u9F9F|\u9FC1 \u4724|\u9FD3 \u9FD2|\u{2005E} \u{2003E}|\u{20325} \u{20325}|\u{203E2} \u{203E2}|\u{2040A} \u{2040A}|\u{205E3} \u34C6|\u{20786} \u{20786}|\u{2080E} \u{2080E}|\u{20B19} \u{20B19}|\u{20F24} \u{20F24}|\u{20F43} \u{20F43}|\u{20FD5} \u{20FD5}|\u{210A1} \u{210A1}|\u{210C4} \u{210C4}|\u{210D5} \u{20D1B}|\u{210E4} \u{210E4}|\u{21114} \u{21114}|\u{21123} \u{21123}|\u{2114F} \u{20CA5}|\u{2116F} \u{2116F}|\u{2144D} \u{2BB7C}|\u{2146D} \u{212D7}|\u{214C1} \u{214C1}|\u{214FE} \u{212C0}|\u{21516} \u{21363}|\u{217B5} \u36DF|\u{217EB} \u{217EB}|\u{21839} \u36FF|\u{21883} \u36E0|\u{21B89} \u{21B5C}|\u{21BA3} \u{21B6C}|\u{21CF3} \u{21CC3}|\u{21E17} \u{21E17}|\u{21E6C} \u{21E6C}|\u{21ED5} \u5C81|\u{21F57} \u{21F57}|\u{21FB1} \u37DC|\u{21FD6} \u{21FD6}|\u{22370} \u{22370}|\u{2283C} \u{2283C}|\u{228D0} \u{228D0}|\u{228DA} \u{2261D}|\u{228ED} \u{228ED}|\u{22929} \u{22929}|\u{22931} \u{22931}|\u{2293F} \u{2293F}|\u{22BF7} \u{22BF7}|\u{22D92} \u{22D92}|\u{22DAB} \u{22ADE}|\u{22DEE} \u{22DEE}|\u{22E7F} \u{22B26}|\u{22EB3} \u{22EB3}|\u{23236} \u6685|\u{232CB} \u{232CB}|\u{23350} \u{23350}|\u{2364E} \u3B63|\u{2372C} \u{2372C}|\u{23755} \u{23755}|\u{237BB} \u{23613}|\u{23829} \u{2378E}|\u{23832} \u{23476}|\u{23BE9} \u{23BE9}|\u{23BF4} \u{23BF4}|\u{23BF6} \u6BF6|\u{23F4F} \u{23F4F}|\u{23FB7} \u3CE2|\u{23FC9} \u{23FC9}|\u{24063} \u{23EBD}|\u{24137} \u{24137}|\u{24176} \u{23DF7}|\u{24473} \u{24473}|\u{24479} \u{24479}|\u{2448E} \u{2448E}|\u{244BB} \u{244BB}|\u{244CC} \u{244CC}|\u{244CE} \u{244CE}|\u{244E9} \u{242B0}|\u{24600} \u{24600}|\u{246EE} \u{246EE}|\u{246F1} \u{246F1}|\u{24706} \u{24706}|\u{2482E} \u{2482E}|\u{2489F} \u{2489F}|\u{248BB} \u{248BB}|\u{24A42} \u{24A42}|\u{24ABA} \u3ED8|\u{24AE9} \u3ECF|\u{24B05} \u{24B05}|\u{24CF7} \u{24CF7}|\u{24CF8} \u{24CC4}|\u{24DC3} \u{24DC3}|\u{24E2B} \u{24E2B}|\u{24E94} \u{24E94}|\u{2529D} \u{2517F}|\u{25303} \u{25158}|\u{253DD} \u{253DD}|\u{25565} \u{25430}|\u{25585} \u{2542F}|\u{255B2} \u{255B2}|\u{255C7} \u{255C7}|\u{255FD} \u{2C497}|\u{25710} \u{25710}|\u{25730} \u{25730}|\u{257B5} \u{257B5}|\u{258A2} \u416A|\u{258B6} \u{258B6}|\u{258B7} \u{258B7}|\u{25A10} \u{25A10}|\u{25A82} \u{25A82}|\u{25BE4} \u{25BE4}|\u{25D28} \u{25D28}|\u{25D3C} \u{25D3C}|\u{25D43} \u{25D43}|\u{25D4A} \u{25D4A}|\u{25DBD} \u{25DBD}|\u{25E20} \u{25B8B}|\u{25EE6} \u{25EE6}|\u{25F3D} \u{25E65}|\u{25F56} \u{25F56}|\u{25FAF} \u{25FAF}|\u{25FCA} \u{25FCA}|\u{26016} \u{26016}|\u{26085} \u{26085}|\u{260C4} \u{260C4}|\u{260E9} \u{260E9}|\u{26147} \u{26147}|\u{26148} \u{26148}|\u{261B2} \u{261B2}|\u{26480} \u{26480}|\u{26516} \u{26516}|\u{26627} \u{21CD2}|\u{267FC} \u{267FC}|\u{26805} \u{26805}|\u{2685D} \u{2685D}|\u{26888} \u{26888}|\u{268CE} \u{267D7}|\u{269FA} \u{269FA}|\u{26A99} \u447D|\u{26ABD} \u{26ABD}|\u{26C4C} \u{26C4C}|\u{26F9F} \u{26F9F}|\u{27388} \u{27388}|\u{274AF} \u{274AF}|\u{27525} \u{27525}|\u{2755F} \u{2755F}|\u{27717} \u461E|\u{27735} \u464A|\u{2775E} \u461B|\u{277AB} \u{277AB}|\u{277C0} \u{27767}|\u{27874} \u{27874}|\u{27884} \u{27884}|\u{2799D} \u{2799D}|\u{279A7} \u{279A7}|\u{27A55} \u{27A55}|\u{27A59} \u4725|\u{27A7C} \u{27A7C}|\u{27ADD} \u{27ADD}|\u{27B24} \u{27B24}|\u{27B48} \u{27B48}|\u{27B79} \u{27B79}|\u{27CDF} \u{27CDF}|\u{27D73} \u478C|\u{27D94} \u{27D94}|\u{27DA7} \u478E|\u{27DCE} \u{27DCE}|\u{27E18} \u{27E18}|\u{27E48} \u{27E48}|\u{27F6F} \u{27F6F}|\u{28090} \u{28090}|\u{28123} \u{28123}|\u{2814D} \u{2814D}|\u{281AA} \u{281AA}|\u{281C1} \u{281C1}|\u{281DE} \u{281DE}|\u{281E4} \u{281E4}|\u{281F0} \u{281F0}|\u{281FD} \u{281FD}|\u{2820A} \u{2820A}|\u{2820C} \u{2820C}|\u{282B0} \u4880|\u{282B8} \u4881|\u{282BB} \u{282BB}|\u{282E2} \u4882|\u{28308} \u{28308}|\u{28370} \u{28370}|\u{2838C} \u{2838C}|\u{283AE} \u{283AE}|\u{283E0} \u{283E0}|\u{283E5} \u{283E5}|\u{287BA} \u{287BA}|\u{287CA} \u{287CA}|\u{288BF} \u{288BF}|\u{288C8} \u{288C8}|\u{288DE} \u{288DE}|\u{288E7} \u{288E7}|\u{2893B} \u{28930}|\u{2895B} \u{2895B}|\u{2895F} \u{2895F}|\u{289AB} \u4980|\u{289C0} \u{2CB4A}|\u{289DC} \u4981|\u{289F0} \u{289F0}|\u{289F1} \u{289F1}|\u{28A0F} \u{2CB5B}|\u{28A1B} \u{28A1B}|\u{28A22} \u{28A22}|\u{28A70} \u{28A70}|\u{28A95} \u{28A95}|\u{28AD2} \u{28AD2}|\u{28B16} \u{28B16}|\u{28B46} \u{2CB76}|\u{28B4E} \u{2CB73}|\u{28B56} \u{28B56}|\u{28B78} \u{28B78}|\u{28B82} \u{28B82}|\u{28BB3} \u{28BB3}|\u{28BC5} \u497F|\u{28BDF} \u{28BDF}|\u{28C03} \u{28C03}|\u{28C0B} \u{28C0B}|\u{28C25} \u{28C25}|\u{28C32} \u{28C32}|\u{28CB3} \u{28CB3}|\u{28CD1} \u{28CD1}|\u{28CD5} \u{28CD5}|\u{28D17} \u{28D17}|\u{28D39} \u{28D39}|\u{28D69} \u{28D69}|\u{28D78} \u{28D78}|\u{28D80} \u{28D80}|\u{28D8F} \u{28D8F}|\u{28DAE} \u{28DAE}|\u{28DB2} \u{28DB2}|\u{28DF2} \u{28DF2}|\u{28F33} \u{28F33}|\u{28F4F} \u{28F4F}|\u{29028} \u{29028}|\u{29159} \u{29159}|\u{29396} \u{29396}|\u{293A2} \u{293A2}|\u{293C2} \u{293C2}|\u{293E0} \u{293E0}|\u{293EA} \u{293EA}|\u{293F7} \u{293F7}|\u{29454} \u{29454}|\u{2948E} \u{2948E}|\u{294E3} \u{294E3}|\u{294E5} \u{294E5}|\u{29511} \u{29511}|\u{29533} \u{29533}|\u{295B0} \u{295B0}|\u{295C0} \u{295C0}|\u{295D3} \u{295D3}|\u{295F4} \u{295F4}|\u{29600} \u{29600}|\u{2961D} \u{2961D}|\u{29639} \u{29639}|\u{2963A} \u{2963A}|\u{29648} \u{29648}|\u{2969B} \u{2969B}|\u{296A5} \u{296A5}|\u{296A9} \u{296A9}|\u{296B5} \u{296B5}|\u{296C6} \u{296C6}|\u{296CC} \u{296CC}|\u{296E1} \u{296E1}|\u{296E9} \u{296E9}|\u{29707} \u{29707}|\u{29726} \u{29726}|\u{29735} \u{29735}|\u{29754} \u{29754}|\u{2977D} \u{2977D}|\u{29784} \u{29784}|\u{297A6} \u{297A6}|\u{297AF} \u4B6A|\u{297D0} \u{297D0}|\u{297D7} \u{297D7}|\u{29834} \u{29820}|\u{29863} \u{29863}|\u{2987A} \u{2987A}|\u{298A1} \u{298A1}|\u{298B4} \u{298B4}|\u{298B8} \u{298B8}|\u{298BE} \u{298BE}|\u{298CF} \u{298CF}|\u{298D1} \u4BC3|\u{298EB} \u{298EB}|\u{298F5} \u{298F5}|\u{298FA} \u{298FA}|\u{2990A} \u{2990A}|\u{29919} \u{29919}|\u{29932} \u{29932}|\u{29938} \u{29938}|\u{29944} \u{29944}|\u{29947} \u{29947}|\u{29949} \u{29949}|\u{29951} \u{29951}|\u{299A0} \u{299A0}|\u{299C6} \u{299C6}|\u{29B59} \u{29B59}|\u{29BC1} \u{29BC1}|\u{29BF3} \u{29BF3}|\u{29C00} \u{29C00}|\u{29C39} \u{29C39}|\u{29CE4} \u{29CE4}|\u{29D35} \u{29D35}|\u{29D66} \u{29D66}|\u{29D69} \u{29D69}|\u{29D79} \u{29D79}|\u{29D81} \u{29D81}|\u{29D98} \u4C9E|\u{29DB0} \u{29DB0}|\u{29DB1} \u{29DB1}|\u{29DF0} \u{29DF0}|\u{29E03} \u{29E03}|\u{29E04} \u{29E04}|\u{29E21} \u{29E21}|\u{29E26} \u{29E26}|\u{29ED7} \u{29ED7}|\u{29EEC} \u{29EEC}|\u{29EEE} \u{29EEE}|\u{29F36} \u{29F36}|\u{29F47} \u{29F47}|\u{29FC5} \u{29FC5}|\u{29FE4} \u{29FE4}|\u{29FEA} \u{29FEA}|\u{2A016} \u{2A016}|\u{2A026} \u{2A026}|\u{2A03E} \u{2A03E}|\u{2A048} \u{2A048}|\u{2A056} \u{2A056}|\u{2A086} \u{2A086}|\u{2A0CD} \u{2A0CD}|\u{2A0CF} \u{2A0CF}|\u{2A0D2} \u{2A0D2}|\u{2A0E7} \u{2A0E7}|\u{2A106} \u{2A106}|\u{2A115} \u{2A115}|\u{2A142} \u{2A142}|\u{2A1B7} \u{2A1B7}|\u{2A1F3} \u{2A1F3}|\u{2A23C} \u{2A23C}|\u{2A278} \u{2A278}|\u{2A2FF} \u{2A2FF}|\u{2A32D} \u{2A32D}|\u{2A360} \u{2A360}|\u{2A4F0} \u{2A4F0}|\u{2A535} \u{2A535}|\u{2A600} \u{2A600}|\u{2A62F} \u{2A62F}|\u{2A64F} \u{2A64F}|\u{2A7D6} \u{2A7D6}|\u{2ADD3} \u{2ADD3}|\u{2B4A1} \u{2B4A1}|\u{2B726} \u{2B726}|\u{30EDE} \u{30EDD}";
+
+// node_modules/opencc-js/dist/esm-lib/to/cn.js
+var cn_default = [[TSPhrases_default, TSCharacters_default]];
+
+// node_modules/opencc-js/dist/esm-lib/dict/TWVariantsPhrases.js
+var TWVariantsPhrases_default = "\u55AB\u8336\u5C0F\u8216 \u55AB\u8336\u5C0F\u8216|\u5F35\u68DF\u6A11 \u5F35\u68DF\u6A11|\u6797\u570B\u6A11 \u6797\u570B\u6A11|\u6797\u6770\u6A11 \u6797\u6770\u6A11|\u694A\u58EB\u6A11 \u694A\u58EB\u6A11|\u725B\u9A65\u540C\u4E00\u7681 \u725B\u9A65\u540C\u4E00\u7681|\u725B\u9A65\u540C\u7681 \u725B\u9A65\u540C\u7681|\u7D14\u55AB\u8336 \u7D14\u55AB\u8336|\u7F85\u8208\u6A11 \u7F85\u8208\u6A11|\u8449\u6B65\u6A11 \u8449\u6B65\u6A11|\u8523\u570B\u6A11 \u8523\u570B\u6A11|\u9EC3\u6771\u6A11 \u9EC3\u6771\u6A11";
+
+// node_modules/opencc-js/dist/esm-lib/dict/TWVariants.js
+var TWVariants_default = "\u50DE \u507D|\u5553 \u555F|\u55AB \u5403|\u5AFA \u5AFB|\u5B00 \u5AAF|\u5CEF \u5CF0|\u5E7A \u4E48|\u68F1 \u7A1C|\u6A11 \u6881|\u6A90 \u7C37|\u6C61 \u6C59|\u6CC4 \u6D29|\u6F59 \u6E88|\u6F68 \u6F40|\u7232 \u70BA|\u7240 \u5E8A|\u75F9 \u75FA|\u7661 \u75F4|\u7681 \u7682|\u7740 \u8457|\u777E \u776A|\u7955 \u79D8|\u7AC8 \u7076|\u7CC9 \u7CBD|\u7E6E \u97C1|\u7E94 \u624D|\u7FA3 \u7FA4|\u8123 \u5507|\u8518 \u53C3|\u853F \u848D|\u8846 \u773E|\u88CF \u88E1|\u8988 \u6838|\u8E0A \u8E34|\u9262 \u7F3D|\u937C \u91DD|\u9B8E \u9BF0|\u9EAA \u9EB5|\u9F76 \u984E";
+
+// node_modules/opencc-js/dist/esm-lib/to/tw.js
+var tw_default = [[TWVariantsPhrases_default, TWVariants_default]];
+
+// danmu_api/utils/zh-util.js
+var toSimplified = ConverterFactory(cn_default), toTraditional = ConverterFactory(
+  [STCharacters_default],
+  tw_default
+);
+function traditionalized(value) {
+  return toTraditional(value);
+}
+function simplized(value) {
+  return toSimplified(value);
+}
+function isNonChinese(value) {
+  return !/[\u4e00-\u9fff]/.test(value);
+}
+
+// danmu_api/utils/platform-util.js
+function platformTitleKey(title) {
+  return simplized(String(title || "").normalize("NFKC")).trim().replace(/\s+/g, " ").toLowerCase();
+}
+var sourceAliases = /* @__PURE__ */ new Map([
+  ["tencent", "qq"],
+  ["iqiyi", "qiyi"],
+  ["bilibili", "bilibili1"]
+]);
+function platformKey(source) {
+  let key = source.trim().toLowerCase();
+  return sourceAliases.get(key) || key;
+}
+function normalizePlatformGroup(value, allowedPlatforms) {
+  if (typeof value != "string" || !value) return "";
+  let parts = value.split(/[&＆]/).map(platformKey);
+  return parts.every((part) => allowedPlatforms.includes(part)) ? [...new Set(parts)].join("&") : "";
+}
+
+// danmu_api/utils/common-util.js
+function printFirst200Chars(data) {
+  let dataToPrint;
+  if (typeof data == "string")
+    dataToPrint = data;
+  else if (Array.isArray(data))
+    dataToPrint = JSON.stringify(data);
+  else if (typeof data == "object")
+    dataToPrint = JSON.stringify(data);
+  else {
+    log("error", "[system] [common] Unsupported data type");
+    return;
+  }
+  log("info", "[system] [common]", dataToPrint.slice(0, 200));
+}
+var extractEpisodeTitle = (title) => {
+  let match = title.match(/【(.*?)】/);
+  return match ? match[1] : null;
+};
+function stripEpisodePlatform(title) {
+  return title.replace(/^【[^】]+】\s*/, "").trim();
+}
+var extractAnimeTitle = (str) => str.split("(")[0].trim();
+function extractYear(animeTitle) {
+  let match = animeTitle.match(/\((\d{4})\)/);
+  return match ? parseInt(match[1]) : null;
+}
+function convertChineseNumber(chineseNumber) {
+  if (/^\d+$/.test(chineseNumber))
+    return Number(chineseNumber);
+  let digits = {
+    // 简体
+    \u96F6: 0,
+    \u4E00: 1,
+    \u4E8C: 2,
+    \u4E09: 3,
+    \u56DB: 4,
+    \u4E94: 5,
+    \u516D: 6,
+    \u4E03: 7,
+    \u516B: 8,
+    \u4E5D: 9,
+    // 繁体
+    \u58F9: 1,
+    \u8CB3: 2,
+    \u53C3: 3,
+    \u8086: 4,
+    \u4F0D: 5,
+    \u9678: 6,
+    \u67D2: 7,
+    \u634C: 8,
+    \u7396: 9
+  }, units = {
+    // 简体
+    \u5341: 10,
+    \u767E: 100,
+    \u5343: 1e3,
+    // 繁体
+    \u62FE: 10,
+    \u4F70: 100,
+    \u4EDF: 1e3
+  }, result = 0, current = 0, lastUnit = 1;
+  for (let i = 0; i < chineseNumber.length; i++) {
+    let char = chineseNumber[i];
+    if (digits[char] !== void 0)
+      current = digits[char];
+    else if (units[char] !== void 0) {
+      let unit = units[char];
+      current === 0 && (current = 1), unit >= lastUnit ? result = current * unit : result += current * unit, lastUnit = unit, current = 0;
+    }
+  }
+  return current > 0 && (result += current), result;
+}
+function sanitizeSearchKeyword(str) {
+  return str ? String(str).replace(/[\u200B-\u200F\uFEFF]/g, "").trim() : "";
+}
+function stripNonTitleChars(str) {
+  return str ? String(str).replace(/[^\u4e00-\u9fa5\u3400-\u4DBF\u{20000}-\u{2EE5F}\u{30000}-\u{323AF}\u3040-\u30ff\uFF65-\uFF9F\uAC00-\uD7AFa-zA-Z0-9\uFF10-\uFF19\uFF21-\uFF3A\uFF41-\uFF5A\u2160-\u217F\u0400-\u04FF\u00C0-\u024F\u0370-\u03FF]/gu, "") : "";
+}
+function normalizeTitleForMatch(str) {
+  return str ? stripNonTitleChars(simplized(String(str))) : "";
+}
+function strictTitleMatch(title, query) {
+  if (!title || !query) return !1;
+  let tagFilter = globals.titleNoiseFilter || null, cleanTitle = tagFilter ? title.replace(tagFilter, "").trim() : title, cleanQuery = tagFilter ? query.replace(tagFilter, "").trim() : query, t = normalizeTitleForMatch(cleanTitle), q = normalizeTitleForMatch(cleanQuery);
+  if (t === q) return !0;
+  if (t.startsWith(q) && t.length > q.length) {
+    let suffix = t.substring(q.length);
+    if (/^(?:[\dⅡⅢⅣⅤⅥⅦⅧⅨⅩ]|[sS]\d+|Season\s*\d+|Part\s*\d+|第\d+|[第]?\s*[零一二三四五六七八九十]+\s*[季期部]|年番|合集|部(?!分)|部分|篇|剧场|完结|最终)/.test(suffix)) return !0;
+  }
+  return !1;
+}
+function getExplicitSeasonNumber(text) {
+  if (!text) return null;
+  let match = text.match(/(?:第\s*([0-9一二三四五六七八九十百千万]+)\s*[季期部])|(?:S(?:eason)?\s*(\d+))|(?:Part\s*(\d+))/i);
+  if (match) {
+    let numStr = match[1] || match[2] || match[3];
+    if (numStr)
+      return convertChineseNumber(numStr);
+  }
+  return null;
+}
+function titleDecisionMeta({ forceNonStrict = !1, threshold = 0.8 } = {}) {
+  return !forceNonStrict && globals.strictTitleMatch ? { config: "STRICT_TITLE_MATCH", label: "\u4E25\u683C\u6807\u9898\u5339\u914D", mode: "\u4E25\u683C\u5339\u914D\uFF08\u6807\u9898\u76F8\u7B49\u6216\u641C\u7D22\u8BCD\u5F00\u5934\u52A0\u5B63\u53F7\uFF09" } : { config: null, label: "\u9ED8\u8BA4\u6807\u9898\u5339\u914D\uFF08\u5305\u542B / \u76F8\u4F3C\u5EA6\uFF09", mode: `\u5305\u542B\u5339\u914D + \u76F8\u4F3C\u5EA6\uFF08\u9608\u503C ${threshold}\uFF09` };
+}
+function titleMatches(title, query, parsedSeason = null, forceNonStrict = !1, threshold = 0.8, group = null) {
+  let strictMode = !forceNonStrict && globals.strictTitleMatch, decision = titleDecisionMeta({ forceNonStrict, threshold }), finish = (matched, reason) => (forceNonStrict || recordTitleDecision({
+    ...decision,
+    group,
+    source: sourceLogContext.getStore() || "",
+    query,
+    value: title,
+    matched,
+    reason
+  }), matched);
+  if (title == null || query == null) return finish(!1, "\u6807\u9898\u6216\u641C\u7D22\u8BCD\u4E3A\u7A7A");
+  let titleText = String(title), queryText = String(query);
+  if (!titleText || !queryText) return finish(!1, "\u6807\u9898\u6216\u641C\u7D22\u8BCD\u4E3A\u7A7A");
+  if (strictMode) {
+    let matched = strictTitleMatch(titleText, queryText);
+    return finish(matched, matched ? "\u4E25\u683C\u5339\u914D\uFF1A\u5B8C\u5168\u76F8\u7B49\u6216\u641C\u7D22\u8BCD\u5F00\u5934\u52A0\u5B63\u53F7" : "\u4E25\u683C\u5339\u914D\uFF1A\u6807\u9898\u4E0D\u4EE5\u641C\u7D22\u8BCD\u5F00\u5934");
+  }
+  let tagFilter = globals.titleNoiseFilter || null, cleanTitle = tagFilter ? titleText.replace(tagFilter, "").trim() : titleText, t = normalizeTitleForMatch(cleanTitle).toLowerCase(), qList = [normalizeTitleForMatch(queryText).toLowerCase()], querySeason = parsedSeason !== null ? parsedSeason : getExplicitSeasonNumber(queryText);
+  if (querySeason !== null && parsedSeason === null) {
+    let seasonStripped = queryText.replace(/(?:season|s|第)\s*[0-9一二三四五六七八九十]+\s*(?:季|期|部(?!分))?/gi, "").trim();
+    seasonStripped && seasonStripped !== queryText && (qList = [.../* @__PURE__ */ new Set([...qList, normalizeTitleForMatch(seasonStripped).toLowerCase()])]);
+  }
+  if (tagFilter) {
+    let tagStripped = queryText.replace(tagFilter, "").trim();
+    tagStripped && tagStripped !== queryText && (qList = [.../* @__PURE__ */ new Set([...qList, normalizeTitleForMatch(tagStripped).toLowerCase()])]);
+  }
+  if (querySeason !== null) {
+    let titleSeason = getExplicitSeasonNumber(titleText);
+    if (querySeason > 1) {
+      if (titleSeason !== null && titleSeason !== querySeason) return finish(!1, `\u5B63\u5EA6\u6821\u9A8C\uFF1A\u6807\u9898 S${titleSeason} \u4E0E\u67E5\u8BE2 S${querySeason} \u4E0D\u4E00\u81F4`);
+    } else if (querySeason === 1 && titleSeason !== null && titleSeason !== 1)
+      return finish(!1, `\u5B63\u5EA6\u6821\u9A8C\uFF1A\u6807\u9898 S${titleSeason} \u4E0E\u67E5\u8BE2 S1 \u4E0D\u4E00\u81F4`);
+  }
+  if (qList.some((kw) => t.includes(kw))) return finish(!0, "\u5305\u542B\u5339\u914D\u547D\u4E2D");
+  let simMatch = qList.some((kw) => {
+    if (Math.abs(t.length - kw.length) > Math.max(t.length, kw.length) * 0.7 || /^[a-zA-Z0-9]+$/.test(kw))
+      return !1;
+    let matchCount = 0, tIndex = 0;
+    for (let char of kw) {
+      let foundIdx = t.indexOf(char, tIndex);
+      foundIdx !== -1 && (matchCount++, tIndex = foundIdx + 1);
+    }
+    return matchCount / kw.length > threshold;
+  });
+  if (!simMatch) {
+    let yearStripped = queryText.replace(/[\(\（]\s*(?:19|20)\d{2}\s*[\)\）]|\b(?:19|20)\d{2}\b/g, "").trim();
+    if (yearStripped && yearStripped !== queryText) {
+      let cleanYear = tagFilter ? yearStripped.replace(tagFilter, "").trim() : yearStripped, yearQ = normalizeTitleForMatch(cleanYear).toLowerCase(), titleHasYear = /[\(\（]\s*(?:19|20)\d{2}\s*[\)\）]|\b(?:19|20)\d{2}\b/.test(titleText);
+      if (yearQ && t.includes(yearQ) && !titleHasYear) return finish(!0, "\u53BB\u5E74\u4EFD\u515C\u5E95\u547D\u4E2D");
+    }
+  }
+  return finish(simMatch, simMatch ? "\u76F8\u4F3C\u5EA6\u5339\u914D\u547D\u4E2D" : "\u5305\u542B\u5339\u914D\u4E0E\u76F8\u4F3C\u5EA6\u5339\u914D\u5747\u672A\u547D\u4E2D");
+}
+function validateType(value, expectedType, fieldName) {
+  let label = fieldName || `${value}`, received = value === null ? "null" : Array.isArray(value) ? "array" : typeof value;
+  if (expectedType === "array") {
+    if (!Array.isArray(value))
+      throw new TypeError(`${label} \u5FC5\u987B\u662F\u4E00\u4E2A\u6570\u7EC4\uFF0C\u4F46\u4F20\u5165\u7684\u662F ${received}`);
+  } else if (expectedType === "boolean") {
+    if (typeof value != "boolean" && typeof value != "number")
+      throw new TypeError(`${label} \u5FC5\u987B\u662F boolean \u6216 number\uFF0C\u4F46\u4F20\u5165\u7684\u662F ${received}`);
+  } else if (typeof value !== expectedType)
+    throw new TypeError(`${label} \u5FC5\u987B\u662F ${expectedType}\uFF0C\u4F46\u4F20\u5165\u7684\u662F ${received}`);
+}
+function extractSeasonNumberFromAnimeTitle(animeTitle) {
+  if (!animeTitle) return { season: null, baseTitle: null, fullTitle: null };
+  let match = animeTitle.match(/^(.*?)\(\d{4}\)/), rawTitleWithoutYear = match ? match[1].trim() : animeTitle.split("(")[0].trim(), titleWithoutYear = stripNonTitleChars(rawTitleWithoutYear), explicitSeasonMatch = titleWithoutYear.match(/第\s*([0-9一二三四五六七八九十壹贰叁肆伍陆柒捌玖拾]+)\s*[季期部]/);
+  if (explicitSeasonMatch)
+    return {
+      season: convertChineseNumber(explicitSeasonMatch[1]),
+      baseTitle: titleWithoutYear.replace(explicitSeasonMatch[0], "").trim(),
+      fullTitle: titleWithoutYear
+    };
+  let seasonMatch = titleWithoutYear.match(/(?:S(?:eason)?|Season)\s*(\d+)/i);
+  if (seasonMatch)
+    return {
+      season: parseInt(seasonMatch[1], 10),
+      baseTitle: titleWithoutYear.replace(seasonMatch[0], "").trim(),
+      fullTitle: titleWithoutYear
+    };
+  let partMatch = titleWithoutYear.match(/Part\s*(\d+)/i);
+  if (partMatch)
+    return {
+      season: parseInt(partMatch[1], 10),
+      baseTitle: titleWithoutYear.replace(partMatch[0], "").trim(),
+      fullTitle: titleWithoutYear
+    };
+  let trailingNumber = titleWithoutYear.match(/(?:^|\s|[^\d])(\d{1,2})$/);
+  if (trailingNumber) {
+    let season = parseInt(trailingNumber[1], 10);
+    return season === 0 ? { season: null, baseTitle: titleWithoutYear, fullTitle: titleWithoutYear } : {
+      season,
+      baseTitle: titleWithoutYear.slice(0, titleWithoutYear.lastIndexOf(trailingNumber[1])).trim(),
+      fullTitle: titleWithoutYear
+    };
+  }
+  let trailingChinese = titleWithoutYear.match(/([一二三四五六七八九十壹贰叁肆伍陆柒捌玖拾]+)$/);
+  if (trailingChinese)
+    return {
+      season: convertChineseNumber(trailingChinese[1]),
+      baseTitle: titleWithoutYear.replace(trailingChinese[0], "").trim(),
+      fullTitle: titleWithoutYear
+    };
+  let romanMatch = titleWithoutYear.match(/[\u2160-\u216B]/);
+  return romanMatch ? {
+    season: romanMatch[0].codePointAt(0) - 8544 + 1,
+    baseTitle: titleWithoutYear.replace(romanMatch[0], "").trim(),
+    fullTitle: titleWithoutYear
+  } : { season: null, baseTitle: titleWithoutYear, fullTitle: titleWithoutYear };
+}
+function extractEpisodeNumberFromTitle(episodeTitle, ordinalOnly = !1) {
+  if (!episodeTitle) return null;
+  ordinalOnly && (episodeTitle = episodeTitle.replace(/(?<!\d)(?:19|20)\d{2}(?:0[1-9]|1[0-2])(?:0[1-9]|[12]\d|3[01])(?!\d)/g, " "));
+  let chineseMatch = episodeTitle.match(ordinalOnly ? /第\s*(\d+)\s*[集话回期]/ : /第(\d+)[集话回]/);
+  if (chineseMatch)
+    return parseInt(chineseMatch[1], 10);
+  let epMatch = episodeTitle.match(/[Ee][Pp]?(\d+)/);
+  if (epMatch)
+    return parseInt(epMatch[1], 10);
+  let numberMatch = episodeTitle.match(/(?:^|\s)(\d+)(?:\s|$)/);
+  return numberMatch ? parseInt(numberMatch[1], 10) : null;
+}
+function extractAnimeInfo(animeTitle, episodeTitle) {
+  let { season, baseTitle, fullTitle } = extractSeasonNumberFromAnimeTitle(animeTitle), episode = extractEpisodeNumberFromTitle(episodeTitle);
+  return { baseTitle, fullTitle, season, episode };
+}
+
+// danmu_api/utils/offset-util.js
+function normalizeSegment(segment) {
+  let seasonMatch = segment.match(/^S(\d+)$/i);
+  if (seasonMatch) return `S${String(parseInt(seasonMatch[1])).padStart(2, "0")}`;
+  let episodeMatch = segment.match(/^E(\d+)$/i);
+  return episodeMatch ? `E${String(parseInt(episodeMatch[1])).padStart(2, "0")}` : segment;
+}
+function parseOffsetRules(env) {
+  return !env || typeof env != "string" ? [] : env.split(",").map((entry) => {
+    let trimmed = entry.trim(), colonIdx = trimmed.lastIndexOf(":");
+    if (colonIdx === -1) return null;
+    let rawPath = trimmed.substring(0, colonIdx), offsetStr = trimmed.substring(colonIdx + 1);
+    if (!rawPath || offsetStr === "") return null;
+    let offset = parseFloat(offsetStr);
+    if (!Number.isFinite(offset)) return null;
+    let usePercent = !1, normalizedPath = rawPath.trim();
+    normalizedPath.endsWith("%") && (usePercent = !0, normalizedPath = normalizedPath.slice(0, -1).trim());
+    let atIdx = normalizedPath.lastIndexOf("@"), pathPart, sources, all;
+    if (atIdx !== -1) {
+      pathPart = normalizedPath.substring(0, atIdx);
+      let sourcePart = normalizedPath.substring(atIdx + 1).trim().toLowerCase();
+      if (sourcePart === "all" || sourcePart === "*")
+        sources = null, all = !0;
+      else if (sources = sourcePart.split("&").map((s) => s.trim()).filter(Boolean), all = !1, sources.length === 0) return null;
+    } else
+      pathPart = normalizedPath, sources = null, all = !1;
+    let seMatch = pathPart.match(/^(.*?)\/([SE]\d+)(?:\/([SE]\d+))?$/i), anime = seMatch ? seMatch[1].trim() : pathPart.trim();
+    if (!anime) return null;
+    let season = seMatch ? normalizeSegment(seMatch[2]) : null, episode = seMatch && seMatch[3] ? normalizeSegment(seMatch[3]) : null;
+    return { anime, season, episode, sources, all, offset, usePercent, raw: trimmed };
+  }).filter(Boolean);
+}
+function resolveOffsetRule(rules, { anime, fullTitle, season, episode, source }) {
+  if (!Array.isArray(rules) || rules.length === 0 || !anime) return null;
+  let animeKey = normalizeTitleForMatch(anime), fullTitleKey = fullTitle ? normalizeTitleForMatch(fullTitle) : "", sourceKeys = /* @__PURE__ */ new Set();
+  if (source)
+    for (let s of source.split("&")) {
+      let trimmed = s.trim().toLowerCase();
+      trimmed && (sourceKeys.add(trimmed), sourceKeys.add(platformKey(trimmed)));
+    }
+  let levels = [
+    { matchSeason: !0, matchEpisode: !0 },
+    // 集级
+    { matchSeason: !0, matchEpisode: !1 },
+    // 季级
+    { matchSeason: !1, matchEpisode: !1 }
+    // 剧级
+  ];
+  for (let level of levels) {
+    let specificMatch = null, allMatch = null, genericMatch = null;
+    for (let rule of rules) {
+      let ruleTitle = normalizeTitleForMatch(rule.anime);
+      if (!(ruleTitle !== animeKey && !(fullTitleKey && ruleTitle === fullTitleKey))) {
+        if (level.matchEpisode) {
+          if (!rule.season || !rule.episode || rule.season !== season || rule.episode !== episode) continue;
+        } else if (level.matchSeason) {
+          if (!rule.season || rule.episode || rule.season !== season) continue;
+        } else if (rule.season || rule.episode) continue;
+        rule.sources ? sourceKeys.size > 0 && rule.sources.some((s) => sourceKeys.has(s)) && (specificMatch = rule) : rule.all ? allMatch = rule : genericMatch = rule;
+      }
+    }
+    if (specificMatch !== null) return specificMatch;
+    if (allMatch !== null) return allMatch;
+    if (genericMatch !== null) return genericMatch;
+  }
+  return null;
+}
+function applyOffset(danmus, offsetSeconds, options = {}) {
+  let offset = Number(offsetSeconds);
+  if (!offset || !Array.isArray(danmus) || danmus.length === 0) return danmus;
+  let usePercent = options?.usePercent === !0, videoDuration = Number(options?.videoDuration || 0), getDanmuTimeSeconds = (danmu) => {
+    if (!danmu || typeof danmu != "object") return null;
+    if (typeof danmu.p == "string") {
+      let parts = danmu.p.split(","), time = parseFloat(parts[0]);
+      if (Number.isFinite(time)) return time;
+    }
+    if (danmu.t !== void 0 && danmu.t !== null) {
+      let time = Number(danmu.t);
+      if (Number.isFinite(time)) return time;
+    }
+    if (danmu.progress !== void 0 && danmu.progress !== null) {
+      let time = Number(danmu.progress);
+      if (Number.isFinite(time)) return time / 1e3;
+    }
+    if (danmu.timepoint !== void 0 && danmu.timepoint !== null) {
+      let time = Number(danmu.timepoint);
+      if (Number.isFinite(time)) return time;
+    }
+    return null;
+  }, fallbackDuration = videoDuration > 0 ? videoDuration : getDanmuTimeSeconds(danmus[danmus.length - 1]) || 0, scaleRatio = usePercent && Number.isFinite(fallbackDuration) && fallbackDuration > 0 ? (fallbackDuration + offset) / fallbackDuration : null;
+  if (usePercent && scaleRatio === null) return danmus;
+  let offsetMs = offset * 1e3, clamp = (v) => Math.max(0, v), roundTo = (value, digits = 2) => Number(value.toFixed(digits)), transformSeconds = (time) => {
+    let value = clamp(scaleRatio !== null ? time * scaleRatio : time + offset);
+    return scaleRatio !== null ? roundTo(value, 2) : value;
+  }, transformMilliseconds = (time) => {
+    let value = clamp(scaleRatio !== null ? time * scaleRatio : time + offsetMs);
+    return scaleRatio !== null ? Math.round(value) : value;
+  };
+  return danmus.map((danmu) => {
+    if (!danmu || typeof danmu != "object") return danmu;
+    let updated = { ...danmu };
+    if (typeof updated.p == "string") {
+      let parts = updated.p.split(","), time = parseFloat(parts[0]);
+      Number.isFinite(time) && (parts[0] = transformSeconds(time).toFixed(2), updated.p = parts.join(","));
+    }
+    if (updated.t !== void 0 && updated.t !== null) {
+      let t = Number(updated.t);
+      Number.isFinite(t) && (updated.t = transformSeconds(t));
+    }
+    if (updated.progress !== void 0 && updated.progress !== null) {
+      let p = Number(updated.progress);
+      Number.isFinite(p) && (updated.progress = transformMilliseconds(p));
+    }
+    if (updated.timepoint !== void 0 && updated.timepoint !== null) {
+      let tp = Number(updated.timepoint);
+      Number.isFinite(tp) && (updated.timepoint = transformSeconds(tp));
+    }
+    return updated;
+  });
+}
+function offsetDuration(duration, offset, usePercent) {
+  return !(duration > 0) || !offset ? duration : applyOffset([{ t: duration }], offset, { usePercent, videoDuration: duration })[0].t;
+}
+function stripLinkOffset(rawUrl) {
+  let url = String(rawUrl ?? ""), percentMatch = url.match(/@%(-?\d+(?:\.\d+)?)$/);
+  if (percentMatch)
+    return { cleanUrl: url.substring(0, url.length - percentMatch[0].length), offset: parseFloat(percentMatch[1]), percent: !0 };
+  let offsetMatch = url.match(/@(-?\d+(?:\.\d+)?)$/);
+  return offsetMatch ? { cleanUrl: url.substring(0, url.length - offsetMatch[0].length), offset: parseFloat(offsetMatch[1]), percent: !1 } : { cleanUrl: url, offset: 0, percent: !1 };
+}
+
+// danmu_api/utils/auto-match-mapping-util.js
+var NON_RULE_TITLE_CHARACTERS = (() => {
+  try {
+    return new RegExp("[^\\p{L}\\p{N}]", "gu");
+  } catch {
+    return /[^0-9A-Za-z\u00C0-\u00D6\u00D8-\u00F6\u00F8-\u02FF\u0370-\u052F\u05D0-\u05EA\u05EF-\u05F2\u0620-\u063F\u0640-\u064A\u0660-\u0669\u0671-\u06D3\u06D5\u06EE-\u06FC\u06FF\u1100-\u11FF\u3005-\u3007\u3031-\u3035\u3038-\u303B\u3041-\u3096\u309D-\u309F\u30A1-\u30FA\u30FC-\u30FF\u3105-\u312F\u3131-\u318E\u31A0-\u31BF\u31F0-\u31FF\u3400-\u4DBF\u4E00-\u9FFF\uA960-\uA97F\uAC00-\uD7A3\uD7B0-\uD7FF\uF900-\uFAFF]/g;
+  }
+})();
+function normalizeRuleTitle(value) {
+  return String(value || "").normalize("NFKC").replace(NON_RULE_TITLE_CHARACTERS, "").toLowerCase();
+}
+function parseEpisodeSide(value, { allowPlatform = !1, allowSeasonZero = !1 } = {}) {
+  let text = String(value || "").trim(), platform = "";
+  if (allowPlatform) {
+    let platformMatch = text.match(/\s+@([a-zA-Z0-9_-]+)\s*$/);
+    platformMatch && (platform = platformMatch[1].toLowerCase(), text = text.slice(0, platformMatch.index).trim());
+  }
+  let match = text.match(/^(.+?)\s+S(\d+)E(\d+)(?:~E?(\d+))?\s*$/i);
+  if (!match) return null;
+  let title = match[1].trim(), season = Number(match[2]), startEpisode = Number(match[3]), endEpisode = match[4] === void 0 ? null : Number(match[4]);
+  return !title || season < (allowSeasonZero ? 0 : 1) || startEpisode < 1 || endEpisode !== null && endEpisode < startEpisode ? null : { title, season, startEpisode, endEpisode, platform };
+}
+function parseTargetTitle(value) {
+  let displayTitle = String(value || "").trim(), yearMatch = displayTitle.match(/[（(]((?:19|20)\d{2})[)）]/), typeMatches = [...displayTitle.matchAll(/【([^】]+)】/g)], mediaType = typeMatches.length > 0 ? typeMatches[typeMatches.length - 1][1].trim() : "";
+  return {
+    title: displayTitle.replace(/[（(](?:19|20)\d{2}[)）]/g, "").replace(/【[^】]+】/g, "").trim(),
+    displayTitle,
+    year: yearMatch ? Number(yearMatch[1]) : null,
+    mediaType
+  };
+}
+function parseAutoMatchMappingRules(value, allowedPlatforms = []) {
+  let rules = [], warnings = [], allowed = new Set((allowedPlatforms || []).map((item) => String(item).toLowerCase()));
+  for (let [index, rawRule] of String(value || "").split(";").entries()) {
+    let text = rawRule.trim();
+    if (!text) continue;
+    let arrowIndex = text.indexOf("->");
+    if (arrowIndex === -1 || text.indexOf("->", arrowIndex + 2) !== -1) {
+      warnings.push(`\u89C4\u5219 ${index + 1} \u7F3A\u5C11\u552F\u4E00\u7684 -> \u5206\u9694\u7B26: ${text}`);
+      continue;
+    }
+    let source = parseEpisodeSide(text.slice(0, arrowIndex), { allowSeasonZero: !0 }), targetSide = parseEpisodeSide(text.slice(arrowIndex + 2), { allowPlatform: !0 });
+    if (!source || !targetSide) {
+      warnings.push(`\u89C4\u5219 ${index + 1} \u7684\u5B63\u96C6\u683C\u5F0F\u65E0\u6548: ${text}`);
+      continue;
+    }
+    let bounded = source.endEpisode !== null;
+    if (bounded !== (targetSide.endEpisode !== null)) {
+      warnings.push(`\u89C4\u5219 ${index + 1} \u7684\u6E90\u548C\u76EE\u6807\u5FC5\u987B\u540C\u65F6\u58F0\u660E\u8303\u56F4: ${text}`);
+      continue;
+    }
+    if (bounded && source.endEpisode - source.startEpisode !== targetSide.endEpisode - targetSide.startEpisode) {
+      warnings.push(`\u89C4\u5219 ${index + 1} \u7684\u6E90\u548C\u76EE\u6807\u8303\u56F4\u957F\u5EA6\u4E0D\u4E00\u81F4: ${text}`);
+      continue;
+    }
+    if (targetSide.platform && allowed.size > 0 && !allowed.has(targetSide.platform)) {
+      warnings.push(`\u89C4\u5219 ${index + 1} \u4F7F\u7528\u4E86\u4E0D\u652F\u6301\u7684\u5E73\u53F0 ${targetSide.platform}: ${text}`);
+      continue;
+    }
+    let targetTitle = parseTargetTitle(targetSide.title);
+    if (!targetTitle.title) {
+      warnings.push(`\u89C4\u5219 ${index + 1} \u7684\u76EE\u6807\u6807\u9898\u4E3A\u7A7A: ${text}`);
+      continue;
+    }
+    rules.push({
+      order: index,
+      raw: text,
+      bounded,
+      sourceTitle: source.title,
+      sourceTitleKey: normalizeRuleTitle(source.title),
+      sourceSeason: source.season,
+      sourceStartEpisode: source.startEpisode,
+      sourceEndEpisode: source.endEpisode,
+      targetTitle: targetTitle.title,
+      targetDisplayTitle: targetTitle.displayTitle,
+      targetYear: targetTitle.year,
+      targetType: targetTitle.mediaType,
+      targetSeason: targetSide.season,
+      targetStartEpisode: targetSide.startEpisode,
+      targetEndEpisode: targetSide.endEpisode,
+      targetPlatform: targetSide.platform
+    });
+  }
+  return { rules, warnings };
+}
+
+// danmu_api/configs/envs.js
+var _Envs = class _Envs {
+  /**
+   * 获取环境变量
+   * @param {string} key 环境变量的键
+   * @param {any} defaultValue 默认值
+   * @param {'string' | 'number' | 'boolean'} type 类型
+   * @param {boolean} [encrypt] 是否按加密变量读取，其值按掩码写入预览集合
+   * @returns {any} 转换后的值
+   */
+  static get(key, defaultValue, type = "string", encrypt = !1) {
+    if (encrypt && _Envs.sensitiveKeys.add(key), type === "string" && _Envs.RAW_ENV_KEYS.has(key))
+      return this.getRawEnv(key, defaultValue, encrypt);
+    let value;
+    typeof this.env < "u" && this.env[key] ? (value = this.env[key], this.originalEnvVars.set(key, value)) : typeof process < "u" && process.env?.[key] ? (value = process.env[key], this.originalEnvVars.set(key, value)) : (value = defaultValue, this.originalEnvVars.set(key, ""));
+    let parsedValue;
+    switch (type) {
+      case "number":
+        if (parsedValue = Number(value), isNaN(parsedValue))
+          throw new Error(`Environment variable ${key} must be a valid number`);
+        break;
+      case "boolean":
+        parsedValue = value === !0 || value === "true" || value === 1 || value === "1";
+        break;
+      case "string":
+      default:
+        parsedValue = String(value);
+        break;
+    }
+    let finalValue = encrypt ? this.encryptStr(parsedValue) : parsedValue;
+    return this.accessedEnvVars.set(key, finalValue), parsedValue;
+  }
+  /**
+   * 设置环境变量
+   * @param {string} key 环境变量的键
+   * @param {any} value 值
+   */
+  static set(key, value) {
+    typeof process < "u" && (process.env[key] = String(value)), this.accessedEnvVars.set(key, value);
+  }
+  /**
+   * 基础加密函数 - 将字符串转换为星号
+   * @param {string} str 输入字符串
+   * @returns {string} 星号字符串
+   */
+  static encryptStr(str) {
+    return "*".repeat(str.length);
+  }
+  /**
+   * 解析 .env 原始内容：跳过整行 # 注释、保留行内 #，并剥除整体双引号包裹（与 node-handler 引号写入一致）。
+   * @param {string} text .env 文件原始内容
+   * @returns {Object} 键值映射
+   */
+  static parseRawEnvText(text) {
+    let result = {};
+    if (typeof text != "string") return result;
+    let lines = text.split(/\r?\n/);
+    for (let line of lines) {
+      let trimmed = line.trim();
+      if (!trimmed || trimmed.startsWith("#")) continue;
+      let eq = trimmed.indexOf("=");
+      if (eq === -1) continue;
+      let key = trimmed.slice(0, eq).trim();
+      if (!key) continue;
+      let value = trimmed.slice(eq + 1).trim();
+      value.length >= 2 && value.startsWith('"') && value.endsWith('"') && (value = value.slice(1, -1)), result[key] = value;
+    }
+    return result;
+  }
+  /**
+   * 读取文本类变量，绕过 dotenv 截断保留 #：系统环境变量 > .env 原始值 > 默认值；非 Node 部署退化为普通取值。
+   * @param {string} key 环境变量键
+   * @param {string} defaultValue 默认值
+   * @param {boolean} encrypt 是否按掩码写入预览集合
+   * @returns {string} 原始值（含 #）
+   */
+  static getRawEnv(key, defaultValue = "", encrypt = !1) {
+    let finalize = (v) => (this.originalEnvVars.set(key, v), this.accessedEnvVars.set(key, encrypt ? this.encryptStr(v) : v), v);
+    return _Envs.systemEnvBackup ? Object.prototype.hasOwnProperty.call(_Envs.systemEnvBackup, key) ? finalize(_Envs.systemEnvBackup[key]) : _Envs.rawEnvValues && Object.prototype.hasOwnProperty.call(_Envs.rawEnvValues, key) ? finalize(_Envs.rawEnvValues[key]) : typeof process < "u" && process.env?.[key] ? finalize(process.env[key]) : finalize(defaultValue) : this.env && this.env[key] ? finalize(this.env[key]) : typeof process < "u" && process.env?.[key] ? finalize(process.env[key]) : finalize(defaultValue);
+  }
+  /**
+   * 解析 VOD 服务器配置
+   * @returns {Array} 服务器列表
+   */
+  static resolveVodServers() {
+    let vodServersConfig = this.get("VOD_SERVERS", "", "string");
+    return !vodServersConfig || vodServersConfig.trim() === "" ? [] : vodServersConfig.split(",").map((s) => s.trim()).filter((s) => s.length > 0).map((item, index) => {
+      if (item.includes("@")) {
+        let [name, url] = item.split("@").map((s) => s.trim());
+        return { name: name || `vod-${index + 1}`, url };
+      }
+      return { name: `vod-${index + 1}`, url: item };
+    }).filter((server) => server.url && server.url.length > 0);
+  }
+  /**
+   * 解析源排序
+   * @returns {Array} 源排序数组
+   */
+  static resolveSourceOrder() {
+    let orderArr = this.get("SOURCE_ORDER", "douban,360,renren,hanjutv", "string").split(",").map((s) => s.trim()).filter((s) => this.ALLOWED_SOURCES.includes(s));
+    return this.accessedEnvVars.set("SOURCE_ORDER", orderArr), orderArr.length > 0 ? orderArr : ["douban", "360", "renren", "hanjutv"];
+  }
+  /**
+   * 解析平台排序
+   * 支持单个平台或通过&连接的组合平台（如 bilibili1&dandan）
+   * @returns {Array} 平台排序数组
+   */
+  static resolvePlatformOrder() {
+    let orderArr = this.get("PLATFORM_ORDER", "", "string").split(",").map((item) => normalizePlatformGroup(item, this.ALLOWED_PLATFORMS)).filter(Boolean);
+    return this.accessedEnvVars.set("PLATFORM_ORDER", orderArr), orderArr.length > 0 ? [...orderArr, null] : [null];
+  }
+  /**
+   * 解析源合并配置
+   * 从环境变量 MERGE_SOURCE_PAIRS 获取配置
+   * 支持使用分号或逗号分隔多组配置
+   * 支持一主多从配置，第一个为主源，后续为副源
+   * 允许单源配置（用于保留特定源的原始结果，不被合并消耗）
+   * 格式示例: dandan&bahamut&animeko,renren&hanjutv,renren
+   * @returns {Array} 合并配置数组 [{primary: 'dandan', secondaries: ['bahamut', 'animeko']}, {primary: 'renren', secondaries: ['hanjutv']}, {primary: 'renren', secondaries: []}]
+   */
+  static resolveMergeSourcePairs() {
+    let config = this.get("MERGE_SOURCE_PAIRS", "", "string");
+    return config ? config.split(/[,;]/).map((group) => {
+      if (!group) return null;
+      let parts = group.split("&").map((s) => s.trim()).filter((s) => s);
+      if (parts.length < 1) return null;
+      let primary = parts[0], secondaries = parts.slice(1);
+      if (!this.MERGE_ALLOWED_SOURCES.includes(primary)) return null;
+      let validSecondaries = secondaries.filter(
+        (sec) => sec !== primary && this.MERGE_ALLOWED_SOURCES.includes(sec)
+      );
+      return { primary, secondaries: validSecondaries };
+    }).filter(Boolean) : [];
+  }
+  /**
+   * 解析合并映射表
+   * 用于解析用户自定义的剧集/季度级别合并与乱序重排规则，以及阻断特定合并。
+   * 支持从全局强制合并到精确单集的路由干预，解决跨源集数错位问题。
+   * 格式: 
+   * 合并: 副源实体 -> 主源实体 | 路由规则
+   * 阻断: 副源实体 × 主源实体
+   * @returns {Array} 解析后的规则对象列表
+   */
+  static resolveCustomMergeRules() {
+    let raw = this.get("CUSTOM_MERGE_RULES", "", "string").trim();
+    if (!raw) return [];
+    let rules = [], ruleStrs = raw.split(";");
+    for (let rStr of ruleStrs)
+      if (rStr.trim())
+        try {
+          let parts = rStr.split("|"), entities = parts[0], routesStr = parts[1] || "", secStr, primStr, action = "merge";
+          if (entities.includes("->"))
+            [secStr, primStr] = entities.split("->").map((s) => s.trim());
+          else if (entities.includes("\xD7"))
+            [secStr, primStr] = entities.split("\xD7").map((s) => s.trim()), action = "block";
+          else
+            continue;
+          if (!secStr || !primStr) continue;
+          let parseEntity = (str) => {
+            let match = str.match(/^(.+?)(?:\/S(\d+))?@([a-zA-Z0-9_&]+)$/i);
+            return match ? {
+              title: match[1].trim(),
+              season: match[2] ? parseInt(match[2], 10) : null,
+              source: match[3].toLowerCase()
+            } : null;
+          }, secEntity = parseEntity(secStr), primEntity = parseEntity(primStr);
+          if (!secEntity || !primEntity) continue;
+          let routes = [], hasRoutes = !1;
+          if (action === "merge" && routesStr.trim()) {
+            hasRoutes = !0;
+            let routeParts = routesStr.split(",");
+            for (let rp of routeParts) {
+              if (!rp.trim()) continue;
+              let [sPart, pPart] = rp.split(">").map((s) => s.trim());
+              if (!sPart || !pPart) continue;
+              let parseRange = (r) => {
+                let match = r.match(/^E(\d+)(?:~E(\d+))?$/i);
+                return match ? {
+                  start: parseInt(match[1], 10),
+                  end: match[2] ? parseInt(match[2], 10) : parseInt(match[1], 10)
+                } : null;
+              }, sRange = parseRange(sPart), pRange = parseRange(pPart);
+              sRange && pRange && routes.push({ sec: sRange, prim: pRange });
+            }
+          }
+          rules.push({ action, secondary: secEntity, primary: primEntity, routes, hasRoutes });
+        } catch (e) {
+          console.warn(`[Envs] \u89E3\u6790\u5408\u5E76\u6620\u5C04\u8868\u89C4\u5219\u5931\u8D25: ${rStr}`, e);
+        }
+    return rules;
+  }
+  /**
+   * 解析剧集标题过滤正则
+   * @description 过滤非正片内容，同时内置白名单防止误杀正片
+   * @returns {RegExp} 过滤正则表达式
+   */
+  static resolveEpisodeTitleFilter() {
+    let defaultFilter = (
+      // [1] 基础物料与口语词防御，保护: 企划书, 预告犯, 被抢先了, 抢先一步, 化学反应, 一直拍, 单纯享
+      "(\u7279\u522B|\u60CA\u559C|\u7EB3\u51C9)?\u4F01\u5212(?!(\u4E66|\u6848|\u90E8))|\u5408\u4F19\u4EBA\u624B\u8BB0|\u8D85\u524D(\u8425\u4E1A|vlog)?|\u901F\u89C8|vlog|(?<!(Chain|Chemical|Nuclear|\u8FDE\u9501|\u5316\u5B66|\u6838|\u751F\u5316|\u751F\u7406|\u5E94\u6FC0))reaction|(?<!(\u5355))\u7EAF\u4EAB|\u52A0\u66F4(\u7248|\u7BC7)?|\u62A2\u5148(\u770B|\u7248|\u96C6|\u7BC7)?|(?<!(\u88AB|\u4E89|\u8C01))\u62A2[\u5148\u9C9C](?!(\u4E00\u6B65|\u624B|\u653B|\u4E86|\u544A|\u8A00|\u673A|\u8BDD))|\u62A2\u9C9C|\u9884\u544A(?!(\u51FD|\u4FE1|\u4E66|\u72AF))|(?<!(\u6B7B\u4EA1|\u6050\u6016|\u7075\u5F02|\u602A\u8C08))\u82B1\u7D6E(\u72EC\u5BB6)?|(?<!(\u4E00|\u76F4))\u76F4\u62CD|(\u5236\u4F5C|\u62CD\u6444|\u5E55\u540E|\u82B1\u7D6E|\u672A\u64AD|\u72EC\u5BB6|\u6F14\u5458|\u5BFC\u6F14|\u4E3B\u521B|\u6740\u9752|\u63A2\u73ED|\u6536\u5B98|\u5F00\u64AD|\u5148\u5BFC|\u5F69\u86CB|NG|\u56DE\u987E|\u9AD8\u5149|\u4E2A\u4EBA|\u4E3B\u521B)\u7279\u8F91|(?<!(\u884C\u52A8|\u8BA1\u5212|\u6E38\u620F|\u4EFB\u52A1|\u5371\u673A|\u795E\u79D8|\u9EC4\u91D1))\u5F69\u86CB|(?<!(\u5ACC\u7591\u4EBA|\u8BC1\u4EBA|\u5BB6\u5C5E|\u5F8B\u5E08|\u8B66\u65B9|\u51F6\u624B|\u6B7B\u8005))\u4E13\u8BBF|(?<!(\u8BC1\u4EBA))\u91C7\u8BBF(?!(\u5438\u8840\u9B3C|\u9B3C))|(\u6B63\u5F0F|\u89D2\u8272|\u5148\u5BFC|\u6982\u5FF5|\u9996\u66DD|\u5B9A\u6863|\u5267\u60C5|\u52A8\u753B|\u5BA3\u4F20|\u4E3B\u9898\u66F2|\u5370\u8C61)[\\s\\.]*[Pp\uFF30\uFF50][Vv\uFF36\uFF56]|(?<!(\u9E26|\u96EA|\u7EB8|\u76F8|\u7167|\u56FE|\u540D|\u5927))\u7247\u82B1|(?<!(\u9000\u5C45|\u56DE\u5F52|\u8D70\u5411|\u8F6C\u6218|\u9690\u8EAB|\u85CF\u8EAB|\u7684))\u5E55\u540E(?!(\u4E3B\u8C0B|\u4E3B\u4F7F|\u9ED1\u624B|\u771F\u51F6|\u73A9\u5BB6|\u8001\u677F|\u91D1\u4E3B|\u82F1\u96C4|\u529F\u81E3|\u63A8\u624B|\u5927\u4F6C|\u64CD\u7EB5|\u4EA4\u6613|\u7B56\u5212|\u535A\u5F08|BOSS|\u771F\u76F8))(\u6545\u4E8B|\u82B1\u7D6E|\u72EC\u5BB6)?|\u884D\u751F(?!(\u54C1|\u7269|\u517D))|\u756A\u5916(?!(\u5730|\u4EBA))|\u76F4\u64AD(\u966A\u770B|\u56DE\u987E)|\u672A\u64AD(\u7247\u6BB5)?|\u4F1A\u5458(\u4E13\u4EAB|\u52A0\u957F|\u5C0A\u4EAB|\u4E13\u5C5E|\u7248)?|(?<!(\u63D0\u53D6|\u5438\u6536|\u751F\u547D|\u9B54\u6CD5|\u4FEE\u62A4|\u7F8E\u767D))\u7CBE\u534E|\u770B\u70B9|\u901F\u770B|\u89E3\u8BFB(?!.*(\u5BC6\u6587|\u5BC6\u7801|\u5BC6\u7535|\u7535\u62A5|\u6863\u6848|\u4E66\u4FE1|\u9057\u4E66|\u7891\u6587|\u4EE3\u7801|\u4FE1\u53F7|\u6697\u53F7|\u8BAF\u606F|\u8C1C\u9898|\u4EBA\u5FC3|\u5507\u8BED|\u771F\u76F8|\u8C1C\u56E2|\u68A6\u5883))|(?<!(\u6848\u60C5|\u4EBA\u751F|\u6B7B\u524D|\u5386\u53F2|\u4E16\u7EAA))\u56DE\u987E|\u5F71\u8BC4|\u89E3\u8BF4|(?<!(\u66F4|\u4F1A|\u80FD|\u6765|\u7684|\u6BD4|\u9002\u5408|\u64C5\u957F|\u6BD4\u8D77))\u5410\u69FD(?!.*(\u827A\u4EBA|\u5F79|\u5927\u4F1A|\u62C5\u5F53))|(?<!(\u5E74\u7EC8|\u5B63\u5EA6|\u5E93\u5B58|\u8D44\u4EA7|\u7269\u8D44|\u8D22\u52A1|\u6536\u83B7|\u6218\u5229))\u76D8\u70B9|\u62CD\u6444\u82B1\u7D6E|\u5236\u4F5C\u82B1\u7D6E|\u5E55\u540E\u82B1\u7D6E|\u672A\u64AD\u82B1\u7D6E|\u72EC\u5BB6\u82B1\u7D6E|\u82B1\u7D6E\u7279\u8F91|\u5148\u5BFC\u9884\u544A|\u7EC8\u6781\u9884\u544A|\u6B63\u5F0F\u9884\u544A|\u5B98\u65B9\u9884\u544A|\u5F69\u86CB\u7247\u6BB5|\u5220\u51CF\u7247\u6BB5|\u672A\u64AD\u7247\u6BB5|\u756A\u5916\u5F69\u86CB|\u7CBE\u5F69\u7247\u6BB5|\u7CBE\u5F69\u770B\u70B9|\u7CBE\u5F69\u96C6\u9526|\u770B\u70B9\u89E3\u6790|\u770B\u70B9\u9884\u544A|NG\u955C\u5934|NG\u82B1\u7D6E|\u756A\u5916\u7BC7|\u756A\u5916\u7279\u8F91|\u5236\u4F5C\u7279\u8F91|\u62CD\u6444\u7279\u8F91|\u5E55\u540E\u7279\u8F91|\u5BFC\u6F14\u7279\u8F91|\u6F14\u5458\u7279\u8F91|\u7247\u5C3E\u66F2|(?<!(\u751F\u547D|\u751F\u6D3B|\u60C5\u611F|\u7231\u60C5|\u4E00\u6BB5|\u5C0F|\u610F\u5916))\u63D2\u66F2|\u9AD8\u5149\u56DE\u987E|\u80CC\u666F\u97F3\u4E50|OST|\u97F3\u4E50MV|\u6B4C\u66F2MV|\u524D\u5B63\u56DE\u987E|\u5267\u60C5\u56DE\u987E|\u5F80\u671F\u56DE\u987E|\u5185\u5BB9\u603B\u7ED3|\u5267\u60C5\u76D8\u70B9|\u7CBE\u9009\u5408\u96C6|\u526A\u8F91\u5408\u96C6|\u6DF7\u526A\u89C6\u9891|\u72EC\u5BB6\u4E13\u8BBF|\u6F14\u5458\u8BBF\u8C08|\u5BFC\u6F14\u8BBF\u8C08|\u4E3B\u521B\u8BBF\u8C08|\u5A92\u4F53\u91C7\u8BBF|\u53D1\u5E03\u4F1A\u91C7\u8BBF|\u966A\u770B(\u8BB0)?|\u8BD5\u770B\u7248|\u77ED\u5267|\u7CBE\u7F16|(?<!(Love|Disney|One|C|Note|S\\d+|\\+|&|\\s))Plus|\u72EC\u5BB6\u7248|(?<!(\u5BFC\u6F14|\u52A0\u957F|\u5468\u5E74))\u7279\u522B\u7248(?!(\u56FE|\u753B))|\u77ED\u7247|(?<!(\u65B0\u95FB|\u7D27\u6025|\u4E34\u65F6|\u53EC\u5F00|\u7834\u574F|\u5927\u95F9|\u6F84\u6E05|\u9053\u6B49|\u65B0\u54C1|\u4EA7\u54C1|\u4E8B\u6545))\u53D1\u5E03\u4F1A|\u89E3\u5FE7\u5C40|\u8D70\u5FC3\u5C40|\u706B\u9505\u5C40|\u5DC5\u5CF0\u65F6\u523B|\u575E\u91CC\u90FD\u77E5\u9053|\u798F\u6301\u76EE\u6807\u575E\u6C11|\u798F\u5229(?!(\u9662|\u4F1A|\u4E3B\u4E49|\u8BFE))\u7BC7|(\u798F\u5229|\u52A0\u66F4|\u756A\u5916|\u5F69\u86CB|\u884D\u751F|\u7279\u522B|\u6536\u5B98|\u6E38\u620F|\u6574\u86CA|\u65E5\u5E38)\u7BC7|\u72EC\u5BB6(?!(\u8BB0\u5FC6|\u8BD5\u7231|\u62A5\u9053|\u79D8\u65B9|\u5360\u6709|\u5BA0\u7231|\u6069\u5BA0))|.{2,}(?<!(\u5E02|\u5206|\u8B66|\u603B|\u7701|\u536B|\u836F|\u653F|\u76D1|\u7ED3|\u5927|\u5F00|\u7834|\u5E03|\u50F5|\u56F0|\u9A97|\u8D4C|\u80DC|\u8D25|\u5B9A|\u4E71|\u5371|\u8FF7|\u8C1C|\u5165|\u6405|\u8BBE|\u4E2D|\u6B8B|\u5E73|\u548C|\u7EC8|\u53D8|\u5BF9|\u5B89|\u505A|\u4E66|\u753B|\u5BDF|\u52A1|\u6848|\u901A|\u4FE1|\u80B2|\u5546|\u8C61|\u6E90|\u4E1A|\u51B0))\u5C40(?!(\u957F|\u5EA7|\u52BF|\u9762|\u90E8|\u5185|\u5916|\u4E2D|\u9650|\u4FC3|\u6C14))|(?<!(\u91CD\u75C7|\u9694\u79BB|\u5B9E\u9A8C|\u5FC3\u7406|\u5BA1\u8BAF|\u5355\u5411|\u672F\u540E))\u89C2\u5BDF\u5BA4|\u4E0A\u73ED\u90A3\u70B9\u4E8B\u513F|\u5468top|\u8D5B\u6BB5|VLOG|(?<!(\u5927\u6848|\u8981\u6848|\u5211\u4FA6|\u4FA6\u67E5|\u7834\u6848|\u6863\u6848|\u98CE\u4E91|\u5386\u53F2|\u6218\u4E89|\u63A2\u6848|\u81EA\u7136|\u4EBA\u6587|\u79D1\u5B66|\u533B\u5B66|\u5730\u7406|\u5B87\u5B99|\u8D5B\u4E8B|\u4E16\u754C\u676F|\u5965\u8FD0))\u5168\u7EAA\u5F55|\u5F00\u64AD|\u5148\u5BFC|\u603B\u5BA3|\u5C55\u6F14|\u96C6\u9526|\u65C5\u884C\u65E5\u8BB0|\u7CBE\u5F69\u5206\u4EAB|\u5267\u60C5\u63ED\u79D8(?!(\u8005|\u4EBA))|(?:^|\u3011\\s*|\\]\\s*)(?:[SC]|SP|OP|ED|PV)\\d+(?:[\\s:\uFF1A\\.\\-]|$)"
+    ), keywords = this.get("EPISODE_TITLE_FILTER", "", "string", !1).trim() || defaultFilter;
+    this.accessedEnvVars.set("EPISODE_TITLE_FILTER", keywords);
+    try {
+      return new RegExp(`^(.*?)(?:${keywords})(.*?)$`, "i");
+    } catch {
+      return console.warn("Invalid EPISODE_TITLE_FILTER format, using default."), new RegExp(`^(.*?)(?:${defaultFilter})(.*?)$`, "i");
+    }
+  }
+  /**
+   * 解析 IP 黑名单列表
+   * @description 支持逗号/分号/换行分隔，支持 /regex/ 或 /regex/i 的正则格式，支持 IPv4/IPv6 CIDR（如 127.0.0.0/24、2001:db8::/64）
+   * @returns {Array} IP 黑名单规则列表
+   */
+  static resolveIpBlacklist() {
+    let rawList = this.get("IP_BLACKLIST", "", "string", !1).trim();
+    if (!rawList)
+      return this.accessedEnvVars.set("IP_BLACKLIST", []), [];
+    let entries = rawList.split(/[\n,;]+/).map((item) => item.trim()).filter(Boolean), rules = [];
+    for (let entry of entries)
+      try {
+        if (entry.startsWith("/") && entry.lastIndexOf("/") > 0) {
+          let lastSlashIndex = entry.lastIndexOf("/"), pattern = entry.slice(1, lastSlashIndex), flags = entry.slice(lastSlashIndex + 1);
+          rules.push({ type: "regex", value: new RegExp(pattern, flags) });
+          continue;
+        }
+        if (entry.includes("/")) {
+          let [ip, prefix] = entry.split("/").map((s) => s.trim()), prefixNum = Number(prefix), isIpv4 = this.isValidIpv4(ip), isIpv6 = this.isValidIpv6(ip);
+          if (Number.isInteger(prefixNum)) {
+            if (isIpv4 && prefixNum >= 0 && prefixNum <= 32) {
+              rules.push({ type: "cidr", ip, prefix: prefixNum });
+              continue;
+            }
+            if (isIpv6 && prefixNum >= 0 && prefixNum <= 128) {
+              rules.push({ type: "cidr", ip, prefix: prefixNum });
+              continue;
+            }
+          }
+        }
+        if (this.isValidIpv4(entry) || this.isValidIpv6(entry)) {
+          rules.push({ type: "exact", value: entry });
+          continue;
+        }
+        let escaped = entry.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+        rules.push({ type: "regex", value: new RegExp(`^${escaped}$`) });
+      } catch {
+        console.warn(`Invalid IP_BLACKLIST entry: ${entry}, skipped.`);
+      }
+    return this.accessedEnvVars.set("IP_BLACKLIST", entries), rules;
+  }
+  /**
+   * 校验 IPv4 地址合法性
+   * @param {string} ip IPv4 地址
+   * @returns {boolean}
+   */
+  static isValidIpv4(ip) {
+    if (!ip || typeof ip != "string") return !1;
+    let parts = ip.split(".");
+    return parts.length !== 4 ? !1 : parts.every((part) => {
+      if (!/^(\d{1,3})$/.test(part)) return !1;
+      let num = Number(part);
+      return num >= 0 && num <= 255;
+    });
+  }
+  /**
+   * 校验 IPv6 地址合法性（支持 :: 缩写与 IPv4 映射）
+   * @param {string} ip IPv6 地址
+   * @returns {boolean}
+   */
+  static isValidIpv6(ip) {
+    if (!ip || typeof ip != "string") return !1;
+    let normalized = ip.trim();
+    if (!normalized.includes(":")) return !1;
+    let [left, right] = normalized.split("::");
+    if (normalized.split("::").length > 2) return !1;
+    let leftParts = left ? left.split(":").filter(Boolean) : [], rightParts = right ? right.split(":").filter(Boolean) : [], expandIpv4Part = (parts) => {
+      if (parts.length === 0) return parts;
+      let last = parts[parts.length - 1];
+      if (!last.includes(".")) return parts;
+      if (!this.isValidIpv4(last)) return null;
+      let nums = last.split(".").map((n) => Number(n)), high = (nums[0] << 8 | nums[1]).toString(16), low = (nums[2] << 8 | nums[3]).toString(16);
+      return [...parts.slice(0, -1), high, low];
+    }, leftExpanded = expandIpv4Part(leftParts);
+    if (!leftExpanded || (rightParts = expandIpv4Part(rightParts), !rightParts) || leftExpanded.length + rightParts.length > 8) return !1;
+    let isValidGroup = (part) => /^[0-9a-fA-F]{1,4}$/.test(part);
+    return !(!leftExpanded.every(isValidGroup) || !rightParts.every(isValidGroup));
+  }
+  /**
+   * 解析剧名过滤正则
+   * @description 用于控制剧名过滤规则，没有默认值
+   * @returns {RegExp|null} 过滤正则表达式或null
+   */
+  static resolveAnimeTitleFilter() {
+    let filterStr = this.get("ANIME_TITLE_FILTER", "", "string", !1).trim();
+    if (!filterStr)
+      return this.accessedEnvVars.set("ANIME_TITLE_FILTER", ""), null;
+    this.accessedEnvVars.set("ANIME_TITLE_FILTER", filterStr);
+    try {
+      return new RegExp(`^(.*?)(?:${filterStr})(.*?)$`, "i");
+    } catch {
+      return console.warn("Invalid ANIME_TITLE_FILTER format, returning null."), null;
+    }
+  }
+  /**
+   * 解析剧名杂音清理规则
+   * 移除搜索关键词和源标题中的画质/配音/版本等杂音词。
+   * 支持完全自定义的正则表达式，默认为同时匹配中英文括号的常用杂音词。
+   * 未设置时使用默认规则，设为空值可禁用。
+   * @returns {RegExp|null} 全局正则，显式设为空时返回 null（禁用）
+   */
+  static resolveTitleNoiseFilter() {
+    let defaultPattern = String.raw`[（(\[［](?:臻彩|真彩|高清|标清|超清|国配|中配|日配|粤语|原声|台配|无修|未删减|完整版|日语版|国语版|英语版|中字|字幕|助听|原版)[\])）］]`, raw = this.get("TITLE_NOISE_FILTER", "", "string").trim(), hasKey = this.env && "TITLE_NOISE_FILTER" in this.env || typeof process < "u" && "TITLE_NOISE_FILTER" in process.env;
+    if (raw)
+      this.accessedEnvVars.set("TITLE_NOISE_FILTER", raw);
+    else {
+      if (hasKey)
+        return this.accessedEnvVars.set("TITLE_NOISE_FILTER", ""), null;
+      this.accessedEnvVars.set("TITLE_NOISE_FILTER", defaultPattern);
+    }
+    try {
+      return new RegExp(raw || defaultPattern, "gi");
+    } catch {
+      console.warn("Invalid TITLE_NOISE_FILTER regex, using default.");
+      try {
+        return new RegExp(defaultPattern, "gi");
+      } catch {
+        return null;
+      }
+    }
+  }
+  /**
+   * 获取记录的原始环境变量 JSON
+   * @returns {Map<any, any>} JSON 字符串
+   */
+  static getOriginalEnvVars() {
+    return this.originalEnvVars;
+  }
+  /**
+   * 解析剧名映射表
+   * @returns {Map} 剧名映射表
+   */
+  static resolveTitleMappingTable(key = "TITLE_MAPPING_TABLE", normalizeKey = (value) => value, normalizeValue = (value) => value) {
+    let mappingStr = this.get(key, "", "string").trim(), mappingTable = /* @__PURE__ */ new Map();
+    if (!mappingStr)
+      return mappingTable;
+    let pairs = mappingStr.split(";");
+    for (let pair of pairs) {
+      let arrow = pair.indexOf("->");
+      if (arrow < 0) continue;
+      let original = normalizeKey(pair.slice(0, arrow).trim()), mapped = normalizeValue(pair.slice(arrow + 2).trim());
+      original && mapped && mappingTable.set(original, mapped);
+    }
+    return mappingTable;
+  }
+  static resolveAutoMatchMappingTable() {
+    let mappingStr = this.get("AUTO_MATCH_MAPPING_TABLE", "", "string").trim(), { rules, warnings } = parseAutoMatchMappingRules(mappingStr, this.ALLOWED_PLATFORMS);
+    return warnings.forEach((message) => console.warn(`[auto-match-mapping] ${message}`)), rules;
+  }
+  /**
+   * 获取记录的环境变量 JSON
+   * @returns {Map<any, any>} JSON 字符串
+   */
+  static getAccessedEnvVars() {
+    return this.accessedEnvVars;
+  }
+  /**
+   * 初始化环境变量
+   * @param {Object} env 环境对象
+   * @param {string} deployPlatform 部署平台
+   * @returns {Object} 配置对象
+   */
+  static load(env = {}) {
+    this.env = env;
+    let configuredAiMatchPrompt = this.get("AI_MATCH_PROMPT", this.DEFAULT_AI_MATCH_PROMPT, "string"), mergeSourcePairs = this.resolveMergeSourcePairs(), platformOrderArr = this.resolvePlatformOrder(), platformOptions = [...new Set([
+      ...this.ALLOWED_PLATFORMS,
+      ...mergeSourcePairs.map(({ primary, secondaries }) => normalizePlatformGroup([primary, ...secondaries].join("&"), this.ALLOWED_PLATFORMS)),
+      ...platformOrderArr.filter(Boolean)
+    ].filter(Boolean))], envVarConfig = {
+      // API配置
+      TOKEN: { category: "api", type: "text", description: "API\u8BBF\u95EE\u4EE4\u724C", accessor: "token", sensitive: !0 },
+      ADMIN_TOKEN: { category: "api", type: "text", description: "\u7CFB\u7EDF\u7BA1\u7406\u8BBF\u95EE\u4EE4\u724C", accessor: "adminToken", sensitive: !0 },
+      FAVORITE_REQUIRE_ADMIN: { category: "api", type: "boolean", description: "\u6536\u85CF\u5199\u5165\u548C\u7BA1\u7406\u63A5\u53E3\u662F\u5426\u5FC5\u987B\u4F7F\u7528 ADMIN_TOKEN\uFF0C\u9ED8\u8BA4\u5173\u95ED\uFF1B\u6536\u85CF\u5217\u8868\u59CB\u7EC8\u53EF\u516C\u5F00\u8BFB\u53D6", accessor: "favoriteRequireAdmin" },
+      LOCAL_DANMU_NOT_REQUIRE_ADMIN: { category: "api", type: "boolean", description: "\u672C\u5730\u5F39\u5E55\u4E0A\u4F20\u548C\u5220\u9664\u662F\u5426\u65E0\u9700 ADMIN \u6743\u9650\uFF0C\u9ED8\u8BA4 false\uFF1B\u5F00\u542F\u540E\u5141\u8BB8\u666E\u901A TOKEN \u7528\u6237\u4E0A\u4F20\u548C\u5220\u9664\uFF0CADMIN_TOKEN \u59CB\u7EC8\u5141\u8BB8\uFF1B\u666E\u901A TOKEN \u7528\u6237\u53EF\u67E5\u770B\u5DF2\u5BFC\u5165\u5217\u8868", accessor: "localDanmuNotRequireAdmin" },
+      RATE_LIMIT_MAX_REQUESTS: { category: "api", type: "number", description: "\u9650\u6D41\u914D\u7F6E\uFF1A1\u5206\u949F\u5185\u6700\u5927\u8BF7\u6C42\u6B21\u6570\uFF0C0\u8868\u793A\u4E0D\u9650\u6D41\uFF0C\u9ED8\u8BA43", min: 0, max: 50, accessor: "rateLimitMaxRequests" },
+      // 源配置
+      SOURCE_ORDER: { category: "source", type: "multi-select", options: this.ALLOWED_SOURCES, description: "\u6E90\u6392\u5E8F\u914D\u7F6E\uFF0C\u9ED8\u8BA4douban,360,renren,hanjutv\uFF1B\u6DFB\u52A0 local \u53EF\u641C\u7D22\u5DF2\u4E0A\u4F20\u7684\u672C\u5730\u5F39\u5E55\uFF0C\u6309\u914D\u7F6E\u987A\u5E8F\u6392\u5217\u641C\u7D22\u7ED3\u679C", accessor: "sourceOrderArr" },
+      MERGE_SOURCE_PAIRS: { category: "source", type: "multi-select", options: this.MERGE_ALLOWED_SOURCES, description: `\u6E90\u5408\u5E76\u914D\u7F6E\uFF0C\u914D\u7F6E\u540E\u5C06\u5BF9\u5E94\u6E90\u5408\u5E76\u540C\u65F6\u4E00\u8D77\u83B7\u53D6\u5F39\u5E55\u8FD4\u56DE\uFF0C\u5141\u8BB8\u591A\u7EC4\uFF0C\u5141\u8BB8\u591A\u6E90\uFF0C\u5141\u8BB8\u586B\u5355\u6E90\u8868\u793A\u4FDD\u7559\u539F\u7ED3\u679C\uFF0C\u4E00\u7EC4\u4E2D\u7B2C\u4E00\u4E2A\u4E3A\u4E3B\u6E90\u5176\u4F59\u4E3A\u526F\u6E90\uFF0C\u526F\u6E90\u5F80\u4E3B\u6E90\u5408\u5E76\uFF0C\u4E3B\u6E90\u5982\u679C\u6CA1\u6709\u7ED3\u679C\u4F1A\u8F6E\u66FF\u4E0B\u4E00\u4E2A\u4F5C\u4E3A\u4E3B\u6E90\u3002
+\u683C\u5F0F\uFF1A\u6E901&\u6E902&\u6E903 \uFF0C\u591A\u7EC4\u7528\u9017\u53F7\u5206\u9694\u3002
+\u793A\u4F8B\uFF1Adandan&bahamut&animeko,renren&hanjutv,renren`, accessor: "mergeSourcePairs" },
+      CUSTOM_MERGE_RULES: { category: "source", type: "text", sources: this.MERGE_ALLOWED_SOURCES, description: `\u5408\u5E76\u6620\u5C04\u8868\uFF0C\u7528\u4E8E\u81EA\u5B9A\u4E49\u6E90\u5408\u5E76\u884C\u4E3A\u3002
+\u683C\u5F0F1(\u5408\u5E76)\uFF1A\u526F\u6E90\u5267\u540D/S\u5B63\u6570@\u6765\u6E90 -> \u4E3B\u6E90\u5267\u540D/S\u5B63\u6570@\u6765\u6E90 | E\u526F\u6E90\u96C6\u6570>E\u4E3B\u6E90\u96C6\u6570
+\u683C\u5F0F2(\u963B\u65AD)\uFF1A\u526F\u6E90\u5267\u540D/S\u5B63\u6570@\u6765\u6E90 \xD7 \u4E3B\u6E90\u5267\u540D/S\u5B63\u6570@\u6765\u6E90
+\u8BF4\u660E\uFF1A[/S\u5B63\u6570] \u4E0E [|\u8DEF\u7531\u89C4\u5219] \u4E3A\u53EF\u9009\u9879\uFF0C\u7559\u7A7A\u5219\u4EA4\u7531\u7A0B\u5E8F\u5224\u65AD\u3002\u591A\u4E2A\u89C4\u5219\u7528\u5206\u53F7\u9694\u5F00\uFF0C\u591A\u6BB5\u8DEF\u7531\u7528\u9017\u53F7\u5206\u9694\u3002
+\u793A\u4F8B\uFF1A
+1. \u5E38\u89C4\u5408\u5E76\uFF1A\u5929\u6C14\u4E4B\u5B50@bilibili -> \u5929\u6C14\u4E4B\u5B50@dandan
+2. \u591A\u96C6\u8DEF\u7531\uFF1A\u6211\u63A8\u7684\u5B69\u5B50/S01@bahamut -> \u6211\u63A8\u7684\u5B69\u5B50/S03@dandan | E25~E35>E25~E35
+3. \u963B\u65AD\u5408\u5E76\uFF1A\u8F89\u591C\u5927\u5C0F\u59D0\u60F3\u8BA9\u6211\u544A\u767D\uFF1F\uFF5E\u5929\u624D\u4EEC\u7684\u604B\u7231\u5934\u8111\u6218\uFF5E(2020)@bilibili \xD7 \u8F89\u591C\u5927\u5C0F\u59D0\u60F3\u8BA9\u6211\u544A\u767D\uFF5E\u5929\u624D\u4EEC\u7684\u604B\u7231\u5934\u8111\u6218\uFF5E OVA(2021)\u3010OVA\u3011@dandan`, accessor: "customMergeRules" },
+      OTHER_SERVER: { category: "source", type: "text", description: "\u7B2C\u4E09\u65B9\u5F39\u5E55\u670D\u52A1\u5668\uFF0C\u9ED8\u8BA4https://api.danmu.icu", accessor: "otherServer", sensitive: !0 },
+      CUSTOM_SOURCE_API_URL: { category: "source", type: "text", description: "\u81EA\u5B9A\u4E49\u5F39\u5E55\u6E90API\u5730\u5740\uFF0C\u9ED8\u8BA4\u4E3A\u7A7A\uFF0C\u914D\u7F6E\u540E\u8FD8\u9700\u5728SOURCE_ORDER\u6DFB\u52A0custom\u6E90", accessor: "customSourceApiUrl", sensitive: !0 },
+      VOD_SERVERS: { category: "source", type: "text", description: "VOD\u7AD9\u70B9\u914D\u7F6E\uFF0C\u683C\u5F0F\uFF1A\u540D\u79F0@URL,\u540D\u79F0@URL\uFF0C\u9ED8\u8BA4\u4E3A\u7A7A\uFF1B\u672A\u914D\u7F6E\u65F6\u8DF3\u8FC7 VOD\uFF0C\u4E0D\u53D1\u9001\u8BF7\u6C42", accessor: "vodServers", sensitive: !0 },
+      VOD_RETURN_MODE: { category: "source", type: "select", options: ["all", "fastest"], description: "VOD\u8FD4\u56DE\u6A21\u5F0F\uFF1Aall\uFF08\u6240\u6709\u7AD9\u70B9\uFF09\u6216 fastest\uFF08\u6700\u5FEB\u7684\u7AD9\u70B9\uFF09\uFF0C\u9ED8\u8BA4fastest", accessor: "vodReturnMode" },
+      VOD_REQUEST_TIMEOUT: { category: "source", type: "number", description: "VOD\u8BF7\u6C42\u8D85\u65F6\u65F6\u95F4\uFF0C\u9ED8\u8BA410000", min: 5e3, max: 3e4, accessor: "vodRequestTimeout" },
+      BILIBILI_COOKIE: { category: "source", type: "text", description: "B\u7AD9Cookie", accessor: "bilibliCookie", sensitive: !0 },
+      DOUBAN_COOKIE: { category: "source", type: "text", description: "\u8C46\u74E3Cookie", accessor: "doubanCookie", sensitive: !0 },
+      YOUKU_CONCURRENCY: { category: "source", type: "number", description: "\u4F18\u9177\u5E76\u53D1\u914D\u7F6E\uFF0C\u9ED8\u8BA48", min: 1, max: 16, accessor: "youkuConcurrency" },
+      TENCENT_CONCURRENCY: { category: "source", type: "number", description: "\u817E\u8BAF\u5F39\u5E55\u5206\u7247\u5E76\u53D1\u914D\u7F6E\uFF0C\u9ED8\u8BA4100", min: 1, max: 200, accessor: "tencentConcurrency" },
+      IQIYI_CONCURRENCY: { category: "source", type: "number", description: "\u7231\u5947\u827A\u5F39\u5E55\u5206\u7247\u5E76\u53D1\u914D\u7F6E\uFF0C\u9ED8\u8BA4100", min: 1, max: 200, accessor: "iqiyiConcurrency" },
+      DANDANPLAY_ACCOUNT: { category: "source", type: "text", description: `\u5F39\u5F39play\u8D26\u53F7\uFF08dandan \u6E90\u4F7F\u7528\uFF09\u3002
+\u4E0E\u5BC6\u7801\u540C\u65F6\u586B\u5199\u540E\u5F00\u542F NipaPlay \u4E2D\u8F6C\u5F39\u5F39play\u8F85\u52A9\u670D\u52A1\uFF0C\u4F7F\u7528 NipaPlay \u83B7\u53D6\u5F39\u5E55\u4E0E\u515C\u5E95\uFF0C\u89E3\u51B3\u9ED8\u8BA4\u670D\u52A1\u7AEF\u65E0\u5F39\u5E55\u4E0E\u66F4\u65B0\u7F13\u6162\u7684\u95EE\u9898\uFF0C\u5E76\u5F00\u542F\u5F39\u5F39\u805A\u5408\u5F39\u5E55\u5B9E\u65F6\u62C9\u53D6\u529F\u80FD
+\uFF08\u5B9E\u65F6\u62C9\u53D6\u6CE8\u610F\uFF1A\u9700\u5148\u5F00\u542F\u5BF9\u5E94\u6E90\uFF1B\u6307\u5411\u7684\u5E73\u53F0\u89C6\u9891\u82E5\u5DF2\u4E0B\u67B6\u5C06\u65E0\u6CD5\u83B7\u53D6\uFF1B\u542B\u5DF4\u54C8\u59C6\u7279\u5E73\u53F0\u65F6\u9700\u786E\u4FDD\u80FD\u591F\u8FDE\u901A\u5DF4\u54C8\uFF09\u3002`, accessor: "dandanplayAccount", sensitive: !0 },
+      DANDANPLAY_PASSWORD: { category: "source", type: "text", description: `\u5F39\u5F39play\u5BC6\u7801\uFF08dandan \u6E90\u4F7F\u7528\uFF09
+\u4E0E\u8D26\u53F7\u540C\u65F6\u586B\u5199\u540E\u5F00\u542F NipaPlay \u4E2D\u8F6C\u5F39\u5F39play\u8F85\u52A9\u670D\u52A1\u3002
+\u70B9\u51FB\u7F16\u8F91\u754C\u9762\u7684\u6D4B\u8BD5\u8FDE\u901A\u6027\u6309\u94AE\u53EF\u9A8C\u8BC1\u8D26\u53F7\u4E0E NipaPlay \u4E2D\u8F6C\u5F39\u5F39play\u670D\u52A1\u7AEF\u662F\u5426\u53EF\u7528`, accessor: "dandanplayPassword", sensitive: !0 },
+      // 匹配配置
+      PLATFORM_ORDER: { category: "match", type: "multi-select", options: this.ALLOWED_PLATFORMS, description: `\u5E73\u53F0\u6392\u5E8F\u914D\u7F6E\uFF0C\u53EF\u4EE5\u914D\u7F6E\u81EA\u52A8\u5339\u914D\u65F6\u7684\u4F18\u9009\u5E73\u53F0\u3002
+\u5F53\u914D\u7F6E\u5408\u5E76\u5E73\u53F0\u7684\u65F6\u5019\uFF0C\u53EF\u4EE5\u6307\u5B9A\u671F\u671B\u7684\u5408\u5E76\u6E90\uFF0C
+\u793A\u4F8B\uFF1A\u4E00\u4E2A\u7ED3\u679C\u8FD4\u56DE\u4E86"dandan&bilibili1&animeko"\u548C"youku"\u65F6\uFF0C
+\u5F53\u914D\u7F6E"youku"\u65F6\u8FD4\u56DE"youku" 
+\u5F53\u914D\u7F6E"dandan&animeko"\u65F6\u8FD4\u56DE"dandan&bilibili1&animeko"`, accessor: "platformOrderArr" },
+      TITLE_PLATFORM_MAP: { category: "match", type: "map", options: platformOptions, description: "\u6309\u64AD\u653E\u5668\u8BF7\u6C42\u7684\u5B8C\u6574\u5267\u540D\u4F18\u9009\u6765\u6E90\uFF0C\u683C\u5F0F\uFF1A\u5267\u540D->\u5E73\u53F0;\u5267\u540D->\u5408\u5E76\u5E73\u53F0\u3002\u53EA\u8C03\u6574\u8BE5\u5267\u7684\u5339\u914D\u548C\u6765\u6E90\u987A\u5E8F\uFF1B\u672A\u914D\u7F6E\u7684\u5267\u4FDD\u6301\u539F\u6837\u3002" },
+      ANIME_TITLE_FILTER: { category: "match", type: "text", description: "\u5267\u540D\u8FC7\u6EE4\u89C4\u5219", accessor: "animeTitleFilter" },
+      EPISODE_TITLE_FILTER: { category: "match", type: "text", description: "\u5267\u96C6\u6807\u9898\u8FC7\u6EE4\u89C4\u5219", accessor: "episodeTitleFilter" },
+      ENABLE_ANIME_EPISODE_FILTER: { category: "match", type: "boolean", description: "\u63A7\u5236\u624B\u52A8\u641C\u7D22\u7684\u65F6\u5019\u662F\u5426\u6839\u636EANIME_TITLE_FILTER\u8FDB\u884C\u5267\u540D\u8FC7\u6EE4\u4EE5\u53CA\u6839\u636EEPISODE_TITLE_FILTER\u8FDB\u884C\u96C6\u6807\u9898\u8FC7\u6EE4", accessor: "enableAnimeEpisodeFilter" },
+      STRICT_TITLE_MATCH: { category: "match", type: "boolean", description: "\u4E25\u683C\u6807\u9898\u5339\u914D\u6A21\u5F0F", accessor: "strictTitleMatch" },
+      TITLE_TO_CHINESE: { category: "match", type: "boolean", description: "\u5916\u8BED\u6807\u9898\u8F6C\u6362\u4E2D\u6587\u5F00\u5173", accessor: "titleToChinese" },
+      ANIME_TITLE_SIMPLIFIED: { category: "match", type: "boolean", description: "\u641C\u7D22\u7684\u5267\u540D\u6807\u9898\u81EA\u52A8\u7E41\u8F6C\u7B80", accessor: "animeTitleSimplified" },
+      TITLE_MAPPING_TABLE: { category: "match", type: "map", description: '\u672C\u673A\u5267\u540D\u6620\u5C04\u8868\uFF0C\u7528\u4E8E\u81EA\u52A8\u5339\u914D\u3001FongMi\u3001\u6536\u85CF\u65F6\u66FF\u6362\u6807\u9898\u8FDB\u884C\u641C\u7D22\u3002\u7CBE\u786E\u6807\u9898\u4F18\u5148\uFF1B\u672A\u547D\u4E2D\u65F6\u4F1A\u5FFD\u7565\u6807\u9898\u5C3E\u90E8\u62EC\u53F7\u5E74\u4EFD\u518D\u5339\u914D\uFF08\u5982\u201C\u53D8\u5F62\u91D1\u521A3\uFF1A\u6708\u9ED1\u4E4B\u65F6(2011)\u201D\u53EF\u547D\u4E2D\u201C\u53D8\u5F62\u91D1\u521A3\uFF1A\u6708\u9ED1\u4E4B\u65F6\u201D\uFF09\u3002\u672C\u673A\u89C4\u5219\u4F18\u5148\u4E8E\u8FDC\u7A0B\u89C4\u5219\u3002\u683C\u5F0F\uFF1A\u539F\u59CB\u6807\u9898->\u6620\u5C04\u6807\u9898;\u539F\u59CB\u6807\u9898->\u6620\u5C04\u6807\u9898;...\uFF0C\u4F8B\u5982\uFF1A"\u5510\u671D\u8BE1\u4E8B\u5F55->\u5510\u671D\u8BE1\u4E8B\u5F55\u4E4B\u897F\u884C;\u56FD\u8272\u82B3\u534E->\u9526\u7EE3\u82B3\u534E"', accessor: "titleMappingTable" },
+      TITLE_MAPPING_TABLE_URL: { category: "match", type: "text", description: "\u8FDC\u7A0B\u5267\u540D\u6620\u5C04\u8868\uFF08\u9ED8\u8BA4\u5173\u95ED\uFF0C\u586B\u5199\u540E\u542F\u7528\uFF09\u3002\u793A\u4F8B\uFF1Ahttps://raw.githubusercontent.com/xlmc/danmu-mapping/main/Word/2026.txt\u3002\u672C\u673A TITLE_MAPPING_TABLE \u4F18\u5148\uFF1BNode/Docker \u4F1A\u7F13\u5B58\u5230 .cache \u5E76\u5728\u6BCF\u5929\u5317\u4EAC\u65F6\u95F405:30\u540E\u53F0\u66F4\u65B0\uFF1BServerless \u51B7\u542F\u52A8\u540E\u7684\u9996\u6B21\u6807\u9898\u5339\u914D\u4F1A\u540C\u6B65\u4E0B\u8F7D\uFF0C\u6700\u957F\u7EA6\u7B49\u5F855\u79D2\uFF0C\u914D\u7F6E\u672C\u53D8\u91CF\u5373\u8868\u793A\u63A5\u53D7\u8BE5\u5EF6\u8FDF\u3002\u652F\u6301 GitHub \u6587\u4EF6\u9875\u3001Gist\u3001jsDelivr \u548C HTTP/HTTPS TXT \u76F4\u94FE\uFF1B\u5185\u5BB9\u683C\u5F0F\u4E3A\u6BCF\u884C \u539F\u59CB\u6807\u9898->\u6620\u5C04\u6807\u9898\uFF0C# \u6216 // \u5F00\u5934\u4E3A\u6CE8\u91CA", accessor: "titleMappingTableUrl", sensitive: !0 },
+      AUTO_MATCH_MAPPING_TABLE: { category: "match", type: "map", description: `\u81EA\u52A8\u5339\u914D\u6620\u5C04\u8868\uFF0C\u4EC5\u4F5C\u7528\u4E8E POST /api/v2/match\u3002\u591A\u4E2A\u89C4\u5219\u4F7F\u7528\u5206\u53F7\u5206\u9694\u3002
+\u5F00\u653E\u6620\u5C04\uFF1A\u6C38\u751F S05E02 -> \u6C38\u751F S01E58
+\u6709\u9650\u8303\u56F4\uFF1A\u6C38\u751F S05E02~03 -> \u6C38\u751F S01E58~59
+\u7279\u522B\u7BC7\uFF1A\u7075\u7B3C S00E01~01 -> \u7075\u7B3C S01E07~07\uFF08\u6E90\u4FA7\u652F\u6301 S00\uFF0C\u76EE\u6807\u4FA7\u987B\u4E3A S01+\uFF09
+\u6307\u5B9A\u7ED3\u679C\uFF1A\u6D77\u8D3C\u738B S02E01 -> \u822A\u6D77\u738B(1999)\u3010\u52A8\u6F2B\u3011 S01E62
+\u6307\u5B9A\u5E73\u53F0\uFF1A\u822A\u6D77\u738B S01E01 -> \u822A\u6D77\u738B S01E01 @qiyi`, accessor: "autoMatchMappingTable" },
+      AUTO_MATCH_MAPPING_TABLE_URL: { category: "match", type: "text", description: "\u8FDC\u7A0B\u5B63\u96C6\u6620\u5C04\u8868\uFF08\u9ED8\u8BA4\u5173\u95ED\uFF0C\u586B\u5199\u540E\u542F\u7528\uFF09\u3002\u672C\u673A AUTO_MATCH_MAPPING_TABLE \u4F18\u5148\uFF1B\u652F\u6301 GitHub \u6587\u4EF6\u9875\u3001Gist\u3001jsDelivr \u548C HTTP/HTTPS TXT \u76F4\u94FE\uFF0C\u5185\u5BB9\u683C\u5F0F\u4E0E\u672C\u673A\u6620\u5C04\u8868\u4E00\u81F4\uFF0C\u6BCF\u884C\u53EF\u5199\u591A\u6761\u89C4\u5219\uFF0C# \u6216 // \u5F00\u5934\u4E3A\u6CE8\u91CA\u3002Node/Docker \u4F1A\u7F13\u5B58\u5230 .cache \u5E76\u5728\u6BCF\u5929\u5317\u4EAC\u65F6\u95F405:30\u540E\u53F0\u66F4\u65B0\uFF1BServerless \u9996\u6B21\u5339\u914D\u4F1A\u540E\u53F0\u4E0B\u8F7D\uFF0C\u4E0D\u963B\u585E\u5F53\u524D\u8BF7\u6C42\uFF0C\u540E\u7EED\u8BF7\u6C42\u751F\u6548\u3002\u7BA1\u7406\u5458\u53EF\u901A\u8FC7 POST /api/auto-match-mapping/refresh \u7ACB\u5373\u5237\u65B0\u5F53\u524D\u5B9E\u4F8B\u3002", accessor: "autoMatchMappingTableUrl", sensitive: !0 },
+      TITLE_NOISE_FILTER: { category: "match", type: "text", description: "\u5267\u540D\u6742\u97F3\u6E05\u7406\u89C4\u5219\uFF0C\u6309\u6B63\u5219\u8868\u8FBE\u5F0F\u6E05\u7406\u641C\u7D22\u4E0E\u5339\u914D\u9636\u6BB5\u7684\u5267\u540D\u6742\u97F3\u8BCD\uFF08\u5982`\u767E\u82B1\u6740\uFF08\u771F\u5F69\uFF09`\u2192`\u767E\u82B1\u6740`\uFF09\u3002\n\u9ED8\u8BA4\u503C\uFF1A[\uFF08(\\[\uFF3B](?:\u81FB\u5F69|\u771F\u5F69|\u9AD8\u6E05|\u6807\u6E05|\u8D85\u6E05|\u56FD\u914D|\u4E2D\u914D|\u65E5\u914D|\u7CA4\u8BED|\u539F\u58F0|\u53F0\u914D|\u65E0\u4FEE|\u672A\u5220\u51CF|\u5B8C\u6574\u7248|\u65E5\u8BED\u7248|\u56FD\u8BED\u7248|\u82F1\u8BED\u7248|\u4E2D\u5B57|\u5B57\u5E55|\u52A9\u542C|\u539F\u7248)[\\])\uFF09\uFF3D]\uFF0C\u4E2D\u82F1\u6587\u5706\u65B9\u62EC\u53F7\u5747\u5339\u914D\u3002\n\u8BBE\u4E3A\u7A7A\u503C\u53EF\u7981\u7528", accessor: "titleNoiseFilter" },
+      AI_BASE_URL: { category: "match", type: "text", description: "AI\u670D\u52A1\u57FA\u7840URL\uFF0C\u4E0D\u586B\u9ED8\u8BA4\u4E3Ahttps://api.openai.com/v1", accessor: "aiBaseUrl" },
+      AI_MODEL: { category: "match", type: "text", description: "AI\u6A21\u578B\u540D\u79F0\uFF0C\u4E0D\u586B\u9ED8\u8BA4\u4E3Agpt-4o", accessor: "aiModel" },
+      AI_API_KEY: { category: "match", type: "text", description: "AI\u670D\u52A1API\u5BC6\u94A5\uFF0C\u9ED8\u8BA4\u4E3A\u7A7A\uFF0C\u9700\u624B\u52A8\u586B\u5199", accessor: "aiApiKey", sensitive: !0 },
+      AI_MATCH_PROMPT: { category: "match", type: "text", description: "AI\u81EA\u52A8\u5339\u914D\u63D0\u793A\u8BCD\u6A21\u677F\uFF0C\u4E0D\u586B\u63D0\u4F9B\u9ED8\u8BA4\u63D0\u793A\u8BCD\uFF0C\u9ED8\u8BA4\u63D0\u793A\u8BCD\u8BF7\u67E5\u770BREADME", accessor: "aiMatchPrompt" },
+      USE_BANGUMI_DATA: { category: "match", type: "boolean", description: `Bangumi Data \u6570\u636E\u8F85\u52A9\u5F00\u5173\uFF0C\u9ED8\u8BA4\u503C\uFF1Afalse\uFF08\u5173\u95ED\uFF09\uFF0C\u5F00\u542F\u540E\u5C06\u52A8\u753B\u5143\u6570\u636E\u7F13\u5B58\u81F3\u672C\u5730\u6216\u5185\u5B58\u4E2D\u7ED9\u6E90\u8C03\u7528\uFF0C\u63D0\u5347\u52A8\u753B\u6E90\u7684\u68C0\u7D22\u901F\u5EA6\u4E0E\u5339\u914D\u7CBE\u51C6\u5EA6\u5E76\u8865\u5168\u7279\u5B9A\u6570\u636E\u4E0E\u756A\u5267\u3002
+\u672C\u5730\u548CDocker\u90E8\u7F72\u4F7F\u7528\u65F6\u8BF7\u5148\u6302\u8F7D.cache\u76EE\u5F55\u83B7\u5F97\u6700\u4F73\u4F53\u9A8C\uFF0C\u4E91\u90E8\u7F72\u4F7F\u7528\u65F6\u4F1A\u5C06\u6570\u636E\u7F13\u5B58\u81F3\u4E34\u65F6\u5185\u5B58\u4E2D\u5982\u679C\u4F53\u9A8C\u4E0D\u4F73\u8BF7\u5173\u95ED\u3002`, accessor: "useBangumiData" },
+      // 弹幕配置
+      BLOCKED_WORDS: { category: "danmu", type: "text", description: "\u5C4F\u853D\u8BCD\u5217\u8868", accessor: "blockedWords" },
+      GROUP_MINUTE: { category: "danmu", type: "number", description: "\u5206\u949F\u5185\u5408\u5E76\u53BB\u91CD\uFF080 \u8868\u793A\u4E0D\u6309\u5206\u949F\u5408\u5E76\uFF0C\u591A\u6E90\u7EC4\u5408\u4ECD\u6309\u65F6\u70B9\u53BB\u91CD\uFF09\uFF0C\u9ED8\u8BA41", min: 0, max: 30, accessor: "groupMinute" },
+      DANMU_LIMIT: { category: "danmu", type: "number", description: "\u5F39\u5E55\u6570\u91CF\u9650\u5236\uFF0C\u5355\u4F4D\u4E3Ak\uFF0C\u5373\u5343\uFF1A\u9ED8\u8BA4 0\uFF0C\u8868\u793A\u4E0D\u9650\u5236\u5F39\u5E55\u6570", min: 0, max: 100, accessor: "danmuLimit" },
+      DANMU_SIMPLIFIED_TRADITIONAL: { category: "danmu", type: "select", options: ["default", "simplified", "traditional"], description: "\u5F39\u5E55\u7B80\u7E41\u4F53\u8F6C\u6362\u8BBE\u7F6E\uFF1Adefault\uFF08\u9ED8\u8BA4\u4E0D\u8F6C\u6362\uFF09\u3001simplified\uFF08\u7E41\u8F6C\u7B80\uFF09\u3001traditional\uFF08\u7B80\u8F6C\u7E41\uFF09", accessor: "danmuSimplifiedTraditional" },
+      CONVERT_TOP_BOTTOM_TO_SCROLL: { category: "danmu", type: "boolean", description: "\u9876\u90E8/\u5E95\u90E8\u5F39\u5E55\u8F6C\u6362\u4E3A\u6D6E\u52A8\u5F39\u5E55", accessor: "convertTopBottomToScroll" },
+      CONVERT_COLOR: { category: "danmu", type: "select", options: ["default", "white", "color"], description: "\u5F39\u5E55\u8F6C\u6362\u989C\u8272\u914D\u7F6E", accessor: "convertColor" },
+      COLOR_POOL: { category: "danmu", type: "text", description: "\u81EA\u5B9A\u4E49\u989C\u8272\u6C60\uFF08CONVERT_COLOR\u4E3Acolor\u65F6\u751F\u6548\uFF09\uFF0C\u4E0D\u914D\u7F6E\u4F7F\u7528\u9ED8\u8BA4\u989C\u8272\u6C60\uFF0C\u683C\u5F0F\uFF1A\u5341\u8FDB\u5236\u989C\u8272\u503C\u9017\u53F7\u5206\u9694", accessor: "colorPool" },
+      GRADIENT_CHANCE: { category: "danmu", type: "number", min: 0, max: 100, description: "\u6E10\u53D8\u8272\u5F39\u5E55\u6982\u7387\uFF08CONVERT_COLOR\u4E3Acolor\u65F6\u751F\u6548\uFF09\uFF0C\u5355\u4F4D\u767E\u5206\u6BD4 0-100\uFF0C\u9ED8\u8BA4 0\uFF0C\u5F39\u5E55\u6309\u6B64\u6982\u7387\u4ECE\u6E10\u53D8\u8272\u5E26\u53D6\u8272\uFF08\u968F\u51FA\u73B0\u65F6\u95F4\u5E73\u6ED1\u6D41\u8F6C\uFF09\uFF0C0 \u8868\u793A\u5173\u95ED", accessor: "gradientChance" },
+      GRADIENT_COLORS: { category: "danmu", type: "text", description: "\u6E10\u53D8\u8272\u5E26\uFF08CONVERT_COLOR\u4E3Acolor\u65F6\u751F\u6548\uFF09\uFF0C\u53EF\u586B\u76AE\u80A4\u540D\uFF1Abilibili(\u9ED8\u8BA4)/sweet/cyber/sunset/ocean/mint/rainbow\uFF0C\u6216\u5341\u8FDB\u5236\u989C\u8272\u503C\u9017\u53F7\u5206\u9694\uFF08\u81F3\u5C112\u4E2A\uFF09", accessor: "gradientColors" },
+      DANMU_OUTPUT_FORMAT: { category: "danmu", type: "select", options: ["json", "xml", ...danAnyFormats], description: "\u5F39\u5E55\u8F93\u51FA\u683C\u5F0F\uFF0C\u9ED8\u8BA4json", accessor: "danmuOutputFormat" },
+      DANMU_PUSH_URL: { category: "danmu", type: "text", description: "\u5F39\u5E55\u63A8\u9001\u5730\u5740\uFF0C\u793A\u4F8B http://127.0.0.1:9978/action?do=refresh&type=danmaku&path= ", accessor: "danmuPushUrl", sensitive: !0 },
+      LIKE_SWITCH: { category: "danmu", type: "boolean", description: "\u5F39\u5E55\u70B9\u8D5E\u6570\u663E\u793A\u5F00\u5173\uFF0C\u9ED8\u8BA4\u5F00\u542F", accessor: "likeSwitch" },
+      HONGGUO_MERGE_ALL_EPISODES: { category: "danmu", type: "boolean", description: "\u7EA2\u679C\u77ED\u5267\u5408\u5E76\u5168\u96C6\u5F39\u5E55\uFF0C\u9ED8\u8BA4\u5173\u95ED\u3002\u542F\u7528\u540E\u4FDD\u7559\u771F\u5B9E\u96C6\u6570\uFF0C\u7BA1\u7406\u9875\u83B7\u53D6\u5168\u96C6\u524D\u4F1A\u786E\u8BA4\u5E76\u4F7F\u7528\u5206\u7247\u8BF7\u6C42\u3002", accessor: "hongguoMergeAllEpisodes" },
+      DANMU_OFFSET: { category: "danmu", type: "text", sources: this.ALLOWED_SOURCES, description: "\u5F39\u5E55\u65F6\u95F4\u504F\u79FB\u914D\u7F6E\uFF0C\u683C\u5F0F\uFF1A\u5267\u540D:\u79D2 \u6216 \u5267\u540D/\u5B63:\u79D2 \u6216 \u5267\u540D/\u5B63/\u96C6:\u79D2\uFF0C\u652F\u6301\u6307\u5B9A\u6765\u6E90\uFF1A\u5267\u540D@\u6765\u6E90:\u79D2 \u6216 \u5267\u540D/\u5B63@\u6765\u6E901&\u6765\u6E902:\u79D2\uFF0C\u591A\u6761\u7528\u9017\u53F7\u5206\u9694\uFF0C\u6B63\u6570\u8868\u793A\u5F39\u5E55\u5EF6\u540E\uFF08\u5411\u53F3\uFF09\uFF0C\u8D1F\u6570\u8868\u793A\u5F39\u5E55\u63D0\u524D\uFF08\u5411\u5DE6\uFF09\u3002\u652F\u6301\u767E\u5206\u6BD4\u6A21\u5F0F\uFF1A\u5728\u8DEF\u5F84\u6216\u6765\u6E90\u672B\u5C3E\u8FFD\u52A0 %\uFF0C\u5982 \u4E1C\u65B9/S03/E02@tencent%:11\uFF0C\u6309\u516C\u5F0F \u539F\u65F6\u95F4 * (\u89C6\u9891\u65F6\u957F + \u504F\u79FB\u79D2\u6570) / \u89C6\u9891\u65F6\u957F \u7F29\u653E\u5168\u90E8\u5F39\u5E55\u65F6\u95F4\u3002\u793A\u4F8B\uFF1Aoverlord/S01:90,re-zero/S02@bilibili:120,re-zero/S02/E03@dandan&bilibili:10,\u4E1C\u65B9/S03/E02@tencent%:11", accessor: "danmuOffset" },
+      // 缓存配置
+      LOCAL_CACHE_ENABLED: { category: "cache", type: "boolean", description: "\u901A\u7528\u6587\u4EF6\u7F13\u5B58\u5F00\u5173\uFF0C\u9ED8\u8BA4\u5F00\u542F\u4E14\u4ECD\u9700\u5DF2\u6709 .cache \u76EE\u5F55\uFF1B\u5173\u95ED\u540E\u4E0D\u8BFB\u53D6\u6216\u5199\u5165\u901A\u7528\u6587\u4EF6\u7F13\u5B58\uFF0C\u5305\u62EC\u6536\u85CF\u4E0E\u5B9A\u65F6\u8BA1\u5212\uFF1B\u5DF2\u914D\u7F6E Upstash \u65F6\u4ECD\u53EF\u6301\u4E45\u5316\u3002\u4E0D\u5F71\u54CD\u672C\u5730\u5F39\u5E55\u6587\u4EF6\u3001Bangumi Data \u6216 Redis", accessor: "localCacheEnabled" },
+      SEARCH_CACHE_MINUTES: { category: "cache", type: "number", description: "\u641C\u7D22\u7ED3\u679C\u7F13\u5B58\u65F6\u95F4(\u5206\u949F)\uFF0C\u9ED8\u8BA43", min: 1, max: 120, accessor: "searchCacheMinutes" },
+      COMMENT_CACHE_MINUTES: { category: "cache", type: "number", description: "\u5F39\u5E55\u7F13\u5B58\u65F6\u95F4(\u5206\u949F)\uFF0C\u9ED8\u8BA43", min: 1, max: 120, accessor: "commentCacheMinutes" },
+      COMMENT_CACHE_MIN_COUNT: { category: "cache", type: "number", description: "\u5F39\u5E55\u7F13\u5B58\u6700\u5C11\u6761\u6570\uFF0C\u4F4E\u4E8E\u8BE5\u503C\u65F6\u91CD\u65B0\u83B7\u53D6\uFF0C\u9ED8\u8BA4100\uFF0C\u8BBE\u7F6E0\u5173\u95ED", min: 0, max: 1e4, accessor: "commentCacheMinCount" },
+      REMEMBER_LAST_SELECT: { category: "cache", type: "boolean", description: "\u8BB0\u4F4F\u660E\u786E\u624B\u52A8\u9009\u62E9\u7684\u7ED3\u679C\uFF1B\u81EA\u52A8\u5339\u914D\u540E\u76F4\u63A5\u83B7\u53D6\u5176\u8FD4\u56DE\u7ED3\u679C\u4E0D\u4F1A\u5199\u5165\u504F\u597D", accessor: "rememberLastSelect" },
+      MAX_LAST_SELECT_MAP: { category: "cache", type: "number", description: "\u8BB0\u4F4F\u4E0A\u6B21\u9009\u62E9\u6620\u5C04\u7F13\u5B58\u5927\u5C0F\u9650\u5236\uFF0C\u9ED8\u8BA4100", min: 10, max: 1e3, accessor: "MAX_LAST_SELECT_MAP" },
+      MAX_ANIMES: { category: "cache", type: "number", description: "\u52A8\u6F2B\u6807\u9898\u7F13\u5B58\u6700\u5927\u6570\u91CF\uFF0C\u9ED8\u8BA4100", min: 100, max: 1e3, accessor: "MAX_ANIMES" },
+      UPSTASH_REDIS_REST_URL: { category: "cache", type: "text", description: "Upstash Redis\u8BF7\u6C42\u94FE\u63A5", accessor: "redisUrl", sensitive: !0 },
+      UPSTASH_REDIS_REST_TOKEN: { category: "cache", type: "text", description: "Upstash Redis\u8BBF\u95EE\u4EE4\u724C", accessor: "redisToken", sensitive: !0 },
+      LOCAL_REDIS_URL: { category: "cache", type: "text", description: "\u672C\u5730 Redis \u8FDE\u63A5URL\uFF0C\u793A\u4F8B\uFF1Aredis://:password@127.0.0.1:6379/0\uFF0C\u53EA\u652F\u6301\u672C\u5730\u90E8\u7F72\u548Cdocker\u90E8\u7F72", accessor: "localRedisUrl", sensitive: !0 },
+      BANGUMI_DATA_CACHE_DAYS: { category: "cache", type: "number", description: "Bangumi Data \u7F13\u5B58\u6709\u6548\u671F(\u5929)\uFF0C\u8BBE\u7F6E0\u5219\u6BCF\u6B21\u8BF7\u6C42\u65F6\u5F3A\u5236\u5F02\u6B65\u66F4\u65B0\uFF0C\u9ED8\u8BA47\u5929", min: 0, max: 30, accessor: "bangumiDataCacheDays" },
+      // 系统配置
+      UI_THEME: { category: "system", type: "select", options: ["lavender", "shinyo", "sakura", "tianyi", "hatsune", "sakuragi", "violet", "amber"], description: "\u7BA1\u7406\u754C\u9762\u4E3B\u9898", accessor: "uiTheme" },
+      PROXY_URL: { category: "system", type: "text", description: "\u4EE3\u7406/\u53CD\u4EE3\u5730\u5740", accessor: "proxyUrl", sensitive: !0 },
+      TMDB_API_KEY: { category: "system", type: "text", description: "TMDB API\u5BC6\u94A5", accessor: "tmdbApiKey", sensitive: !0 },
+      LOG_LEVEL: { category: "system", type: "select", options: ["debug", "info", "warn", "error"], description: "\u65E5\u5FD7\u7EA7\u522B\u914D\u7F6E", accessor: "logLevel" },
+      DEPLOY_PLATFROM_ACCOUNT: { category: "system", type: "text", description: "\u90E8\u7F72\u5E73\u53F0\u8D26\u53F7ID", accessor: "deployPlatformAccount", sensitive: !0 },
+      DEPLOY_PLATFROM_PROJECT: { category: "system", type: "text", description: "\u90E8\u7F72\u5E73\u53F0\u9879\u76EE\u540D\u79F0", accessor: "deployPlatformProject", sensitive: !0 },
+      DEPLOY_PLATFROM_TOKEN: { category: "system", type: "text", description: "\u90E8\u7F72\u5E73\u53F0\u8BBF\u95EE\u4EE4\u724C", accessor: "deployPlatformToken", sensitive: !0 },
+      NODE_TLS_REJECT_UNAUTHORIZED: { category: "system", type: "number", description: "\u5728\u5EFA\u7ACB HTTPS \u8FDE\u63A5\u65F6\u662F\u5426\u9A8C\u8BC1\u670D\u52A1\u5668\u7684 SSL/TLS \u8BC1\u4E66\uFF0C0\u8868\u793A\u5FFD\u7565\uFF0C\u9ED8\u8BA4\u4E3A1", min: 0, max: 1, accessor: "NODE_TLS_REJECT_UNAUTHORIZED" },
+      IP_BLACKLIST: { category: "system", type: "text", description: "IP \u9ED1\u540D\u5355\u5217\u8868\uFF0C\u652F\u6301\u9017\u53F7/\u5206\u53F7/\u6362\u884C\u5206\u9694\uFF0C\u652F\u6301 /regex/ \u6216 /regex/i \u6B63\u5219\uFF0C\u652F\u6301 IPv4/IPv6 CIDR\uFF08\u5982 10.0.0.0/4\u30012001:db8::/64\uFF09\u3002\u547D\u4E2D\u5219\u62D2\u7EDD\u8BF7\u6C42", accessor: "ipBlacklist", sensitive: !0 }
+    };
+    return registerTraceConfigAccessors(envVarConfig), {
+      vodAllowedPlatforms: this.VOD_ALLOWED_PLATFORMS,
+      allowedPlatforms: this.ALLOWED_PLATFORMS,
+      token: this.get("TOKEN", "87654321", "string", !0),
+      // token，默认为87654321
+      adminToken: this.get("ADMIN_TOKEN", "", "string", !0),
+      // admin token，用于系统管理访问控制
+      favoriteRequireAdmin: this.get("FAVORITE_REQUIRE_ADMIN", !1, "boolean"),
+      // 收藏写入和管理接口是否必须使用 admin token；列表始终公开
+      localDanmuNotRequireAdmin: this.get("LOCAL_DANMU_NOT_REQUIRE_ADMIN", !1, "boolean"),
+      sourceOrderArr: this.resolveSourceOrder(),
+      // 源排序
+      mergeSourcePairs,
+      // 源合并配置，用于将源合并获取
+      customMergeRules: this.resolveCustomMergeRules(),
+      // 合并映射表，用于自定义源合并行为。
+      otherServer: this.get("OTHER_SERVER", "https://api.danmu.icu", "string"),
+      // 第三方弹幕服务器
+      customSourceApiUrl: this.get("CUSTOM_SOURCE_API_URL", "", "string", !0),
+      // 自定义弹幕源API地址，默认为空，配置后还需在SOURCE_ORDER添加custom源
+      vodServers: this.resolveVodServers(),
+      // vod站点配置，格式：名称@URL,名称@URL
+      vodReturnMode: this.get("VOD_RETURN_MODE", "fastest", "string").toLowerCase(),
+      // vod返回模式：all（所有站点）或 fastest（最快的站点）
+      vodRequestTimeout: this.get("VOD_REQUEST_TIMEOUT", "10000", "string"),
+      // vod超时时间（默认10秒）
+      bilibliCookie: this.get("BILIBILI_COOKIE", "", "string", !0),
+      // b站cookie
+      doubanCookie: this.get("DOUBAN_COOKIE", "", "string", !0),
+      // 豆瓣cookie
+      youkuConcurrency: Math.min(this.get("YOUKU_CONCURRENCY", 8, "number"), 16),
+      // 优酷并发配置
+      tencentConcurrency: Math.max(1, Math.min(this.get("TENCENT_CONCURRENCY", 100, "number"), 200)),
+      // 腾讯弹幕分片并发配置
+      iqiyiConcurrency: Math.max(1, Math.min(this.get("IQIYI_CONCURRENCY", 100, "number"), 200)),
+      // 爱奇艺弹幕分片并发配置
+      dandanplayAccount: this.get("DANDANPLAY_ACCOUNT", "", "string", !0),
+      // 弹弹play账号，dandan 源使用
+      dandanplayPassword: this.get("DANDANPLAY_PASSWORD", "", "string", !0),
+      // 弹弹play密码，dandan 源使用
+      platformOrderArr,
+      // 自动匹配优选平台
+      titlePlatformMap: this.resolveTitleMappingTable("TITLE_PLATFORM_MAP", platformTitleKey, (value) => normalizePlatformGroup(value, this.ALLOWED_PLATFORMS)),
+      animeTitleFilter: this.resolveAnimeTitleFilter(),
+      // 剧名正则过滤
+      episodeTitleFilter: this.resolveEpisodeTitleFilter(),
+      // 剧集标题正则过滤
+      titleNoiseFilter: this.resolveTitleNoiseFilter(),
+      // 剧名杂音清理规则
+      blockedWords: this.get("BLOCKED_WORDS", "", "string"),
+      // 屏蔽词列表
+      groupMinute: Math.min(this.get("GROUP_MINUTE", 1, "number"), 30),
+      // 分钟内合并去重（默认 1，最大值30，0 表示不按分钟合并，多源仍按时点去重）
+      danmuLimit: this.get("DANMU_LIMIT", 0, "number"),
+      // 等间隔采样限制弹幕总数，单位为k，即千：默认 0，表示不限制弹幕数，若改为5，弹幕总数在超过5000的情况下会将弹幕数控制在5000
+      uiTheme: this.get("UI_THEME", "lavender", "string").toLowerCase(),
+      // 管理界面主题
+      proxyUrl: this.get("PROXY_URL", "", "string", !0),
+      // 代理/反代地址
+      danmuSimplifiedTraditional: this.get("DANMU_SIMPLIFIED_TRADITIONAL", "default", "string"),
+      // 弹幕简繁体转换设置：default（默认不转换）、simplified（繁转简）、traditional（简转繁）
+      danmuPushUrl: this.get("DANMU_PUSH_URL", "", "string"),
+      // 代理/反代地址
+      likeSwitch: this.get("LIKE_SWITCH", !0, "boolean"),
+      // 弹幕点赞数显示开关，默认开启
+      danmuOffset: this.get("DANMU_OFFSET", "", "string"),
+      // 弹幕时间偏移配置
+      danmuOffsetRules: parseOffsetRules(this.get("DANMU_OFFSET", "", "string")),
+      // 解析后的偏移规则（缓存）
+      tmdbApiKey: this.get("TMDB_API_KEY", "", "string", !0),
+      // TMDB API KEY
+      redisUrl: this.get("UPSTASH_REDIS_REST_URL", "", "string", !0),
+      // upstash redis url
+      redisToken: this.get("UPSTASH_REDIS_REST_TOKEN", "", "string", !0),
+      // upstash redis url
+      localCacheEnabled: this.get("LOCAL_CACHE_ENABLED", !0, "boolean"),
+      // 允许使用已有 .cache 目录保存通用文件缓存
+      localRedisUrl: this.get("LOCAL_REDIS_URL", "", "string", !0),
+      // 本地 Redis 连接URL，示例：redis://:password@127.0.0.1:6379/0，只支持本地部署和docker部署
+      rateLimitMaxRequests: this.get("RATE_LIMIT_MAX_REQUESTS", 3, "number"),
+      // 限流配置：时间窗口内最大请求次数（默认 3，0表示不限流）
+      enableAnimeEpisodeFilter: this.get("ENABLE_ANIME_EPISODE_FILTER", !1, "boolean"),
+      // 控制手动搜索的时候是否根据ANIME_TITLE_FILTER进行剧名过滤以及根据EPISODE_TITLE_FILTER进行集标题过滤（默认 false，禁用过滤）
+      logLevel: this.get("LOG_LEVEL", "info", "string"),
+      // 日志级别配置（默认 info，可选值：error, warn, info）
+      searchCacheMinutes: this.get("SEARCH_CACHE_MINUTES", 3, "number"),
+      // 搜索结果缓存时间配置（分钟，默认 3）
+      commentCacheMinutes: this.get("COMMENT_CACHE_MINUTES", 3, "number"),
+      // 弹幕缓存时间配置（分钟，默认 3）
+      commentCacheMinCount: this.get("COMMENT_CACHE_MIN_COUNT", 100, "number"),
+      // 弹幕缓存最少条数，低于该值时忽略缓存（默认 100，0 表示关闭）
+      hongguoMergeAllEpisodes: this.get("HONGGUO_MERGE_ALL_EPISODES", !1, "boolean"),
+      // 红果短剧是否合并全集弹幕（默认 false）
+      convertTopBottomToScroll: this.get("CONVERT_TOP_BOTTOM_TO_SCROLL", !1, "boolean"),
+      // 顶部/底部弹幕转换为浮动弹幕配置（默认 false，禁用转换）
+      convertColor: this.get("CONVERT_COLOR", "default", "string"),
+      // 弹幕转换颜色配置，支持 default、white、color（默认 default，禁用转换）
+      colorPool: this.get("COLOR_POOL", "16777215,16777215,16777215,16777215,16777215,16777215,16777215,16777215,16744319,16752762,16774799,9498256,8388564,8900346,14204888,16758465", "string"),
+      // 自定义颜色池，CONVERT_COLOR为color时生效
+      gradientChance: this.get("GRADIENT_CHANCE", 0, "number"),
+      // 渐变色弹幕出现概率（百分比），CONVERT_COLOR为color时生效，0 表示关闭
+      gradientColors: this.get("GRADIENT_COLORS", "16478873,3389695", "string"),
+      // 渐变色带（B站标准粉蓝 #FB7299→#33B8FF），CONVERT_COLOR为color时生效
+      danmuOutputFormat: this.get("DANMU_OUTPUT_FORMAT", "json", "string"),
+      // 弹幕输出格式配置（默认 json，可选值：json, xml, ...danAnyFormats）
+      strictTitleMatch: this.get("STRICT_TITLE_MATCH", !1, "boolean"),
+      // 严格标题匹配模式配置（默认 false，宽松模糊匹配）
+      titleToChinese: this.get("TITLE_TO_CHINESE", !1, "boolean"),
+      // 外语标题转换中文开关
+      animeTitleSimplified: this.get("ANIME_TITLE_SIMPLIFIED", !1, "boolean"),
+      // 搜索的剧名标题自动繁转简
+      titleMappingTable: this.resolveTitleMappingTable(),
+      // 剧名映射表，用于自动匹配时替换标题进行搜索
+      titleMappingTableUrl: this.get("TITLE_MAPPING_TABLE_URL", "", "string"),
+      // 远程剧名映射表地址（由用户托管维护，自动拉取生效）
+      autoMatchMappingTable: this.resolveAutoMatchMappingTable(),
+      // 自动匹配标题/季度/集数映射规则
+      autoMatchMappingTableUrl: this.get("AUTO_MATCH_MAPPING_TABLE_URL", "", "string"),
+      // 远程季集映射表地址
+      ipBlacklist: this.resolveIpBlacklist(),
+      // IP 黑名单（支持正则）
+      aiBaseUrl: this.get("AI_BASE_URL", "https://api.openai.com/v1", "string"),
+      // AI服务基础URL
+      aiModel: this.get("AI_MODEL", "gpt-4o", "string"),
+      // AI模型名称
+      aiApiKey: this.get("AI_API_KEY", "", "string", !0),
+      // AI服务API密钥
+      aiMatchPrompt: configuredAiMatchPrompt.trim() ? configuredAiMatchPrompt : this.DEFAULT_AI_MATCH_PROMPT,
+      // AI自动匹配提示词模板
+      useBangumiData: this.get("USE_BANGUMI_DATA", !1, "boolean"),
+      // Bangumi Data 数据辅助开关
+      rememberLastSelect: this.get("REMEMBER_LAST_SELECT", !0, "boolean"),
+      // 是否记住手动选择结果，用于match自动匹配时优选上次的选择（默认 true，记住）
+      MAX_LAST_SELECT_MAP: this.get("MAX_LAST_SELECT_MAP", 100, "number"),
+      // 记住上次选择映射缓存大小限制（默认 100）
+      MAX_ANIMES: this.get("MAX_ANIMES", 100, "number"),
+      // 动漫标题缓存最大数量（默认 100）
+      bangumiDataCacheDays: this.get("BANGUMI_DATA_CACHE_DAYS", 7, "number"),
+      // Bangumi Data 缓存有效期(天)，默认7天
+      deployPlatformAccount: this.get("DEPLOY_PLATFROM_ACCOUNT", "", "string", !0),
+      // 部署平台账号ID配置（默认空）
+      deployPlatformProject: this.get("DEPLOY_PLATFROM_PROJECT", "", "string", !0),
+      // 部署平台项目名称配置（默认空）
+      deployPlatformToken: this.get("DEPLOY_PLATFROM_TOKEN", "", "string", !0),
+      // 部署平台项目名称配置（默认空）
+      NODE_TLS_REJECT_UNAUTHORIZED: this.get("NODE_TLS_REJECT_UNAUTHORIZED", 1, "number"),
+      // 在建立 HTTPS 连接时是否验证服务器的 SSL/TLS 证书，0表示忽略，默认为1
+      envVarConfig
+      // 环境变量分类和描述映射
+    };
+  }
+};
+__publicField(_Envs, "env"), // 记录获取过的环境变量
+__publicField(_Envs, "originalEnvVars", /* @__PURE__ */ new Map()), __publicField(_Envs, "accessedEnvVars", /* @__PURE__ */ new Map()), // Node 本地部署时由 server.js 注入：启动前的真实系统环境变量快照（最高优先级判定依据）与 .env 原始解析结果
+__publicField(_Envs, "systemEnvBackup", null), __publicField(_Envs, "rawEnvValues", null), // 按 encrypt 读取的变量（凭据类），随 Envs.get 调用登记，供日志脱敏判定是否为敏感变量
+__publicField(_Envs, "sensitiveKeys", /* @__PURE__ */ new Set()), // 允许在值中写入 # 等 dotenv 视为注释字符的变量；读取时绕过 dotenv 截断以保留完整内容。加密变量按掩码写入预览集合，原始值仅供运行期使用与日志脱敏。
+__publicField(_Envs, "RAW_ENV_KEYS", /* @__PURE__ */ new Set(["ADMIN_TOKEN", "AI_API_KEY", "AI_MATCH_PROMPT", "ANIME_TITLE_FILTER", "AUTO_MATCH_MAPPING_TABLE", "BLOCKED_WORDS", "BILIBILI_COOKIE", "COLOR_POOL", "CUSTOM_MERGE_RULES", "CUSTOM_SOURCE_API_URL", "DANDANPLAY_ACCOUNT", "DANDANPLAY_PASSWORD", "DANMU_OFFSET", "DANMU_PUSH_URL", "DEPLOY_PLATFROM_ACCOUNT", "DEPLOY_PLATFROM_PROJECT", "DEPLOY_PLATFROM_TOKEN", "DOUBAN_COOKIE", "EPISODE_TITLE_FILTER", "IP_BLACKLIST", "LOCAL_REDIS_URL", "OTHER_SERVER", "PROXY_URL", "TITLE_MAPPING_TABLE", "TITLE_NOISE_FILTER", "TITLE_PLATFORM_MAP", "TMDB_API_KEY", "TOKEN", "UPSTASH_REDIS_REST_TOKEN", "UPSTASH_REDIS_REST_URL", "VOD_SERVERS"])), __publicField(_Envs, "VOD_ALLOWED_PLATFORMS", ["qiyi", "bilibili1", "imgo", "youku", "qq", "migu", "sohu", "leshi", "xigua", "maiduidui", "aiyifan"]), // vod允许的播放平台
+__publicField(_Envs, "ALLOWED_PLATFORMS", ["qiyi", "bilibili1", "imgo", "youku", "qq", "migu", "renren", "hanjutv", "sohu", "leshi", "xigua", "maiduidui", "aiyifan", "hongguo", "dandan", "bahamut", "animeko", "custom"]), // 全部源允许的播放平台
+__publicField(_Envs, "ALLOWED_SOURCES", ["360", "vod", "tmdb", "douban", "tencent", "youku", "iqiyi", "imgo", "bilibili", "migu", "renren", "hanjutv", "sohu", "leshi", "xigua", "maiduidui", "aiyifan", "hongguo", "dandan", "bahamut", "animeko", "custom", "local"]), // 允许的源
+__publicField(_Envs, "MERGE_ALLOWED_SOURCES", ["tencent", "youku", "iqiyi", "imgo", "bilibili", "migu", "renren", "hanjutv", "sohu", "leshi", "xigua", "maiduidui", "aiyifan", "hongguo", "dandan", "bahamut", "animeko"]), // 允许的源合并
+__publicField(_Envs, "DEFAULT_AI_MATCH_PROMPT", `\u4F60\u662F\u4E00\u4E2A\u4E13\u4E1A\u7684\u5F71\u89C6\u5339\u914D\u4E13\u5BB6\uFF0C\u4F60\u7684\u7684\u4EFB\u52A1\u662F\u6839\u636E\u7528\u6237\u63D0\u4F9B\u7684 JSON \u6570\u636E\uFF0C\u4ECE\u5019\u9009\u52A8\u6F2B\u5217\u8868\u4E2D\u5339\u914D\u6700\u7B26\u5408\u6761\u4EF6\u7684\u52A8\u6F2B\u53CA\u96C6\u6570\u3002
+
+\u8F93\u5165\u5B57\u6BB5\u8BF4\u660E\uFF1A
+- title: \u67E5\u8BE2\u6807\u9898
+- season: \u5B63\u6570\uFF08\u53EF\u4E3A null\uFF09
+- episode: \u96C6\u6570\uFF08\u53EF\u4E3A null\uFF09
+- year: \u5E74\u4EFD\uFF08\u53EF\u4E3A null\uFF09
+- dynamicPlatformOrder: \u5E73\u53F0\u504F\u597D\u5217\u8868\uFF08\u53EF\u4E3A null\uFF09
+- preferAnimeId: \u504F\u597D\u52A8\u6F2B ID\uFF08\u53EF\u4E3A null\uFF09
+- animes: \u5019\u9009\u52A8\u6F2B\u5217\u8868
+  - animeId: \u52A8\u6F2Bid
+    animeTitle: \u52A8\u6F2B\u6807\u9898\uFF0C(\u5E74\u4EFD)\u524D\u9762\u624D\u662F\u771F\u5B9E\u7684\u6807\u9898
+	aliases: \u52A8\u6F2B\u6807\u9898\u7684\u522B\u540D\uFF0C\u89C6\u60C5\u51B5\u53EF\u4EE5\u4F5C\u4E3A(\u52A8\u6F2B\u6807\u9898)\u770B\u5F85
+    type: \u7C7B\u578B
+    startDate: \u53D1\u5E03\u65E5\u671F\uFF0C\u6709\u5E74\u4EFD
+    episodeCount: \u603B\u96C6\u6570
+    source: \u5F39\u5E55\u6765\u6E90
+
+\u5339\u914D\u89C4\u5219 (\u6309\u4F18\u5148\u7EA7\u6392\u5E8F):
+1. \u5982\u679CpreferAnimeId\u975E\u7A7A\uFF0C\u4E14animes\u5B58\u5728\u8BE5animeId\uFF0C\u5219\u8FD4\u56DE\u8BE5id\u5BF9\u5E94\u7684anime\u548Cepisode
+2. \u6807\u9898\u76F8\u4F3C\u5EA6: \u4F18\u5148\u5339\u914D\u6807\u9898\u76F8\u4F3C\u5EA6\u6700\u9AD8\u7684\u6761\u76EE
+3. \u5B63\u5EA6\u4E25\u683C\u5339\u914D: \u5982\u679C\u6307\u5B9A\u4E86\u5B63\u5EA6,\u5FC5\u987B\u4E25\u683C\u5339\u914D
+4. \u7C7B\u578B\u5339\u914D: episode\u4E3A\u7A7A\u5219\u4F18\u5148\u5339\u914D\u7535\u5F71\uFF0C\u975E\u7A7A\u5219\u5339\u914D\u7535\u89C6\u5267\u7B49
+5. \u5E74\u4EFD\u63A5\u8FD1: \u4F18\u5148\u9009\u62E9\u5E74\u4EFD\u63A5\u8FD1\u7684
+6. \u5E73\u53F0\u5339\u914D\uFF1A\u5982\u679C\u6709\u591A\u4E2A\u9AD8\u5EA6\u76F8\u4F3C\u7684\u7ED3\u679C\u4E14dynamicPlatformOrder\u975E\u7A7A\uFF0C\u5219\u4ECE\u524D\u5F80\u540E\u9009\u62E9\u76F8\u5BF9\u5E94\u7684\u5E73\u53F0
+7. \u96C6\u6570\u5B8C\u6574: \u5982\u679C\u6709\u591A\u4E2A\u9AD8\u5EA6\u76F8\u4F3C\u7684\u7ED3\u679C,\u9009\u62E9\u96C6\u6570\u6700\u5B8C\u6574\u7684
+
+\u8BF7\u5206\u6790\u54EA\u4E2A\u52A8\u6F2B\u6700\u7B26\u5408\u67E5\u8BE2\u6761\u4EF6\uFF0C\u5982\u679C\u6307\u5B9A\u4E86\u5B63\u6570\u548C\u96C6\u6570\uFF0C\u8BF7\u4E5F\u8FD4\u56DE\u5BF9\u5E94\u7684\u96C6\u4FE1\u606F\u3002
+\u8BF7\u4E25\u683C\u6309\u7167\u4EE5\u4E0B JSON \u683C\u5F0F\u8FD4\u56DE\u7ED3\u679C\uFF0C\u4E0D\u8981\u5305\u542B\u4EFB\u4F55\u5176\u4ED6\u5185\u5BB9\uFF1A
+{
+  "animeIndex": \u5339\u914D\u7684\u52A8\u6F2B\u5728\u5217\u8868\u4E2D\u7684\u7D22\u5F15(\u4ECE0\u5F00\u59CB) \u6216 null
+}
+
+\u5982\u679C\u6CA1\u6709\u627E\u5230\u5408\u9002\u7684\u5339\u914D\uFF0C\u8FD4\u56DE\uFF1A
+{
+  "animeIndex": null
+}`);
+var Envs = _Envs;
+
+// danmu_api/configs/globals.js
+var TRAILING_RELEASE_YEAR_PATTERN = /(?:\s*[（(]\s*(?:19|20)\d{2}\s*[)）]|\s*[\[［]\s*(?:19|20)\d{2}\s*[\]］]|\s*【\s*(?:19|20)\d{2}\s*】)\s*$/;
+function stripTrailingReleaseYear(value) {
+  return String(value || "").replace(TRAILING_RELEASE_YEAR_PATTERN, "").trim();
+}
+var Globals = {
+  // 缓存环境变量
+  env: {},
+  envs: {},
+  originalEnvVars: {},
+  accessedEnvVars: {},
+  // 静态常量
+  VERSION: "1.22.0",
+  MAX_LOGS: 1e3,
+  // 日志存储，最多保存 1000 行
+  MAX_RECORDS: 100,
+  // 请求记录最大数量
+  // 运行时状态
+  animes: [],
+  episodeIds: [],
+  episodeNum: 10001,
+  // 全局变量，用于自增 ID
+  logBuffer: [],
+  requestHistory: /* @__PURE__ */ new Map(),
+  // 记录每个 IP 地址的请求历史
+  localCacheValid: !1,
+  // 本地缓存是否生效
+  localCacheInitialized: !1,
+  // 本地缓存是否已初始化
+  localRedisCacheInitialized: !1,
+  // 本地 Redis 缓存是否已初始化
+  queryCacheInitialized: !1,
+  // 查询数据只恢复一次，之后以内存为准
+  queryCacheWritable: {},
+  // 后端成功读取后才可写入；失败后本进程保留远端数据
+  favoriteCacheWritable: {},
+  // 收藏读取失败时保护原快照，与查询恢复状态独立
+  redisValid: !1,
+  // redis是否生效
+  localRedisValid: !1,
+  // 本地redis是否生效
+  aiValid: !1,
+  // AI配置是否生效
+  redisCacheInitialized: !1,
+  // redis 缓存是否已初始化
+  lastSelectMap: /* @__PURE__ */ new Map(),
+  // 存储查询关键字上次选择的animeId，用于下次match自动匹配时优先选择该anime
+  reqRecords: [],
+  // 记录请求历史，包括接口/参数/请求时间
+  todayReqNum: 0,
+  // 今日请求数量统计
+  // 各后端只记录自身已确认持有的数据；缺少哈希表示尚未持久化。
+  localFileHashes: {},
+  upstashHashes: {},
+  localRedisHashes: {},
+  searchCache: /* @__PURE__ */ new Map(),
+  // 搜索结果缓存，存储格式：{ keyword: { results, timestamp } }
+  commentCache: /* @__PURE__ */ new Map(),
+  // 弹幕缓存，存储格式：{ videoUrl: { comments, timestamp } }
+  favoriteCache: /* @__PURE__ */ new Map(),
+  // 收藏剧集永久缓存，存储格式：{ keyword: { results, details, timestamp } }，无 TTL、无数量上限
+  remoteTitleMappingTable: /* @__PURE__ */ new Map(),
+  // 远端剧名映射，查询时由本机映射优先兜底
+  deployPlatform: "",
+  // 部署平台配置
+  currentToken: "",
+  // 标识当前可用token
+  /**
+   * 初始化全局变量，加载环境变量依赖
+   * @param {Object} env 环境对象
+   * @returns {Object} 全局配置对象
+   */
+  init(env = {}) {
+    return this.env = env, this.envs = Envs.load(this.env), this.originalEnvVars = Object.fromEntries(Envs.getOriginalEnvVars()), this.accessedEnvVars = Object.fromEntries(Envs.getAccessedEnvVars()), this.getConfig();
+  },
+  /**
+   * 重新初始化全局变量，加载环境变量依赖
+   * @returns {Object} 全局配置对象
+   */
+  reInit() {
+    return this.envs = Envs.load(this.env), this.originalEnvVars = Object.fromEntries(Envs.getOriginalEnvVars()), this.accessedEnvVars = Object.fromEntries(Envs.getAccessedEnvVars()), this.getConfig();
+  },
+  /**
+   * 智能构建代理URL
+   * 逻辑：专用反代/万能反代直接替换/拼接URL（无视平台）；正向代理走5321端口（仅本地Node有效）
+   * @param {string} targetUrl 原始目标URL
+   * @returns {string} 处理后的URL
+   */
+  makeProxyUrl(targetUrl) {
+    let proxyConfig = this.envs.proxyUrl || "";
+    if (!proxyConfig || !targetUrl) return targetUrl;
+    let configs = proxyConfig.split(",").map((s) => s.trim()).filter((s) => s), forwardProxy = null, specificProxy = null, universalProxy = null, targetObj;
+    try {
+      targetObj = new URL(targetUrl);
+    } catch {
+      return targetUrl;
+    }
+    let hostname = targetObj.hostname;
+    for (let conf of configs)
+      if (conf.startsWith("bahamut@") && hostname.includes("gamer.com.tw")) {
+        specificProxy = conf.substring(8);
+        break;
+      } else if (conf.startsWith("tmdb@") && hostname.includes("tmdb")) {
+        specificProxy = conf.substring(5);
+        break;
+      } else if (conf.startsWith("bilibili@") && hostname.includes("bilibili")) {
+        specificProxy = conf.substring(9);
+        break;
+      } else if (conf.startsWith("animeko@") && (hostname.includes("animeko") || hostname.includes("bgm.tv"))) {
+        specificProxy = conf.substring(8);
+        break;
+      } else if (conf.startsWith("aiyifan@") && /(^|\.)(tripdata\.app|yfsp\.tv)$/.test(hostname)) {
+        specificProxy = conf.substring(8);
+        break;
+      } else conf.startsWith("@") && !universalProxy ? universalProxy = conf.substring(1) : /^https?:\/\//i.test(conf) && !forwardProxy && (forwardProxy = conf);
+    if (specificProxy)
+      try {
+        let proxyObj = new URL(specificProxy);
+        return targetObj.protocol = proxyObj.protocol, targetObj.host = proxyObj.host, targetObj.port = proxyObj.port, proxyObj.pathname !== "/" && (targetObj.pathname = proxyObj.pathname.replace(/\/$/, "") + targetObj.pathname), targetObj.toString();
+      } catch {
+        return targetUrl;
+      }
+    return universalProxy ? `${universalProxy.replace(/\/$/, "")}/${targetUrl}` : forwardProxy ? `http://127.0.0.1:5321/proxy?url=${encodeURIComponent(targetUrl)}` : targetUrl;
+  },
+  resolveTitleMapping(title) {
+    let key = String(title ?? ""), localMappings = this.envs?.titleMappingTable, remoteMappings = this.remoteTitleMappingTable, remoteConfigured = !!this.envs?.titleMappingTableUrl, keys = [key], withoutYear = stripTrailingReleaseYear(key);
+    withoutYear && withoutYear !== key && keys.push(withoutYear);
+    for (let candidate of keys) {
+      if (localMappings?.has(candidate)) {
+        let mapped = localMappings.get(candidate);
+        return recordConfigEffect("TITLE_MAPPING_TABLE", {
+          label: "\u672C\u673A\u5267\u540D\u6620\u5C04\u547D\u4E2D",
+          hit: !0,
+          before: { title: key, matchedKey: candidate },
+          after: { title: mapped, origin: "local", localRules: localMappings.size }
+        }), remoteConfigured && recordConfigEffect("TITLE_MAPPING_TABLE_URL", {
+          label: "\u672C\u673A\u89C4\u5219\u4F18\u5148\uFF0C\u8FDC\u7A0B\u89C4\u5219\u672A\u53C2\u4E0E",
+          hit: !1,
+          before: { title: key, url: describeConfigValue("titleMappingTableUrl", this.envs.titleMappingTableUrl) },
+          after: { title: mapped, origin: "local" }
+        }), mapped;
+      }
+      if (remoteMappings?.has(candidate)) {
+        let mapped = remoteMappings.get(candidate);
+        return recordConfigEffect("TITLE_MAPPING_TABLE_URL", {
+          label: "\u8FDC\u7A0B\u5267\u540D\u6620\u5C04\u547D\u4E2D",
+          hit: !0,
+          before: {
+            title: key,
+            matchedKey: candidate,
+            url: describeConfigValue("titleMappingTableUrl", this.envs?.titleMappingTableUrl)
+          },
+          after: { title: mapped, origin: "remote", remoteRules: remoteMappings.size }
+        }), mapped;
+      }
+    }
+    return recordConfigEffect("TITLE_MAPPING_TABLE", {
+      label: "\u5267\u540D\u6620\u5C04\u672A\u547D\u4E2D",
+      hit: !1,
+      before: { title: key, triedKeys: keys },
+      after: { title: key, localRules: localMappings?.size || 0 }
+    }), remoteConfigured && recordConfigEffect("TITLE_MAPPING_TABLE_URL", {
+      label: "\u8FDC\u7A0B\u5267\u540D\u6620\u5C04\u672A\u547D\u4E2D",
+      hit: !1,
+      before: { title: key, url: describeConfigValue("titleMappingTableUrl", this.envs.titleMappingTableUrl) },
+      after: { title: key, remoteRules: remoteMappings?.size || 0 }
+    }), null;
+  },
+  /**
+   * 获取全局配置快照
+   * @returns {Object} 当前全局配置
+   */
+  /**
+   * 获取全局配置对象（单例，可修改）
+   * 使用 Proxy 保持接口兼容性，实例懒初始化后缓存复用避免每次新建
+   * @returns {Object} 全局配置对象本身
+   */
+  getConfig() {
+    if (this._configProxy) return this._configProxy;
+    let self = this;
+    return this._configProxy = new Proxy({}, {
+      get(target, prop) {
+        if (prop in self.envs) {
+          let value = self.envs[prop];
+          return recordConfigAccess(prop, value), value;
+        }
+        return prop === "version" ? self.VERSION : prop === "maxLogs" ? self.MAX_LOGS : prop === "maxAnimes" ? self.envs.MAX_ANIMES : prop === "maxRecords" ? self.MAX_RECORDS : prop === "maxLastSelectMap" ? self.MAX_LAST_SELECT_MAP : prop === "makeProxyUrl" ? self.makeProxyUrl.bind(self) : self[prop];
+      },
+      set(target, prop, value) {
+        return prop in self.envs ? self.envs[prop] = value : self[prop] = value, !0;
+      }
+    }), this._configProxy;
+  }
+}, globals = new Proxy({}, {
+  get(target, prop) {
+    return Globals.getConfig()[prop];
+  },
+  set(target, prop, value) {
+    return Globals.getConfig()[prop] = value, !0;
+  },
+  has(target, prop) {
+    return prop in Globals.getConfig();
+  },
+  ownKeys(target) {
+    return Reflect.ownKeys(Globals.getConfig());
+  },
+  getOwnPropertyDescriptor(target, prop) {
+    return Object.getOwnPropertyDescriptor(Globals.getConfig(), prop);
+  }
+});
 
 // danmu_api/utils/codec-util.js
 var import_decompress = __toESM(require_decompress(), 1);
@@ -8075,22 +8346,30 @@ function findAnimeByIdInIterator(iterator, idStr, source = null) {
     }
   return fallback;
 }
+function* detailSnapshots() {
+  for (let cached of getActiveSearchCacheEntries())
+    Array.isArray(cached.details) && (yield cached.details);
+  if (globals.favoriteCache instanceof Map)
+    for (let cached of globals.favoriteCache.values())
+      Array.isArray(cached.details) && (yield cached.details);
+}
+function* relatedAnimeDetails(animes, detailStore) {
+  let anchors = new Set(animes.map(getAnimeIdentityKey).filter(Boolean)), seenSnapshots = new Set(animes);
+  function* siblings(details) {
+    for (let item of details)
+      seenSnapshots.has(item) || !getAnimeIdentityKey(item) || (seenSnapshots.add(item), yield item);
+  }
+  detailStore instanceof Map && (yield* siblings(detailStore.values()));
+  for (let details of detailSnapshots())
+    details.some((item) => anchors.has(getAnimeIdentityKey(item))) && (yield* siblings(details));
+}
 function* iterateSearchCacheDetails() {
   let seen = /* @__PURE__ */ new Set();
-  for (let cached of getActiveSearchCacheEntries())
-    if (Array.isArray(cached.details))
-      for (let anime of cached.details) {
-        let identityKey = getAnimeIdentityKey(anime);
-        identityKey && seen.has(identityKey) || (identityKey && seen.add(identityKey), yield anime);
-      }
-  if (globals.favoriteCache instanceof Map) {
-    for (let cached of globals.favoriteCache.values())
-      if (Array.isArray(cached.details))
-        for (let anime of cached.details) {
-          let identityKey = getAnimeIdentityKey(anime);
-          identityKey && seen.has(identityKey) || (identityKey && seen.add(identityKey), yield anime);
-        }
-  }
+  for (let details of detailSnapshots())
+    for (let anime of details) {
+      let identityKey = getAnimeIdentityKey(anime);
+      identityKey && seen.has(identityKey) || (identityKey && seen.add(identityKey), yield anime);
+    }
 }
 function resolveAnimeById(id, detailStore = null, source = null) {
   let idStr = String(id), anime = findAnimeByIdInIterator(globals.animes, idStr, source);
@@ -8369,8 +8648,12 @@ var queryCacheKeys = [
   "episodeNum",
   "reqRecords",
   "lastSelectMap",
-  "todayReqNum"
+  "todayReqNum",
+  "pipelineTraces"
 ];
+function cacheSnapshotValue(key) {
+  return key === "pipelineTraces" ? getTraceRecords() : globals[key];
+}
 function canPersistCacheKey(key, backend) {
   return key === "favoriteCache" || key === "favoritesCache" ? globals.favoriteCacheWritable[backend] !== !1 : !queryCacheKeys.includes(key) || globals.queryCacheInitialized && globals.queryCacheWritable[backend] === !0;
 }
@@ -8418,6 +8701,7 @@ async function updateLocalCaches({ keys, force = !1 } = {}) {
       { key: "episodeIds", value: globals.episodeIds },
       { key: "episodeNum", value: globals.episodeNum },
       { key: "reqRecords", value: globals.reqRecords },
+      { key: "pipelineTraces", value: getTraceRecords() },
       { key: "lastSelectMap", value: globals.lastSelectMap },
       { key: "todayReqNum", value: globals.todayReqNum },
       { key: "favoritesCache", value: globals.favoriteCache }
@@ -8498,7 +8782,7 @@ async function updateRedisCaches({ keys, force = !1, timeoutMs } = {}) {
   let version = redisConnectionVersion, connectionKey = currentRedisConnectionKey();
   try {
     log("info", "[system] [redis] updateCaches start.");
-    let commands = [], updates = [], variables = [...queryCacheKeys, "favoriteCache"].filter((key) => (!keys || keys.includes(key)) && (force || canPersistCacheKey(key, "upstash"))).map((key) => ({ key, value: globals[key] }));
+    let commands = [], updates = [], variables = [...queryCacheKeys, "favoriteCache"].filter((key) => (!keys || keys.includes(key)) && (force || canPersistCacheKey(key, "upstash"))).map((key) => ({ key, value: cacheSnapshotValue(key) }));
     for (let { key, value } of variables) {
       let serializedValue = serializeValue(key, value), currentHash = simpleHash(serializedValue);
       (force || currentHash !== globals.upstashHashes[key]) && (commands.push(["SET", key, serializedValue]), updates.push({ key, hash: currentHash }));
@@ -8746,7 +9030,13 @@ function convertToDanmakuJson(contents, platform) {
       m: typeof danmu.m == "string" ? textConverter(danmu.m) : danmu.m
     }));
     let targetLabel = globals.danmuSimplifiedTraditional === "simplified" ? "\u7B80\u4F53\u5B57" : "\u7E41\u4F53\u5B57";
-    log("info", `[system] [danmu] [danmu convert] \u8F6C\u6362\u4E86 ${danmus.length} \u6761\u5F39\u5E55\u4E3A${targetLabel}`);
+    log("info", `[system] [danmu] [danmu convert] \u8F6C\u6362\u4E86 ${danmus.length} \u6761\u5F39\u5E55\u4E3A${targetLabel}`), recordConfigEffect("DANMU_SIMPLIFIED_TRADITIONAL", {
+      label: "\u5F39\u5E55\u5B57\u5F62\u8F6C\u6362",
+      hit: danmus.length > 0,
+      before: { \u5F39\u5E55\u6761\u6570: danmus.length },
+      after: { \u76EE\u6807\u5B57\u5F62: targetLabel, \u5F39\u5E55\u6761\u6570: danmus.length, \u8F6C\u6362\u6761\u6570: danmus.length },
+      sum: !0
+    });
   }
   let regexArray = splitBlockedWords(globals.blockedWords).map(parseBlockedWord);
   regexArray.length === 0 ? globals.blockedWords && globals.blockedWords.trim() !== "" ? log("warn", `[system] [danmu] [blocked-words] \u274C \u5DF2\u914D\u7F6E\u5C4F\u853D\u8BCD\u4F46\u672A\u89E3\u6790\u51FA\u6709\u6548\u89C4\u5219\uFF0C\u672C\u6B21\u4E0D\u4F1A\u8FC7\u6EE4\u4EFB\u4F55\u5F39\u5E55\uFF01\u539F\u59CB\u914D\u7F6E: ${JSON.stringify(globals.blockedWords)}`) : log("info", "[system] [danmu] [blocked-words] \u672A\u914D\u7F6E\u5C4F\u853D\u8BCD(BLOCKED_WORDS \u4E3A\u7A7A)\uFF0C\u8DF3\u8FC7\u8FC7\u6EE4") : log("info", `[system] [danmu] [blocked-words] \u89C4\u5219\u89E3\u6790\u6210\u529F: \u5171 ${regexArray.length} \u6761 [ ${regexArray.map((r) => r.toString()).join(" , ")} ]`);
@@ -8762,10 +9052,33 @@ function convertToDanmakuJson(contents, platform) {
       log("info", `[system] [danmu] [blocked-words] \u2705 \u5C4F\u853D\u8BCD\u5DF2\u751F\u6548: \u62E6\u622A ${removedCount}/${danmus.length} \u6761\u5F39\u5E55${hitSummary ? `\uFF0C\u547D\u4E2D\u660E\u7EC6: ${hitSummary}` : ""}`), blockedSamples.length && log("info", `[system] [danmu] [blocked-words] \u62E6\u622A\u793A\u4F8B(\u6700\u591A3\u6761): ${blockedSamples.join(" | ")}`);
     } else
       log("info", `[system] [danmu] [blocked-words] \u26A0\uFE0F \u89C4\u5219\u5DF2\u52A0\u8F7D(${regexArray.length} \u6761)\u4F46\u672C\u96C6\u5F39\u5E55\u65E0\u547D\u4E2D`);
+  recordConfigEffect("BLOCKED_WORDS", {
+    label: "\u5C4F\u853D\u8BCD\u8FC7\u6EE4",
+    hit: removedCount > 0,
+    before: { \u5F39\u5E55\u6761\u6570: danmus.length, \u751F\u6548\u89C4\u5219\u6570: regexArray.length },
+    after: { \u5F39\u5E55\u6761\u6570: filteredDanmus.length },
+    removed: blockedSamples.map((sample) => ({ value: sample })),
+    removedCount,
+    sum: !0
+  });
   let isMultiSource = sourceLabels.size > 1;
   log("info", `[system] [danmu] \u53BB\u91CD\u5206\u949F\u6570: ${globals.groupMinute}\uFF0C\u6765\u6E90\u6807\u7B7E ${sourceLabels.size} \u79CD`);
-  let groupedDanmus = groupDanmusByMinute(filteredDanmus, globals.groupMinute, isMultiSource), likeDanmus = handleDanmusLike(groupedDanmus), convertedDanmus = limitDanmusByCount(likeDanmus, globals.danmuLimit);
-  if (globals.convertTopBottomToScroll || globals.convertColor === "white" || globals.convertColor === "color") {
+  let groupedDanmus = groupDanmusByMinute(filteredDanmus, globals.groupMinute, isMultiSource);
+  recordConfigEffect("GROUP_MINUTE", {
+    label: "\u540C\u65F6\u95F4\u70B9\u53BB\u91CD",
+    hit: groupedDanmus.length < filteredDanmus.length,
+    before: { \u53BB\u91CD\u7A97\u53E3: `${globals.groupMinute} \u5206\u949F`, \u5F39\u5E55\u6761\u6570: filteredDanmus.length, \u6765\u6E90\u6570: sourceLabels.size },
+    after: { \u5F39\u5E55\u6761\u6570: groupedDanmus.length },
+    sum: !0
+  });
+  let likeDanmus = handleDanmusLike(groupedDanmus), convertedDanmus = limitDanmusByCount(likeDanmus, globals.danmuLimit);
+  if (recordConfigEffect("DANMU_LIMIT", {
+    label: "\u5F39\u5E55\u6570\u91CF\u4E0A\u9650",
+    hit: convertedDanmus.length < likeDanmus.length,
+    before: { \u4E0A\u9650: globals.danmuLimit === 0 ? "\u4E0D\u9650\u5236" : `${globals.danmuLimit} \u5343\u6761`, \u5F39\u5E55\u6761\u6570: likeDanmus.length },
+    after: { \u5F39\u5E55\u6761\u6570: convertedDanmus.length },
+    sum: !0
+  }), globals.convertTopBottomToScroll || globals.convertColor === "white" || globals.convertColor === "color") {
     let topBottomCount = 0, colorCount = 0, gradientCount = 0, gradientSampler = globals.convertColor === "color" ? buildGradientSampler(resolveGradientSkin(globals.gradientColors)) : null, gradientChance = Math.min(Math.max(globals.gradientChance || 0, 0), 100) / 100;
     convertedDanmus = convertedDanmus.map((danmu) => {
       let pValues = danmu.p.split(",");
@@ -8786,7 +9099,19 @@ function convertToDanmakuJson(contents, platform) {
         return { ...danmu, p: newP };
       }
       return danmu;
-    }), topBottomCount > 0 && log("info", `[system] [danmu] [danmu convert] \u8F6C\u6362\u4E86 ${topBottomCount} \u6761\u9876\u90E8/\u5E95\u90E8\u5F39\u5E55\u4E3A\u6D6E\u52A8\u5F39\u5E55`), colorCount > 0 && log("info", `[system] [danmu] [danmu convert] \u8F6C\u6362\u4E86 ${colorCount} \u6761\u5F39\u5E55\u989C\u8272\uFF08\u5176\u4E2D\u6E10\u53D8\u8272\u5F39\u5E55 ${gradientCount} \u6761\uFF09`);
+    }), topBottomCount > 0 && log("info", `[system] [danmu] [danmu convert] \u8F6C\u6362\u4E86 ${topBottomCount} \u6761\u9876\u90E8/\u5E95\u90E8\u5F39\u5E55\u4E3A\u6D6E\u52A8\u5F39\u5E55`), colorCount > 0 && log("info", `[system] [danmu] [danmu convert] \u8F6C\u6362\u4E86 ${colorCount} \u6761\u5F39\u5E55\u989C\u8272\uFF08\u5176\u4E2D\u6E10\u53D8\u8272\u5F39\u5E55 ${gradientCount} \u6761\uFF09`), recordConfigEffect("CONVERT_TOP_BOTTOM_TO_SCROLL", {
+      label: "\u9876\u90E8/\u5E95\u90E8\u5F39\u5E55\u8F6C\u6EDA\u52A8",
+      hit: topBottomCount > 0,
+      before: { \u5F39\u5E55\u6761\u6570: convertedDanmus.length },
+      after: { \u5F39\u5E55\u6761\u6570: convertedDanmus.length, \u8F6C\u6362\u6761\u6570: topBottomCount },
+      sum: !0
+    }), recordConfigEffect("CONVERT_COLOR", {
+      label: "\u5F39\u5E55\u989C\u8272\u8F6C\u6362",
+      hit: colorCount > 0,
+      before: { \u8F6C\u6362\u6A21\u5F0F: globals.convertColor || "\u4E0D\u8F6C\u6362", \u5F39\u5E55\u6761\u6570: convertedDanmus.length },
+      after: { \u5F39\u5E55\u6761\u6570: convertedDanmus.length, \u8F6C\u6362\u6761\u6570: colorCount, \u6E10\u53D8\u8272\u6761\u6570: gradientCount },
+      sum: !0
+    });
   }
   return log("info", `[system] [danmu] danmus_original: ${danmus.length}`), log("info", `[system] [danmu] danmus_filter: ${filteredDanmus.length}`), log("info", `[system] [danmu] danmus_group: ${groupedDanmus.length}`), log("info", `[system] [danmu] danmus_limit: ${convertedDanmus.length}`), log("info", "[system] [danmu] Top 5 danmus:", JSON.stringify(convertedDanmus.slice(0, 5), null, 2)), convertedDanmus;
 }
@@ -10783,7 +11108,7 @@ ${mappingEntries.map((e) => e.text).join(`
 }
 async function applyMergeLogic(curAnimes, detailStore = null) {
   if (!curAnimes || curAnimes.length < 2) return;
-  let baseGroups = globals.mergeSourcePairs || [], customRules = globals.customMergeRules || [], dynamicPairsMap = /* @__PURE__ */ new Map();
+  let mergeEvents = [], snapshotBefore = curAnimes.length, baseGroups = globals.mergeSourcePairs || [], customRules = globals.customMergeRules || [], dynamicPairsMap = /* @__PURE__ */ new Map();
   for (let rule of customRules) {
     if (rule.action === "block") continue;
     let pSrc = rule.primary.source.split("&")[0], sSrc = rule.secondary.source.split("&")[0];
@@ -10953,11 +11278,30 @@ async function applyMergeLogic(curAnimes, detailStore = null) {
   if (keepSources.size > 0)
     for (let anime of curAnimes)
       globalConsumedIds.has(anime.animeId) && keepSources.has(anime.source) && globalConsumedIds.delete(anime.animeId);
+  let removedIds = [];
   for (let i = curAnimes.length - 1; i >= 0; i--) {
     let item = curAnimes[i];
-    (item._isMerged || globalConsumedIds.has(item.animeId)) && curAnimes.splice(i, 1);
+    (item._isMerged || globalConsumedIds.has(item.animeId)) && (removedIds.push(item), curAnimes.splice(i, 1));
   }
   newMergedAnimes.length > 0 ? log2("info", `[merge] \u5408\u5E76\u6267\u884C\u5B8C\u6BD5\uFF0C\u65B0\u589E\u4E86 ${newMergedAnimes.length} \u4E2A\u5408\u5E76\u9879\uFF0C\u6700\u7EC8\u5217\u8868\u6570\u91CF: ${curAnimes.length}`) : log2("info", `[merge] \u626B\u63CF\u5B8C\u6BD5\uFF0C\u672A\u4EA7\u751F\u4EFB\u4F55\u5408\u5E76\uFF0C\u5217\u8868\u4FDD\u6301\u4E0D\u53D8 (\u6570\u91CF: ${curAnimes.length})`);
+  for (let merged of newMergedAnimes)
+    mergeEvents.push({
+      \u7ED3\u679C: `${merged.animeTitle}\uFF08\u542B ${merged.mergedChildren?.length || 0} \u4E2A\u526F\u6E90\uFF0C\u5171 ${merged.episodeCount} \u96C6\uFF09`,
+      \u526F\u6E90: (merged.mergedChildren || []).map((child) => `${child.animeTitle} [${child.source}]`)
+    });
+  for (let item of removedIds)
+    item._isMerged || mergeEvents.push({ \u7ED3\u679C: `${item.animeTitle} \u5DF2\u5E76\u5165\u5176\u4ED6\u7ED3\u679C`, \u526F\u6E90: [item.source] });
+  recordConfigEffect("MERGE_SOURCE_PAIRS", {
+    label: "\u6E90\u5408\u5E76\u660E\u7EC6",
+    kind: "stats",
+    hit: newMergedAnimes.length > 0,
+    context: {
+      \u5408\u5E76\u7EC4: (globals.mergeSourcePairs || []).map((g) => [g.primary, ...g.secondaries].join(" & ")).join("\uFF1B") || "\u672A\u914D\u7F6E",
+      \u5355\u6E90\u4FDD\u7559: [...new Set((globals.mergeSourcePairs || []).filter((g) => g.secondaries.length === 0).map((g) => g.primary))].join("\u3001") || "\u65E0"
+    },
+    summary: `${snapshotBefore} \u6761\u5019\u9009\u5408\u5E76\u4E3A ${curAnimes.length} \u6761` + (newMergedAnimes.length > 0 ? `\uFF0C\u4EA7\u751F ${newMergedAnimes.length} \u4E2A\u5408\u5E76\u9879` : "\uFF0C\u65E0\u5408\u5E76\u4EA7\u751F"),
+    table: mergeEvents.length > 0 ? { columns: ["\u7ED3\u679C", "\u526F\u6E90"], rows: mergeEvents } : void 0
+  });
 }
 function getDanmuTime(danmu) {
   if (danmu.p && typeof danmu.p == "string") {
@@ -12795,7 +13139,7 @@ ${path2}?${sortedQuery}`;
     let tmpAnimes = [];
     if (!sourceAnimes || !Array.isArray(sourceAnimes))
       return log("info", "[renren] sourceAnimes is not a valid array"), [];
-    let filteredAnimes = sourceAnimes.filter((s) => titleMatches(s.title, queryTitle, querySeason) ? !0 : s.aliases && Array.isArray(s.aliases) ? s.aliases.some((alias) => titleMatches(alias, queryTitle, querySeason)) : !1), resolvedQuerySeason = querySeason !== null ? querySeason : getExplicitSeasonNumber(queryTitle);
+    let filteredAnimes = sourceAnimes.filter((s) => titleMatches(s.title, queryTitle, querySeason, !1, 0.8, s.title) ? !0 : s.aliases && Array.isArray(s.aliases) ? s.aliases.some((alias) => titleMatches(alias, queryTitle, querySeason, !1, 0.8, s.title)) : !1), resolvedQuerySeason = querySeason !== null ? querySeason : getExplicitSeasonNumber(queryTitle);
     if (resolvedQuerySeason !== null) {
       let seasonFiltered = filteredAnimes.filter((anime) => {
         let s = extractSeasonNumberFromAnimeTitle(anime.title).season;
@@ -14178,7 +14522,7 @@ var TencentSource = class extends BaseSource {
     return aliasMatch && aliasMatch[1].split(/[、,，/|]+/).forEach(addAlias), aliases;
   }
   titleOrAliasMatches(anime, queryTitle, querySeason = null) {
-    return titleMatches(anime.title, queryTitle, querySeason) ? !0 : Array.isArray(anime.aliases) && anime.aliases.some((alias) => titleMatches(alias, queryTitle, querySeason));
+    return titleMatches(anime.title, queryTitle, querySeason, !1, 0.8, anime.title) ? !0 : Array.isArray(anime.aliases) && anime.aliases.some((alias) => titleMatches(alias, queryTitle, querySeason, !1, 0.8, anime.title));
   }
   // 搜索结果中用于补充同题材作品的分区：相关影视、与 X 相关、与关键词同名
   isRelatedBoxTitle(boxTitle, keyword) {
@@ -14915,10 +15259,10 @@ var _IqiyiSource = class _IqiyiSource extends BaseSource {
    * 获取分集列表
    * @param {string} id - 视频 ID (link_id 或 movie_qipuId)
    * @param {number|null} querySeason - 目标季，指定时只获取该季分集
-   * @param {Map|null} seasonAlbumCache - 跨多次调用共享的分季数据缓存，避免同一 album 重复请求
+   * @param {Map|null} seasonAlbumCache - 跨多次调用共享的分季组数据缓存，避免同一分季组重复请求
    * @returns {Promise<Array>} 分集列表
    */
-  async getEpisodes(id, querySeason = null, seasonAlbumCache = null, inlinedAlbumIds = null, baseInfoCache = null) {
+  async getEpisodes(id, querySeason = null, seasonAlbumCache = null) {
     try {
       if (log("info", `[iqiyi] \u83B7\u53D6\u5206\u96C6\u5217\u8868: media_id=${id}`), id.startsWith("movie_")) {
         let qipuId = id.substring(6);
@@ -14934,8 +15278,8 @@ var _IqiyiSource = class _IqiyiSource extends BaseSource {
       let entityId = /^\d+$/.test(id) ? id : this._videoIdToEntityId(id);
       if (!entityId)
         return log("error", `[iqiyi] \u65E0\u6CD5\u5C06 media_id '${id}' \u8F6C\u6362\u4E3A entity_id`), [];
-      let data;
-      if (baseInfoCache && baseInfoCache.has(id) ? data = baseInfoCache.get(id) : data = await this._fetchBaseInfoData(entityId), !data || data.status_code !== 0 || !data.data || !data.data.template)
+      let data = await this._fetchBaseInfoData(entityId);
+      if (!data || data.status_code !== 0 || !data.data || !data.data.template)
         return [];
       let allEpisodes = [], tabs = data.data.template.tabs || [];
       if (tabs.length === 0)
@@ -14959,61 +15303,33 @@ var _IqiyiSource = class _IqiyiSource extends BaseSource {
                 if (!(!videoGroup.data || !Array.isArray(videoGroup.data)))
                   for (let epData of videoGroup.data) {
                     if (epData.content_type !== 1) continue;
-                    let tvidMatch = (epData.play_url || "").match(/tvid=(\d+)/);
-                    if (!tvidMatch) continue;
-                    let tvid = tvidMatch[1], title = this._buildEpisodeTitle(epData), order = epData.album_order, pageUrl = epData.page_url;
-                    tvid && title && pageUrl && allEpisodes.push({
-                      id: tvid,
-                      title,
-                      order: order !== void 0 ? order : allEpisodes.length,
-                      link: pageUrl
-                    });
+                    let episode = this._buildEpisodeEntry(epData);
+                    episode && allEpisodes.push(episode);
                   }
             }
         } else if (block.bk_type === "album_episodes" && block.data?.data) {
           log("info", "[iqiyi] \u627E\u5230 album_episodes \u7C7B\u578B\u7684\u5206\u96C6\u6570\u636E\u5757"), foundEpisodes = !0;
-          let episodeGroups = block.data.data;
-          for (let group of episodeGroups) {
-            if (querySeason !== null && group.tab_name) {
-              let groupSeason = getExplicitSeasonNumber(group.tab_name);
-              if (groupSeason !== null && groupSeason !== querySeason) continue;
+          let episodeGroups = block.data.data, selectedGroup = this._selectSeasonGroup(episodeGroups, querySeason);
+          if (!selectedGroup) continue;
+          let videosData = selectedGroup.videos;
+          if (typeof videosData == "string") {
+            let albumIdKey = selectedGroup.entity_id ? String(selectedGroup.entity_id) : videosData.match(/album_id=(\d+)/)?.[1] || videosData, seasonPromise = fetchedSeasons.get(albumIdKey);
+            seasonPromise ? log("info", `[iqiyi] \u5206\u5B63\u7EC4URL\u5DF2\u83B7\u53D6\u8FC7\uFF0C\u8DF3\u8FC7\u91CD\u590D\u8BF7\u6C42: ${albumIdKey}`) : (seasonPromise = (async () => {
+              log("info", `[iqiyi] \u53D1\u73B0\u5206\u5B63\u7EC4URL\uFF0C\u6B63\u5728\u83B7\u53D6: ${videosData}`);
+              let seasonResponse = await Widget.http.get(videosData);
+              return typeof seasonResponse.data == "string" ? JSON.parse(seasonResponse.data) : seasonResponse.data;
+            })(), fetchedSeasons.set(albumIdKey, seasonPromise));
+            try {
+              videosData = await seasonPromise;
+            } catch (error) {
+              fetchedSeasons.delete(albumIdKey), log("error", `[iqiyi] \u83B7\u53D6\u5206\u5B63\u7EC4\u6570\u636E\u5931\u8D25: ${error.message}`);
+              continue;
             }
-            let videosData = group.videos;
-            if (typeof videosData == "string") {
-              let groupAlbumId = group.entity_id ? String(group.entity_id) : videosData.match(/album_id=(\d+)/)?.[1] || videosData;
-              if (inlinedAlbumIds && inlinedAlbumIds.has(groupAlbumId)) {
-                log("info", `[iqiyi] \u8BE5\u5B63\u5206\u96C6\u5DF2\u901A\u8FC7\u5185\u8054\u6570\u636E\u83B7\u53D6\uFF0C\u8DF3\u8FC7\u5206\u5B63URL: ${groupAlbumId}`);
-                continue;
-              }
-              let albumIdKey = groupAlbumId, seasonPromise = fetchedSeasons.get(albumIdKey);
-              seasonPromise ? log("info", `[iqiyi] \u5206\u5B63URL\u5DF2\u83B7\u53D6\u8FC7\uFF0C\u8DF3\u8FC7\u91CD\u590D\u8BF7\u6C42: ${albumIdKey}`) : (seasonPromise = (async () => {
-                log("info", `[iqiyi] \u53D1\u73B0\u5206\u5B63URL\uFF0C\u6B63\u5728\u83B7\u53D6: ${videosData}`);
-                let seasonResponse = await Widget.http.get(videosData);
-                return typeof seasonResponse.data == "string" ? JSON.parse(seasonResponse.data) : seasonResponse.data;
-              })(), fetchedSeasons.set(albumIdKey, seasonPromise));
-              try {
-                videosData = await seasonPromise;
-              } catch (error) {
-                fetchedSeasons.delete(albumIdKey), log("error", `[iqiyi] \u83B7\u53D6\u5206\u5B63\u6570\u636E\u5931\u8D25: ${error.message}`);
-                continue;
-              }
-            }
-            if (videosData && typeof videosData == "object" && videosData.feature_paged)
-              for (let pageKey in videosData.feature_paged) {
-                let pagedList = videosData.feature_paged[pageKey];
-                for (let epData of pagedList) {
-                  if (epData.content_type !== 1) continue;
-                  let tvidMatch = (epData.play_url || "").match(/tvid=(\d+)/);
-                  if (!tvidMatch) continue;
-                  let tvid = tvidMatch[1], title = this._buildEpisodeTitle(epData), order = epData.album_order, pageUrl = epData.page_url;
-                  tvid && title && order && pageUrl && allEpisodes.push({
-                    id: tvid,
-                    title,
-                    order,
-                    link: pageUrl
-                  });
-                }
-              }
+          }
+          for (let epData of this._collectSeasonEpisodes(videosData)) {
+            if (epData.content_type !== 1) continue;
+            let episode = this._buildEpisodeEntry(epData);
+            episode && allEpisodes.push(episode);
           }
         }
       if (!foundEpisodes)
@@ -15021,7 +15337,11 @@ var _IqiyiSource = class _IqiyiSource extends BaseSource {
       let uniqueEpisodes = Array.from(
         new Map(allEpisodes.map((ep) => [ep.id, ep])).values()
       );
-      return uniqueEpisodes.sort((a, b) => a.order - b.order), log("info", `[iqiyi] \u6210\u529F\u83B7\u53D6 ${uniqueEpisodes.length} \u4E2A\u5206\u96C6`), uniqueEpisodes;
+      if (uniqueEpisodes.every((ep) => ep.order !== null) && new Set(uniqueEpisodes.map((ep) => ep.order)).size === uniqueEpisodes.length)
+        uniqueEpisodes.sort((a, b) => a.order - b.order);
+      else
+        for (let episode of uniqueEpisodes) episode.order = null;
+      return log("info", `[iqiyi] \u6210\u529F\u83B7\u53D6 ${uniqueEpisodes.length} \u4E2A\u5206\u96C6`), uniqueEpisodes;
     } catch (error) {
       return log("error", "[iqiyi] \u83B7\u53D6\u5206\u96C6\u51FA\u9519:", error.message), [];
     }
@@ -15079,40 +15399,65 @@ var _IqiyiSource = class _IqiyiSource extends BaseSource {
     return subtitle && !title.includes(subtitle) && (title = `${title} ${subtitle}`), title;
   }
   /**
-   * 补齐分集标题缺失的集数，集数置于作品名后面，与接口自带集数的分集保持同一格式
+   * 解析接口给出的集号；专辑未声明集号顺序时接口把 album_order 置为 0，
+   * 这类分集没有可用的集数信息，按未提供处理
+   * @param {*} albumOrder - 接口的 album_order
+   * @returns {number|null} 正整数序号，未提供时为 null
+   */
+  _resolveEpisodeOrder(albumOrder) {
+    let order = Number(albumOrder);
+    return Number.isInteger(order) && order > 0 ? order : null;
+  }
+  /**
+   * 将接口的分集数据转换为内部分集结构，缺少 tvid 或播放页地址时返回 null
+   * @param {object} epData - 分集原始数据
+   * @returns {{id: string, title: string, order: number|null, link: string}|null} 分集结构
+   */
+  _buildEpisodeEntry(epData) {
+    let tvidMatch = (epData.play_url || "").match(/tvid=(\d+)/), link = epData.page_url;
+    return !tvidMatch || !link ? null : {
+      id: tvidMatch[1],
+      title: this._buildEpisodeTitle(epData),
+      order: this._resolveEpisodeOrder(epData.album_order),
+      link
+    };
+  }
+  /**
+   * 选择分集分季组：条目自身的分季组以对象形式内联返回，其余分季组只给出 URL，
+   * 同一个专辑的多个分季组属于不同季或不同版本，各自对应一个搜索结果
+   * @param {Array} groups - 分季组数组
+   * @param {number|null} querySeason - 目标季，未指定时为 null
+   * @returns {object|null} 选中的分季组
+   */
+  _selectSeasonGroup(groups, querySeason) {
+    let inlineGroups = groups.filter((group) => group.videos && typeof group.videos == "object");
+    if (querySeason === null) return inlineGroups[0] || null;
+    let seasonOf = (group) => group.tab_name ? getExplicitSeasonNumber(group.tab_name) : null;
+    return inlineGroups.find((group) => seasonOf(group) === querySeason) || groups.find((group) => seasonOf(group) === querySeason) || inlineGroups[0] || null;
+  }
+  /**
+   * 展开一季的分集数据：分季组数据按集数区间分段返回，分段可以是分集数组，
+   * 也可以是带 data 的对象，分页形式则直接给出分集数组
+   * @param {object} videosData - 分季组数据
+   * @returns {Array} 分集原始数据数组
+   */
+  _collectSeasonEpisodes(videosData) {
+    return !videosData || typeof videosData != "object" ? [] : videosData.feature_paged ? Object.values(videosData.feature_paged).flat() : (Array.isArray(videosData.data?.videos) ? videosData.data.videos : Object.values(videosData).filter((value) => value && typeof value == "object" && Array.isArray(value.data))).flatMap((segment) => Array.isArray(segment) ? segment : segment.data);
+  }
+  /**
+   * 补齐分集标题缺失的集数，集数置于作品名后面，与接口自带集数的分集保持同一格式；
+   * 接口未提供集号时不补集数，保持标题原样
    * @param {string} title - 分集标题
    * @param {string} animeTitle - 所属作品名
-   * @param {number} order - 分集序号
+   * @param {number|null} order - 集号
    * @returns {string} 含集数的分集标题
    */
   _ensureEpisodeNumber(title, animeTitle, order) {
-    if (extractEpisodeNumberFromTitle(title) !== null || order == null || order === "") return title;
+    if (extractEpisodeNumberFromTitle(title) !== null) return title;
+    let episodeNumber = this._resolveEpisodeOrder(order);
+    if (episodeNumber === null) return title;
     let animeName = extractAnimeTitle(animeTitle || ""), prefix = animeName && title.startsWith(animeName) ? animeName : "", rest = prefix ? title.slice(prefix.length).trim() : title;
-    return prefix ? `${prefix} \u7B2C${order}\u96C6 ${rest}`.trim() : `\u7B2C${order}\u96C6 ${rest}`.trim();
-  }
-  /**
-   * 全季搜索时统一拉取各结果的分集列表，收集其中以内联方式返回的季 album_id；
-   * 这些季无需再经分季URL获取，供 getEpisodes 判断跳过对应请求
-   * @param {Array} animes - 搜索结果数组
-   * @param {Map} baseInfoCache - 复用已拉取的分集列表数据，避免重复请求
-   * @returns {Promise<Set<string>>} 已被内联的季 album_id 集合
-   */
-  async _collectInlinedAlbumIds(animes, baseInfoCache) {
-    let inlined = /* @__PURE__ */ new Set();
-    return await Promise.all(animes.map(async (anime) => {
-      if (anime.mediaId.startsWith("movie_")) return;
-      let entityId = /^\d+$/.test(anime.mediaId) ? anime.mediaId : this._videoIdToEntityId(anime.mediaId);
-      if (!entityId) return;
-      let data = await this._fetchBaseInfoData(entityId);
-      if (baseInfoCache.set(anime.mediaId, data), !data || !data.data || !data.data.template) return;
-      let tabs = data.data.template.tabs || [];
-      if (tabs.length !== 0) {
-        for (let block of tabs[0].blocks || [])
-          if (block.bk_type === "album_episodes" && block.data?.data)
-            for (let group of block.data.data)
-              group.videos && typeof group.videos == "object" && group.videos.feature_paged && group.entity_id && inlined.add(String(group.entity_id));
-      }
-    })), inlined;
+    return prefix ? `${prefix} \u7B2C${episodeNumber}\u96C6 ${rest}`.trim() : `\u7B2C${episodeNumber}\u96C6 ${rest}`.trim();
   }
   /**
    * 获取电影的视频ID（从 qipuId 获取正确的 video_id）
@@ -15229,22 +15574,21 @@ var _IqiyiSource = class _IqiyiSource extends BaseSource {
       return log("error", "[iqiyi] sourceAnimes is not a valid array"), [];
     let filteredAnimes = sourceAnimes.filter((s) => titleMatches(s.title, queryTitle, querySeason)), resolvedQuerySeason = querySeason !== null ? querySeason : getExplicitSeasonNumber(queryTitle);
     if (resolvedQuerySeason !== null) {
-      let seasonFiltered = filteredAnimes.filter((anime) => {
-        let s = extractSeasonNumberFromAnimeTitle(anime.title).season;
-        return s === resolvedQuerySeason || resolvedQuerySeason === 1 && s === null;
+      let firstSeasonTitle = resolvedQuerySeason === 1 ? normalizeTitleForMatch(queryTitle).toLowerCase() : null, seasonFiltered = filteredAnimes.filter((anime) => {
+        let { season } = extractSeasonNumberFromAnimeTitle(anime.title);
+        return season === resolvedQuerySeason || resolvedQuerySeason === 1 && season === null ? !0 : firstSeasonTitle && normalizeTitleForMatch(anime.title).toLowerCase() === firstSeasonTitle && getExplicitSeasonNumber(anime.title) === null;
       });
       seasonFiltered.length > 0 && (filteredAnimes = seasonFiltered, log("info", `[iqiyi] \u7ED3\u679C\u5DF2\u547D\u4E2D\u76EE\u6807\u5B63(\u7B2C${resolvedQuerySeason}\u5B63)\uFF0C\u8DF3\u8FC7\u975E\u76EE\u6807\u5B63\u76F8\u5173\u8BF7\u6C42`));
     }
-    let seasonAlbumCache = /* @__PURE__ */ new Map(), inlinedAlbumIds = null, baseInfoCache = /* @__PURE__ */ new Map();
-    resolvedQuerySeason === null && (inlinedAlbumIds = await this._collectInlinedAlbumIds(filteredAnimes, baseInfoCache));
-    let processIqiyiAnimes = await Promise.all(
+    let seasonAlbumCache = /* @__PURE__ */ new Map(), processIqiyiAnimes = await Promise.all(
       filteredAnimes.map(async (anime) => {
         try {
-          let eps = await this.getEpisodes(anime.mediaId, resolvedQuerySeason, seasonAlbumCache, inlinedAlbumIds, baseInfoCache), links = [];
-          for (let ep of eps) {
+          let eps = await this.getEpisodes(anime.mediaId, resolvedQuerySeason, seasonAlbumCache), links = [];
+          for (let [index, ep] of eps.entries()) {
             let fullUrl = ep.link || `https://www.iqiyi.com/v_${anime.mediaId}.html`;
             links.push({
-              name: ep.order.toString(),
+              // 接口未声明集数顺序时按列表位置编号
+              name: (ep.order ?? index + 1).toString(),
               url: fullUrl,
               title: `\u3010qiyi\u3011 ${this._ensureEpisodeNumber(ep.title, anime.title, ep.order)}`
             });
@@ -16102,7 +16446,19 @@ var _BilibiliSource = class _BilibiliSource extends BaseSource {
     return { seasonId: null, cover: "" };
   }
   /**
+   * 按集号升序排列分集：集号全部可提取时按集号排序，否则按备用比较器排列
+   * @param {Array} episodes - 分集数组
+   * @param {Function} getNumber - 取集号来源的函数
+   * @param {Function|null} fallback - 集号无法提取时的备用比较器
+   */
+  _sortEpisodesByNumber(episodes, getNumber, fallback = null) {
+    let numbers = episodes.map(getNumber);
+    numbers.every((number) => number !== null) ? (episodes.forEach((episode, i) => episode._sortKey = numbers[i]), episodes.sort((a, b) => a._sortKey - b._sortKey)) : fallback && episodes.sort(fallback);
+  }
+  /**
    * 获取番剧分集列表
+   * @param {string|number} seasonId - B站 season_id
+   * @returns {Promise<Array>}
    */
   async _getPgcEpisodes(seasonId) {
     let rawEpisodes = [], apis = [
@@ -16139,7 +16495,7 @@ var _BilibiliSource = class _BilibiliSource extends BaseSource {
         link: `https://www.bilibili.com/bangumi/play/ep${ep.id}`
       };
     });
-    return rawEpisodes._cover && (episodes._cover = rawEpisodes._cover), log("info", `[bilibili] \u83B7\u53D6\u5230 ${episodes.length} \u4E2A\u756A\u5267\u5206\u96C6`), episodes;
+    return this._sortEpisodesByNumber(episodes, (episode) => extractEpisodeNumberFromTitle(episode.title)), rawEpisodes._cover && (episodes._cover = rawEpisodes._cover), log("info", `[bilibili] \u83B7\u53D6\u5230 ${episodes.length} \u4E2A\u756A\u5267\u5206\u96C6`), episodes;
   }
   /**
    * 获取普通视频分集列表
@@ -16204,9 +16560,15 @@ var _BilibiliSource = class _BilibiliSource extends BaseSource {
     });
     let cnAlias = sourceAnimes.length > 0 ? sourceAnimes[0]._tmdbCnAlias : null;
     smartTitleReplace(sourceAnimes, cnAlias);
-    let filteredAnimes = sourceAnimes.filter(
-      (anime) => anime.isOversea || titleMatches(anime.title, queryTitle, querySeason) || anime.aliases && anime.aliases.some((alias) => titleMatches(alias, queryTitle, querySeason))
-    ), resolvedQuerySeason = querySeason !== null ? querySeason : getExplicitSeasonNumber(queryTitle);
+    let filteredAnimes = sourceAnimes.filter((anime) => anime.isOversea ? (recordTitleDecision({
+      ...titleDecisionMeta(),
+      group: anime.title,
+      value: anime.title,
+      source: "bilibili",
+      query: queryTitle,
+      matched: !0,
+      reason: "\u6E2F\u6FB3\u53F0\u8D44\u6E90\u4E0D\u505A\u6807\u9898\u5339\u914D\uFF0C\u76F4\u63A5\u4FDD\u7559"
+    }), !0) : titleMatches(anime.title, queryTitle, querySeason, !1, 0.8, anime.title) || anime.aliases && anime.aliases.some((alias) => titleMatches(alias, queryTitle, querySeason, !1, 0.8, anime.title))), resolvedQuerySeason = querySeason !== null ? querySeason : getExplicitSeasonNumber(queryTitle);
     if (resolvedQuerySeason !== null) {
       let seasonFiltered = filteredAnimes.filter((anime) => {
         let titleToCheck = anime._displayTitle || anime.title, s = extractSeasonNumberFromAnimeTitle(titleToCheck).season;
@@ -16217,7 +16579,7 @@ var _BilibiliSource = class _BilibiliSource extends BaseSource {
     let processPromises = filteredAnimes.map(async (anime) => {
       try {
         let links = [], isIncomplete = anime.checkMore?.content?.includes("\u67E5\u770B\u5168\u90E8");
-        if (anime._eps && anime._eps.length > 0 && !isIncomplete) {
+        if (anime._eps && anime._eps.length > 0 && !isIncomplete)
           links = anime._eps.map((ep, index) => {
             let realVal;
             anime.isOversea && ep.position ? realVal = ep.position.toString() : realVal = ep.index_title || ep.index || (index + 1).toString();
@@ -16230,10 +16592,8 @@ var _BilibiliSource = class _BilibiliSource extends BaseSource {
               title: `\u3010bilibili1\u3011 ${displayTitle2.trim()}`,
               _id: parseInt(epId, 10) || 0
             };
-          });
-          let sortKeys = links.map((l) => extractEpisodeNumberFromTitle(l.name));
-          sortKeys.every((k) => k !== null) ? (links.forEach((l, i) => l._sortKey = sortKeys[i]), links.sort((a, b) => a._sortKey - b._sortKey)) : links.sort((a, b) => a._id - b._id), log("info", `[bilibili] \u76F4\u63A5\u4F7F\u7528\u641C\u7D22\u7ED3\u679C\u4E2D\u7684 ${links.length} \u96C6\u5206\u96C6`);
-        } else {
+          }), this._sortEpisodesByNumber(links, (link) => extractEpisodeNumberFromTitle(link.name), (a, b) => a._id - b._id), log("info", `[bilibili] \u76F4\u63A5\u4F7F\u7528\u641C\u7D22\u7ED3\u679C\u4E2D\u7684 ${links.length} \u96C6\u5206\u96C6`);
+        else {
           let eps = await this.getEpisodes(anime.mediaId);
           if (eps.length === 0) {
             log("info", `[bilibili] ${anime.title} \u65E0\u5206\u96C6\uFF0C\u8DF3\u8FC7`);
@@ -16244,10 +16604,9 @@ var _BilibiliSource = class _BilibiliSource extends BaseSource {
             return anime.isOversea && (linkUrl += "&area=hkmt"), {
               name: `${index + 1}`,
               url: linkUrl,
-              title: `\u3010bilibili1\u3011 ${ep.title}`,
-              _id: parseInt(ep.id, 10) || 0
+              title: `\u3010bilibili1\u3011 ${ep.title}`
             };
-          }), links.sort((a, b) => a._id - b._id);
+          });
         }
         if (links.length === 0) return;
         let numericAnimeId = convertToAsciiSum(anime.mediaId), displayTitle = anime._displayTitle || simplized(anime.title), transformedAnime = {
@@ -17362,7 +17721,7 @@ var tencentSource = new TencentSource(), iqiyiSource = new IqiyiSource(), mangoS
             } else
               isMatch = !0;
           else
-            isMatch = allTitles.some((t) => t && titleMatches(t, queryTitle, resolvedQuerySeason));
+            isMatch = allTitles.some((t) => t && titleMatches(t, queryTitle, resolvedQuerySeason, !1, 0.8, anime.animeTitle || allTitles[0]));
           if (!isMatch)
             return;
           let links = [];
@@ -21199,7 +21558,7 @@ var API_HEALTH2 = {
         info.key === "\u522B\u540D" && Array.isArray(info.value) && info.value.forEach((v) => {
           v && v.v && titles.push(v.v);
         }), info.key === "\u4E2D\u6587\u540D" && typeof info.value == "string" && titles.push(item.value);
-      }), titles.some((t) => t && titleMatches(t, keyword));
+      }), titles.some((t) => t && titleMatches(t, keyword, null, !1, 0.8, item.name || titles[0]));
     });
   }
   /**
@@ -21551,47 +21910,50 @@ var LocalSource = class {
 
 // danmu_api/sources/registry.js
 var SOURCE_REGISTRY = [
-  { key: "360", logName: "360kan", factory: () => new Kan360Source(), deps: [] },
+  { key: "360", logName: "360kan", factory: () => new Kan360Source(), deps: [], displayName: "360 \u5F71\u89C6", aggregator: !0 },
   {
     key: "vod",
     logName: "",
     factory: () => new VodSource(),
     deps: [],
     extraSearchArgs: !0,
+    displayName: "VOD \u670D\u52A1\u5668",
+    aggregator: !0,
     handleAdapter: async (instance, searchResult, queryTitle, isolatedAnimes, isolatedDetailStore, targetSeason) => {
       if (searchResult && Array.isArray(searchResult))
         for (let vodResult of searchResult)
           vodResult && vodResult.list && vodResult.list.length > 0 && await instance.handleAnimes(vodResult.list, queryTitle, isolatedAnimes, vodResult.serverName, isolatedDetailStore, targetSeason);
     }
   },
-  { key: "tmdb", logName: "", factory: (ctx) => new TmdbSource(ctx.get("douban")), deps: ["douban"] },
-  { key: "douban", logName: "", factory: (ctx) => new DoubanSource(ctx.get("tencent"), ctx.get("iqiyi"), ctx.get("youku"), ctx.get("bilibili"), ctx.get("migu")), deps: ["tencent", "iqiyi", "youku", "bilibili", "migu"] },
-  { key: "renren", logName: "", factory: () => new RenrenSource(), deps: [] },
-  { key: "hanjutv", logName: "", factory: () => new HanjutvSource(), deps: [] },
-  { key: "bahamut", logName: "", factory: () => new BahamutSource(), deps: [] },
-  { key: "dandan", logName: "", factory: () => new DandanSource(), deps: [] },
+  { key: "tmdb", logName: "", factory: (ctx) => new TmdbSource(ctx.get("douban")), deps: ["douban"], displayName: "TMDB", aggregator: !0 },
+  { key: "douban", logName: "", factory: (ctx) => new DoubanSource(ctx.get("tencent"), ctx.get("iqiyi"), ctx.get("youku"), ctx.get("bilibili"), ctx.get("migu")), deps: ["tencent", "iqiyi", "youku", "bilibili", "migu"], displayName: "\u8C46\u74E3", aggregator: !0 },
+  { key: "renren", logName: "", factory: () => new RenrenSource(), deps: [], displayName: "\u4EBA\u4EBA\u89C6\u9891" },
+  { key: "hanjutv", logName: "", factory: () => new HanjutvSource(), deps: [], displayName: "\u97E9\u5267 TV" },
+  { key: "bahamut", logName: "", factory: () => new BahamutSource(), deps: [], displayName: "\u5DF4\u54C8\u59C6\u7279\u52A8\u753B\u75AF" },
+  { key: "dandan", logName: "", factory: () => new DandanSource(), deps: [], displayName: "\u5F39\u5F39play" },
   {
     key: "custom",
     logName: "",
     factory: () => new CustomSource(),
     deps: [],
+    displayName: "\u81EA\u5B9A\u4E49\u6E90",
     handleAdapter: (instance, searchResult, queryTitle, isolatedAnimes, isolatedDetailStore) => instance.handleAnimes(searchResult, queryTitle, isolatedAnimes, isolatedDetailStore)
   },
-  { key: "tencent", logName: "", factory: () => new TencentSource(), deps: [] },
-  { key: "iqiyi", logName: "", factory: () => new IqiyiSource(), deps: [] },
-  { key: "imgo", logName: "mango", factory: () => new MangoSource(), deps: [] },
-  { key: "bilibili", logName: "", factory: () => new BilibiliSource(), deps: [] },
-  { key: "migu", logName: "", factory: () => new migu_default(), deps: [] },
-  { key: "youku", logName: "", factory: () => new YoukuSource(), deps: [] },
-  { key: "sohu", logName: "", factory: () => new SohuSource(), deps: [] },
-  { key: "leshi", logName: "", factory: () => new LeshiSource(), deps: [] },
-  { key: "xigua", logName: "", factory: () => new xigua_default(), deps: [] },
-  { key: "maiduidui", logName: "", factory: () => new maiduidui_default(), deps: [] },
-  { key: "aiyifan", logName: "", factory: () => new AiyifanSource(), deps: [] },
-  { key: "hongguo", logName: "", factory: () => new HongguoSource(), deps: [] },
-  { key: "animeko", logName: "", factory: () => new AnimekoSource(), deps: [] },
-  { key: "other", logName: "", factory: () => new OtherSource(), deps: [] },
-  { key: "local", logName: "local", factory: () => new LocalSource(), deps: [] }
+  { key: "tencent", logName: "", factory: () => new TencentSource(), deps: [], displayName: "\u817E\u8BAF\u89C6\u9891" },
+  { key: "iqiyi", logName: "", factory: () => new IqiyiSource(), deps: [], displayName: "\u7231\u5947\u827A" },
+  { key: "imgo", logName: "mango", factory: () => new MangoSource(), deps: [], displayName: "\u8292\u679C TV" },
+  { key: "bilibili", logName: "", factory: () => new BilibiliSource(), deps: [], displayName: "\u54D4\u54E9\u54D4\u54E9" },
+  { key: "migu", logName: "", factory: () => new migu_default(), deps: [], displayName: "\u54AA\u5495\u89C6\u9891" },
+  { key: "youku", logName: "", factory: () => new YoukuSource(), deps: [], displayName: "\u4F18\u9177" },
+  { key: "sohu", logName: "", factory: () => new SohuSource(), deps: [], displayName: "\u641C\u72D0\u89C6\u9891" },
+  { key: "leshi", logName: "", factory: () => new LeshiSource(), deps: [], displayName: "\u4E50\u89C6\u89C6\u9891" },
+  { key: "xigua", logName: "", factory: () => new xigua_default(), deps: [], displayName: "\u897F\u74DC\u89C6\u9891" },
+  { key: "maiduidui", logName: "", factory: () => new maiduidui_default(), deps: [], displayName: "\u57CB\u5806\u5806" },
+  { key: "aiyifan", logName: "", factory: () => new AiyifanSource(), deps: [], displayName: "\u7231\u58F9\u5E06" },
+  { key: "hongguo", logName: "", factory: () => new HongguoSource(), deps: [], displayName: "\u7EA2\u679C\u77ED\u5267" },
+  { key: "animeko", logName: "", factory: () => new AnimekoSource(), deps: [], displayName: "Animeko" },
+  { key: "other", logName: "", factory: () => new OtherSource(), deps: [], displayName: "\u7B2C\u4E09\u65B9\u5F39\u5E55\u670D\u52A1\u5668" },
+  { key: "local", logName: "local", factory: () => new LocalSource(), deps: [], displayName: "\u672C\u5730\u5F39\u5E55" }
 ], instanceMap = /* @__PURE__ */ new Map(), metaMap = /* @__PURE__ */ new Map(), initialized = !1;
 function initSources() {
   if (initialized) return;
@@ -21603,9 +21965,11 @@ function initSources() {
       let instance = entry.factory(instanceMap), handleAdapter = entry.handleAdapter || ((inst, searchResult, queryTitle, isolatedAnimes, isolatedDetailStore, targetSeason) => inst.handleAnimes(searchResult, queryTitle, isolatedAnimes, isolatedDetailStore, targetSeason));
       instanceMap.set(entry.key, instance), metaMap.set(entry.key, {
         key: entry.key,
+        displayName: entry.displayName || entry.key,
         logName: entry.logName || entry.key,
         instance,
         extraSearchArgs: !!entry.extraSearchArgs,
+        aggregator: !!entry.aggregator,
         handleAdapter
       }), built.add(entry.key), progress = !0;
     }
@@ -21625,6 +21989,11 @@ function getSourceByKey(key) {
 function getSourceMetaByKey(key) {
   return ensureInit(), metaMap.get(key) || null;
 }
+function getSourceLabel(key) {
+  ensureInit();
+  let meta = metaMap.get(key);
+  return meta ? meta.aggregator ? `${meta.displayName}\uFF08\u91C7\u96C6\u6E90\uFF09` : meta.displayName : key;
+}
 function getLogNameByKey(key) {
   ensureInit();
   let meta = metaMap.get(key);
@@ -21634,6 +22003,13 @@ initSources();
 
 // danmu_api/apis/dandan-api.js
 var kan360Source = getSourceByKey("360"), vodSource = getSourceByKey("vod"), renrenSource = getSourceByKey("renren"), hanjutvSource = getSourceByKey("hanjutv"), bahamutSource2 = getSourceByKey("bahamut"), dandanSource = getSourceByKey("dandan"), customSource = getSourceByKey("custom"), tencentSource2 = getSourceByKey("tencent"), youkuSource2 = getSourceByKey("youku"), iqiyiSource2 = getSourceByKey("iqiyi"), mangoSource2 = getSourceByKey("imgo"), bilibiliSource2 = getSourceByKey("bilibili"), miguSource = getSourceByKey("migu"), sohuSource = getSourceByKey("sohu"), leshiSource = getSourceByKey("leshi"), xiguaSource = getSourceByKey("xigua"), maiduiduiSource = getSourceByKey("maiduidui"), aiyifanSource = getSourceByKey("aiyifan"), hongguoSource = getSourceByKey("hongguo"), animekoSource = getSourceByKey("animeko"), otherSource = getSourceByKey("other"), localSource = getSourceByKey("local"), doubanSource = getSourceByKey("douban"), tmdbSource = getSourceByKey("tmdb"), PENDING_DANMAKU_REQUESTS = /* @__PURE__ */ new Map();
+function countRawCandidates(searchResult) {
+  if (!Array.isArray(searchResult)) return 0;
+  let total = 0;
+  for (let item of searchResult)
+    total += item && Array.isArray(item.list) ? item.list.length : 1;
+  return total;
+}
 function resolveCommentCacheKey(url) {
   let value = String(url || "");
   return globals.hongguoMergeAllEpisodes && (value.includes("hongguo:") || /https?:\/\/(?:www\.)?hongguoduanju\.com(?::\d+)?\/player\//i.test(value)) ? `${value}::hongguo-all-episodes` : url;
@@ -21644,6 +22020,13 @@ function normalizeDurationValue(rawValue) {
 }
 function shouldIncludeVideoDuration(queryFormat, includeDuration = !1) {
   return includeDuration ? String(queryFormat || globals.danmuOutputFormat || "json").toLowerCase() === "json" : !1;
+}
+function stepEffectsRawDanmuCount() {
+  for (let effect of peekConfigEffects()) {
+    let value = effect.before?.\u5F39\u5E55\u6761\u6570;
+    if (Number.isFinite(value)) return value;
+  }
+  return null;
 }
 function buildDanmuResponse(data, videoDuration = null) {
   return videoDuration === null ? data : { videoDuration, ...data };
@@ -21706,12 +22089,22 @@ function resolveCommentOffsetRule(animeTitle, episodeTitle, commentId, source) {
   }, rule = resolveOffsetRule(globals.danmuOffsetRules, ctx);
   return { ctx, rule, offset: rule?.offset || 0 };
 }
+function matchYear(anime, queryYear) {
+  if (!queryYear)
+    return !0;
+  let animeYear = extractYear(anime.animeTitle);
+  return animeYear ? animeYear === queryYear : !0;
+}
+function isMovieMatchCandidate(anime) {
+  let type = `${anime?.type || ""} ${anime?.typeDescription || ""}`;
+  return /(电影|剧场版|movie|film)/i.test(type);
+}
 function resolveEpisodeCount(declaredCount, availableCount) {
   let declared = Number(declaredCount) || 0, available = Number(availableCount) || 0;
   return available <= 0 ? declared : declared > 0 ? Math.min(declared, available) : available;
 }
 function filterEpisodesByTitle(episodes) {
-  return episodes.filter((episode) => !globals.episodeTitleFilter.test(episode.episodeTitle));
+  return episodes.filter((episode) => !globals.episodeTitleFilter.test(episode.episodeTitle ?? episode.title));
 }
 function applyEpisodeTitleFilter(anime, links) {
   let episodesList = filterEpisodesByTitle(links.map((link, index) => ({
@@ -21821,22 +22214,73 @@ async function executeSourceHandlers(resultData, queryTitle, targetAnimesList, r
     mergeAddAnimeError(requestAnimeDetailsMap, isolatedDetailStore);
   }
 }
-async function searchAnime(url, preferAnimeId = null, preferSource = null, detailStore = null, targetPlatform = null, forceRefresh = !1) {
-  return httpCacheContext.getStore() ? searchAnimeBody(url, preferAnimeId, preferSource, detailStore, targetPlatform, forceRefresh) : runWithHttpCache(() => searchAnimeBody(url, preferAnimeId, preferSource, detailStore, targetPlatform, forceRefresh));
+async function searchAnime(url, preferAnimeId = null, preferSource = null, detailStore = null, targetPlatform = null, forceRefresh = !1, preference = resolveTitlePreference(url.searchParams.get("keyword"), void 0, Number(url.searchParams.get("season")))) {
+  return httpCacheContext.getStore() ? searchAnimeBody(url, preferAnimeId, preferSource, detailStore, targetPlatform, forceRefresh, preference) : runWithHttpCache(() => searchAnimeBody(url, preferAnimeId, preferSource, detailStore, targetPlatform, forceRefresh, preference));
 }
 function resolveAnimeDetailForSearch(anime, requestAnimeDetailsMap) {
-  return resolveAnimeByIdFromDetailStore(anime?.bangumiId, requestAnimeDetailsMap, anime?.source) || resolveAnimeByIdFromDetailStore(anime?.animeId, requestAnimeDetailsMap, anime?.source) || resolveAnimeById(anime?.bangumiId, requestAnimeDetailsMap, anime?.source) || resolveAnimeById(anime?.animeId, requestAnimeDetailsMap, anime?.source);
+  return resolveCandidateDetail(anime, requestAnimeDetailsMap) || resolveCandidateDetail(anime, requestAnimeDetailsMap, resolveAnimeById);
 }
-async function searchAnimeBody(url, preferAnimeId = null, preferSource = null, detailStore = null, targetPlatform = null, forceRefresh = !1) {
+function platformTitleKeys(title) {
+  let key = platformTitleKey(title), base = key.replace(/\s*(?:第[\d零一二三四五六七八九十百两]+[季期部]|(?<![a-z])(?:season|s|part)\s*\d+)$/i, "");
+  return base && base !== key ? [key, base] : [key];
+}
+function displayTitleNames(title) {
+  if (!title) return [];
+  let clean = title.replace(/【[^】]*】\s*from\s+[^【】]+$/i, "").trim();
+  return clean === title ? [title] : [clean, clean.replace(/\s*[（(]\s*(?:(?:19|20)\d{2}|N\/A)?\s*[)）]$/i, "")];
+}
+function bareTitleSeason(key) {
+  let suffix = key.match(/\s*\d+$/);
+  if (!suffix || suffix.index === 0) return null;
+  let season = extractSeasonNumberFromAnimeTitle(key).season;
+  return season === Number(suffix[0]) ? { base: key.slice(0, suffix.index), season } : null;
+}
+function resolveTitlePreference(title, mappedTitle, season, { episodeList = !1 } = {}) {
+  let rules = globals.titlePlatformMap;
+  if (!rules?.size || !title) return null;
+  let titleKeys = platformTitleKeys(title), ruleKey = titleKeys.find((key) => rules.has(key)), bareRequest = !ruleKey && episodeList ? bareTitleSeason(titleKeys[0]) : null, platform = rules.get(ruleKey ?? bareRequest?.base);
+  if (!platform) return null;
+  let target = mappedTitle === void 0 ? globals.resolveTitleMapping(title) : mappedTitle, keys = new Set(target ? [...titleKeys, ...platformTitleKeys(target)] : titleKeys);
+  bareRequest && keys.add(bareRequest.base);
+  let requestedSeason = season || bareRequest?.season || (titleKeys.length > 1 ? extractSeasonNumberFromAnimeTitle(title).season : null), matches = (anime, anySeason) => bareRequest && (isMovieMatchCandidate(anime) || !anySeason && resolveCandidateSeason(anime) !== requestedSeason) ? !1 : [...displayTitleNames(anime.animeTitle), ...anime.aliases || []].some((name) => {
+    let [key, base] = platformTitleKeys(name);
+    if (keys.has(key)) return !0;
+    if (keys.has(base)) return !requestedSeason || anySeason || extractSeasonNumberFromAnimeTitle(key).season === requestedSeason;
+    if (!episodeList && !requestedSeason || episodeList && isMovieMatchCandidate(anime)) return !1;
+    let candidate = bareTitleSeason(key);
+    return candidate && keys.has(candidate.base) && (!requestedSeason || anySeason || candidate.season === requestedSeason);
+  });
+  return { platform, matches: (anime) => matches(anime, !1), matchesSeries: (anime) => matches(anime, !0) };
+}
+function orderByScore(items, scoreOf) {
+  let scored = items.map((item) => ({ item, score: scoreOf(item) }));
+  return scored.every((entry) => entry.score === scored[0].score) ? items : scored.sort((left, right) => right.score - left.score).map((entry) => entry.item);
+}
+function orderSearchResults(animes, preference, getEpisodePlatforms, platform = preference?.platform) {
+  return !preference || animes.length < 2 ? animes : orderByScore(animes, (anime) => {
+    if (!preference.matches(anime)) return 0;
+    let tags = new Set(getEpisodePlatforms(anime));
+    if (!tags.size) return scoreAnimePlatform(anime, platform);
+    let best = 0;
+    for (let tag of tags) best = Math.max(best, scoreAnimePlatform(anime, platform, tag));
+    return best;
+  });
+}
+async function searchAnimeBody(url, preferAnimeId, preferSource, detailStore, targetPlatform, forceRefresh, preference) {
   let queryTitle = url.searchParams.get("keyword");
-  globals.titleNoiseFilter && (queryTitle = queryTitle.replace(globals.titleNoiseFilter, "").trim());
+  markStepActive("\u641C\u7D22\xB7\u7F13\u5B58\u67E5\u8BE2");
+  let cacheStartedAt = Date.now();
+  if (globals.titleNoiseFilter) {
+    let noisyTitle = queryTitle;
+    queryTitle = queryTitle.replace(globals.titleNoiseFilter, "").trim(), noisyTitle !== queryTitle && recordConfigEffect("TITLE_NOISE_FILTER", { label: "\u5267\u540D\u6742\u97F3\u6E05\u7406", before: noisyTitle, after: queryTitle, hit: !0 });
+  }
   let querySeason = url.searchParams.get("season");
   querySeason = querySeason ? parseInt(querySeason, 10) : null;
   let queryEpisode = url.searchParams.get("episode");
   queryEpisode = queryEpisode ? parseInt(queryEpisode, 10) : null;
   let tmdbSeasonBoundaries = null;
   if (log("info", `[system] [searchAnime] Search anime with keyword: ${queryTitle}, target season: ${querySeason}, target episode: ${queryEpisode}`), queryTitle === "")
-    return jsonResponse({
+    return traceStep("\u641C\u7D22\xB7\u7F13\u5B58\u67E5\u8BE2", cacheStartedAt, { status: "skip", reason: "\u5173\u952E\u5B57\u4E3A\u7A7A\uFF0C\u76F4\u63A5\u8FD4\u56DE\u7A7A\u7ED3\u679C", inputs: { q: queryTitle }, outputs: { hit: !1, finalCount: 0, count: 0 } }), jsonResponse({
       errorCode: 0,
       success: !0,
       errorMessage: "",
@@ -21844,16 +22288,35 @@ async function searchAnimeBody(url, preferAnimeId = null, preferSource = null, d
     });
   if (globals.animeTitleSimplified) {
     let simplifiedTitle = simplized(queryTitle);
-    log("info", `[system] [searchAnime] searchAnime converted traditional to simplified: ${queryTitle} -> ${simplifiedTitle}`), queryTitle = simplifiedTitle;
+    log("info", `[system] [searchAnime] searchAnime converted traditional to simplified: ${queryTitle} -> ${simplifiedTitle}`), queryTitle !== simplifiedTitle && recordConfigEffect("ANIME_TITLE_SIMPLIFIED", { label: "\u5267\u540D\u7E41\u8F6C\u7B80", before: queryTitle, after: simplifiedTitle, hit: !0 }), queryTitle = simplifiedTitle;
   }
-  let requestAnimeDetailsMap = detailStore instanceof Map ? detailStore : /* @__PURE__ */ new Map(), cacheKey = querySeason !== null ? `${queryTitle}_S${querySeason}` : queryTitle, resolveSearchAnimeDetail = (anime) => resolveAnimeDetailForSearch(anime, requestAnimeDetailsMap);
+  let requestAnimeDetailsMap = detailStore instanceof Map ? detailStore : /* @__PURE__ */ new Map(), cacheKey = querySeason !== null ? `${queryTitle}_S${querySeason}` : queryTitle;
+  recordConfigEffect("SEARCH_CACHE_MINUTES", {
+    label: "\u641C\u7D22\u7F13\u5B58\u952E\u4E0E\u6709\u6548\u671F",
+    kind: "stats",
+    context: {
+      \u641C\u7D22\u8BCD: queryTitle,
+      \u5B63: querySeason === null ? "\u672A\u6307\u5B9A" : `\u7B2C ${querySeason} \u5B63`,
+      \u7F13\u5B58\u952E: cacheKey,
+      \u6709\u6548\u671F: `${globals.searchCacheMinutes} \u5206\u949F`
+    }
+  });
+  let resolveSearchAnimeDetail = (anime) => resolveAnimeDetailForSearch(anime, requestAnimeDetailsMap), ordered = (animes) => orderSearchResults(animes, preference, (anime) => {
+    let links = resolveSearchAnimeDetail(anime)?.links || [];
+    return (queryEpisode === null ? links : (groupEpisodeAlternatives(links).find((group) => group.number === queryEpisode)?.indices || []).map((index) => links[index])).map((link) => extractEpisodeTitle(link.title || ""));
+  }, targetPlatform || preference?.platform);
   if (!forceRefresh && resolveFavoriteForSearchKeyword(cacheKey)) {
     let favoriteResults = withAvailableEpisodeCount(getSearchCache(cacheKey, requestAnimeDetailsMap) || [], resolveSearchAnimeDetail);
-    return jsonResponse({
+    return traceStep("\u641C\u7D22\xB7\u7F13\u5B58\u67E5\u8BE2", cacheStartedAt, {
+      status: "hit",
+      reason: "\u6536\u85CF\u7F13\u5B58\u547D\u4E2D",
+      inputs: { q: queryTitle, animeId: preferAnimeId ?? void 0, cacheKey },
+      outputs: { hit: !0, cachedCount: favoriteResults.length, count: favoriteResults.length }
+    }), jsonResponse({
       errorCode: 0,
       success: !0,
       errorMessage: "",
-      animes: favoriteResults
+      animes: ordered(favoriteResults)
     });
   }
   let cachedResults = forceRefresh ? null : getSearchCache(cacheKey, requestAnimeDetailsMap);
@@ -21863,29 +22326,41 @@ async function searchAnimeBody(url, preferAnimeId = null, preferSource = null, d
   }
   if (cachedResults !== null) {
     let satisfied = checkEpisodeSatisfied(cachedResults, querySeason, queryEpisode, requestAnimeDetailsMap, targetPlatform);
-    if (satisfied)
-      return jsonResponse({
+    if (satisfied) {
+      let cachedAvailable = withAvailableEpisodeCount(cachedResults, resolveSearchAnimeDetail);
+      return traceStep("\u641C\u7D22\xB7\u7F13\u5B58\u67E5\u8BE2", cacheStartedAt, {
+        status: "hit",
+        reason: "\u666E\u901A\u641C\u7D22\u7F13\u5B58\u547D\u4E2D",
+        inputs: { q: queryTitle, animeId: preferAnimeId ?? void 0, cacheKey },
+        outputs: { hit: !0, cachedCount: cachedAvailable.length, count: cachedAvailable.length }
+      }), jsonResponse({
         errorCode: 0,
         success: !0,
         errorMessage: "",
-        animes: withAvailableEpisodeCount(cachedResults, resolveSearchAnimeDetail)
+        animes: ordered(withAvailableEpisodeCount(cachedResults, resolveSearchAnimeDetail))
       });
-    {
+    } else {
       let currentS = querySeason + 1, combinedCachedResults = [...cachedResults], cacheMissed = !1;
       for (; !satisfied && !cacheMissed; ) {
         let nextCacheKey = `${queryTitle}_S${currentS}`, nextCache = getSearchCache(nextCacheKey, requestAnimeDetailsMap);
         nextCache !== null && nextCache.length > 0 ? (combinedCachedResults.push(...nextCache), satisfied = checkEpisodeSatisfied(combinedCachedResults, querySeason, queryEpisode, requestAnimeDetailsMap, targetPlatform), currentS++) : cacheMissed = !0;
       }
       if (satisfied)
-        return log("info", `[system] [LogVar-API] Episode ${queryEpisode} satisfied by combining cached seasons S${querySeason} to S${currentS - 1}`), jsonResponse({
+        return log("info", `[system] [LogVar-API] Episode ${queryEpisode} satisfied by combining cached seasons S${querySeason} to S${currentS - 1}`), traceStep("\u641C\u7D22\xB7\u7F13\u5B58\u67E5\u8BE2", cacheStartedAt, {
+          status: "hit",
+          reason: "\u8DE8\u5B63\u7F13\u5B58\u62FC\u63A5\u547D\u4E2D",
+          inputs: { q: queryTitle, animeId: preferAnimeId ?? void 0, cacheKey },
+          outputs: { hit: !0, cachedCount: combinedCachedResults.length, count: combinedCachedResults.length }
+        }), jsonResponse({
           errorCode: 0,
           success: !0,
           errorMessage: "",
-          animes: withAvailableEpisodeCount(combinedCachedResults, resolveSearchAnimeDetail)
+          animes: ordered(withAvailableEpisodeCount(combinedCachedResults, resolveSearchAnimeDetail))
         });
       log("info", `[system] [LogVar-API] Episode ${queryEpisode} not satisfied in cache. Proceeding to network search.`);
     }
   }
+  traceStep("\u641C\u7D22\xB7\u7F13\u5B58\u67E5\u8BE2", cacheStartedAt, { status: "miss", reason: "\u7F13\u5B58\u672A\u547D\u4E2D\uFF0C\u8FDB\u5165\u9010\u6E90\u68C0\u7D22", inputs: { q: queryTitle, animeId: preferAnimeId ?? void 0 }, outputs: { hit: !1, count: 0 } });
   let curAnimes = [], urlRegex = /^(https?:\/\/)?([a-zA-Z0-9-]+\.)+[a-zA-Z]{2,6}(:\d+)?(\/[^\s]*)?$/, spaceSeparatedUrls = queryTitle.split(/\s+/).filter((u) => {
     let cleanUrl = stripLinkOffset(u).cleanUrl;
     return urlRegex.test(cleanUrl);
@@ -21969,8 +22444,9 @@ async function searchAnimeBody(url, preferAnimeId = null, preferSource = null, d
       animes: responseAnimes2
     });
   }
+  let sourceSearchStartedAt = Date.now();
   try {
-    log("info", `[system] [LogVar-API] Search sourceOrderArr: ${globals.sourceOrderArr}`);
+    log("info", `[system] [LogVar-API] Search sourceOrderArr: ${globals.sourceOrderArr}`), markStepActive("\u641C\u7D22\xB7\u9010\u6E90\u68C0\u7D22");
     let resultData = {}, sourceSearchMap = {};
     for (let source of globals.sourceOrderArr) {
       let meta = getSourceMetaByKey(source);
@@ -21982,10 +22458,12 @@ async function searchAnimeBody(url, preferAnimeId = null, preferSource = null, d
       sourceSearchMap[source] = sourceLogContext.run(meta.logName, () => meta.instance.search(...args));
     }
     let pipelineTasks = globals.sourceOrderArr.map((source) => {
-      let isolatedAnimes = [], isolatedDetailStore = /* @__PURE__ */ new Map(), pipelinePromise = sourceSearchMap[source].then(async (searchResult) => {
+      let isolatedAnimes = [], isolatedDetailStore = /* @__PURE__ */ new Map(), task = { key: source, animes: isolatedAnimes, detailStore: isolatedDetailStore, startedAt: Date.now(), elapsedMs: 0, promise: null }, pipelinePromise = sourceSearchMap[source].then(async (searchResult) => {
         resultData[source] = searchResult, await executeSourceHandlers({ [source]: searchResult }, queryTitle, isolatedAnimes, isolatedDetailStore, querySeason, preferAnimeId, preferSource);
+      }).finally(() => {
+        task.elapsedMs = Math.max(0, Math.round(Date.now() - task.startedAt));
       });
-      return { key: source, animes: isolatedAnimes, detailStore: isolatedDetailStore, promise: pipelinePromise };
+      return task.promise = pipelinePromise, task;
     }), pipelineResults = await Promise.allSettled(pipelineTasks.map((task) => task.promise)), existingAnimeIds = new Set(curAnimes.map((a) => a.animeId));
     for (let i = 0; i < pipelineTasks.length; i++) {
       if (pipelineResults[i].status === "rejected") {
@@ -21999,8 +22477,40 @@ async function searchAnimeBody(url, preferAnimeId = null, preferSource = null, d
         requestAnimeDetailsMap.has(key) || requestAnimeDetailsMap.set(key, value);
       mergeAddAnimeError(requestAnimeDetailsMap, isolatedDetailStore);
     }
-    curAnimes.length > 0 && setSearchCache(cacheKey, curAnimes.map(({ links, ...pureAnime }) => pureAnime), requestAnimeDetailsMap);
-    let unsatisfiedPlatforms = /* @__PURE__ */ new Set();
+    let perSourceRows = [];
+    pipelineTasks.forEach((task, i) => {
+      let result = pipelineResults[i], status = result ? result.status === "fulfilled" ? "ok" : "rejected" : "skipped", rawCount = countRawCandidates(resultData[task.key]), error = status === "rejected" ? String(result.reason?.message || result.reason) : void 0, kept = task.animes.length, removedBy = Math.max(0, rawCount - kept), note = "";
+      error ? note = error : status === "skipped" ? note = "\u672A\u6267\u884C\u68C0\u7D22" : rawCount === 0 ? note = "\u672A\u8FD4\u56DE\u5019\u9009" : removedBy === 0 ? note = "\u5019\u9009\u5168\u90E8\u4FDD\u7559" : note = `\u5254\u9664 ${removedBy} \u6761`, task.key === "douban" && kept > rawCount && (note += "\uFF08\u805A\u5408\u4EA7\u51FA\uFF09"), perSourceRows.push({
+        \u6E90: getSourceLabel(task.key),
+        \u72B6\u6001: status === "rejected" ? "\u5931\u8D25" : status === "skipped" ? "\u672A\u6267\u884C" : "\u6210\u529F",
+        \u539F\u59CB\u5019\u9009: rawCount,
+        \u4FDD\u7559: kept,
+        \u5254\u9664: removedBy,
+        "\u8017\u65F6(ms)": task.elapsedMs,
+        \u8BF4\u660E: note
+      });
+    });
+    let rawTotal = perSourceRows.reduce((sum, row) => sum + row.\u539F\u59CB\u5019\u9009, 0), keptTotal = perSourceRows.reduce((sum, row) => sum + row.\u4FDD\u7559, 0), droppedSources = perSourceRows.filter((row) => row.\u72B6\u6001 === "\u5931\u8D25" || row.\u8BF4\u660E === "\u672A\u8FD4\u56DE\u5019\u9009");
+    recordConfigEffect("SOURCE_ORDER", {
+      label: "\u9010\u6E90\u68C0\u7D22\u7ED3\u679C",
+      kind: "stats",
+      context: {
+        \u68C0\u7D22\u987A\u5E8F: globals.sourceOrderArr.map((key) => getSourceLabel(key)).join(" \u2192 "),
+        \u6E90\u6570\u91CF: globals.sourceOrderArr.length
+      },
+      // 聚合源一个条目可联动多个平台产出，保留数可能多于原始候选数，需在摘要中说明避免读者误解
+      summary: `${globals.sourceOrderArr.length} \u4E2A\u6E90\u5171\u8FD4\u56DE ${rawTotal} \u6761\u5019\u9009\uFF0C\u9010\u6E90\u4FDD\u7559 ${keptTotal} \u6761` + (keptTotal > rawTotal ? "\uFF08\u542B\u805A\u5408\u6E90\u8054\u52A8\u4EA7\u51FA\uFF09" : "") + (keptTotal !== curAnimes.length ? `\uFF0C\u8DE8\u6E90\u53BB\u91CD\u540E ${curAnimes.length} \u6761` : "") + (droppedSources.length > 0 ? `\uFF0C${droppedSources.length} \u4E2A\u6E90\u65E0\u7ED3\u679C` : ""),
+      table: {
+        columns: ["\u6E90", "\u72B6\u6001", "\u539F\u59CB\u5019\u9009", "\u4FDD\u7559", "\u5254\u9664", "\u8017\u65F6(ms)", "\u8BF4\u660E"],
+        rows: perSourceRows
+      }
+    }), traceStep("\u641C\u7D22\xB7\u9010\u6E90\u68C0\u7D22", sourceSearchStartedAt, {
+      status: curAnimes.length === 0 ? "empty" : "ok",
+      reason: curAnimes.length === 0 ? "\u6240\u6709\u6E90\u5747\u672A\u8FD4\u56DE\u53EF\u7528\u5019\u9009" : void 0,
+      inputs: { sources: globals.sourceOrderArr },
+      outputs: { count: curAnimes.length }
+    }), curAnimes.length > 0 && setSearchCache(cacheKey, curAnimes.map(({ links, ...pureAnime }) => pureAnime), requestAnimeDetailsMap), markStepActive("\u641C\u7D22\xB7\u7ED3\u679C\u5408\u5E76\u4E0E\u8DE8\u5B63\u6269\u5C55");
+    let mergeStartedAt = Date.now(), beforeExpansion = curAnimes.length, unsatisfiedPlatforms = /* @__PURE__ */ new Set();
     if (!checkEpisodeSatisfied(curAnimes, querySeason, queryEpisode, requestAnimeDetailsMap, targetPlatform, unsatisfiedPlatforms) && querySeason !== null) {
       let maxSeason = querySeason;
       for (let source of globals.sourceOrderArr) {
@@ -22028,7 +22538,14 @@ async function searchAnimeBody(url, preferAnimeId = null, preferSource = null, d
               break;
             }
           }
-        let expansionStart = targetSeasons.length > 0 ? Math.min(...targetSeasons) : querySeason + 1, expansionEnd = targetSeasons.length > 0 ? Math.max(...targetSeasons) : maxSeason, expandPromises = [];
+        let expansionStart = targetSeasons.length > 0 ? Math.min(...targetSeasons) : querySeason + 1, expansionEnd = targetSeasons.length > 0 ? Math.max(...targetSeasons) : maxSeason;
+        recordConfigEffect("USE_BANGUMI_DATA", {
+          label: "Bangumi Data \u5B63\u8FB9\u754C\u6536\u655B",
+          hit: targetSeasons.length > 0,
+          before: { startSeason: querySeason + 1, endSeason: maxSeason },
+          after: { startSeason: expansionStart, endSeason: expansionEnd, boundaryCount: tmdbSeasonBoundaries?.length || 0 }
+        });
+        let expandPromises = [];
         for (let source of globals.sourceOrderArr)
           resultData[source] && (targetPlatform && unsatisfiedPlatforms.size > 0 && !unsatisfiedPlatforms.has(source) || expandPromises.push((async () => {
             let sourceResults = [];
@@ -22043,43 +22560,171 @@ async function searchAnimeBody(url, preferAnimeId = null, preferSource = null, d
           curAnimes.push(...res);
       }
     }
+    let afterExpansion = curAnimes.length;
+    traceStep("\u641C\u7D22\xB7\u7ED3\u679C\u5408\u5E76\u4E0E\u8DE8\u5B63\u6269\u5C55", mergeStartedAt, {
+      status: afterExpansion === 0 ? "empty" : "ok",
+      reason: afterExpansion === 0 ? "\u8DE8\u5B63\u6269\u5C55\u540E\u4ECD\u65E0\u5019\u9009" : void 0,
+      inputs: { rawCount: beforeExpansion },
+      outputs: { mergedCount: afterExpansion, crossSeasonApplied: afterExpansion > beforeExpansion, count: afterExpansion }
+    });
   } catch (error) {
-    log("error", "[system] [LogVar-API] \u53D1\u751F\u9519\u8BEF:", error);
+    log("error", "[system] [LogVar-API] \u53D1\u751F\u9519\u8BEF:", error), traceStep("\u641C\u7D22\xB7\u68C0\u7D22\u5F02\u5E38", sourceSearchStartedAt, {
+      status: "fail",
+      reason: "\u9010\u6E90\u68C0\u7D22\u6216\u8DE8\u5B63\u6269\u5C55\u629B\u51FA\u5F02\u5E38\uFF0C\u672C\u6B21\u7ED3\u679C\u53EF\u80FD\u4E0D\u5B8C\u6574",
+      error: error?.message || String(error)
+    });
   }
-  let hasMergePairs = globals.mergeSourcePairs && globals.mergeSourcePairs.length > 0, hasCustomRules = globals.customMergeRules && globals.customMergeRules.length > 0;
+  markStepActive("\u641C\u7D22\xB7\u6E90\u5408\u5E76\u4E0E\u8FC7\u6EE4");
+  let filterStartedAt = Date.now(), countBeforeFilter = curAnimes.length, hasMergePairs = globals.mergeSourcePairs && globals.mergeSourcePairs.length > 0, hasCustomRules = globals.customMergeRules && globals.customMergeRules.length > 0;
   if ((hasMergePairs || hasCustomRules) && await applyMergeLogic(curAnimes, requestAnimeDetailsMap), storeAnimeIdsToMap(curAnimes, queryTitle), globals.enableAnimeEpisodeFilter) {
-    let validAnimes = [];
+    let validAnimes = [], removedAnimeTitles = [], removedEpisodeTitles = [], episodeCountBefore = 0, episodeCountAfter = 0;
     for (let anime of curAnimes) {
       let animeTitle = anime.animeTitle || "";
       if (globals.animeTitleFilter && globals.animeTitleFilter.test(animeTitle)) {
-        log("info", `[system] [searchAnime] Anime ${anime.animeId} filtered by name: ${animeTitle}`);
+        log("info", `[system] [searchAnime] Anime ${anime.animeId} filtered by name: ${animeTitle}`), removedAnimeTitles.push(animeTitle);
         continue;
       }
       let animeData = resolveAnimeDetailForSearch(anime, requestAnimeDetailsMap);
       if (animeData && animeData.links) {
-        let episodesList = applyEpisodeTitleFilter(anime, animeData.links);
-        log("info", `[system] [searchAnime] Anime ${anime.animeId} filtered episodes: ${episodesList.length}/${animeData.links.length}`), episodesList.length > 0 && validAnimes.push(anime);
+        let beforeEpisodeTitles = animeData.links.map((link) => link.title || ""), episodesList = applyEpisodeTitleFilter(anime, animeData.links), keptTitles = new Set(episodesList.map((episode) => episode.episodeTitle));
+        for (let title of beforeEpisodeTitles)
+          keptTitles.has(title) || removedEpisodeTitles.push(title);
+        episodeCountBefore += animeData.links.length, episodeCountAfter += episodesList.length, log("info", `[system] [searchAnime] Anime ${anime.animeId} filtered episodes: ${episodesList.length}/${animeData.links.length}`), episodesList.length > 0 && validAnimes.push(anime);
       }
     }
-    curAnimes.length = 0, curAnimes.push(...validAnimes);
+    curAnimes.length = 0, curAnimes.push(...validAnimes), recordConfigEffect("ANIME_TITLE_FILTER", {
+      label: "\u5267\u540D\u8FC7\u6EE4",
+      hit: removedAnimeTitles.length > 0,
+      before: { animeCount: countBeforeFilter },
+      after: { animeCount: validAnimes.length },
+      removed: removedAnimeTitles.map((title) => ({ value: title })),
+      removedCount: removedAnimeTitles.length
+    }), recordConfigEffect("EPISODE_TITLE_FILTER", {
+      label: "\u96C6\u6807\u9898\u8FC7\u6EE4",
+      hit: removedEpisodeTitles.length > 0,
+      before: { episodeCount: episodeCountBefore },
+      after: { episodeCount: episodeCountAfter },
+      removed: removedEpisodeTitles.map((title) => ({ value: title })),
+      removedCount: removedEpisodeTitles.length
+    });
   }
+  let filtersApplied = [];
+  (hasMergePairs || hasCustomRules) && filtersApplied.push("mergeSourcePairs/customMergeRules"), globals.enableAnimeEpisodeFilter && filtersApplied.push("animeTitleFilter/episodeTitleFilter"), traceStep("\u641C\u7D22\xB7\u6E90\u5408\u5E76\u4E0E\u8FC7\u6EE4", filterStartedAt, {
+    status: curAnimes.length === 0 ? "empty" : "ok",
+    reason: curAnimes.length === 0 && countBeforeFilter > 0 ? "\u5267\u540D\u6216\u96C6\u6807\u9898\u8FC7\u6EE4\u540E\u5019\u9009\u5F52\u96F6" : void 0,
+    inputs: { filtersApplied, beforeCount: countBeforeFilter },
+    outputs: { filteredCount: curAnimes.length, removedBy: countBeforeFilter - curAnimes.length, count: curAnimes.length }
+  }), markStepActive("\u641C\u7D22\xB7\u6301\u4E45\u5316\u4E0E\u54CD\u5E94");
+  let persistStartedAt = Date.now();
   let responseAnimes = curAnimes.map(({ links, ...pureAnime }) => pureAnime);
   if (responseAnimes.length > 0) {
     let cacheKey2 = querySeason !== null ? `${queryTitle}_S${querySeason}` : queryTitle;
     setSearchCache(cacheKey2, responseAnimes, requestAnimeDetailsMap);
   }
-  return jsonResponse({
+  return traceStep("\u641C\u7D22\xB7\u6301\u4E45\u5316\u4E0E\u54CD\u5E94", persistStartedAt, {
+    status: responseAnimes.length === 0 ? "empty" : "ok",
+    reason: responseAnimes.length === 0 ? "\u672C\u6B21\u641C\u7D22\u672A\u8FD4\u56DE\u4EFB\u4F55\u7ED3\u679C" : void 0,
+    outputs: {
+      finalCount: responseAnimes.length,
+      // 结果为空时不写搜索缓存，下次请求会重新检索；有结果时命中缓存可省去逐源请求
+      searchCacheWritten: responseAnimes.length > 0,
+      count: responseAnimes.length
+    }
+  }), jsonResponse({
     errorCode: 0,
     success: !0,
     errorMessage: responseAnimes.length === 0 ? getAddAnimeError(requestAnimeDetailsMap) : "",
-    animes: responseAnimes,
+    animes: ordered(responseAnimes),
     tmdbSeasonBoundaries
   });
 }
+function alignEpisodeGroupOrder(groups, entries) {
+  let previousBySource = /* @__PURE__ */ new Map(), successors = /* @__PURE__ */ new Map(), predecessorCount = /* @__PURE__ */ new Map(), groupAt = new Array(entries.length);
+  for (let group of groups)
+    for (let index of group.indices) groupAt[index] = group;
+  let needsAlignment = !1;
+  if (entries.forEach(({ source }, index) => {
+    let group = groupAt[index], previous = previousBySource.get(source);
+    previousBySource.set(source, group), !(!previous || previous === group) && (previous.indices[0] > group.indices[0] && (needsAlignment = !0), successors.has(previous) || successors.set(previous, /* @__PURE__ */ new Set()), !successors.get(previous).has(group) && (successors.get(previous).add(group), predecessorCount.set(group, (predecessorCount.get(group) || 0) + 1)));
+  }), !needsAlignment) return groups;
+  let ordered = groups.filter((group) => !predecessorCount.has(group));
+  for (let group of ordered)
+    for (let next of successors.get(group) || []) {
+      let remaining = predecessorCount.get(next) - 1;
+      predecessorCount.set(next, remaining), remaining || ordered.push(next);
+    }
+  return ordered.length === groups.length ? ordered : groups;
+}
+function alignRepeatedEpisodeNames(entries) {
+  let sources = /* @__PURE__ */ new Map();
+  for (let entry of entries) {
+    sources.has(entry.source) || sources.set(entry.source, { entries: [], counts: /* @__PURE__ */ new Map() });
+    let source = sources.get(entry.source);
+    source.entries.push(entry);
+    let count = (source.counts.get(entry.key) || 0) + 1;
+    source.counts.set(entry.key, count), entry.named && (entry.occurrence = count);
+  }
+  let references = /* @__PURE__ */ new Map();
+  for (let source of sources.values())
+    for (let { key, occurrence } of source.entries) {
+      if (occurrence !== 2) continue;
+      let count = source.counts.get(key), previous = references.get(key), previousCount = previous?.counts.get(key) || 0;
+      (count > previousCount || count === previousCount && source.entries.length > previous.entries.length) && references.set(key, source);
+    }
+  if (references.size)
+    for (let source of sources.values()) {
+      let targets = /* @__PURE__ */ new Set();
+      for (let [key, count] of source.counts) {
+        let reference = references.get(key);
+        reference && count < reference.counts.get(key) && targets.add(reference);
+      }
+      for (let reference of targets) {
+        let aligned = /* @__PURE__ */ new Map(), cursor = 0;
+        if (source.entries.every((entry) => {
+          if (source.counts.get(entry.key) > (reference.counts.get(entry.key) || 0)) return !0;
+          for (; cursor < reference.entries.length && reference.entries[cursor].key !== entry.key; ) cursor++;
+          if (cursor === reference.entries.length) return !1;
+          let candidate = reference.entries[cursor++];
+          return references.get(entry.key) === reference && aligned.set(entry, candidate.occurrence), !0;
+        }))
+          for (let [entry, occurrence] of aligned) entry.occurrence = occurrence;
+      }
+    }
+}
+function groupEpisodeAlternatives(episodes, movie = !1, numberFor = null) {
+  let entries = episodes.map((episode, index) => {
+    let taggedTitle = episode.episodeTitle ?? episode.title ?? "", title = stripEpisodePlatform(taggedTitle), number = numberFor?.(episode, index) ?? extractEpisodeNumberFromTitle(title, !0), issue = number === null ? null : /第\s*\d+\s*期/.exec(title), suffix = issue && title.slice(issue.index + issue[0].length).trim(), part = suffix && (/^[（(]?\s*([上中下])(?:半[期场場]|[篇集部])?(?=$|[\s）):：、，,\-])/.exec(suffix) || /[（(]\s*([上中下])\s*[）)]$/.exec(suffix))?.[1], named = number === null && !movie && !!title;
+    return { key: part ? `issue:${number}:${part}` : number ?? (movie ? "movie" : named ? `title:${title}` : `untitled:${index}`), number, issue, part, named, source: extractEpisodeTitle(taggedTitle) };
+  });
+  entries.some((entry) => entry.named) && alignRepeatedEpisodeNames(entries);
+  let groups = /* @__PURE__ */ new Map();
+  entries.forEach(({ key, number, issue, part, named, occurrence }, index) => {
+    named && (key = `${occurrence}:${key}`), groups.has(key) || groups.set(key, { number, explicit: number !== null, issue: !!issue, part, indices: [] }), groups.get(key).indices.push(index);
+  });
+  let ordered = [...groups.values()];
+  if (!movie && ordered.some((group) => group.number === null) && (ordered = alignEpisodeGroupOrder(ordered, entries)), ordered.some((group) => group.part)) {
+    let issues = ordered.filter((group) => group.issue).sort((left, right) => left.number - right.number || " \u4E0A\u4E2D\u4E0B".indexOf(left.part || " ") - " \u4E0A\u4E2D\u4E0B".indexOf(right.part || " ")), nextIssue = 0;
+    ordered = ordered.map((group) => group.issue ? issues[nextIssue++] : group);
+    for (let group of issues) group.explicit = !1;
+  }
+  let used = new Set(ordered.filter((group) => group.explicit).map((group) => group.number)), next = 1;
+  return ordered.forEach((group, index) => {
+    if (!group.explicit) {
+      for (next = Math.max(next, index + 1); used.has(next); ) next++;
+      group.number = next++;
+    }
+  }), ordered;
+}
 function filterSameEpisodeTitle(filteredTmpEpisodes, options = {}) {
-  let { preferredPlatform = null } = options, filteredEpisodes = filteredTmpEpisodes.filter((episode, index, episodes) => !episodes.slice(0, index).some((prevEpisode) => prevEpisode.episodeTitle === episode.episodeTitle)), selectedByNumber = /* @__PURE__ */ new Map();
+  let { preferredPlatform = null, sourceFallback = null, ordinalOnly = !1 } = options;
+  if (ordinalOnly)
+    return (options.groups ?? groupEpisodeAlternatives(filteredTmpEpisodes)).map(({ indices, number, explicit }) => {
+      let variants = indices.map((index) => filteredTmpEpisodes[index]), [selected] = rankEpisodeLinks(variants, preferredPlatform, sourceFallback);
+      return { ...selected, episodeNumber: String(number), explicitNumber: explicit };
+    });
+  let filteredEpisodes = filteredTmpEpisodes.filter((episode, index, episodes) => !episodes.slice(0, index).some((prevEpisode) => prevEpisode.episodeTitle === episode.episodeTitle)), selectedByNumber = /* @__PURE__ */ new Map(), episodeNumber = (episode) => options.seasonNumbers?.get(episode.episodeId) ?? extractEpisodeNumberFromTitle(episode.episodeTitle);
   for (let episode of filteredEpisodes) {
-    let num = extractEpisodeNumberFromTitle(episode.episodeTitle);
+    let num = episodeNumber(episode);
     if (num === null) continue;
     let selected = selectedByNumber.get(num);
     if (!selected) {
@@ -22087,18 +22732,18 @@ function filterSameEpisodeTitle(filteredTmpEpisodes, options = {}) {
       continue;
     }
     if (preferredPlatform) {
-      let selectedScore = getPlatformMatchScore(extractEpisodeTitle(selected.episodeTitle), preferredPlatform);
-      getPlatformMatchScore(extractEpisodeTitle(episode.episodeTitle), preferredPlatform) > selectedScore && selectedByNumber.set(num, episode);
+      let selectedScore = getPlatformMatchScore(extractEpisodeTitle(selected.episodeTitle) || sourceFallback, preferredPlatform);
+      getPlatformMatchScore(extractEpisodeTitle(episode.episodeTitle) || sourceFallback, preferredPlatform) > selectedScore && selectedByNumber.set(num, episode);
     }
   }
   return filteredEpisodes.filter((ep) => {
-    let num = extractEpisodeNumberFromTitle(ep.episodeTitle);
+    let num = episodeNumber(ep);
     return num === null ? !0 : selectedByNumber.get(num) === ep;
   });
 }
-function getPlatformMatchScore(candidatePlatform, targetPlatform) {
+function getPlatformMatchScore(candidatePlatform, targetPlatform, normalizePart = platformKey) {
   if (!candidatePlatform || !targetPlatform) return 0;
-  let cParts = [...new Set(candidatePlatform.split(/[&＆]/).map((s) => s.trim().toLowerCase()).filter((s) => s))], tParts = [...new Set(targetPlatform.split(/[&＆]/).map((s) => s.trim().toLowerCase()).filter((s) => s))], matchCount = 0;
+  let cParts = [...new Set(candidatePlatform.split(/[&＆]/).map(normalizePart).filter(Boolean))], tParts = [...new Set(targetPlatform.split(/[&＆]/).map(normalizePart).filter(Boolean))], matchCount = 0;
   for (let tPart of tParts)
     cParts.some(
       (cPart) => cPart === tPart || cPart.includes(tPart) && tPart.length > 2 || tPart.includes(cPart) && cPart.length > 2
@@ -22109,9 +22754,101 @@ function extractPlatformFromTitle(title) {
   let match = title.match(/from\s+([a-zA-Z0-9&＆]+)/i);
   return match ? match[1] : null;
 }
-function getBangumiDataForMatch(anime, detailStore = null) {
-  let detailAnime = resolveAnimeByIdFromDetailStore(anime?.bangumiId, detailStore, anime?.source) || resolveAnimeByIdFromDetailStore(anime?.animeId, detailStore, anime?.source);
-  return detailAnime ? buildBangumiData(detailAnime, anime?.bangumiId || anime?.animeId || "") : (log("warn", `[system] [match] Missing request detail snapshot for anime ${anime?.animeId ?? anime?.bangumiId}`), null);
+function legacyPlatformKey(part) {
+  return part.trim().toLowerCase();
+}
+function animePlatform(anime) {
+  return extractPlatformFromTitle(anime.animeTitle) || anime.source;
+}
+function scoreAnimePlatform(anime, platform, episodePlatform, byEpisode = !0) {
+  if (!platform) return 0;
+  let identity = animePlatform(anime);
+  return byEpisode ? getPlatformMatchScore(episodePlatform || identity, platform) : getPlatformMatchScore([identity, episodePlatform].filter(Boolean).join("&"), platform, legacyPlatformKey);
+}
+function rankEpisodeLinks(episodes, platform, sourceFallback) {
+  return !platform || episodes.length < 2 ? episodes : orderByScore(episodes, (ep) => getPlatformMatchScore(extractEpisodeTitle(ep.episodeTitle) || sourceFallback, platform));
+}
+function resolveCandidateDetail(anime, detailStore, resolve = resolveAnimeByIdFromDetailStore) {
+  return resolve(anime?.bangumiId, detailStore, anime?.source) || resolve(anime?.animeId, detailStore, anime?.source);
+}
+function getBangumiDataForMatch(anime, detailStore = null, preferredPlatform = null) {
+  let detailAnime = resolveCandidateDetail(anime, detailStore);
+  return detailAnime ? buildBangumiData(detailAnime, anime?.bangumiId || anime?.animeId || "", preferredPlatform) : (log("warn", `[system] [match] Missing request detail snapshot for anime ${anime?.animeId ?? anime?.bangumiId}`), null);
+}
+function resolveCandidateSeason(anime) {
+  let titles = [anime.animeTitle];
+  anime.aliases && Array.isArray(anime.aliases) && titles.push(...anime.aliases);
+  for (let candTitle of titles) {
+    if (!candTitle) continue;
+    let s = extractSeasonNumberFromAnimeTitle(candTitle).season;
+    if (s !== null) return s;
+  }
+  return 1;
+}
+function inferSeasonOffset(ranges) {
+  let relative = ranges.filter((range) => range.seasonScoped || range.first === 1), relativeEnd = relative.reduce((last, range) => Math.max(last, range.last), 0), offsets = /* @__PURE__ */ new Set();
+  for (let range of ranges) {
+    let count = range.numbers.size;
+    if (range.seasonScoped || range.first <= 1 || count < 2 || count < relativeEnd || range.unnumbered || range.last - range.first + 1 !== count) continue;
+    (relative.some((other) => !other.unnumbered && other.last === count && other.numbers.size === count) || range.first > count) && offsets.add(range.first - 1);
+  }
+  return offsets.size === 1 ? [...offsets][0] : null;
+}
+function seasonScopedEpisodeNumber(title) {
+  let match = stripEpisodePlatform(title).match(/(?:(?<![a-z])s(?:eason)?\s*\d+|第\s*[\d零一二三四五六七八九十百两]+\s*季)[\s._-]*(?:ep?\s*(\d+)|第\s*(\d+)\s*[集话回])/i);
+  return match ? Number(match[1] ?? match[2]) : null;
+}
+function indexSeasonEpisodes(variants, knownOffset) {
+  let byNumber = /* @__PURE__ */ new Map(), groupsByAnime = /* @__PURE__ */ new Map(), ranges = [], length = 0, catalogs = variants.map(({ anime, episodes, contextOnly }) => {
+    let bySource = /* @__PURE__ */ new Map(), tracks = episodes.map((episode) => {
+      let title = episode.episodeTitle ?? episode.title ?? "", source = extractEpisodeTitle(title) || animePlatform(anime), number = seasonScopedEpisodeNumber(title), seasonScoped = number !== null, key = `${seasonScoped}:${source}`;
+      if (!bySource.has(key)) {
+        let range = { first: 1 / 0, last: 0, numbers: /* @__PURE__ */ new Set(), unnumbered: !1, seasonScoped };
+        bySource.set(key, range), ranges.push(range);
+      }
+      return { source, range: bySource.get(key), number };
+    }), groups = groupEpisodeAlternatives(episodes, !1, (_, index) => tracks[index].number);
+    for (let { explicit, number, indices } of groups)
+      for (let index of indices) {
+        let { range } = tracks[index];
+        explicit ? (range.first = Math.min(range.first, number), range.last = Math.max(range.last, number), range.numbers.add(number)) : range.unnumbered = !0;
+      }
+    return { anime, episodes, groups, tracks, contextOnly };
+  }), offset = knownOffset === void 0 ? inferSeasonOffset(ranges) : knownOffset;
+  for (let { anime, episodes, groups, tracks, contextOnly } of catalogs) {
+    let relativeGroups = /* @__PURE__ */ new Map();
+    for (let { explicit, number, indices } of groups)
+      for (let index of indices) {
+        let { source, range } = tracks[index], relativeNumber = explicit && !range.seasonScoped && offset !== null && range.first > offset ? number - offset : number;
+        if (length = Math.max(length, relativeNumber), contextOnly) continue;
+        let key = `${relativeNumber}:${explicit}`;
+        relativeGroups.has(key) || relativeGroups.set(key, { number: relativeNumber, explicit, indices: [] }), relativeGroups.get(key).indices.push(index), byNumber.has(relativeNumber) || byNumber.set(relativeNumber, []), byNumber.get(relativeNumber).push({ anime, episode: episodes[index], source, explicit });
+      }
+    contextOnly || groupsByAnime.set(anime, [...relativeGroups.values()]);
+  }
+  return { byNumber, groupsByAnime, length, offset };
+}
+function indexSeriesSeasons(variants, boundaries, matchesSeries, detailStore, year) {
+  let siblings = [], lastUnbounded = variants.reduce((last, { season }) => season > last && !boundaries?.some((entry) => entry.order === season) ? season : last, 1);
+  if (matchesSeries && lastUnbounded > 1)
+    for (let anime of relatedAnimeDetails(variants.map((variant) => variant.anime), detailStore)) {
+      if (!anime.links?.length || anime.source === "local" || isMovieMatchCandidate(anime) || !matchesSeries(anime) || !matchYear(anime, year)) continue;
+      let season = resolveCandidateSeason(anime);
+      if (season > lastUnbounded) continue;
+      let episodes = filterEpisodesByTitle(anime.links);
+      episodes.length && siblings.push({ anime, episodes, season, contextOnly: !0 });
+    }
+  let variantsBySeason = /* @__PURE__ */ new Map();
+  for (let variant of [...variants, ...siblings])
+    variantsBySeason.has(variant.season) || variantsBySeason.set(variant.season, []), variantsBySeason.get(variant.season).push(variant);
+  let offsets = /* @__PURE__ */ new Map([[1, 0]]);
+  for (let boundary of boundaries || []) offsets.set(boundary.order, boundary.startEpisode - 1);
+  let indexes = /* @__PURE__ */ new Map();
+  for (let season of [...variantsBySeason.keys()].sort((left, right) => left - right)) {
+    let candidates = variantsBySeason.get(season), index = indexSeasonEpisodes(candidates, offsets.get(season));
+    index.groupsByAnime.size && indexes.set(season, index), index.offset !== null && !offsets.has(season + 1) && offsets.set(season + 1, index.offset + index.length);
+  }
+  return indexes;
 }
 function resolveSourceAndRealId(url) {
   let bgmMatch = url.match(/(?:bgm\.tv|bangumi\.tv|bangumi\.lol|chii\.in)\/ep\/(\d+)/);
@@ -22129,14 +22866,59 @@ function resolveSourceAndRealId(url) {
 function detectPlatformFromUrl(url) {
   return String(url).startsWith("hongguo:") || isHongguoPlayerUrl(url) ? "hongguo" : url.includes(".qq.com") ? "tencent" : url.includes(".iqiyi.com") ? "iqiyi" : url.includes(".mgtv.com") ? "imgo" : url.includes(".youku.com") ? "youku" : url.includes(".bilibili.com") || url.includes("b23.tv") ? "bilibili" : url.includes(".miguvideo.com") ? "migu" : url.includes(".sohu.com") ? "sohu" : url.includes(".le.com") ? "leshi" : url.includes(".douyin.com") || url.includes(".ixigua.com") ? "xigua" : url.includes(".mddcloud.com.cn") ? "maiduidui" : url.includes(".yfsp.tv") ? "aiyifan" : "unknown";
 }
-async function getBangumi(path2, detailStore = null, source = null) {
+async function getBangumi(path2, detailStore = null, source = null, preference) {
+  let phase = createPhaseTimer();
+  markStepActive("\u8BE6\u60C5\xB7\u5267\u96C6\u5B9A\u4F4D");
   let idParam = path2.split("/").pop(), anime = resolveAnimeByIdFromDetailStore(idParam, detailStore, source) || resolveAnimeById(idParam);
-  return anime ? jsonResponse(buildBangumiData(anime, idParam)) : (log("error", `[system] [bangumi] Anime with ID ${idParam} not found`), jsonResponse(
-    { errorCode: 404, success: !1, errorMessage: "Anime not found", bangumi: null },
-    404
-  ));
+  if (phase("\u8BE6\u60C5\xB7\u5267\u96C6\u5B9A\u4F4D", {
+    status: anime ? "ok" : "empty",
+    reason: anime ? void 0 : "\u7F13\u5B58\u4E2D\u4E0D\u5B58\u5728\u8BE5\u5267\u96C6\uFF0C\u53EF\u80FD\u5DF2\u8FC7\u671F\u6216\u672A\u641C\u7D22\u8FC7",
+    inputs: { animeId: idParam, fromRequestStore: !!detailStore },
+    outputs: anime ? { animeTitle: anime.animeTitle, sourceKey: anime.source, linkCount: anime.links?.length || 0, count: anime.links?.length || 0 } : { count: 0 }
+  }), !anime)
+    return log("error", `[system] [bangumi] Anime with ID ${idParam} not found`), jsonResponse(
+      { errorCode: 404, success: !1, errorMessage: "Anime not found", bangumi: null },
+      404
+    );
+  if (markStepActive("\u8BE6\u60C5\xB7\u54CD\u5E94\u7EC4\u88C5"), preference === void 0 && globals.titlePlatformMap?.size) {
+    for (let name of displayTitleNames(anime.animeTitle))
+      if (preference = resolveTitlePreference(name, null, void 0, { episodeList: !0 }), preference) break;
+  }
+  let platform = preference?.matches(anime) ? preference.platform : null, numbers;
+  platform && anime.source !== "local" && !isMovieMatchCandidate(anime) && resolveCandidateSeason(anime) > 1 && (numbers = displaySeasonNumbers([anime], preference, null, detailStore).get(anime));
+  let bangumiData = buildBangumiData(anime, idParam, platform, numbers);
+  return phase("\u8BE6\u60C5\xB7\u54CD\u5E94\u7EC4\u88C5", {
+    status: bangumiData.success === !1 ? "empty" : "ok",
+    reason: bangumiData.success === !1 ? bangumiData.errorMessage : void 0,
+    inputs: { animeTitle: anime.animeTitle },
+    outputs: { episodeCount: bangumiData.bangumi?.episodes?.length || 0, count: bangumiData.bangumi?.episodes?.length || 0 }
+  }), jsonResponse(bangumiData);
 }
-function buildBangumiData(anime, idParam = "") {
+function displaySeasonNumbers(details, preference, boundaries, detailStore) {
+  let variants = [], byAnime = /* @__PURE__ */ new Map();
+  for (let anime of details)
+    !anime?.links?.length || anime.source === "local" || isMovieMatchCandidate(anime) || !preference.matchesSeries(anime) || variants.push({ anime, season: resolveCandidateSeason(anime) });
+  if (!variants.some(({ season }) => season > 1)) return byAnime;
+  for (let variant of variants) variant.episodes = filterEpisodesByTitle(variant.anime.links);
+  for (let [season, index] of indexSeriesSeasons(variants.filter((variant) => variant.episodes.length), boundaries, preference.matchesSeries, detailStore))
+    if (!(season <= 1))
+      for (let [number, alternatives] of index.byNumber)
+        for (let { anime, episode, explicit } of alternatives)
+          explicit && (byAnime.has(anime) || byAnime.set(anime, /* @__PURE__ */ new Map()), byAnime.get(anime).set(episode.id, number));
+  return byAnime;
+}
+function orderEpisodeAlternatives(episodes, platform, anime, numbers) {
+  if (!platform) return episodes;
+  let movie = isMovieMatchCandidate(anime), ordered = groupEpisodeAlternatives(episodes, movie, numbers && ((episode) => numbers.get(episode.episodeId))), realigned = ordered.some((group, index) => index > 0 && group.indices[0] < ordered[index - 1].indices[0]), result = [];
+  for (let { indices, number, explicit } of ordered) {
+    let variants = indices.map((index) => episodes[index]);
+    rankEpisodeLinks(variants, platform, animePlatform(anime)).forEach((episode, offset) => {
+      result[realigned ? result.length : indices[offset]] = movie && !explicit ? episode : { ...episode, episodeNumber: String(number) };
+    });
+  }
+  return result;
+}
+function buildBangumiData(anime, idParam = "", preferredPlatform = null, seasonNumbers = null) {
   log("info", `[system] [bangumi] Fetched details for anime ID: ${idParam || anime.bangumiId}`);
   let localSeason = anime.source === "local" ? extractSeasonNumberFromAnimeTitle(anime.animeTitle).season ?? 1 : 1, episodesList = [];
   for (let i = 0; i < anime.links.length; i++) {
@@ -22151,7 +22933,16 @@ function buildBangumiData(anime, idParam = "") {
     });
   }
   if (globals.enableAnimeEpisodeFilter) {
-    if (episodesList = filterEpisodesByTitle(episodesList), log("info", `[system] [getBangumi] Episode filter enabled. Filtered episodes: ${episodesList.length}/${anime.links.length}`), episodesList.length === 0)
+    let episodeTitlesBefore = episodesList.map((episode) => episode.episodeTitle), filteredEpisodes = filterEpisodesByTitle(episodesList), keptTitles = new Set(filteredEpisodes.map((episode) => episode.episodeTitle)), removedEpisodeTitles = episodeTitlesBefore.filter((title) => !keptTitles.has(title));
+    if (recordConfigEffect("EPISODE_TITLE_FILTER", {
+      label: "\u96C6\u6807\u9898\u8FC7\u6EE4",
+      hit: removedEpisodeTitles.length > 0,
+      before: { episodeCount: episodeTitlesBefore.length },
+      after: { episodeCount: filteredEpisodes.length },
+      removed: removedEpisodeTitles.map((title) => ({ value: title })),
+      removedCount: removedEpisodeTitles.length,
+      sum: !0
+    }), episodesList = filteredEpisodes, log("info", `[system] [getBangumi] Episode filter enabled. Filtered episodes: ${episodesList.length}/${anime.links.length}`), episodesList.length === 0)
       return log("warn", `[system] [getBangumi] No valid episodes after filtering for anime ID ${idParam || anime.bangumiId}`), {
         errorCode: 404,
         success: !1,
@@ -22186,7 +22977,7 @@ function buildBangumiData(anime, idParam = "") {
           episodeCount: globals.enableAnimeEpisodeFilter ? resolveEpisodeCount(anime.episodeCount, episodesList.length) : anime.episodeCount
         }
       ],
-      episodes: episodesList
+      episodes: orderEpisodeAlternatives(episodesList, preferredPlatform, anime, seasonNumbers)
     })
   };
 }
@@ -22299,9 +23090,22 @@ async function fetchMergedComments(url, animeTitle, commentId) {
   return log("info", `[merge] \u805A\u5408\u539F\u59CB\u6570\u636E\u5B8C\u6210: \u603B\u8BA1 ${mergedList.length} \u6761 (${statDetails})`), convertToDanmakuJson(mergedList, sourceTag);
 }
 async function getComment(path2, queryFormat, segmentFlag, clientIp, includeDuration = !1) {
+  let phase = createPhaseTimer();
+  markStepActive("\u5F39\u5E55\xB7\u8D44\u6E90\u5B9A\u4F4D");
   let commentId = parseInt(path2.split("/").pop()), animeTitle = findAnimeTitleById(commentId), url = findUrlById(commentId), title = findTitleById(commentId), plat = title ? extractEpisodeTitle(title) : null;
   if (url?.startsWith("local:"))
-    return getCommentByUrl(url, queryFormat, segmentFlag, includeDuration);
+    return phase("\u5F39\u5E55\xB7\u8D44\u6E90\u5B9A\u4F4D", {
+      status: "ok",
+      reason: "\u5F39\u5E55\u5E93 ID \u6307\u5411\u672C\u5730\u8D44\u6E90\uFF0C\u8F6C\u7531\u672C\u5730\u5F39\u5E55\u6D41\u7A0B\u5904\u7406",
+      inputs: { commentId },
+      outputs: { url: maskCredentialParams(url) }
+    }), getCommentByUrl(url, queryFormat, segmentFlag, includeDuration);
+  phase("\u5F39\u5E55\xB7\u8D44\u6E90\u5B9A\u4F4D", {
+    status: url ? "ok" : "empty",
+    reason: url ? void 0 : "\u8BE5\u5F39\u5E55\u5E93 ID \u672A\u5173\u8054\u64AD\u653E\u5730\u5740",
+    inputs: { commentId },
+    outputs: { animeTitle, episodeTitle: title, sourceKey: plat, url: maskCredentialParams(url) }
+  }), markStepActive("\u5F39\u5E55\xB7\u672C\u5730\u5F39\u5E55");
   let localResource = segmentFlag ? null : await (async () => {
     try {
       let { findLocalDanmu: findLocalDanmu2 } = await Promise.resolve().then(() => (init_local_store(), local_store_exports)), [localAnimeId] = findAnimeIdByCommentId(commentId), localAnime = globals.animes.find((a) => String(a.animeId) === String(localAnimeId)), matchTitle = extractAnimeTitle(animeTitle || "").split("\u3010")[0].trim(), seasonSuffix = matchTitle.match(/\s*(?:第\s*[0-9一二三四五六七八九十壹贰叁肆伍陆柒捌玖拾]+\s*[季期部]|(?:S(?:eason)?|Part)\s*\d+)\s*$/i), season = seasonSuffix ? extractSeasonNumberFromAnimeTitle(matchTitle).season ?? 1 : 1;
@@ -22319,12 +23123,23 @@ async function getComment(path2, queryFormat, segmentFlag, clientIp, includeDura
   })();
   if (localResource && !segmentFlag) {
     let localComments = await localSource.getComments(localResource.resourceKey, "local");
-    return formatDanmuResponse(buildDanmuResponse({ count: localComments.length, comments: localComments }, null), queryFormat);
+    return phase("\u5F39\u5E55\xB7\u672C\u5730\u5F39\u5E55", {
+      status: localComments.length > 0 ? "hit" : "empty",
+      reason: localComments.length > 0 ? "\u547D\u4E2D\u672C\u5730\u5F39\u5E55\u8D44\u6E90\uFF0C\u76F4\u63A5\u8FD4\u56DE\u672C\u5730\u5F39\u5E55" : "\u672C\u5730\u8D44\u6E90\u65E0\u5F39\u5E55",
+      inputs: { resourceKey: localResource.resourceKey },
+      outputs: { count: localComments.length }
+    }), formatDanmuResponse(buildDanmuResponse({ count: localComments.length, comments: localComments }, null), queryFormat);
   }
+  phase("\u5F39\u5E55\xB7\u672C\u5730\u5F39\u5E55", {
+    status: segmentFlag ? "skip" : "miss",
+    reason: segmentFlag ? "\u5206\u6BB5\u8BF7\u6C42\u8DF3\u8FC7\u672C\u5730\u5F39\u5E55\u626B\u63CF" : "\u672A\u5339\u914D\u5230\u672C\u5730\u5F39\u5E55\u8D44\u6E90",
+    inputs: { commentId, animeTitle },
+    outputs: { found: !1 }
+  });
   let shouldAttachDuration = shouldIncludeVideoDuration(queryFormat, includeDuration);
   if (log("info", "[system] [LogVar-API] comment url...", url), log("info", "[system] [LogVar-API] comment title...", title), log("info", "[system] [LogVar-API] comment platform...", plat), !url)
     return log("error", `[system] [LogVar-API] Comment with ID ${commentId} not found`), jsonResponse({ count: 0, comments: [] }, 404);
-  log("info", `[system] [LogVar-API] Fetched comment ID: ${commentId}`);
+  log("info", `[system] [LogVar-API] Fetched comment ID: ${commentId}`), markStepActive("\u5F39\u5E55\xB7\u7F13\u5B58\u67E5\u8BE2");
   let cacheKey = resolveCommentCacheKey(url), cachedComments = getCommentCache(cacheKey);
   if (cachedComments !== null) {
     let videoDuration = shouldAttachDuration ? await resolveMergedDuration(url) : null;
@@ -22336,9 +23151,31 @@ async function getComment(path2, queryFormat, segmentFlag, clientIp, includeDura
       { count: cachedComments.length, comments: cachedComments },
       videoDuration
     );
-    return formatDanmuResponse(responseData2, queryFormat);
+    return recordConfigEffect("COMMENT_CACHE_MINUTES", {
+      label: "\u5F39\u5E55\u7F13\u5B58",
+      kind: "stats",
+      hit: !0,
+      context: { \u7F13\u5B58\u952E: cacheKey, \u6709\u6548\u671F: `${globals.commentCacheMinutes} \u5206\u949F` },
+      summary: `\u547D\u4E2D\u7F13\u5B58\uFF0C\u76F4\u63A5\u8FD4\u56DE ${cachedComments.length} \u6761\u5F39\u5E55`
+    }), phase("\u5F39\u5E55\xB7\u7F13\u5B58\u67E5\u8BE2", {
+      status: "hit",
+      reason: "\u5F39\u5E55\u7F13\u5B58\u547D\u4E2D\uFF0C\u76F4\u63A5\u8FD4\u56DE\u7F13\u5B58\u5185\u5BB9",
+      inputs: { cacheKey },
+      outputs: { count: cachedComments.length }
+    }), formatDanmuResponse(responseData2, queryFormat);
   }
-  log("info", "[system] [LogVar-API] \u5F00\u59CB\u4ECE\u672C\u5730\u8BF7\u6C42\u5F39\u5E55...", url);
+  recordConfigEffect("COMMENT_CACHE_MINUTES", {
+    label: "\u5F39\u5E55\u7F13\u5B58",
+    kind: "stats",
+    hit: !1,
+    context: { \u7F13\u5B58\u952E: cacheKey, \u6709\u6548\u671F: `${globals.commentCacheMinutes} \u5206\u949F` },
+    summary: "\u672A\u547D\u4E2D\u7F13\u5B58\uFF0C\u7EE7\u7EED\u6293\u53D6\u5F39\u5E55"
+  }), phase("\u5F39\u5E55\xB7\u7F13\u5B58\u67E5\u8BE2", {
+    status: "miss",
+    reason: "\u5F39\u5E55\u7F13\u5B58\u672A\u547D\u4E2D\uFF0C\u5F00\u59CB\u5411\u5F39\u5E55\u6E90\u8BF7\u6C42",
+    inputs: { cacheKey },
+    outputs: { count: 0 }
+  }), markStepActive("\u5F39\u5E55\xB7\u6293\u53D6\u4E0E\u8FC7\u6EE4"), log("info", "[system] [LogVar-API] \u5F00\u59CB\u4ECE\u672C\u5730\u8BF7\u6C42\u5F39\u5E55...", url);
   let danmus = [], durationPromise = shouldAttachDuration ? resolveMergedDuration(url) : null, linkMeta = stripLinkOffset(url), singleUrlOffset = linkMeta.offset, singleUrlOffsetPercent = linkMeta.percent, cleanUrl = linkMeta.cleanUrl;
   if (singleUrlOffset !== 0 && log("info", `[system] [LogVar-API] \u68C0\u6D4B\u5230\u94FE\u63A5${singleUrlOffsetPercent ? "\u767E\u5206\u6BD4" : ""}\u504F\u79FB: ${singleUrlOffset}s`), url && url.includes(MERGE_DELIMITER))
     danmus = await fetchMergedComments(url, animeTitle, commentId);
@@ -22383,7 +23220,12 @@ async function getComment(path2, queryFormat, segmentFlag, clientIp, includeDura
     }
     (!danmus || danmus.length === 0) && urlPattern.test(url) && (danmus = await sourceLogContext.run("other", () => otherSource.getComments(url, "other_server", segmentFlag)));
   }
-  if (!(url && url.includes(MERGE_DELIMITER)) && singleUrlOffset !== 0 && danmus && Array.isArray(danmus) && danmus.length > 0)
+  if (phase("\u5F39\u5E55\xB7\u6293\u53D6\u4E0E\u8FC7\u6EE4", {
+    status: danmus.length === 0 ? "empty" : "ok",
+    reason: danmus.length === 0 ? "\u6240\u6709\u5F39\u5E55\u6E90\u5747\u672A\u8FD4\u56DE\u5185\u5BB9" : void 0,
+    inputs: { sourceKey: plat || "\u6309\u94FE\u63A5\u57DF\u540D\u8BC6\u522B", \u94FE\u63A5\u6570: String(url || "").split(MERGE_DELIMITER).filter(Boolean).length, segment: segmentFlag },
+    outputs: { rawCount: stepEffectsRawDanmuCount(), count: danmus.length }
+  }), !(url && url.includes(MERGE_DELIMITER)) && singleUrlOffset !== 0 && danmus && Array.isArray(danmus) && danmus.length > 0)
     if (singleUrlOffsetPercent) {
       let maxTime = Math.max(...danmus.map((d) => parseFloat(String(d.p).split(",")[0]) || 0), 0);
       danmus = applyOffset(danmus, singleUrlOffset, { usePercent: !0, videoDuration: maxTime || 1 }), log("info", `[system] [LogVar-API] \u5E94\u7528\u94FE\u63A5\u767E\u5206\u6BD4\u504F\u79FB ${singleUrlOffset}s (\u65F6\u957F=${maxTime}s)`);
@@ -22397,10 +23239,10 @@ async function getComment(path2, queryFormat, segmentFlag, clientIp, includeDura
       lastSearch && lastSearch.title && lastSearch.season !== null && lastSearch.season !== void 0 && lastSearch.episode && episodeTitle && Date.now() - lastSearch.timestamp < 18e4 && (lastSearchContext = lastSearch, lastSearch.episodeId !== null && lastSearch.episodeId !== void 0 && String(lastSearch.episodeId) === String(commentId) ? log("info", `[system] [match] Skip preference write for automatically returned episode ${commentId}`) : (lastTitle = lastSearch.title, lastSeason = lastSearch.season, offset = `${lastSearch.episode}:${episodeTitle}`, log("info", `[system] [LogVar-API] Calculated episode offset for IP ${clientIp}: Query E${lastSearch.episode}, Selected ${episodeTitle} -> Offset ${offset} (Season ${lastSeason})`)));
     }
   }
-  let appliedRuleOffset = 0, appliedRulePercent = !1;
+  let appliedRuleOffset = 0, appliedRulePercent = !1, offsetMatchTitle = "";
   if (animeTitle && episodeTitle && !(url && url.includes(MERGE_DELIMITER))) {
     let { ctx, rule, offset } = resolveCommentOffsetRule(animeTitle, episodeTitle, commentId, source);
-    if (ctx) {
+    if (ctx && !rule && (offsetMatchTitle = ctx.fullTitle || ctx.anime || ""), ctx) {
       let videoDuration = offset !== 0 && rule?.usePercent ? singleUrlOffset === 0 && durationPromise ? await durationPromise : await resolveUrlDuration(cleanUrl) : 0;
       log("info", `[system] [offset] ${ctx.fullTitle || ctx.anime} ${rule ? `\u547D\u4E2D\u504F\u79FB\u89C4\u5219: ${rule.raw}` : "\u672A\u547D\u4E2D\u504F\u79FB\u89C4\u5219"}`), offset !== 0 && (danmus = applyOffset(danmus, offset, {
         usePercent: rule?.usePercent,
@@ -22408,35 +23250,81 @@ async function getComment(path2, queryFormat, segmentFlag, clientIp, includeDura
       }), appliedRuleOffset = offset, appliedRulePercent = rule?.usePercent === !0);
     }
   }
-  segmentFlag || (danmus && danmus.comments && (danmus = danmus.comments), Array.isArray(danmus) || (danmus = []), danmus.length > 0 && setCommentCache(cacheKey, danmus));
+  markStepActive("\u5F39\u5E55\xB7\u504F\u79FB\u5904\u7406"), phase("\u5F39\u5E55\xB7\u504F\u79FB\u5904\u7406", {
+    status: "ok",
+    reason: appliedRuleOffset !== 0 ? "\u5E94\u7528\u6765\u6E90\u504F\u79FB\u89C4\u5219" : offsetMatchTitle ? "\u504F\u79FB\u89C4\u5219\u672A\u547D\u4E2D\uFF0C\u8BF7\u6838\u5BF9 DANMU_OFFSET \u4E2D\u7684\u5267\u540D\u662F\u5426\u4E0E\u5B9E\u9645\u5267\u540D\u76F8\u7B26" : "\u672A\u547D\u4E2D\u504F\u79FB\u89C4\u5219\u6216\u504F\u79FB\u91CF\u4E3A 0",
+    // 实际剧名放在输入里：管理端可直接查看，非管理端按输入脱敏规则打码，避免从说明文本泄露
+    inputs: { linkOffset: singleUrlOffset, ruleOffset: appliedRuleOffset, percent: appliedRulePercent, matchedTitle: offsetMatchTitle || void 0 },
+    outputs: { count: Array.isArray(danmus) ? danmus.length : 0 }
+  }), segmentFlag || (danmus && danmus.comments && (danmus = danmus.comments), Array.isArray(danmus) || (danmus = []), danmus.length > 0 && setCommentCache(cacheKey, danmus));
   let responseDuration = durationPromise ? await durationPromise : null;
   responseDuration !== null && (responseDuration = offsetDuration(responseDuration, appliedRuleOffset, appliedRulePercent));
   let responseData = buildDanmuResponse(
     { count: danmus.length, comments: danmus },
     responseDuration
   );
-  return formatDanmuResponse(responseData, queryFormat);
+  return markStepActive("\u5F39\u5E55\xB7\u54CD\u5E94\u7EC4\u88C5"), phase("\u5F39\u5E55\xB7\u54CD\u5E94\u7EC4\u88C5", {
+    status: danmus.length === 0 ? "empty" : "ok",
+    reason: danmus.length === 0 ? "\u672C\u6B21\u8BF7\u6C42\u672A\u8FD4\u56DE\u4EFB\u4F55\u5F39\u5E55" : void 0,
+    inputs: { format: queryFormat || "json", segment: segmentFlag },
+    outputs: { count: danmus.length, duration: responseDuration }
+  }), formatDanmuResponse(responseData, queryFormat);
 }
 async function getCommentByUrl(videoUrl, queryFormat, segmentFlag, includeDuration = !1) {
+  let phase = createPhaseTimer();
+  markStepActive("\u5F39\u5E55\xB7\u5730\u5740\u89E3\u6790");
   try {
     if (!videoUrl || typeof videoUrl != "string")
-      return log("error", "[system] [LogVar-API] Missing or invalid url parameter"), jsonResponse(
+      return log("error", "[system] [LogVar-API] Missing or invalid url parameter"), phase("\u5F39\u5E55\xB7\u5730\u5740\u89E3\u6790", {
+        status: "fail",
+        reason: "\u7F3A\u5C11\u6216\u65E0\u6548\u7684 url \u53C2\u6570",
+        inputs: { url: maskCredentialParams(videoUrl) }
+      }), jsonResponse(
         { errorCode: 400, success: !1, errorMessage: "Missing or invalid url parameter", count: 0, comments: [] },
         400
       );
     if (videoUrl = videoUrl.trim(), videoUrl.startsWith("local:")) {
       let key = videoUrl.slice(6);
-      if (segmentFlag) return jsonResponse(await localSource.getComments(key, "local", !0));
+      if (segmentFlag) {
+        let segments = await localSource.getComments(key, "local", !0);
+        return phase("\u5F39\u5E55\xB7\u672C\u5730\u5F39\u5E55", {
+          status: "hit",
+          reason: "\u672C\u5730\u8D44\u6E90\u8FD4\u56DE\u5206\u7247\u5217\u8868",
+          inputs: { url: maskCredentialParams(videoUrl) },
+          outputs: { count: segments.segmentList.length }
+        }), jsonResponse(segments);
+      }
       let localComments = await localSource.getComments(key, "local");
-      return localComments.length ? formatDanmuResponse(buildDanmuResponse({ count: localComments.length, comments: localComments }, null), queryFormat) : jsonResponse({ success: !1, count: 0, comments: [] }, 404);
+      return localComments.length ? (phase("\u5F39\u5E55\xB7\u672C\u5730\u5F39\u5E55", {
+        status: "hit",
+        reason: "\u547D\u4E2D\u672C\u5730\u5F39\u5E55\u8D44\u6E90",
+        inputs: { url: maskCredentialParams(videoUrl) },
+        outputs: { count: localComments.length }
+      }), formatDanmuResponse(buildDanmuResponse({ count: localComments.length, comments: localComments }, null), queryFormat)) : (phase("\u5F39\u5E55\xB7\u672C\u5730\u5F39\u5E55", {
+        status: "miss",
+        reason: "\u672C\u5730\u5F39\u5E55\u4E0D\u5B58\u5728",
+        inputs: { url: maskCredentialParams(videoUrl) }
+      }), jsonResponse({ success: !1, count: 0, comments: [] }, 404));
     }
     if (!videoUrl.startsWith("http"))
-      return log("error", "[system] [LogVar-API] Invalid url format, must start with http or https"), jsonResponse(
+      return log("error", "[system] [LogVar-API] Invalid url format, must start with http or https"), phase("\u5F39\u5E55\xB7\u5730\u5740\u89E3\u6790", {
+        status: "fail",
+        reason: "url \u5FC5\u987B\u4EE5 http \u6216 https \u5F00\u5934",
+        inputs: { url: maskCredentialParams(videoUrl) }
+      }), jsonResponse(
         { errorCode: 400, success: !1, errorMessage: "Invalid url format, must start with http or https", count: 0, comments: [] },
         400
       );
     log("info", `[system] [LogVar-API] Processing comment request for URL: ${videoUrl}`);
-    let url = videoUrl, shouldAttachDuration = shouldIncludeVideoDuration(queryFormat, includeDuration), cacheKey = resolveCommentCacheKey(url), cachedComments = getCommentCache(cacheKey);
+    let url = videoUrl, shouldAttachDuration = shouldIncludeVideoDuration(queryFormat, includeDuration), malformedOffset = /@\d+(?:\.\d+)?%$/.test(url) ? "\u94FE\u63A5\u504F\u79FB\u683C\u5F0F\u4E0D\u652F\u6301 @30% \u5199\u6CD5\uFF0C\u767E\u5206\u6BD4\u8BF7\u5199\u6210 @%30" : "";
+    phase("\u5F39\u5E55\xB7\u5730\u5740\u89E3\u6790", {
+      status: "ok",
+      // 格式错误不改变流程，仅提示原因，避免用户把源站无结果误判为源故障
+      reason: malformedOffset || void 0,
+      inputs: { url: maskCredentialParams(url), format: queryFormat || "json", segment: segmentFlag },
+      outputs: { \u94FE\u63A5\u6570: String(url || "").split(MERGE_DELIMITER).filter(Boolean).length, attachDuration: shouldAttachDuration }
+    }), markStepActive("\u5F39\u5E55\xB7\u7F13\u5B58\u67E5\u8BE2");
+    let cacheKey = resolveCommentCacheKey(url), cachedComments = getCommentCache(cacheKey);
     if (cachedComments !== null) {
       let responseData2 = buildDanmuResponse({
         errorCode: 0,
@@ -22445,9 +23333,29 @@ async function getCommentByUrl(videoUrl, queryFormat, segmentFlag, includeDurati
         count: cachedComments.length,
         comments: cachedComments
       }, shouldAttachDuration ? await resolveMergedDuration(url) : null);
-      return formatDanmuResponse(responseData2, queryFormat);
+      return recordConfigEffect("COMMENT_CACHE_MINUTES", {
+        label: "\u5F39\u5E55\u7F13\u5B58",
+        hit: !0,
+        before: { cacheKey, ttlMinutes: globals.commentCacheMinutes },
+        after: { count: cachedComments.length }
+      }), phase("\u5F39\u5E55\xB7\u7F13\u5B58\u67E5\u8BE2", {
+        status: "hit",
+        reason: "\u5F39\u5E55\u7F13\u5B58\u547D\u4E2D\uFF0C\u76F4\u63A5\u8FD4\u56DE\u7F13\u5B58\u5185\u5BB9",
+        inputs: { cacheKey },
+        outputs: { count: cachedComments.length }
+      }), formatDanmuResponse(responseData2, queryFormat);
     }
-    log("info", "[system] [LogVar-API] \u5F00\u59CB\u4ECE\u672C\u5730\u8BF7\u6C42\u5F39\u5E55...", url);
+    recordConfigEffect("COMMENT_CACHE_MINUTES", {
+      label: "\u5F39\u5E55\u7F13\u5B58",
+      hit: !1,
+      before: { cacheKey, ttlMinutes: globals.commentCacheMinutes },
+      after: { count: 0 }
+    }), phase("\u5F39\u5E55\xB7\u7F13\u5B58\u67E5\u8BE2", {
+      status: "miss",
+      reason: "\u5F39\u5E55\u7F13\u5B58\u672A\u547D\u4E2D\uFF0C\u5F00\u59CB\u5411\u5F39\u5E55\u6E90\u8BF7\u6C42",
+      inputs: { cacheKey },
+      outputs: { count: 0 }
+    }), markStepActive("\u5F39\u5E55\xB7\u6293\u53D6\u4E0E\u8FC7\u6EE4"), log("info", "[system] [LogVar-API] \u5F00\u59CB\u4ECE\u672C\u5730\u8BF7\u6C42\u5F39\u5E55...", url);
     let danmus = [], durationPromise = shouldAttachDuration ? resolveMergedDuration(url) : null, linkMeta = stripLinkOffset(url), singleUrlOffset = linkMeta.offset, singleUrlOffsetPercent = linkMeta.percent, cleanUrl = linkMeta.cleanUrl;
     if (singleUrlOffset !== 0 && log("info", `[system] [LogVar-API] \u68C0\u6D4B\u5230\u94FE\u63A5${singleUrlOffsetPercent ? "\u767E\u5206\u6BD4" : ""}\u504F\u79FB: ${singleUrlOffset}s`), url.includes(".qq.com"))
       danmus = await sourceLogContext.run("tencent", () => tencentSource2.getComments(cleanUrl, "qq", segmentFlag));
@@ -22459,7 +23367,12 @@ async function getCommentByUrl(videoUrl, queryFormat, segmentFlag, includeDurati
       let resolvedUrl = cleanUrl;
       resolvedUrl.includes("b23.tv") && (resolvedUrl = await sourceLogContext.run("bilibili", () => bilibiliSource2.resolveB23Link(resolvedUrl))), danmus = await sourceLogContext.run("bilibili", () => bilibiliSource2.getComments(resolvedUrl, "bilibili1", segmentFlag));
     } else url.includes(".youku.com") ? danmus = await sourceLogContext.run("youku", () => youkuSource2.getComments(cleanUrl, "youku", segmentFlag)) : url.includes(".miguvideo.com") ? danmus = await sourceLogContext.run("migu", () => miguSource.getComments(cleanUrl, "migu", segmentFlag)) : url.includes(".sohu.com") ? danmus = await sourceLogContext.run("sohu", () => sohuSource.getComments(cleanUrl, "sohu", segmentFlag)) : url.includes(".le.com") ? danmus = await sourceLogContext.run("leshi", () => leshiSource.getComments(cleanUrl, "leshi", segmentFlag)) : url.includes(".douyin.com") || url.includes(".ixigua.com") ? danmus = await sourceLogContext.run("xigua", () => xiguaSource.getComments(cleanUrl, "xigua", segmentFlag)) : url.includes(".mddcloud.com.cn") ? danmus = await sourceLogContext.run("maiduidui", () => maiduiduiSource.getComments(cleanUrl, "maiduidui", segmentFlag)) : url.includes(".yfsp.tv") ? danmus = await sourceLogContext.run("aiyifan", () => aiyifanSource.getComments(cleanUrl, "aiyifan", segmentFlag)) : isHongguoPlayerUrl(cleanUrl) ? danmus = await sourceLogContext.run("hongguo", () => hongguoSource.getComments(cleanUrl, "hongguo", segmentFlag)) : /^(https?:\/\/)?([\w.-]+)\.([a-z]{2,})(\/.*)?$/i.test(cleanUrl) && (danmus = await sourceLogContext.run("other", () => otherSource.getComments(cleanUrl, "other_server", segmentFlag)));
-    if (log("info", `[system] [LogVar-API] Successfully fetched ${danmus.length} comments from URL`), singleUrlOffset !== 0 && danmus && Array.isArray(danmus) && danmus.length > 0)
+    if (log("info", `[system] [LogVar-API] Successfully fetched ${danmus.length} comments from URL`), phase("\u5F39\u5E55\xB7\u6293\u53D6\u4E0E\u8FC7\u6EE4", {
+      status: danmus.length === 0 ? "empty" : "ok",
+      reason: danmus.length === 0 ? "\u6240\u6709\u5F39\u5E55\u6E90\u5747\u672A\u8FD4\u56DE\u5185\u5BB9" : void 0,
+      inputs: { url: maskCredentialParams(cleanUrl), \u94FE\u63A5\u6570: String(url || "").split(MERGE_DELIMITER).filter(Boolean).length, segment: segmentFlag },
+      outputs: { rawCount: stepEffectsRawDanmuCount(), count: danmus.length, linkOffset: singleUrlOffset, linkOffsetPercent: singleUrlOffsetPercent }
+    }), singleUrlOffset !== 0 && danmus && Array.isArray(danmus) && danmus.length > 0)
       if (singleUrlOffsetPercent) {
         let maxTime = Math.max(...danmus.map((d) => parseFloat(String(d.p).split(",")[0]) || 0), 0);
         danmus = applyOffset(danmus, singleUrlOffset, { usePercent: !0, videoDuration: maxTime || 1 }), log("info", `[system] [LogVar-API] \u5E94\u7528\u94FE\u63A5\u767E\u5206\u6BD4\u504F\u79FB ${singleUrlOffset}s (\u65F6\u957F=${maxTime}s)`);
@@ -22473,23 +23386,42 @@ async function getCommentByUrl(videoUrl, queryFormat, segmentFlag, includeDurati
       count: danmus.length,
       comments: danmus
     }, durationPromise ? await durationPromise : null);
-    return formatDanmuResponse(responseData, queryFormat);
+    return markStepActive("\u5F39\u5E55\xB7\u54CD\u5E94\u7EC4\u88C5"), phase("\u5F39\u5E55\xB7\u54CD\u5E94\u7EC4\u88C5", {
+      status: danmus.length === 0 ? "empty" : "ok",
+      reason: danmus.length === 0 ? "\u672C\u6B21\u8BF7\u6C42\u672A\u8FD4\u56DE\u4EFB\u4F55\u5F39\u5E55" : void 0,
+      inputs: { format: queryFormat || "json" },
+      outputs: { count: danmus.length }
+    }), formatDanmuResponse(responseData, queryFormat);
   } catch (error) {
-    return log("error", `[system] [LogVar-API] Failed to process comment by URL request: ${error.message}`), jsonResponse(
+    return log("error", `[system] [LogVar-API] Failed to process comment by URL request: ${error.message}`), phase("\u5F39\u5E55\xB7\u5904\u7406\u5F02\u5E38", {
+      status: "fail",
+      reason: "\u5F39\u5E55\u5730\u5740\u5904\u7406\u5931\u8D25",
+      error: error.message
+    }), jsonResponse(
       { errorCode: 500, success: !1, errorMessage: "Internal server error", count: 0, comments: [] },
       500
     );
   }
 }
 async function getSegmentComment(segment, queryFormat) {
+  let phase = createPhaseTimer();
+  markStepActive("\u5206\u6BB5\u5F39\u5E55\xB7\u8BF7\u6C42\u89E3\u6790");
   try {
     let url = segment.url, platform = segment.type;
     if (!url || typeof url != "string")
-      return log("error", "[system] [segmentcomment] Missing or invalid url parameter"), jsonResponse(
+      return log("error", "[system] [segmentcomment] Missing or invalid url parameter"), phase("\u5206\u6BB5\u5F39\u5E55\xB7\u8BF7\u6C42\u89E3\u6790", {
+        status: "fail",
+        reason: "\u7F3A\u5C11\u6216\u65E0\u6548\u7684 url \u53C2\u6570",
+        inputs: { url: maskCredentialParams(url), platform }
+      }), jsonResponse(
         { errorCode: 400, success: !1, errorMessage: "Missing or invalid url parameter", count: 0, comments: [] },
         400
       );
-    url = url.trim(), log("info", `[system] [segmentcomment] Processing segment comment request for URL: ${url}`);
+    url = url.trim(), log("info", `[system] [segmentcomment] Processing segment comment request for URL: ${url}`), phase("\u5206\u6BB5\u5F39\u5E55\xB7\u8BF7\u6C42\u89E3\u6790", {
+      status: "ok",
+      inputs: { url: maskCredentialParams(url), platform, segmentStart: segment.segment_start, segmentEnd: segment.segment_end },
+      outputs: { format: queryFormat || "json" }
+    }), markStepActive("\u5206\u6BB5\u5F39\u5E55\xB7\u7F13\u5B58\u67E5\u8BE2");
     let cacheKey = resolveCommentCacheKey(url), cachedComments = getCommentCache(cacheKey);
     if (cachedComments !== null) {
       let responseData2 = {
@@ -22499,11 +23431,26 @@ async function getSegmentComment(segment, queryFormat) {
         count: cachedComments.length,
         comments: cachedComments
       };
-      return formatDanmuResponse(responseData2, queryFormat);
+      return phase("\u5206\u6BB5\u5F39\u5E55\xB7\u7F13\u5B58\u67E5\u8BE2", {
+        status: "hit",
+        reason: "\u5206\u6BB5\u5F39\u5E55\u7F13\u5B58\u547D\u4E2D",
+        inputs: { cacheKey },
+        outputs: { count: cachedComments.length }
+      }), formatDanmuResponse(responseData2, queryFormat);
     }
-    log("info", `[system] [segmentcomment] \u5F00\u59CB\u4ECE\u672C\u5730\u8BF7\u6C42\u5206\u6BB5\u5F39\u5E55... URL: ${url}`);
+    phase("\u5206\u6BB5\u5F39\u5E55\xB7\u7F13\u5B58\u67E5\u8BE2", {
+      status: "miss",
+      reason: "\u5206\u6BB5\u5F39\u5E55\u7F13\u5B58\u672A\u547D\u4E2D\uFF0C\u5F00\u59CB\u5411\u5F39\u5E55\u6E90\u8BF7\u6C42",
+      inputs: { cacheKey },
+      outputs: { count: 0 }
+    }), markStepActive("\u5206\u6BB5\u5F39\u5E55\xB7\u6293\u53D6\u4E0E\u8FC7\u6EE4"), log("info", `[system] [segmentcomment] \u5F00\u59CB\u4ECE\u672C\u5730\u8BF7\u6C42\u5206\u6BB5\u5F39\u5E55... URL: ${url}`);
     let danmus = [];
-    platform === "qq" ? danmus = await sourceLogContext.run("tencent", () => tencentSource2.getSegmentComments(segment)) : platform === "qiyi" ? danmus = await sourceLogContext.run("iqiyi", () => iqiyiSource2.getSegmentComments(segment)) : platform === "imgo" ? danmus = await sourceLogContext.run("mango", () => mangoSource2.getSegmentComments(segment)) : platform === "bilibili1" ? danmus = await sourceLogContext.run("bilibili", () => bilibiliSource2.getSegmentComments(segment)) : platform === "youku" ? danmus = await sourceLogContext.run("youku", () => youkuSource2.getSegmentComments(segment)) : platform === "migu" ? danmus = await sourceLogContext.run("migu", () => miguSource.getSegmentComments(segment)) : platform === "sohu" ? danmus = await sourceLogContext.run("sohu", () => sohuSource.getSegmentComments(segment)) : platform === "leshi" ? danmus = await sourceLogContext.run("leshi", () => leshiSource.getSegmentComments(segment)) : platform === "xigua" ? danmus = await sourceLogContext.run("xigua", () => xiguaSource.getSegmentComments(segment)) : platform === "maiduidui" ? danmus = await sourceLogContext.run("maiduidui", () => maiduiduiSource.getSegmentComments(segment)) : platform === "aiyifan" ? danmus = await sourceLogContext.run("aiyifan", () => aiyifanSource.getSegmentComments(segment)) : platform === "hongguo" ? danmus = await sourceLogContext.run("hongguo", () => hongguoSource.getSegmentComments(segment)) : platform === "hanjutv" ? danmus = await sourceLogContext.run("hanjutv", () => hanjutvSource.getSegmentComments(segment)) : platform === "bahamut" ? danmus = await sourceLogContext.run("bahamut", () => bahamutSource2.getSegmentComments(segment)) : platform === "renren" ? danmus = await sourceLogContext.run("renren", () => renrenSource.getSegmentComments(segment)) : platform === "dandan" ? danmus = await sourceLogContext.run("dandan", () => dandanSource.getSegmentComments(segment)) : platform === "animeko" ? danmus = await sourceLogContext.run("animeko", () => animekoSource.getSegmentComments(segment)) : platform === "custom" ? danmus = await sourceLogContext.run("custom", () => customSource.getSegmentComments(segment)) : platform === "local" ? danmus = await sourceLogContext.run("local", () => localSource.getSegmentComments(segment)) : platform === "other_server" && (danmus = await sourceLogContext.run("other", () => otherSource.getSegmentComments(segment))), log("info", `[system] [segmentcomment] Successfully fetched ${danmus.length} segment comments from URL`), danmus.length > 0 && setCommentCache(cacheKey, danmus);
+    platform === "qq" ? danmus = await sourceLogContext.run("tencent", () => tencentSource2.getSegmentComments(segment)) : platform === "qiyi" ? danmus = await sourceLogContext.run("iqiyi", () => iqiyiSource2.getSegmentComments(segment)) : platform === "imgo" ? danmus = await sourceLogContext.run("mango", () => mangoSource2.getSegmentComments(segment)) : platform === "bilibili1" ? danmus = await sourceLogContext.run("bilibili", () => bilibiliSource2.getSegmentComments(segment)) : platform === "youku" ? danmus = await sourceLogContext.run("youku", () => youkuSource2.getSegmentComments(segment)) : platform === "migu" ? danmus = await sourceLogContext.run("migu", () => miguSource.getSegmentComments(segment)) : platform === "sohu" ? danmus = await sourceLogContext.run("sohu", () => sohuSource.getSegmentComments(segment)) : platform === "leshi" ? danmus = await sourceLogContext.run("leshi", () => leshiSource.getSegmentComments(segment)) : platform === "xigua" ? danmus = await sourceLogContext.run("xigua", () => xiguaSource.getSegmentComments(segment)) : platform === "maiduidui" ? danmus = await sourceLogContext.run("maiduidui", () => maiduiduiSource.getSegmentComments(segment)) : platform === "aiyifan" ? danmus = await sourceLogContext.run("aiyifan", () => aiyifanSource.getSegmentComments(segment)) : platform === "hongguo" ? danmus = await sourceLogContext.run("hongguo", () => hongguoSource.getSegmentComments(segment)) : platform === "hanjutv" ? danmus = await sourceLogContext.run("hanjutv", () => hanjutvSource.getSegmentComments(segment)) : platform === "bahamut" ? danmus = await sourceLogContext.run("bahamut", () => bahamutSource2.getSegmentComments(segment)) : platform === "renren" ? danmus = await sourceLogContext.run("renren", () => renrenSource.getSegmentComments(segment)) : platform === "dandan" ? danmus = await sourceLogContext.run("dandan", () => dandanSource.getSegmentComments(segment)) : platform === "animeko" ? danmus = await sourceLogContext.run("animeko", () => animekoSource.getSegmentComments(segment)) : platform === "custom" ? danmus = await sourceLogContext.run("custom", () => customSource.getSegmentComments(segment)) : platform === "local" ? danmus = await sourceLogContext.run("local", () => localSource.getSegmentComments(segment)) : platform === "other_server" && (danmus = await sourceLogContext.run("other", () => otherSource.getSegmentComments(segment))), log("info", `[system] [segmentcomment] Successfully fetched ${danmus.length} segment comments from URL`), phase("\u5206\u6BB5\u5F39\u5E55\xB7\u6293\u53D6\u4E0E\u8FC7\u6EE4", {
+      status: danmus.length === 0 ? "empty" : "ok",
+      reason: danmus.length === 0 ? "\u8BE5\u5E73\u53F0\u672A\u8FD4\u56DE\u5206\u6BB5\u5F39\u5E55" : void 0,
+      inputs: { platform, url: maskCredentialParams(url) },
+      outputs: { count: danmus.length }
+    }), danmus.length > 0 && setCommentCache(cacheKey, danmus);
     let responseData = {
       errorCode: 0,
       success: !0,
@@ -22511,9 +23458,17 @@ async function getSegmentComment(segment, queryFormat) {
       count: danmus.length,
       comments: danmus
     };
-    return formatDanmuResponse(responseData, queryFormat);
+    return markStepActive("\u5206\u6BB5\u5F39\u5E55\xB7\u54CD\u5E94\u7EC4\u88C5"), phase("\u5206\u6BB5\u5F39\u5E55\xB7\u54CD\u5E94\u7EC4\u88C5", {
+      status: danmus.length === 0 ? "empty" : "ok",
+      inputs: { format: queryFormat || "json" },
+      outputs: { count: danmus.length }
+    }), formatDanmuResponse(responseData, queryFormat);
   } catch (error) {
-    return log("error", `[system] [segmentcomment] Failed to process segment comment request: ${error.message}`), jsonResponse(
+    return log("error", `[system] [segmentcomment] Failed to process segment comment request: ${error.message}`), phase("\u5206\u6BB5\u5F39\u5E55\xB7\u5904\u7406\u5F02\u5E38", {
+      status: "fail",
+      reason: "\u5206\u6BB5\u5F39\u5E55\u5904\u7406\u5931\u8D25",
+      error: error.message
+    }), jsonResponse(
       { errorCode: 500, success: !1, errorMessage: "Internal server error", count: 0, comments: [] },
       500
     );
@@ -22521,7 +23476,7 @@ async function getSegmentComment(segment, queryFormat) {
 }
 
 // forward/forward-widget.js
-var wv = "1.21.10";
+var wv = "1.22.0";
 WidgetMetadata = {
   id: "forward.auto.danmu2",
   title: "\u81EA\u52A8\u94FE\u63A5\u5F39\u5E55v2",
