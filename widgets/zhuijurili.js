@@ -248,7 +248,7 @@ WidgetMetadata = {
             ],
         },
     ],
-    version: "1.0.5",
+    version: "1.0.6",
     requiredVersion: "0.0.1",
     description: "解析追剧日历今/明日播出剧集/番剧/国漫/综艺、周历、各项榜单、今日推荐等【五折码：CHEAP.5;七折码：CHEAP】",
     author: "huangxd",
@@ -275,6 +275,63 @@ const suffixMap = {};
 Object.entries(API_SUFFIXES).forEach(([suffix, values]) => {
     values.forEach(value => suffixMap[value] = suffix);
 });
+
+// 追剧日历 App 的数据源（腾讯云 COS），桶上开了 Referer 防盗链，
+// 白名单即 App 官网域名；将来若再次变更，只需往下面的候选列表追加。
+const ZJRL_HOSTS = [
+    "https://zjrl-1318856176.cos.accelerate.myqcloud.com",
+    "https://zjrl-1318856176.cos.ap-guangzhou.myqcloud.com",
+];
+const ZJRL_REFERERS = [
+    "https://showcal.tv",
+    "https://www.showcal.tv",
+];
+const ZJRL_UA =
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36";
+const ZJRL_ISSUE_URL = "https://github.com/huangxd-/ForwardWidgets/issues/16";
+
+function zjrlHeaders(referer) {
+    const headers = { "User-Agent": ZJRL_UA };
+    if (referer) {
+        headers["Referer"] = referer;
+    }
+    return headers;
+}
+
+// response.data 可能是字符串，也可能是对象
+function parseZjrlData(data) {
+    if (data == null) return null;
+    return typeof data === "string" ? JSON.parse(data) : data;
+}
+
+// 依次尝试「主机 × Referer」，命中即返回，正常路径只发一次请求
+async function fetchZjrlHome(suffix) {
+    const failures = [];
+
+    for (const host of ZJRL_HOSTS) {
+        const url = `${host}/${suffix}.json`;
+        for (const referer of ZJRL_REFERERS) {
+            try {
+                const response = await Widget.http.get(url, {
+                    headers: zjrlHeaders(referer),
+                });
+                const data = parseZjrlData(response && response.data);
+                if (Array.isArray(data) && data.length > 0) {
+                    return data;
+                }
+                failures.push(`${host} (Referer: ${referer}) → 返回数据为空或结构异常`);
+            } catch (error) {
+                const reason = error && error.message ? error.message : String(error);
+                failures.push(`${host} (Referer: ${referer}) → ${reason}`);
+            }
+        }
+    }
+
+    console.error("追剧日历数据源请求全部失败：\n" + failures.join("\n"));
+    throw new Error(
+        `追剧日历数据源拒绝访问（防盗链策略可能已变更），请前往 ${ZJRL_ISSUE_URL} 反馈`
+    );
+}
 
 // 基础获取TMDB数据方法
 async function fetchTmdbData(id, mediaType) {
@@ -360,40 +417,49 @@ async function fetchImdbItems(scItems) {
 }
 
 async function fetchDefaultData(sort_by) {
-    const url_prefix = "https://zjrl-1318856176.cos.accelerate.myqcloud.com";
-    let url = `${url_prefix}/${suffixMap[sort_by]}.json`;
-
-    const response = await Widget.http.get(url, {
-        headers: {
-            "User-Agent":
-                "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
-        },
-    });
-
-    console.log("请求结果:", response.data);
-
-    if (response.data) {
-        let data;
-        let items;
-        if (sort_by === "今日推荐") {
-            data = response.data.find(item => item.type === "1s");
-            items = data.content;
-        } else if (areaTypes.includes(sort_by)) {
-            data = response.data.find(item => item.type === "category");
-            items = data.content.find(item => item.title === sort_by).data;
-        } else {
-            data = response.data.find(item => item.title === sort_by);
-            items = data.content;
-        }
-        console.log("items: ", items);
-
-        const tmdbIds = await fetchImdbItems(items);
-
-        console.log("tmdbIds: ", tmdbIds);
-
-        return tmdbIds;
+    const suffix = suffixMap[sort_by];
+    if (!suffix) {
+        console.warn(`未知的追剧日历分类：${sort_by}`);
+        return [];
     }
-    return [];
+
+    const data = await fetchZjrlHome(suffix);
+
+    let items = [];
+    if (sort_by === "今日推荐") {
+        const section = data.find(item => item && item.type === "1s");
+        if (!section || !Array.isArray(section.content)) {
+            console.warn("今日推荐数据结构异常，已跳过");
+            return [];
+        }
+        items = section.content;
+    } else if (areaTypes.includes(sort_by)) {
+        const section = data.find(item => item && item.type === "category");
+        const area =
+            section && Array.isArray(section.content)
+                ? section.content.find(item => item && item.title === sort_by)
+                : null;
+        if (!area || !Array.isArray(area.data)) {
+            console.warn(`地区榜单「${sort_by}」数据结构异常，已跳过`);
+            return [];
+        }
+        items = area.data;
+    } else {
+        const section = data.find(item => item && item.title === sort_by);
+        if (!section || !Array.isArray(section.content)) {
+            console.warn(`分类「${sort_by}」数据结构异常，已跳过`);
+            return [];
+        }
+        items = section.content;
+    }
+
+    console.log(`分类「${sort_by}」原始数据 ${items.length} 条`);
+
+    const tmdbIds = await fetchImdbItems(items);
+
+    console.log(`分类「${sort_by}」命中 TMDB ${tmdbIds.length} 条`);
+
+    return tmdbIds;
 }
 
 async function fetchOtherData(typ, sort_by) {
