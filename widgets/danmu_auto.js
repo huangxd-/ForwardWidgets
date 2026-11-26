@@ -1,5 +1,127 @@
 // 本插件从项目 https://github.com/huangxd-/danmu_api.git 一键导出，配置参数使用说明请参考该项目README
 
+// Rex 的 JavaScriptCore 不提供 URLSearchParams；B 站合并分段解析与流程追踪的
+// 凭据遮罩都依赖它，缺失时会直接抛出 "URLSearchParams is not a constructor"。
+const forwardGlobal = typeof globalThis !== 'undefined'
+  ? globalThis
+  : (typeof self !== 'undefined' ? self : this);
+
+if (typeof forwardGlobal.URLSearchParams === 'undefined') {
+  forwardGlobal.URLSearchParams = class URLSearchParams {
+    constructor(init = '') {
+      this._rows = [];
+
+      if (init instanceof URLSearchParams) {
+        for (const [key, value] of init.entries()) {
+          this.append(key, value);
+        }
+      } else if (typeof init === 'string') {
+        const text = init.replace(/^\?/, '');
+        for (const part of text.split('&')) {
+          if (!part) continue;
+          const separator = part.indexOf('=');
+          const key = separator < 0 ? part : part.slice(0, separator);
+          const value = separator < 0 ? '' : part.slice(separator + 1);
+          this.append(this._decode(key), this._decode(value));
+        }
+      } else if (init && typeof init[Symbol.iterator] === 'function') {
+        for (const [key, value] of init) {
+          this.append(key, value);
+        }
+      } else if (init && typeof init === 'object') {
+        for (const [key, value] of Object.entries(init)) {
+          this.append(key, value);
+        }
+      }
+    }
+
+    _decode(part) {
+      try {
+        return decodeURIComponent(String(part).replace(/\+/g, ' '));
+      } catch (error) {
+        return String(part);
+      }
+    }
+
+    _encode(part) {
+      return encodeURIComponent(String(part))
+        .replace(/[!'()~]/g, character => `%${character.charCodeAt(0).toString(16).toUpperCase()}`)
+        .replace(/%20/g, '+');
+    }
+
+    append(key, value) {
+      this._rows.push([String(key), String(value)]);
+    }
+
+    delete(key) {
+      const name = String(key);
+      this._rows = this._rows.filter(([item]) => item !== name);
+    }
+
+    get(key) {
+      const name = String(key);
+      const row = this._rows.find(([item]) => item === name);
+      return row ? row[1] : null;
+    }
+
+    getAll(key) {
+      const name = String(key);
+      return this._rows.filter(([item]) => item === name).map(([, value]) => value);
+    }
+
+    has(key) {
+      const name = String(key);
+      return this._rows.some(([item]) => item === name);
+    }
+
+    set(key, value) {
+      const name = String(key);
+      const nextValue = String(value);
+      const index = this._rows.findIndex(([item]) => item === name);
+      if (index < 0) {
+        this.append(name, nextValue);
+        return;
+      }
+      this._rows[index] = [name, nextValue];
+      this._rows = this._rows.filter(([item], rowIndex) => item !== name || rowIndex === index);
+    }
+
+    sort() {
+      this._rows.sort(([left], [right]) => left.localeCompare(right));
+    }
+
+    keys() {
+      return this._rows.map(([key]) => key)[Symbol.iterator]();
+    }
+
+    values() {
+      return this._rows.map(([, value]) => value)[Symbol.iterator]();
+    }
+
+    entries() {
+      return this._rows[Symbol.iterator]();
+    }
+
+    forEach(callback, thisArg) {
+      this._rows.forEach(([key, value]) => callback.call(thisArg, value, key, this));
+    }
+
+    [Symbol.iterator]() {
+      return this.entries();
+    }
+
+    toString() {
+      return this._rows
+        .map(([key, value]) => `${this._encode(key)}=${this._encode(value)}`)
+        .join('&');
+    }
+
+    get size() {
+      return this._rows.length;
+    }
+  };
+}
+
 class URL {
   constructor(url, base) {
     if (base) {
@@ -24,8 +146,12 @@ class URL {
   }
 
   parseURL(url) {
+    const hashIndex = url.indexOf('#');
+    this.hash = hashIndex === -1 ? '' : url.substring(hashIndex);
+    const urlWithoutHash = hashIndex === -1 ? url : url.substring(0, hashIndex);
+
     // 基础URL解析逻辑
-    const match = url.match(/^([^:]+):\/\/([^\/]+)(.*)$/);
+    const match = urlWithoutHash.match(/^([^:]+):\/\/([^\/]+)(.*)$/);
     if (match) {
       this.protocol = match[1] + ':';
       this.hostname = match[2];
@@ -42,7 +168,7 @@ class URL {
     } else {
       this.protocol = '';
       this.hostname = '';
-      this.pathname = url;
+      this.pathname = urlWithoutHash;
       this.search = '';
     }
   }
@@ -73,26 +199,7 @@ class URL {
   }
 
   get searchParams() {
-    // 创建一个简单的SearchParams实现
-    const paramsString = this.search.substring(1); // 移除开头的?
-    const params = new (function() {
-      const entries = {};
-      if (paramsString) {
-        paramsString.split('&').forEach(pair => {
-          const [key, value] = pair.split('=');
-          if (key) {
-            entries[decodeURIComponent(key)] = decodeURIComponent(value || '');
-          }
-        });
-      }
-
-      this.get = (name) => entries[name] || null;
-      this.set = (name, value) => { entries[name] = value.toString(); };
-      this.toString = () => Object.keys(entries).map(key => 
-        encodeURIComponent(key) + '=' + encodeURIComponent(entries[key])
-      ).join('&');
-    })();
-    return params;
+    return new URLSearchParams(this.search);
   }
 }
 
@@ -23476,7 +23583,7 @@ async function getSegmentComment(segment, queryFormat) {
 }
 
 // forward/forward-widget.js
-var wv = "1.22.0";
+var wv = "1.22.1";
 WidgetMetadata = {
   id: "forward.auto.danmu2",
   title: "\u81EA\u52A8\u94FE\u63A5\u5F39\u5E55v2",
