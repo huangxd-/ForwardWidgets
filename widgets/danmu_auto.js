@@ -7016,7 +7016,7 @@ var Globals = {
   originalEnvVars: {},
   accessedEnvVars: {},
   // 静态常量
-  VERSION: "1.22.0",
+  VERSION: "1.22.1",
   MAX_LOGS: 1e3,
   // 日志存储，最多保存 1000 行
   MAX_RECORDS: 100,
@@ -20280,7 +20280,7 @@ var AiyifanSource = class extends BaseSource {
 };
 
 // danmu_api/sources/hongguo.js
-var CLIENT_CONFIG = {
+var hongguoNodeHttp = Object.freeze({ get: httpGet, post: httpPost }), CLIENT_CONFIG = {
   apiHosts: Object.freeze([
     "api5-normal-sinfonlinea.fqnovel.com",
     "api5-normal-sinfonlinec.fqnovel.com",
@@ -20404,6 +20404,134 @@ function parseWebSeriesDetail(html) {
   } catch {
     return null;
   }
+}
+var HONGGUO_UNRESOLVED_VID = "__unresolved__", HongguoEpisodeUnresolved = class extends Error {
+  constructor(message, details = {}) {
+    super(message), this.name = "HongguoEpisodeUnresolved", Object.assign(this, details);
+  }
+};
+function isHongguoWebVid(value) {
+  return /^v1_[A-Za-z0-9_-]+$/.test(String(value || ""));
+}
+function isUsableHongguoVid(value) {
+  return /^\d{10,}$/.test(String(value || "")) || isHongguoWebVid(value);
+}
+function normalizeHongguoEpisodeCount(value) {
+  let count = Number(value);
+  return Number.isSafeInteger(count) && count > 0 ? count : 0;
+}
+function extractHongguoDetailMeta(detail = {}, fallbackCount = 0) {
+  let episodeInfo = detail && detail.series_episode_info || {}, totalCount = Math.max(
+    normalizeHongguoEpisodeCount(episodeInfo.episode_total_cnt),
+    normalizeHongguoEpisodeCount(episodeInfo.episode_cnt),
+    normalizeHongguoEpisodeCount(detail && detail.episode_cnt),
+    normalizeHongguoEpisodeCount(fallbackCount)
+  ), accessibleCount = normalizeHongguoEpisodeCount(detail && detail.accessible_episode_cnt);
+  return {
+    totalCount,
+    accessibleCount: accessibleCount ? Math.min(accessibleCount, totalCount || accessibleCount) : 0
+  };
+}
+function normalizeHongguoWebEpisode(item, fallbackIndex) {
+  let value = item && typeof item == "object" ? item : {}, vid = typeof item == "object" ? value.vid || value.video_id || value.id || "" : item;
+  if (!vid) return null;
+  let index = Number(value.vid_index || value.video_index || value.index) || fallbackIndex, normalizedVid = String(vid);
+  return {
+    index,
+    vid: normalizedVid,
+    webVid: isHongguoWebVid(normalizedVid) ? normalizedVid : "",
+    title: String(value.episode_title || value.title || "").trim().slice(0, 30),
+    duration: Math.max(0, Number(value.duration || value.video_duration) || 0),
+    commentCount: value.comment_count == null ? null : Math.max(0, Number(value.comment_count) || 0),
+    imageUrl: extractImageUrl(value.episode_cover || value.cover),
+    verified: isUsableHongguoVid(normalizedVid)
+  };
+}
+function mergeHongguoEpisodes({ totalCount = 0, apiEpisodes = [], ssrEpisodes = [] } = {}) {
+  let byIndex = /* @__PURE__ */ new Map(), add = (episode) => {
+    if (!episode || !Number.isSafeInteger(episode.index) || episode.index <= 0) return;
+    let existing = byIndex.get(episode.index);
+    if (!existing) {
+      byIndex.set(episode.index, episode);
+      return;
+    }
+    let existingNumeric = /^\d{10,}$/.test(String(existing.vid || "")), incomingNumeric = /^\d{10,}$/.test(String(episode.vid || "")), vid = existingNumeric ? existing.vid : incomingNumeric ? episode.vid : existing.vid || episode.vid;
+    byIndex.set(episode.index, {
+      ...existing,
+      ...episode,
+      vid,
+      webVid: existing.webVid || episode.webVid || (isHongguoWebVid(existing.vid) ? existing.vid : ""),
+      title: existing.title || episode.title,
+      duration: existing.duration || episode.duration,
+      commentCount: existing.commentCount == null ? episode.commentCount : existing.commentCount,
+      imageUrl: existing.imageUrl || episode.imageUrl,
+      verified: isUsableHongguoVid(vid)
+    });
+  };
+  apiEpisodes.forEach(add), ssrEpisodes.forEach(add);
+  let count = Math.max(totalCount, apiEpisodes.length, ssrEpisodes.length, ...byIndex.keys()), episodes = [];
+  for (let index = 1; index <= count; index++) {
+    let known = byIndex.get(index);
+    if (known && isUsableHongguoVid(known.vid)) {
+      episodes.push({
+        ...known,
+        index,
+        webVid: known.webVid || (isHongguoWebVid(known.vid) ? known.vid : ""),
+        verified: !0
+      });
+      continue;
+    }
+    episodes.push({
+      index,
+      vid: HONGGUO_UNRESOLVED_VID,
+      webVid: "",
+      title: "",
+      duration: 0,
+      commentCount: null,
+      imageUrl: "",
+      verified: !1
+    });
+  }
+  return episodes;
+}
+function getResponseStatus(response) {
+  let status = response && (response.status != null ? response.status : response.statusCode);
+  return status != null && Number.isFinite(Number(status)) ? Number(status) : null;
+}
+function utf8ByteLength(value) {
+  if (value == null) return 0;
+  let text = typeof value == "string" ? value : JSON.stringify(value);
+  if (!text) return 0;
+  if (typeof TextEncoder == "function") return new TextEncoder().encode(text).length;
+  let bytes = 0;
+  for (let index = 0; index < text.length; index++) {
+    let code = text.charCodeAt(index);
+    code < 128 ? bytes += 1 : code < 2048 ? bytes += 2 : code >= 55296 && code <= 56319 && index + 1 < text.length ? (bytes += 4, index++) : bytes += 3;
+  }
+  return bytes;
+}
+function getForwardWidgetHttp() {
+  let api = typeof globalThis < "u" && globalThis.Widget && globalThis.Widget.http;
+  return api && typeof api == "object" ? api : null;
+}
+function describeSigningHeaders(headers) {
+  return [
+    ["x-ss-stub", "stub"],
+    ["X-Argus", "argus"],
+    ["X-Gorgon", "gorgon"],
+    ["X-Khronos", "khronos"],
+    ["X-Ladon", "ladon"]
+  ].filter(([name]) => !!getHeader(headers, name)).map(([, label]) => label).join(",") || "none";
+}
+async function hongguoTransportRequest(method, url, { headers = {}, body = null, timeout = 3e4 } = {}) {
+  let widgetHttp = getForwardWidgetHttp(), canUseWidgetHttp = widgetHttp && (method === "GET" ? typeof widgetHttp.get == "function" : typeof widgetHttp.post == "function"), transport = canUseWidgetHttp ? "widget-http" : "fetch", response;
+  try {
+    canUseWidgetHttp ? response = method === "GET" ? await widgetHttp.get(url, { headers, timeout }) : await widgetHttp.post(url, body, { headers, timeout }) : response = method === "GET" ? await hongguoNodeHttp.get(url, { headers, timeout }) : await hongguoNodeHttp.post(url, body, { headers, timeout });
+  } catch (error) {
+    throw log("warn", `[Hongguo] transport=${transport} method=${method} error=${error && error.name || "Error"}`), error;
+  }
+  let status = getResponseStatus(response), bytes = utf8ByteLength(response && response.data);
+  return log("info", `[Hongguo] transport=${transport} method=${method} status=${status ?? "unknown"} bytes=${bytes} signing=${describeSigningHeaders(headers)}`), response;
 }
 var COMMENT_SOURCE = 601, SERVER_CHANNEL = 1e3, COMMENT_WINDOW_MS = 3e4, COMMENT_COUNT = 90, COMMENT_CONCURRENCY = 3, COMMENT_WINDOW_CACHE_MAX = 2e3, SERIES_DANMU_CACHE_MAX = 50, COMMENT_THROTTLE_MS = 180, COMMENT_THROTTLE_JITTER_MS = 240, MAX_SEARCH_ITEMS = 20, IMAGE_SHRINK = `W3siaW1hZ2VfdHlwZSI6MywiaW1hZ2Vfd2lkdGgiOjkwMCwic2hyaW5rX3R5cGUiOjN9LHsiaW1h
 Z2VfdHlwZSI6NCwiaW1hZ2Vfd2lkdGgiOjU0LCJzaHJpbmtfdHlwZSI6NH1d
@@ -20808,20 +20936,19 @@ function getFragmentNumber(value, name) {
 }
 var HongguoSource = class extends BaseSource {
   constructor() {
-    super(), this.preferredApiHost = CLIENT_CONFIG.apiHosts[0], this.nextRequestAt = 0, this.playerEpisodeResolutions = /* @__PURE__ */ new Map(), this.activeCommentRequests = 0, this.commentRequestWaiters = [], this.lastDanmu = [], this.durationCache = /* @__PURE__ */ new Map(), this.pendingEpisodeDanmu = /* @__PURE__ */ new Map(), this.commentWindowCache = /* @__PURE__ */ new Map(), this.pendingCommentWindows = /* @__PURE__ */ new Map(), this.pendingSeriesDanmu = /* @__PURE__ */ new Map(), this.seriesDanmuCache = /* @__PURE__ */ new Map();
+    super(), this.preferredApiHost = CLIENT_CONFIG.apiHosts[0], this.nextRequestAt = 0, this.playerEpisodeResolutions = /* @__PURE__ */ new Map(), this.activeCommentRequests = 0, this.commentRequestWaiters = [], this.lastDanmu = [], this.durationCache = /* @__PURE__ */ new Map(), this.pendingEpisodeDanmu = /* @__PURE__ */ new Map(), this.commentWindowCache = /* @__PURE__ */ new Map(), this.pendingCommentWindows = /* @__PURE__ */ new Map(), this.pendingSeriesDanmu = /* @__PURE__ */ new Map(), this.seriesDanmuCache = /* @__PURE__ */ new Map(), this.episodeListCache = /* @__PURE__ */ new Map();
   }
   buildUrl(path2, extraQuery = {}, apiHost = this.preferredApiHost) {
     let query = { ...CLIENT_CONFIG.baseQuery, ...extraQuery, _rticket: String(Date.now()) };
-    return `https://${apiHost || CLIENT_CONFIG.apiHosts[0]}${path2}?${buildQueryString(query)}`;
+    return getForwardWidgetHttp() && delete query.rom_version, `https://${apiHost || CLIENT_CONFIG.apiHosts[0]}${path2}?${buildQueryString(query)}`;
   }
   getApiHosts() {
     let preferred = this.preferredApiHost;
     return !preferred || !CLIENT_CONFIG.apiHosts.includes(preferred) ? [...CLIENT_CONFIG.apiHosts] : [preferred, ...CLIENT_CONFIG.apiHosts.filter((host) => host !== preferred)];
   }
   parseApiResponse(response) {
-    let status = response && response.status != null ? `HTTP ${response.status}` : "\u672A\u77E5 HTTP \u72B6\u6001";
+    let statusCode = getResponseStatus(response), status = statusCode == null ? "\u672A\u77E5 HTTP \u72B6\u6001" : `HTTP ${statusCode}`;
     if (!response || !("data" in response)) throw new Error(`\u65E0\u6548\u54CD\u5E94 (${status})`);
-    let statusCode = response.status == null ? null : Number(response.status);
     if (Number.isFinite(statusCode) && (statusCode < 200 || statusCode >= 300))
       throw new Error(`\u63A5\u53E3\u8FD4\u56DE ${status}`);
     if (typeof response.data != "string") {
@@ -20874,7 +21001,11 @@ var HongguoSource = class extends BaseSource {
           comment ? await this.throttle(COMMENT_THROTTLE_MS, COMMENT_THROTTLE_JITTER_MS) : await this.throttle();
           let response;
           try {
-            response = method === "GET" ? await Widget.http.get(url, { headers, timeout: 3e4 }) : await Widget.http.post(url, payload, { headers, timeout: 3e4 });
+            response = await hongguoTransportRequest(method, url, {
+              headers,
+              body: method === "GET" ? null : payload,
+              timeout: 3e4
+            });
           } finally {
             releaseCommentSlot && releaseCommentSlot();
           }
@@ -20950,7 +21081,10 @@ var HongguoSource = class extends BaseSource {
       return log("error", `[Hongguo] \u641C\u7D22\u5931\u8D25: ${error.message}`), [];
     }
   }
-  async getEpisodes(seriesId) {
+  async getEpisodes(seriesId, fallbackEpisodeCount = 0) {
+    let cacheKey = String(seriesId), cached = this.episodeListCache.get(cacheKey);
+    if (cached && Date.now() - cached.timestamp < 5 * 6e4 && cached.value.episodes.length >= fallbackEpisodeCount)
+      return cached.value;
     let body = {
       biz_param: {
         detail_page_version: 0,
@@ -20966,49 +21100,62 @@ var HongguoSource = class extends BaseSource {
       },
       series_id: String(seriesId)
     }, parseApiEpisodes = (payload) => {
-      let responseData = payload && payload.data || {}, entry = responseData[String(seriesId)] || responseData, videoData = entry && entry.video_data || {}, episodes = (videoData.video_list || []).map((item) => ({
-        index: Number(item.vid_index) || 0,
+      let responseData = payload && payload.data || {}, entry = responseData[String(seriesId)] || responseData, videoData = entry && entry.video_data || {}, episodes2 = (videoData.video_list || []).map((item, position) => ({
+        index: Number(item.vid_index) || position + 1,
         vid: String(item.vid || ""),
         title: String(item.episode_title || "").trim().slice(0, 30),
         duration: Math.max(0, Number(item.duration) || 0),
         commentCount: item.comment_count == null ? null : Math.max(0, Number(item.comment_count) || 0),
-        imageUrl: extractImageUrl(item.episode_cover || item.cover)
+        imageUrl: extractImageUrl(item.episode_cover || item.cover),
+        verified: !!item.vid
       })).filter((item) => item.vid).sort((a, b) => a.index - b.index);
-      return episodes.length ? {
-        episodes,
+      return episodes2.length ? {
+        episodes: episodes2,
         year: extractYearFromTimestamp(videoData.create_time),
-        imageUrl: extractImageUrl(videoData.series_cover) || (episodes.find((episode) => episode.imageUrl) || {}).imageUrl || ""
+        imageUrl: extractImageUrl(videoData.series_cover) || (episodes2.find((episode) => episode.imageUrl) || {}).imageUrl || "",
+        totalCount: Math.max(
+          normalizeHongguoEpisodeCount(videoData.episode_cnt),
+          normalizeHongguoEpisodeCount(videoData.series_episode_info?.episode_total_cnt),
+          normalizeHongguoEpisodeCount(videoData.series_episode_info?.episode_cnt),
+          episodes2.length
+        )
       } : null;
-    };
+    }, ssrDetail = null, ssrEpisodes = [], ssrMeta = { totalCount: 0, accessibleCount: 0 };
     try {
-      let apiResult = parseApiEpisodes(await this.request("POST", "/novel/player/multi_video_detail/v1/", { body }));
-      if (apiResult) return apiResult;
-      log("warn", `[Hongguo] API detail returned no episodes for series ${seriesId}, falling back to web detail`);
-    } catch (error) {
-      log("warn", `[Hongguo] API detail unavailable: ${error.message}, falling back to web detail`);
-    }
-    try {
-      let response = await Widget.http.get(`${WEB_ORIGIN}/detail?series_id=${encodeURIComponent(seriesId)}`, { headers: { accept: "text/html" }, timeout: 3e4 }), detail = parseWebSeriesDetail(typeof response.data == "string" ? response.data : "");
-      if (detail && Array.isArray(detail.vid_list) && detail.vid_list.length)
-        return {
-          episodes: detail.vid_list.map((item, index) => {
-            let value = item && typeof item == "object" ? item : {}, vid = typeof item == "object" ? value.vid || value.video_id || value.id || "" : item;
-            return vid ? {
-              index: index + 1,
-              vid: String(vid),
-              title: String(value.episode_title || value.title || `\u7B2C${index + 1}\u96C6`).trim().slice(0, 30),
-              duration: Math.max(0, Number(value.duration || value.video_duration) || 0),
-              commentCount: value.comment_count == null ? null : Math.max(0, Number(value.comment_count) || 0),
-              imageUrl: extractImageUrl(value.episode_cover || value.cover)
-            } : null;
-          }).filter(Boolean),
-          year: extractYearFromTimestamp(detail.create_time),
-          imageUrl: extractImageUrl(detail.series_cover)
-        };
+      let response = await Widget.http.get(`${WEB_ORIGIN}/detail?series_id=${encodeURIComponent(seriesId)}`, { headers: { accept: "text/html" }, timeout: 3e4 });
+      ssrDetail = parseWebSeriesDetail(typeof response.data == "string" ? response.data : ""), ssrMeta = extractHongguoDetailMeta(ssrDetail, fallbackEpisodeCount), ssrDetail && Array.isArray(ssrDetail.vid_list) && (ssrEpisodes = ssrDetail.vid_list.map((item, index) => normalizeHongguoWebEpisode(item, index + 1)).filter(Boolean));
     } catch (error) {
       log("warn", `[Hongguo] web detail unavailable: ${error.message}`);
     }
-    return { episodes: [], year: null, imageUrl: "" };
+    let apiResult = null;
+    try {
+      apiResult = parseApiEpisodes(await this.request("POST", "/novel/player/multi_video_detail/v1/", { body })), apiResult || log("warn", `[Hongguo] API detail returned no episodes for series ${seriesId}`);
+    } catch (error) {
+      log("warn", `[Hongguo] API detail unavailable: ${error.message}`);
+    }
+    let totalCount = Math.max(
+      ssrMeta.totalCount,
+      apiResult && apiResult.totalCount || 0,
+      fallbackEpisodeCount,
+      ssrEpisodes.length,
+      apiResult && apiResult.episodes.length || 0
+    ), episodes = mergeHongguoEpisodes({
+      totalCount,
+      apiEpisodes: apiResult && apiResult.episodes || [],
+      ssrEpisodes
+    }), resolvedCount = episodes.filter((episode) => episode.vid !== HONGGUO_UNRESOLVED_VID).length, source = resolvedCount ? apiResult ? resolvedCount === episodes.length ? "api" : "merged" : "ssr" : "placeholder";
+    log("info", `[Hongguo] detail series=${seriesId} episodeCount=${episodes.length} accessibleCount=${ssrMeta.accessibleCount} resolvedCount=${resolvedCount} source=${source}`);
+    let result = {
+      episodes,
+      year: Number.isInteger(apiResult && apiResult.year) ? apiResult.year : extractYearFromTimestamp(ssrDetail && ssrDetail.create_time),
+      imageUrl: apiResult && apiResult.imageUrl || extractImageUrl(ssrDetail && ssrDetail.series_cover) || "",
+      totalCount: episodes.length,
+      resolvedCount,
+      source
+    };
+    for (resolvedCount === episodes.length ? this.episodeListCache.set(cacheKey, { value: result, timestamp: Date.now() }) : this.episodeListCache.delete(cacheKey); this.episodeListCache.size > SERIES_DANMU_CACHE_MAX; )
+      this.episodeListCache.delete(this.episodeListCache.keys().next().value);
+    return result;
   }
   async resolveEpisodeInfo(value) {
     let raw = String(typeof value == "object" && value !== null ? value.url || value.id || value.value || "" : value || "");
@@ -21068,12 +21215,12 @@ var HongguoSource = class extends BaseSource {
     if (!Array.isArray(sourceAnimes)) return [];
     let transformed = [], filtered = sourceAnimes.filter((item) => titleMatches(item.name, queryTitle, querySeason));
     for (let anime of filtered) {
-      let details = await this.getEpisodes(anime.seriesId), episodes = details.episodes, links = globals.hongguoMergeAllEpisodes && episodes.length ? [{
+      let details = await this.getEpisodes(anime.seriesId, anime.episodeCount), episodes = details.episodes, links = globals.hongguoMergeAllEpisodes && episodes.length ? [{
         name: `\u5168\u96C6\uFF08\u5171${episodes.length}\u96C6\uFF09`,
         url: createHongguoSeriesId(anime.seriesId),
         title: `\u3010hongguo\u3011 \u5168\u96C6\uFF08\u5171${episodes.length}\u96C6\uFF09`
       }] : episodes.map((episode) => {
-        let episodeTitle = `\u7B2C${episode.index}\u96C6${episode.title ? ` ${episode.title}` : ""}`;
+        let unresolved = episode.vid === HONGGUO_UNRESOLVED_VID, episodeTitle = `\u7B2C${episode.index}\u96C6${episode.title ? ` ${episode.title}` : ""}${unresolved ? "\uFF08\u89C6\u9891ID\u5F85\u89E3\u6790\uFF09" : ""}`;
         return {
           name: episodeTitle,
           url: createHongguoEpisodeId(anime.seriesId, episode.vid, episode.duration),
@@ -21118,13 +21265,56 @@ var HongguoSource = class extends BaseSource {
       compliance_status: 0
     };
   }
+  async fetchWebCommentWindow(info, startMs) {
+    let itemId = info.webVid || (isHongguoWebVid(info.vid) ? info.vid : "");
+    if (!itemId) throw new TypeError("\u7F51\u9875\u5F39\u5E55\u7F3A\u5C11 v1 \u64AD\u653E\u4EE4\u724C");
+    let windowStartMs = Math.max(0, Math.trunc(Number(startMs) || 0)), durationMs = Math.max(0, Number(info.duration) || 0) * 1e3, windowEndMs = durationMs > windowStartMs ? Math.min(windowStartMs + 6e4, durationMs) : windowStartMs + 6e4, durationSeconds = Math.max(1, Math.ceil((durationMs || windowEndMs) / 1e3)), query = [
+      `series_id=${encodeURIComponent(String(info.seriesId))}`,
+      `item_id=${encodeURIComponent(itemId)}`,
+      `start_time=${Math.floor(windowStartMs / 1e3)}`,
+      `end_time=${Math.ceil(windowEndMs / 1e3)}`,
+      `video_duration=${durationSeconds}`,
+      "count=50",
+      "offset=0"
+    ].join("&"), url = `${WEB_ORIGIN}/api/pc/danmaku?${query}`, response = await hongguoTransportRequest("GET", url, {
+      headers: { ...WEB_BROWSER_HEADERS, accept: "application/json, text/plain, */*" },
+      timeout: 3e4
+    }), payload = response && response.data;
+    if (typeof payload == "string")
+      try {
+        payload = JSON.parse(payload);
+      } catch {
+        payload = null;
+      }
+    let status = getResponseStatus(response);
+    if (status != null && (status < 200 || status >= 300)) throw new Error(`\u7F51\u9875\u5F39\u5E55\u63A5\u53E3\u8FD4\u56DE HTTP ${status}`);
+    if (!payload || typeof payload != "object") throw new Error("\u7F51\u9875\u5F39\u5E55\u63A5\u53E3\u8FD4\u56DE\u7A7A\u54CD\u5E94");
+    if (payload.isSuccess === !1) throw new Error(payload.message || "\u7F51\u9875\u5F39\u5E55\u63A5\u53E3\u8BF7\u6C42\u5931\u8D25");
+    let data = payload.data && typeof payload.data == "object" ? payload.data : {}, comments = (Array.isArray(data.items) ? data.items : []).map((item) => {
+      let offsetMs = Number(item && item.offset_time_ms);
+      return {
+        commentId: String(item && item.id || ""),
+        offsetMs: Number.isFinite(offsetMs) ? Math.max(0, offsetMs) : Math.max(0, Number(item && item.offset_time || 0) * 1e3),
+        text: String(item && item.content || "").trim(),
+        diggCount: Math.max(0, Number(item && item.digg_count) || 0)
+      };
+    }).filter((comment) => comment.text && comment.offsetMs >= windowStartMs && comment.offsetMs < windowEndMs), nextStart = Number(data.next_query_time_ms);
+    return (!Number.isFinite(nextStart) || nextStart <= windowStartMs) && (nextStart = windowEndMs), {
+      comments,
+      nextStart,
+      cursor: String(data.next_offset == null ? 0 : data.next_offset),
+      offset: Number(data.next_offset) || 0,
+      hasMore: !!data.has_more
+    };
+  }
   async fetchCommentWindow(info, startMs, cursor = "") {
-    let cacheKey = `${info.seriesId}:${info.vid}:${Math.max(0, Math.trunc(startMs))}:${String(cursor || "")}`, cached = this.commentWindowCache.get(cacheKey);
+    let webVid = info.webVid || (isHongguoWebVid(info.vid) ? info.vid : ""), cacheKey = `${info.seriesId}:${webVid || info.vid}:${webVid ? "web" : "signed"}:${Math.max(0, Math.trunc(startMs))}:${String(cursor || "")}`, cached = this.commentWindowCache.get(cacheKey);
     if (cached)
       return this.commentWindowCache.delete(cacheKey), this.commentWindowCache.set(cacheKey, cached), cached;
     let pending = this.pendingCommentWindows.get(cacheKey);
     if (pending) return pending;
     let task = (async () => {
+      if (webVid) return await this.fetchWebCommentWindow({ ...info, vid: webVid, webVid }, startMs);
       let path2 = `/novel/commentapi/comment/list/${encodeURIComponent(info.vid)}/v1/`, payload = await this.request("POST", path2, {
         body: this.buildCommentBody(info, startMs, cursor),
         comment: !0
@@ -21145,6 +21335,19 @@ var HongguoSource = class extends BaseSource {
     return this.pendingCommentWindows.set(cacheKey, task), task;
   }
   async getDanmuForEpisode(info) {
+    let webVid = info.webVid || (isHongguoWebVid(info.vid) ? info.vid : ""), numericVid = /^\d{10,}$/.test(String(info.vid || "")) ? String(info.vid) : "";
+    if (webVid)
+      try {
+        let comments = await this.collectDanmuForEpisode({ ...info, vid: webVid, webVid });
+        if (comments.length || !numericVid) return comments;
+        log("warn", `[Hongguo] \u7F51\u9875\u5F39\u5E55\u65E0\u7ED3\u679C\uFF0C\u56DE\u9000\u7B7E\u540D\u63A5\u53E3 vid=${numericVid.slice(0, 8)}\u2026`);
+      } catch (error) {
+        if (!numericVid) throw error;
+        log("warn", `[Hongguo] \u7F51\u9875\u5F39\u5E55\u5931\u8D25\uFF0C\u56DE\u9000\u7B7E\u540D\u63A5\u53E3: ${error.message}`);
+      }
+    return await this.collectDanmuForEpisode({ ...info, vid: numericVid || info.vid, webVid: "" });
+  }
+  async collectDanmuForEpisode(info) {
     let durationMs = info.duration * 1e3, comments = [], seenMarkers = /* @__PURE__ */ new Set(), startMs = 0, cursor = "", maxRequests = Math.max(1, Math.ceil(durationMs / COMMENT_WINDOW_MS) + 5);
     for (let requestIndex = 0; requestIndex < maxRequests; requestIndex++) {
       let marker = `${startMs}:${cursor}`;
@@ -21169,6 +21372,8 @@ var HongguoSource = class extends BaseSource {
         let episodeTask = { episode, offsetMs: cumulativeMs };
         return cumulativeMs += Math.max(0, Number(episode.duration) || 0) * 1e3, episodeTask;
       }), completed = 0, groupedResults = await mapWithConcurrency(episodeTasks, COMMENT_CONCURRENCY, async ({ episode, offsetMs }) => {
+        if (episode.vid === HONGGUO_UNRESOLVED_VID)
+          return completed++, log("warn", `[Hongguo] \u5168\u96C6\u7B2C${episode.index || "?"}\u96C6\u7F3A\u5C11\u89C6\u9891ID\uFF0C\u5DF2\u8DF3\u8FC7`), { comments: [], error: null, skipped: !0 };
         if (episode.commentCount === 0)
           return completed++, log("info", `[Hongguo] \u5168\u96C6\u5F39\u5E55\u8FDB\u5EA6 ${completed}/${episodeTasks.length}: \u7B2C${episode.index || completed}\u96C6\u660E\u786E\u65E0\u5F39\u5E55\uFF0C\u5DF2\u8DF3\u8FC7`), { comments: [], error: null, skipped: !0 };
         try {
@@ -21205,7 +21410,13 @@ var HongguoSource = class extends BaseSource {
     try {
       if (this.shouldMergeAllEpisodes(id))
         return await this.getSeriesDanmu(this.resolveSeriesId(id));
-      let info = await this.resolveEpisodeInfo(id), cacheKey = `${info.seriesId}:${info.vid}`, pending = this.pendingEpisodeDanmu.get(cacheKey);
+      let info = await this.resolveEpisodeInfo(id);
+      if (info.vid === HONGGUO_UNRESOLVED_VID)
+        throw new HongguoEpisodeUnresolved("\u7EA2\u679C\u9009\u96C6\u4EC5\u8FD4\u56DE\u96C6\u6570\uFF0C\u89C6\u9891ID\u672A\u89E3\u6790\uFF08\u63A5\u53E3\u53EF\u80FD\u88AB\u5BBF\u4E3B\u7F51\u7EDC\u62E6\u622A\uFF09", {
+          seriesId: info.seriesId,
+          episodeIndex: info.index || null
+        });
+      let cacheKey = `${info.seriesId}:${info.vid}`, pending = this.pendingEpisodeDanmu.get(cacheKey);
       if (pending)
         return log("info", `[Hongguo] \u590D\u7528\u8FDB\u884C\u4E2D\u7684\u6574\u6BB5\u5F39\u5E55\u8BF7\u6C42: ${cacheKey}`), pending;
       let task = (async () => {
@@ -21223,14 +21434,21 @@ var HongguoSource = class extends BaseSource {
       });
       return this.pendingEpisodeDanmu.set(cacheKey, task), task;
     } catch (error) {
-      return log("error", `[Hongguo] \u83B7\u53D6\u5F39\u5E55\u5931\u8D25(${String(id).slice(0, 80)}): ${error.message}`), error.danmuFetchFailed && this.lastDanmu && this.lastDanmu.length ? this.lastDanmu : [];
+      if (log("error", `[Hongguo] \u83B7\u53D6\u5F39\u5E55\u5931\u8D25(${String(id).slice(0, 80)}): ${error.message}`), error instanceof HongguoEpisodeUnresolved) throw error;
+      return error.danmuFetchFailed && this.lastDanmu && this.lastDanmu.length ? this.lastDanmu : [];
     }
   }
   async getEpisodeDanmuSegments(id) {
     try {
       if (this.shouldMergeAllEpisodes(id))
         return await this.getSeriesDanmuSegments(this.resolveSeriesId(id));
-      let info = await this.resolveEpisodeInfo(id), episodeId = createHongguoEpisodeId(info.seriesId, info.vid, info.duration), segmentList = [], effectiveDuration = info.duration > 0 ? info.duration : this.durationCache.get(`${info.seriesId}:${info.vid}`) || 0;
+      let info = await this.resolveEpisodeInfo(id);
+      if (info.vid === HONGGUO_UNRESOLVED_VID)
+        throw new HongguoEpisodeUnresolved("\u7EA2\u679C\u9009\u96C6\u4EC5\u8FD4\u56DE\u96C6\u6570\uFF0C\u89C6\u9891ID\u672A\u89E3\u6790\uFF08\u63A5\u53E3\u53EF\u80FD\u88AB\u5BBF\u4E3B\u7F51\u7EDC\u62E6\u622A\uFF09", {
+          seriesId: info.seriesId,
+          episodeIndex: info.index || null
+        });
+      let episodeId = createHongguoEpisodeId(info.seriesId, info.vid, info.duration), segmentList = [], effectiveDuration = info.duration > 0 ? info.duration : this.durationCache.get(`${info.seriesId}:${info.vid}`) || 0;
       if (!effectiveDuration) {
         let maxOffset = (await this.getDanmuForEpisode(info)).reduce((max, item) => Math.max(max, Number(item.offsetMs) || 0), 0);
         effectiveDuration = maxOffset > 0 ? Math.ceil(maxOffset / 1e3) + 30 : 600, this.durationCache.set(`${info.seriesId}:${info.vid}`, effectiveDuration);
@@ -21244,13 +21462,18 @@ var HongguoSource = class extends BaseSource {
         });
       return new SegmentListResponse({ type: "hongguo", segmentList, duration: effectiveDuration });
     } catch (error) {
-      return log("error", `[Hongguo] \u521B\u5EFA\u5F39\u5E55\u5206\u6BB5\u5931\u8D25: ${error.message}`), new SegmentListResponse({ type: "hongguo", segmentList: [] });
+      if (log("error", `[Hongguo] \u521B\u5EFA\u5F39\u5E55\u5206\u6BB5\u5931\u8D25: ${error.message}`), error instanceof HongguoEpisodeUnresolved) throw error;
+      return new SegmentListResponse({ type: "hongguo", segmentList: [] });
     }
   }
   async getSeriesDanmuSegments(seriesId) {
     let details = await this.getEpisodes(seriesId), segmentList = [], cumulativeSeconds = 0;
     for (let episode of details.episodes) {
-      let duration = Math.max(0, Number(episode.duration) || 600);
+      let unresolved = episode.vid === HONGGUO_UNRESOLVED_VID, duration = unresolved ? 0 : Math.max(0, Number(episode.duration) || 600);
+      if (unresolved) {
+        log("warn", `[Hongguo] \u7B2C${episode.index || "?"}\u96C6\u7F3A\u5C11\u89C6\u9891ID\uFF0C\u8DF3\u8FC7\u5206\u6BB5\u521B\u5EFA`);
+        continue;
+      }
       if (episode.commentCount !== 0) {
         let episodeId = createHongguoEpisodeId(seriesId, episode.vid, duration);
         for (let start = 0; start < duration; start += COMMENT_WINDOW_MS / 1e3) {
@@ -24418,6 +24641,23 @@ function shouldRefreshSegmentResponse(resJson, record) {
   let cacheAge = Date.now() - Number(record.cachedAt);
   return resJson.comments.length === 0 && cacheAge >= FORWARD_SEGMENT_EMPTY_RETRY_MIN_AGE_MS;
 }
+async function assertHongguoEpisodeConsistency(commentId, requestedEpisode) {
+  let expected = Number(requestedEpisode);
+  if (!Number.isFinite(expected) || expected <= 0) return;
+  let url = findUrlById(commentId), match = String(url || "").match(/^hongguo:v1:([^:]+):([^:]+):(\d+)(?:#|$)/);
+  if (!match) return;
+  let vid = decodeURIComponent(match[2]);
+  if (vid === "__unresolved__") return;
+  let source = getSourceByKey("hongguo");
+  if (!source) return;
+  let actual = (await source.getEpisodes(decodeURIComponent(match[1]))).episodes.find((episode) => episode.vid === vid || episode.webVid === vid)?.index;
+  if (!actual)
+    throw new Error(`\u7EA2\u679C\u5206\u96C6\u6620\u5C04\u65E0\u6548: \u8BF7\u6C42\u7B2C${expected}\u96C6\uFF0CcommentId=${commentId} \u672A\u51FA\u73B0\u5728\u5267\u96C6\u5217\u8868\u4E2D`);
+  if (Number(actual) !== expected) {
+    let title = findTitleById(commentId) || "";
+    throw new Error(`\u7EA2\u679C\u5206\u96C6\u6620\u5C04\u4E0D\u4E00\u81F4: \u8BF7\u6C42\u7B2C${expected}\u96C6\uFF0CcommentId=${commentId} \u5B9E\u9645\u6307\u5411\u7B2C${actual}\u96C6${title ? ` (${title})` : ""}`);
+  }
+}
 async function getCommentsByIdCore(params) {
   let {
     commentId,
@@ -24486,6 +24726,7 @@ async function getCommentsByIdCore(params) {
     likeSwitch,
     hongguoMergeAllEpisodes
   ), !commentId) return null;
+  await assertHongguoEpisodeConsistency(commentId, episode);
   let cached = await readSegmentCache(params);
   if (cached.fresh && String(cached.record.commentId) === String(commentId))
     return log("info", "[Forward] Using fresh segment cache:", cached.key), cached.record.segmentList;
@@ -24558,6 +24799,7 @@ async function getDanmuWithSegmentTimeCore(params) {
   );
   let cached = await readSegmentCache(params);
   if (!cached.record) return null;
+  await assertHongguoEpisodeConsistency(cached.record.commentId, episode);
   let record = cached.record, refreshed = !1;
   if (!cached.fresh)
     try {
